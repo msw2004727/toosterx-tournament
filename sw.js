@@ -4,7 +4,7 @@
  * ⚠️ R-REL-013：HTML 一律 network-first，禁止 cache-first。
  * ⚠️ R-REL-014：新資源必須由 scripts/bump-version.js 納管。
  */
-const CACHE_NAME = 'feda-cup-0.20260829d';
+const CACHE_NAME = 'feda-cup-0.20260829e';
 
 const APP_SHELL = [
   '/css/tokens.css',
@@ -47,6 +47,15 @@ self.addEventListener('fetch', e => {
     e.respondWith(fetch(req).catch(() => caches.match(req).then(r => r || caches.match('/index.html'))));
     return;
   }
-  // cache-first（帶版號的靜態資源）
-  e.respondWith(caches.match(req).then(r => r || fetch(req)));
+
+  // cache-first（帶版號的靜態資源）。
+  // ⚠️ 網路失敗時要退回「忽略 query 的快取」再試一次：
+  //    部署當下 ?v=舊版號 的資源會瞬間消失，賽務剛好按下按鈕就會看到「載入失敗」。
+  e.respondWith(
+    caches.match(req).then(hit => hit || fetch(req).catch(async err => {
+      const loose = await caches.match(req, { ignoreSearch: true });
+      if (loose) return loose;
+      throw err;
+    }))
+  );
 });

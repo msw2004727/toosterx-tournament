@@ -7,7 +7,7 @@
  * 這裡的檢查只是為了給出好的錯誤畫面；真正的防線是 firestore.rules。
  */
 
-import { route, navigate } from '../../core/router.js';
+import { route, navigate, lazy } from '../../core/router.js';
 import { onAuth, user, staff } from '../../core/firebase.js';
 import { el } from '../../core/ui.js';
 
@@ -30,14 +30,21 @@ async function requireStaff() {
   return true;
 }
 
+// 部署當下的瞬間失效會讓 import() 永久記住失敗，所以一律經過 lazy() 包一層重試
+const page = (path, fn) => {
+  const url = new URL(path, import.meta.url).href;
+  const load = lazy(() => import(/* @vite-ignore */ url), url);
+  return ctx => load().then(m => fn(m)(ctx));
+};
+
 export function registerStaffRoutes() {
-  route('/staff', ctx => import('./home.js').then(m => m.staffHome(ctx)),
+  route('/staff', page('../staff/home.js', m => m.staffHome),
     { title: '賽務首頁', guard: requireStaff });
 
-  route('/staff/match/:matchId', ctx => import('./live.js').then(m => m.liveConsole(ctx)),
+  route('/staff/match/:matchId', page('../staff/live.js', m => m.liveConsole),
     { title: 'LIVE 賽務台', guard: requireStaff });
 
-  route('/staff/sheet/:matchId', ctx => import('./sheet.js').then(m => m.matchSheetPage(ctx)),
+  route('/staff/sheet/:matchId', page('../staff/sheet.js', m => m.matchSheetPage),
     { title: '出場名單', guard: requireStaff });
 
   route('/staff/login', ({ view }) => {

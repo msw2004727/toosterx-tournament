@@ -47,7 +47,10 @@ export function watchMyMatches(scope, { date, venueIds = [], divisionIds = [] },
   if (venueIds.length) clauses.push(where('venueId', 'in', venueIds.slice(0, 30)));
 
   const q = query(collection(db(), 'events', EVENT_ID, 'matches'), ...clauses, orderBy('kickoffAt', 'asc'));
-  const unsub = onSnapshot(q, snap => {
+  // ⚠️ 一定要 includeMetadataChanges：
+  //    第一筆快照來自本機快取（fromCache=true），伺服器確認後如果資料完全相同，
+  //    沒有這個選項就**不會再觸發一次**，畫面會永遠卡在「目前顯示的是手機裡的資料」。
+  const unsub = onSnapshot(q, { includeMetadataChanges: true }, snap => {
     let rows = snap.docs.map(d => ({ matchId: d.id, ...d.data() }));
     // 組別在客戶端過濾：多一個 where 就要多一個複合索引，不划算
     if (divisionIds.length) rows = rows.filter(m => divisionIds.includes(m.divisionId));

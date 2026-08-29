@@ -30,6 +30,30 @@ export function route(pattern, handler, opts = {}) {
   routes.push({ pattern, handler, opts, ...compile(pattern) });
 }
 
+/**
+ * 延遲載入頁面模組，失敗時重試一次。
+ *
+ * ⚠️ 為什麼需要重試：部署當下（Cloudflare Pages 換檔 ＋ Service Worker 換版）
+ *    如果賽務剛好按下按鈕，`import()` 會拿到瞬間的 404 或被中斷的回應，
+ *    畫面就停在「載入失敗」。而且瀏覽器會**記住這個失敗的模組**，
+ *    同一個網址再 import 幾次都一樣失敗——所以重試一定要換一個 query 才有用。
+ *
+ *    這在比賽當天等於「賽務點進賽務台，看到一片紅」。實測發生過一次。
+ *
+ * @param {() => Promise<any>} load 例：() => import('./live.js')
+ * @param {string} url  重試時要打的網址（帶 cache-busting query）
+ */
+export function lazy(load, url) {
+  return async () => {
+    try {
+      return await load();
+    } catch (err) {
+      console.warn('[router] 模組載入失敗，重試一次', url, err);
+      return import(/* @vite-ignore */ `${url}?retry=${Date.now()}`);
+    }
+  };
+}
+
 function compile(pattern) {
   const keys = [];
   const re = new RegExp('^' + pattern

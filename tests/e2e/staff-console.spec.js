@@ -295,3 +295,40 @@ test('隊名含 HTML 時不會被當成標記執行（R-CODE-002）@staff', asyn
   await expect(page.getByText('<img src=x onerror="window.__pwned=1">野狼').first()).toBeVisible();
   expect(await page.evaluate(() => window.__pwned)).toBeUndefined();
 });
+
+// ── 上線後實地發現的問題（回歸測試）──────────────────────────
+
+test('⭐ 部署當下模組載入失敗要能自動重試，不可停在「載入失敗」@staff', async ({ page }) => {
+  // 實際發生過：推版當下點進賽務台，看到一片紅的「Failed to fetch dynamically imported module」。
+  // 瀏覽器會記住失敗的模組網址，所以重試一定要換 query 才有用。
+  let firstTry = true;
+  await page.route('**/js/modules/staff/live.js', route => {
+    const isRetry = route.request().url().includes('retry=');
+    if (firstTry && !isRetry) { firstTry = false; return route.abort('failed'); }
+    return route.continue();
+  });
+
+  await gotoApp(page, '/#/staff');
+  await page.getByRole('button', { name: '進入賽務台 →' }).click();
+
+  // 重試成功 → 看得到賽務台，而不是錯誤頁
+  await expect(page.locator('.sb')).toBeVisible();
+  await expect(page.getByText('載入失敗')).toHaveCount(0);
+});
+
+test('⭐ 連線正常時不可顯示「資料來自手機快取」的假警告 @staff', async ({ page }) => {
+  // Firestore 第一筆快照來自本機快取；若監聽沒開 includeMetadataChanges，
+  // 伺服器確認後不會再觸發，提示就永遠掛在畫面上——賽務會誤以為自己離線。
+  await gotoApp(page, '/#/staff');
+  await expect(page.getByRole('heading', { name: /今日我的場次/ })).toBeVisible();
+
+  await expect(page.locator('.sync')).toHaveAttribute('data-level', 'saved');
+  await expect(page.locator('.notice--info')).toHaveCount(0);
+});
+
+test('離線時才顯示快取提示 @staff @offline', async ({ page }) => {
+  await gotoApp(page, '/#/staff');
+  await page.evaluate(() => window.__fake.__goOffline());
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+  await expect(page.locator('.sync')).toHaveAttribute('data-level', 'queued');
+});

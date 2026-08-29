@@ -14,6 +14,7 @@ import { staff, user, isPersistenceDegraded } from '../../core/firebase.js';
 import { navigate } from '../../core/router.js';
 import { watchMyMatches, getVenues } from './data.js';
 import { syncIndicator } from './sync-indicator.js';
+import { isOnline } from '../../core/sync.js';
 import { EVENT } from '../../config.js';
 
 /** 現場最關心的那一場：進行中 > 檢錄中 > 下一場未開始 */
@@ -79,7 +80,9 @@ export async function staffHome({ scope, view }) {
     mount(root,
       header(),
       isPersistenceDegraded() ? degradedNotice() : null,
-      fromCache ? el('div', { class: 'notice notice--info' }, '目前顯示的是手機裡的資料，恢復連線後會自動更新。') : null,
+      // 只有「資料來自快取」且「確實離線」才提示。
+      // 單看 fromCache 會在開頁那一瞬間閃一則假的離線警告，久了賽務就不信燈號了。
+      (fromCache && !isOnline()) ? el('div', { class: 'notice notice--info' }, '目前顯示的是手機裡的資料，恢復連線後會自動更新。') : null,
       currentCard(current),
       listCard(),
       toolsBar()

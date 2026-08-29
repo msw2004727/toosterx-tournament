@@ -44,9 +44,33 @@ async function boot() {
 
   initRouter(App);
 
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => { /* 註冊失敗不影響使用 */ });
-  }
+  watchForNewVersion();
+}
+
+/**
+ * 部署新版時，讓已經開著的分頁自己換上新版。
+ *
+ * sw.js 用了 skipWaiting() + clients.claim()，新版 SW 會直接接管現有分頁。
+ * 但分頁上跑的還是舊版 HTML 與舊的模組圖，接下來任何一次延遲載入
+ * （例如點進賽務台）都可能因為舊檔已被換掉而失敗。
+ * 所以偵測到接管就重新載入一次——只做一次，避免無限重整。
+ */
+function watchForNewVersion() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('/sw.js').catch(() => { /* 註冊失敗不影響使用 */ });
+
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return;
+    // 第一次安裝（原本沒有 controller）不需要重整
+    if (!sessionStorage.getItem('sw-claimed')) {
+      sessionStorage.setItem('sw-claimed', '1');
+      return;
+    }
+    reloading = true;
+    location.reload();
+  });
+  if (navigator.serviceWorker.controller) sessionStorage.setItem('sw-claimed', '1');
 }
 
 function landing(navigate) {
