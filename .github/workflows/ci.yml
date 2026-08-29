@@ -16,33 +16,79 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          # NOTE: do NOT enable "cache: npm" yet.
-          # There is no package-lock.json in this repo, so setup-node fails with
-          # "Dependencies lock file is not found".
-          # Re-enable in M1, after running npm install and committing the lock file.
 
-      - name: Version consistency (config.js / sw.js / index.html / asset query)
+      - name: Version consistency (config.js / sw.js / index.html / package.json)
         run: node scripts/bump-version.js --check
+
+      - name: No NUL bytes in source files
+        run: |
+          set -e
+          if grep -rlIz -P '\x00' --include='*.js' --include='*.json' \
+               --include='*.md' --include='*.html' --include='*.css' \
+               --include='*.rules' --include='*.yml' . \
+               --exclude-dir=node_modules --exclude-dir=.git | grep .; then
+            echo "Files above contain NUL bytes; git will treat them as binary."
+            exit 1
+          fi
 
       - name: JS syntax check
         run: |
           set -e
-          for f in app.js sw.js scripts/*.js js/*.js js/core/*.js js/engine/*.js js/modules/*/*.js; do
+          for f in app.js sw.js scripts/*.js scripts/*.cjs scripts/seed/*.js \
+                   js/*.js js/core/*.js js/engine/*.js js/lib/*.js js/modules/*/*.js; do
             [ -e "$f" ] || continue
             node --check "$f"
           done
           node --check functions/index.js
 
-  # TODO(M1): enable once the test suites exist.
-  #  tests:
-  #    name: Tests
-  #    runs-on: ubuntu-latest
-  #    steps:
-  #      - uses: actions/checkout@v4
-  #      - uses: actions/setup-node@v4
-  #        with:
-  #          node-version: '22'
-  #          cache: npm
-  #      - run: npm ci
-  #      - run: npm run test:unit     # engine T01-T16
-  #      - run: npm run test:rules    # firestore rules R01-R23
+  unit-tests:
+    name: Engine unit tests (T01-T16)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:unit
+
+      # Mutation check: prove the suite can actually detect the defects it
+      # is supposed to guard. A green suite with no discriminating power is
+      # worse than no suite at all - this job has caught that before.
+      - run: node scripts/mutation-check.cjs
+
+  e2e-tests:
+    name: E2E (staff console, offline queue)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  rules-tests:
+    name: Firestore rules tests (R01-R23)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - run: npm run test:rules

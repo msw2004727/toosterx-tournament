@@ -3,10 +3,11 @@
  * 版號遞增｜格式 0.YYYYMMDD{suffix}（台北時間）
  * ------------------------------------------------------------------
  * 同步四處：
- *   1. js/config.js  #CACHE_VERSION
- *   2. sw.js         #CACHE_NAME
- *   3. index.html    window.__APP_VERSION__ 與 ?v= 版號
- *   4. index.html    asset query 版號
+ *   1. js/config.js   #CACHE_VERSION
+ *   2. sw.js          #CACHE_NAME
+ *   3. index.html     window.__APP_VERSION__
+ *   4. index.html     asset query 版號（?v=）
+ *   5. package.json   version（純粹避免 npm 顯示舊版造成誤判）
  *
  * 用法：
  *   node scripts/bump-version.js          遞增
@@ -14,7 +15,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const FILES = { config: 'js/config.js', sw: 'sw.js', html: 'index.html' };
+const FILES = { config: 'js/config.js', sw: 'sw.js', html: 'index.html', pkg: 'package.json' };
 const read  = f => readFileSync(f, 'utf8');
 const write = (f, s) => writeFileSync(f, s, 'utf8');
 
@@ -25,7 +26,8 @@ const today = () =>
 const currentOf = {
   config: () => read(FILES.config).match(/CACHE_VERSION\s*=\s*'([^']+)'/)?.[1],
   sw:     () => read(FILES.sw).match(/CACHE_NAME\s*=\s*'feda-cup-([^']+)'/)?.[1],
-  html:   () => read(FILES.html).match(/__APP_VERSION__\s*=\s*'([^']+)'/)?.[1]
+  html:   () => read(FILES.html).match(/__APP_VERSION__\s*=\s*'([^']+)'/)?.[1],
+  pkg:    () => JSON.parse(read(FILES.pkg)).version
 };
 
 function check() {
@@ -59,5 +61,6 @@ write(FILES.sw,     read(FILES.sw).replace(/CACHE_NAME\s*=\s*'feda-cup-[^']+'/, 
 write(FILES.html,   read(FILES.html)
   .replace(/__APP_VERSION__\s*=\s*'[^']+'/, `__APP_VERSION__ = '${ver}'`)
   .replace(/\?v=[0-9.a-z]+/g, `?v=${ver}`));
+write(FILES.pkg,    read(FILES.pkg).replace(/("version":\s*")[^"]+(")/, `$1${ver}$2`));
 
 console.log(`✅ ${cur} → ${ver}`);

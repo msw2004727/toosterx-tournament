@@ -7,7 +7,10 @@
  */
 import fs from 'node:fs';
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, Timestamp, setLogLevel } from 'firebase/firestore';
+
+// assertFails 的案例一定會噴 PERMISSION_DENIED 警告，關掉才看得見真正的失敗
+setLogLevel('silent');
 
 export const EVENT = 'feda-cup-2026';
 export const MATCH = 'AO-G-A-01';

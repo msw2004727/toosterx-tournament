@@ -54,7 +54,30 @@ userPermissionGrants/{uid} = { grants: { 'match.score.override': { enabled:true 
 
 好處：Admin 在後台調整權限，**下一次操作立即生效**，不必等 token 刷新（1 小時）。這對現場臨時調度極重要。
 
-代價：每次 rules 判斷多一次 `get()` 讀取。以本次規模（每日 < 5000 次寫入）成本可忽略。
+#### ⚠️ 實作修正：動態權限只用在 UI 層，不進 rules
+
+原本規劃把 `rolePermissions` / `userPermissionGrants` 也放進 `firestore.rules` 判斷。
+實際跑 Emulator 測試後放棄這個做法，原因是 **Firestore rules 每個請求最多評估 1000 個運算式**，
+而 rules 裡每多一層 `get()` 與函式巢狀，運算式就成倍成長。
+
+實測結果：早期版本的角色判斷寫成巢狀鏈
+（`isScorer() → isLead() → isAdmin() → hasRole() → isStaff()`，每層都展開一次 staff 文件），
+現場最常見的「完賽送出」（一次更新 10 個欄位）就會撞到上限，
+錯誤訊息是 `Unable to evaluate the expression as the maximum of 1000 expressions has been reached`——
+**合法操作被誤判為 PERMISSION_DENIED**。
+
+因此定案為兩層：
+
+| 層 | 用途 | 資料來源 |
+|---|---|---|
+| `firestore.rules` | 粗粒度、不可繞過的安全邊界（角色 × 指派範圍 × 欄位白名單） | `staff/{uid}.roles` 一次讀取 |
+| 前端 UI | 細粒度的按鈕顯示與功能開關 | `rolePermissions` / `userPermissionGrants` |
+
+安全性不打折：UI 藏起來的按鈕就算被繞過，rules 仍會擋下。
+而「Admin 調權限立即生效」的好處在 UI 層完整保留。
+
+**rules 效能鐵則**：角色判斷一律經過單一的 `myRoles()`，
+禁止再寫 `isA()` 呼叫 `isB()` 的巢狀鏈。這條寫在 `firestore.rules` 檔頭與 `CLAUDE.md`。
 
 ---
 
@@ -68,21 +91,23 @@ service cloud.firestore {
   match /databases/{db}/documents {
 
     // ── 基礎 ──
-    function isAuth() { return request.auth != null; }
-    function uid()    { return request.auth.uid; }
+    function isAuth()    { return request.auth != null; }
+    function uid()       { return request.auth.uid; }
+    function staffPath() { return /databases/$(db)/documents/staff/$(uid()); }
 
-    function staffDoc() {
-      return get(/databases/$(db)/documents/staff/$(uid())).data;
+    // ⚠️ 效能鐵則（見 §1.3）：角色一律經過 myRoles()，禁止巢狀呼叫
+    function myRoles() {
+      return isAuth() && exists(staffPath()) && get(staffPath()).data.active == true
+        ? get(staffPath()).data.roles
+        : [];
     }
-    function isStaff() {
-      return isAuth() && exists(/databases/$(db)/documents/staff/$(uid()))
-             && staffDoc().active == true;
-    }
-    function hasRole(r) { return isStaff() && r in staffDoc().roles; }
-    function isAdmin()  { return hasRole('admin') || hasRole('super_admin'); }
-    function isLead()   { return isAdmin() || hasRole('venue_lead'); }
-    function isScorer() { return isLead() || hasRole('scorer') || hasRole('referee'); }
-    function isBooth()  { return isLead() || hasRole('booth'); }
+    function isStaff()      { return myRoles().size() > 0; }
+    function isSuperAdmin() { return myRoles().hasAny(['super_admin']); }
+    function isAdmin()      { return myRoles().hasAny(['admin', 'super_admin']); }
+    function isLead()       { return myRoles().hasAny(['admin', 'super_admin', 'venue_lead']); }
+    function isScorer()     { return myRoles().hasAny(['admin', 'super_admin', 'venue_lead',
+                                                        'scorer', 'referee']); }
+    function isBooth()      { return myRoles().hasAny(['admin', 'super_admin', 'venue_lead', 'booth']); }
 
     // ── 動態權限 ──
     function rolePerms(r) {
@@ -382,6 +407,7 @@ function validScoreRange(eventId, cid, v) {
 | R21 | scorer 把 `scheduled` 改成 `postponed` | 拒絕（僅 Admin） |
 | R22 | venue_lead 把 `finished` 改成 `confirmed` | 允許（只動 status） |
 | R23 | venue_lead 在覆核時順便改比分 | 拒絕 |
+| R24 | 完賽送出一次更新 10 個欄位 | 允許，且不得撞到 1000 運算式上限 |
 
 ---
 

@@ -115,7 +115,8 @@ CI 紅燈必須先修復；targeted test 不能替代完整 suite。
 | push `demo` | Cloudflare Pages 自動部署到 cup-demo.toosterx.com |
 | push `main` | 自動部署到 cup.toosterx.com |
 | `npm run deploy:rules:demo` / `:prod` | 部署 firestore.rules 與索引 |
-| `npm run deploy:fn:demo` / `:prod` | 部署 Cloud Functions |
+| `npm run deploy:storage:demo` / `:prod` | 部署 storage.rules（需先在 Console 啟用 Storage，且專案已升 Blaze） |
+| `npm run deploy:fn:demo` / `:prod` | 部署 Cloud Functions（需 Blaze） |
 
 Functions 與 Rules 走**獨立 lane**，不隨靜態站自動部署。
 

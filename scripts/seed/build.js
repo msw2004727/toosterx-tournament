@@ -398,6 +398,15 @@ export function buildSeed({ seed = 20261009 } = {}) {
   add('config/featureFlags', {
     liveTimeline: true, scorerBoard: true, photoWall: false, youthScorerBoard: false
   });
+  // ⚠️ 只有 demo 專案才會有這份文件（seed 有安全鎖，R-SEED-001）。
+  //    allowSelfServeStaff 讓人免 LINE 登入就能試用賽務台；
+  //    firestore.rules 讀這個旗標決定要不要放行「自己建立自己的工作人員身分」。
+  //    正式專案不得存在這份文件，或必須設為 false。
+  add('config/env', {
+    env: 'demo',
+    allowSelfServeStaff: true,
+    note: '這是 Demo 環境設定。正式環境不可開啟 allowSelfServeStaff。'
+  });
   for (const [role, v] of Object.entries(ROLE_PERMISSIONS)) add(`rolePermissions/${role}`, v);
   for (const s of DEMO_STAFF) {
     add(`staff/${s.uid}`, {

@@ -4,18 +4,25 @@
  * ⚠️ R-REL-013：HTML 一律 network-first，禁止 cache-first。
  * ⚠️ R-REL-014：新資源必須由 scripts/bump-version.js 納管。
  */
-const CACHE_NAME = 'feda-cup-0.20260829';
+const CACHE_NAME = 'feda-cup-0.20260829d';
 
 const APP_SHELL = [
   '/css/tokens.css',
   '/css/base.css',
   '/css/components.css',
+  '/css/modules/staff.css',
   '/app.js',
   '/manifest.json'
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(APP_SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE_NAME)
+      // 個別加入而非 addAll：任一個 404 就整批失敗，
+      // SW 會安裝不起來而且沒有明顯錯誤，現場很難查。
+      .then(c => Promise.all(APP_SHELL.map(u => c.add(u).catch(err => console.warn('[sw] skip', u, err)))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {

@@ -14,31 +14,56 @@ service cloud.firestore {
   match /databases/{db}/documents {
 
     // ── 基礎 ─────────────────────────────────────────────────
-    function isAuth()  { return request.auth != null; }
-    function uid()     { return request.auth.uid; }
+    function isAuth()    { return request.auth != null; }
+    function uid()       { return request.auth.uid; }
+    function staffPath() { return /databases/$(db)/documents/staff/$(uid()); }
 
-    function staffDoc() {
-      return get(/databases/$(db)/documents/staff/$(uid())).data;
+    // ⚠️ 效能鐵則：Firestore rules 每個請求最多評估 1000 個運算式。
+    //    角色判斷一律經過 myRoles()，**不要**再寫 isA() 呼叫 isB() 的巢狀鏈
+    //    （例如 isScorer → isLead → isAdmin → hasRole → isStaff），
+    //    那會把 staff 文件重複展開數十次，很容易撞到上限，
+    //    讓「合法」的寫入也被判 PERMISSION_DENIED。
+    function myRoles() {
+      return isAuth() && exists(staffPath()) && get(staffPath()).data.active == true
+        ? get(staffPath()).data.roles
+        : [];
     }
-    function isStaff() {
-      return isAuth()
-        && exists(/databases/$(db)/documents/staff/$(uid()))
-        && staffDoc().active == true;
-    }
-    function hasRole(r) { return isStaff() && r in staffDoc().roles; }
-    function isAdmin()  { return hasRole('admin') || hasRole('super_admin'); }
-    function isLead()   { return isAdmin() || hasRole('venue_lead'); }
-    function isScorer() { return isLead() || hasRole('scorer') || hasRole('referee'); }
-    function isBooth()  { return isLead() || hasRole('booth'); }
+    function isStaff()      { return myRoles().size() > 0; }
+    function isSuperAdmin() { return myRoles().hasAny(['super_admin']); }
+    function isAdmin()      { return myRoles().hasAny(['admin', 'super_admin']); }
+    function isLead()       { return myRoles().hasAny(['admin', 'super_admin', 'venue_lead']); }
+    function isScorer()     { return myRoles().hasAny(['admin', 'super_admin', 'venue_lead',
+                                                        'scorer', 'referee']); }
+    function isBooth()      { return myRoles().hasAny(['admin', 'super_admin', 'venue_lead', 'booth']); }
 
     // ── 指派範圍 ─────────────────────────────────────────────
+    // 只有非 admin 才會走到 myAssignment()，此時 staff 文件必定存在
+    function myAssignment() { return get(staffPath()).data.assignment; }
     function assignedVenue(venueId) {
-      return isAdmin()
-        || staffDoc().assignment.venueIds.size() == 0
-        || venueId in staffDoc().assignment.venueIds;
+      return myRoles().hasAny(['admin', 'super_admin'])
+        || myAssignment().venueIds.size() == 0
+        || venueId in myAssignment().venueIds;
     }
     function assignedChallenge(cid) {
-      return isAdmin() || cid in staffDoc().assignment.challengeIds;
+      return myRoles().hasAny(['admin', 'super_admin'])
+        || cid in myAssignment().challengeIds;
+    }
+
+    // ── Demo 自助身分（見下方 match /staff/{u} 的說明）─────────
+    // 只在 config/env.allowSelfServeStaff == true 的專案生效。
+    // 這個 get() 只出現在 staff 文件的 create/update 路徑，
+    // 不在比分寫入的熱路徑上，所以不會影響 1000 運算式上限（R-RULES-001）。
+    function selfServeAllowed() {
+      return exists(/databases/$(db)/documents/config/env)
+        && get(/databases/$(db)/documents/config/env).data.get('allowSelfServeStaff', false) == true;
+    }
+    function validSelfServe(d) {
+      return d.get('selfServe', false) == true
+        && d.get('uid', '') == uid()
+        && d.get('active', false) == true
+        && d.roles is list
+        && d.roles.size() > 0
+        && d.roles.hasOnly(['scorer', 'referee', 'venue_lead', 'booth']);
     }
 
     // ── 欄位控制 ─────────────────────────────────────────────
@@ -260,7 +285,7 @@ service cloud.firestore {
     }
     match /rolePermissions/{role} {
       allow read:  if true;
-      allow write: if hasRole('super_admin');
+      allow write: if isSuperAdmin();
     }
     match /userPermissionGrants/{u} {
       allow read:  if isAuth() && (u == uid() || isAdmin());
@@ -269,6 +294,24 @@ service cloud.firestore {
     match /staff/{u} {
       allow read:  if isAuth() && (u == uid() || isLead());
       allow write: if isAdmin();
+
+      // ── Demo 專用：自助建立工作人員身分 ──────────────────────
+      // 目的：demo 站要能免 LINE 登入就試用賽務台（也供 M6 彩排用）。
+      //
+      // 這是一次「權限放寬」，因此三道鎖缺一不可：
+      //   1. 只有 config/env.allowSelfServeStaff == true 的專案才生效。
+      //      正式專案沒有這份文件（seed 有安全鎖，只灌 demo），所以 exists() 為 false。
+      //      而 config 只有 Admin 寫得動，等於「除非管理員主動開啟，否則永遠關著」。
+      //   2. 只能建立**自己**的那一份（u == uid()）。
+      //   3. 角色白名單**不含 admin / super_admin**——
+      //      自助身分永遠拿不到改判、退回完賽、改設定這些權限。
+      allow create: if isAuth() && u == uid()
+                    && selfServeAllowed()
+                    && validSelfServe(request.resource.data);
+      allow update: if isAuth() && u == uid()
+                    && selfServeAllowed()
+                    && resource.data.get('selfServe', false) == true
+                    && validSelfServe(request.resource.data);
     }
 
     // 預設拒絕

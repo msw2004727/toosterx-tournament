@@ -142,6 +142,25 @@ describe('場次寫入', () => {
     }));
   });
 
+  test('回歸：完賽送出一次更新 10 個欄位，不得撞到 rules 的 1000 運算式上限', async () => {
+    // 這是現場最耗運算式的單一操作。若 rules 的角色判斷寫成巢狀鏈，
+    // 這裡會以 "maximum of 1000 expressions" 失敗——而且是「合法操作被誤擋」。
+    await assertSucceeds(updateDoc(matchRef(authed(env, 'u-scorer')), {
+      score: { home: 2, away: 1 },
+      htScore: { home: 1, away: 0 },
+      penaltyScore: { home: null, away: null },
+      status: 'finished',
+      period: 'ft',
+      clock: { running: false, periodStartedAt: null, elapsedSecAtPause: 1800, addedTimeSec: 0 },
+      result: { winner: 'home', method: 'regulation', homePoints: 3, awayPoints: 0 },
+      checkin: { homeConfirmed: true, awayConfirmed: true, confirmedAt: null },
+      lock: { locked: true, lockedAt: null, lockedBy: 'u-scorer' },
+      scoreSubmittedBy: 'u-scorer',
+      scoreMismatch: false,
+      updatedBy: 'u-scorer'
+    }));
+  });
+
   test('附加：updatedBy 必須等於自己的 uid（不可冒名）', async () => {
     await assertFails(updateDoc(matchRef(authed(env, 'u-scorer')), {
       score: { home: 1, away: 0 }, updatedBy: 'u-admin'
