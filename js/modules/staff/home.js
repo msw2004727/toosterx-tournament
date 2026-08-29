@@ -14,7 +14,7 @@ import { staff, user, isPersistenceDegraded } from '../../core/firebase.js';
 import { navigate } from '../../core/router.js';
 import { watchMyMatches, getVenues } from './data.js';
 import { syncIndicator } from './sync-indicator.js';
-import { isOnline } from '../../core/sync.js';
+import { isOnline, subscribe as onSyncChange } from '../../core/sync.js';
 import { EVENT } from '../../config.js';
 
 /** 現場最關心的那一場：進行中 > 檢錄中 > 下一場未開始 */
@@ -52,12 +52,19 @@ export async function staffHome({ scope, view }) {
   let matches = [];
   let fromCache = false;
   let venueNames = {};
+  let rendered = false;
 
   // 場地名稱只讀一次；讀不到就退回代碼，不要讓整頁失敗
   getVenues()
     .then(vs => { venueNames = Object.fromEntries(vs.map(v => [v.venueId, v.name || v.venueId])); render(); })
     .catch(() => {});
   const venueLabel = id => venueNames[id] || id;
+
+  // ⚠️ 連線狀態會在開頁後才穩定下來：
+  //    Firestore 的第一筆快照來自本機快取，會讓 sync 先判定為離線，
+  //    伺服器確認後才轉回線上。若不跟著重畫，開頁瞬間那則「你在離線」
+  //    就會永遠掛在畫面上——實機上真的發生過。
+  const offSync = onSyncChange(() => { if (rendered) render(); });
 
   watchMyMatches(scope, { date, venueIds, divisionIds }, (rows, meta) => {
     matches = rows;
@@ -76,6 +83,7 @@ export async function staffHome({ scope, view }) {
   render();
 
   function render() {
+    rendered = true;
     const current = pickCurrent(matches);
     mount(root,
       header(),
@@ -175,7 +183,7 @@ export async function staffHome({ scope, view }) {
     ]);
   }
 
-  return () => indicator.destroy();
+  return () => { offSync(); indicator.destroy(); };
 }
 
 /** 活動期間就用今天，否則落在活動第一天（賽前試用不會看到空畫面） */

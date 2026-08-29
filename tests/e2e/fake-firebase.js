@@ -24,8 +24,9 @@
 const S = (typeof window !== 'undefined')
   ? (window.__FAKE_STATE ||= {
       store: new Map(), watchers: new Set(), authCbs: new Set(),
-      pending: [], online: true, failNext: null,
-      currentUser: window.__FAKE_USER || null, seeded: false
+      pending: [], online: window.__FAKE_OFFLINE !== true, failNext: null,
+      currentUser: window.__FAKE_USER || null, seeded: false,
+      // spec 可以讓頁面「一開始就離線」，重現開頁瞬間只有快取的情境
     })
   : { store: new Map(), watchers: new Set(), authCbs: new Set(),
       pending: [], online: true, failNext: null, currentUser: null, seeded: false };

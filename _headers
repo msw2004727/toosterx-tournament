@@ -1,0 +1,32 @@
+# Cloudflare Pages 快取標頭
+# ------------------------------------------------------------------
+# 為什麼需要這個檔案：
+#
+# Pages 預設給靜態資源 `max-age=14400`（4 小時）。index.html 是 max-age=0，
+# 所以推版之後 HTML 馬上換新，但 **js/ 與 css/ 會繼續用瀏覽器裡的舊檔最多 4 小時**。
+#
+# 我們沒有打包工具，動態 import 的模組網址（例如 /js/modules/staff/live.js）
+# 帶不了版號，於是就會出現「新的 index.html 配舊的模組」這種混版狀態——
+# 實機上表現為賽務台「載入失敗」，以及連線正常卻顯示「資料來自手機快取」。
+#
+# 現場的意義更嚴重：比賽當天早上推一個修正，賽務手機可能到中午才吃到，
+# 中間還是新舊混用。所以這裡一律改成「每次都向伺服器確認」。
+#
+# 代價很小：有 ETag，沒改就是 304，只有幾百 bytes。
+# 真正的離線效能由 Service Worker 的 app shell 快取負責，不靠 HTTP 快取。
+
+/js/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/css/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/manifest.json
+  Cache-Control: public, max-age=0, must-revalidate
+
+# 圖片可以放心長快取：檔名不變就代表內容不變
+/img/*
+  Cache-Control: public, max-age=604800

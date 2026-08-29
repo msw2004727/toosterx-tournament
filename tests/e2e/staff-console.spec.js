@@ -326,9 +326,20 @@ test('⭐ 連線正常時不可顯示「資料來自手機快取」的假警告 
   await expect(page.locator('.notice--info')).toHaveCount(0);
 });
 
-test('離線時才顯示快取提示 @staff @offline', async ({ page }) => {
+test('⭐ 開頁時只有快取 → 顯示提示；連上線之後提示必須自己消失 @staff @offline', async ({ page }) => {
+  // ① 第一筆快照來自本機快取 → sync 判定離線 → 顯示「資料來自手機」
+  // ② 伺服器確認 → sync 轉回線上 → 提示要自己消失
+  //
+  // 註：實機上看到的「提示不消失」根因其實是 CDN 快取（見 _headers），
+  //     不是這段邏輯。這個案例守的是「兩個狀態要一致」，不是那個根因。
+  await page.addInitScript(() => { window.__FAKE_OFFLINE = true; });
   await gotoApp(page, '/#/staff');
-  await page.evaluate(() => window.__fake.__goOffline());
-  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+
+  await expect(page.locator('.notice--info')).toBeVisible();
   await expect(page.locator('.sync')).toHaveAttribute('data-level', 'queued');
+
+  await page.evaluate(() => window.__fake.__goOnline());
+
+  await expect(page.locator('.sync')).toHaveAttribute('data-level', 'saved');
+  await expect(page.locator('.notice--info')).toHaveCount(0);
 });

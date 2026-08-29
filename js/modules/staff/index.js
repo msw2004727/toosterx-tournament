@@ -10,6 +10,7 @@
 import { route, navigate, lazy } from '../../core/router.js';
 import { onAuth, user, staff } from '../../core/firebase.js';
 import { el } from '../../core/ui.js';
+import { CACHE_VERSION } from '../../config.js';
 
 /** 等待第一次 auth 狀態回報（避免重新整理時誤判為未登入） */
 function whenAuthReady() {
@@ -30,9 +31,11 @@ async function requireStaff() {
   return true;
 }
 
-// 部署當下的瞬間失效會讓 import() 永久記住失敗，所以一律經過 lazy() 包一層重試
+// 兩件事一起處理：
+//   ① 動態 import 的網址帶上版號——沒有打包工具，這是唯一能讓快取確實失效的方法
+//   ② 用 lazy() 包一層重試——部署當下的瞬間失效會讓 import() 永久記住失敗
 const page = (path, fn) => {
-  const url = new URL(path, import.meta.url).href;
+  const url = new URL(path, import.meta.url).href + `?v=${CACHE_VERSION}`;
   const load = lazy(() => import(/* @vite-ignore */ url), url);
   return ctx => load().then(m => fn(m)(ctx));
 };

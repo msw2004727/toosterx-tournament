@@ -31,6 +31,14 @@ jobs:
             exit 1
           fi
 
+      - name: Cache headers cover unversioned modules
+        run: |
+          set -e
+          test -f _headers || { echo "_headers is missing; /js/* would be cached for 4h after deploy"; exit 1; }
+          grep -q '^/js/\*' _headers || { echo "_headers must cover /js/*"; exit 1; }
+          grep -A2 '^/js/\*' _headers | grep -q 'max-age=0' || { echo "/js/* must not be long-cached"; exit 1; }
+          echo "OK"
+
       - name: JS syntax check
         run: |
           set -e
