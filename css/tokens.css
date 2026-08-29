@@ -1,0 +1,38 @@
+/* 設計 Token｜規格：docs/08-UI規範與前端架構.md §1 */
+:root{
+  --brand-900:#0B2E20; --brand-700:#12513A; --brand-500:#1B7A56;
+  --brand-300:#5FB894; --brand-100:#DCF2E7;
+
+  --accent-600:#D94F2B; --accent-400:#F2793E; --gold-500:#D4A03C;
+
+  --ink-900:#14181A; --ink-700:#3A4247; --ink-500:#6B767D;
+  --ink-300:#B9C2C7; --ink-100:#E9EDEF;
+  --surface:#FFFFFF; --surface-2:#F6F8F8; --surface-3:#EDF1F1;
+
+  --live:#D94F2B; --finished:#1B7A56; --pending:#C9902B;
+  --danger:#C8362A; --info:#2B6CB0;
+
+  --div-u6:#E86F51; --div-u8:#E0A63C; --div-u10:#5AA469;
+  --div-women:#B064A8; --div-fun:#4A90C4; --div-open:#2C5D8A;
+
+  --font-sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --font-num:"Roboto Mono","SF Mono",ui-monospace,monospace;
+
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-8:48px;
+  --r-sm:6px; --r-md:10px; --r-lg:16px; --r-full:999px;
+
+  --fs-xs:12px; --fs-sm:14px; --fs-md:16px; --fs-lg:20px;
+  --fs-xl:28px; --fs-2xl:40px; --fs-score:56px;
+
+  --shadow-1:0 1px 2px rgba(0,0,0,.06),0 1px 3px rgba(0,0,0,.08);
+  --shadow-2:0 4px 12px rgba(0,0,0,.10);
+}
+
+@media (prefers-color-scheme: dark){
+  :root{
+    --surface:#0F1416; --surface-2:#161D20; --surface-3:#1E272A;
+    --ink-900:#F2F5F6; --ink-700:#C6D0D3; --ink-500:#8D999E;
+    --ink-300:#4A5559; --ink-100:#2A3336;
+    --brand-100:#123326;
+  }
+}

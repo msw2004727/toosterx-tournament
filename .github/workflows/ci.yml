@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main, demo]
+  pull_request:
+    branches: [main, demo]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: 單元測試（賽制引擎）
+        run: npm run test:unit
+      - name: Firestore 規則測試
+        run: npm run test:rules
+      - name: 版號一致性檢查
+        run: node scripts/bump-version.js --check

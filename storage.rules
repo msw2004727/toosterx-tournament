@@ -1,0 +1,46 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isStaff() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/staff/$(request.auth.uid));
+    }
+    function isImage()  { return request.resource.contentType.matches('image/.*'); }
+    function under(mb)  { return request.resource.size < mb * 1024 * 1024; }
+
+    // 隊徽：公開讀
+    match /teams/{teamId}/logo.png {
+      allow read: if true;
+      allow write: if isStaff() && isImage() && under(1);
+    }
+
+    // 球員照原圖：僅賽務以上可讀（含未成年肖像）
+    match /members/{teamId}/{fileName} {
+      allow read:  if isStaff();
+      allow write: if isStaff() && isImage() && under(1);
+    }
+
+    // 公開縮圖：由 Function 產生
+    match /members-public/{teamId}/{fileName} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
+    match /sponsors/{fileName} {
+      allow read: if true;
+      allow write: if isStaff() && isImage() && under(2);
+    }
+
+    match /gallery/{date}/{fileName} {
+      allow read: if true;
+      allow write: if isStaff() && isImage() && under(5);
+    }
+
+    // 匯出檔一律走簽章 URL，客戶端不得直接讀
+    match /exports/{allPaths=**} { allow read, write: if false; }
+
+    match /{allPaths=**} { allow read, write: if false; }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "feda-cup-demo",
+    "demo": "feda-cup-demo",
+    "prod": "feda-cup-2026"
+  }
+}

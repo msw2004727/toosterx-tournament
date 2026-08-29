@@ -1,0 +1,279 @@
+rules_version = '2';
+
+// ══════════════════════════════════════════════════════════════════
+//  toosterx-tournament｜Firestore 安全規則
+//  規格：docs/07-權限安全與CloudFunctions.md
+//
+//  設計前提：比分「寫入」放在客戶端（為了拿到 SDK 的離線佇列），
+//            所以 rules 就是唯一防線，必須寫得很緊。
+//
+//  ⚠️ 修改後務必跑 `npm run test:rules`（R01–R23 全綠才可部署）
+// ══════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    // ── 基礎 ─────────────────────────────────────────────────
+    function isAuth()  { return request.auth != null; }
+    function uid()     { return request.auth.uid; }
+
+    function staffDoc() {
+      return get(/databases/$(db)/documents/staff/$(uid())).data;
+    }
+    function isStaff() {
+      return isAuth()
+        && exists(/databases/$(db)/documents/staff/$(uid()))
+        && staffDoc().active == true;
+    }
+    function hasRole(r) { return isStaff() && r in staffDoc().roles; }
+    function isAdmin()  { return hasRole('admin') || hasRole('super_admin'); }
+    function isLead()   { return isAdmin() || hasRole('venue_lead'); }
+    function isScorer() { return isLead() || hasRole('scorer') || hasRole('referee'); }
+    function isBooth()  { return isLead() || hasRole('booth'); }
+
+    // ── 指派範圍 ─────────────────────────────────────────────
+    function assignedVenue(venueId) {
+      return isAdmin()
+        || staffDoc().assignment.venueIds.size() == 0
+        || venueId in staffDoc().assignment.venueIds;
+    }
+    function assignedChallenge(cid) {
+      return isAdmin() || cid in staffDoc().assignment.challengeIds;
+    }
+
+    // ── 欄位控制 ─────────────────────────────────────────────
+    function onlyChanged(allowed) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
+    }
+    function unchanged(f) {
+      return request.resource.data[f] == resource.data[f];
+    }
+    function validScore(v) {
+      return v is int && v >= 0 && v <= 99;
+    }
+
+    // 非 Admin 分支專用的狀態機。
+    // postponed / cancelled / walkover 一律不在清單中，
+    // 因此只有 Admin 分支（不經此函式）才設得了這三種狀態。
+    function validStatusTransition(from, to) {
+      return (from == 'scheduled' && to in ['checkin', 'ready', 'live'])
+          || (from == 'checkin'   && to in ['ready', 'scheduled'])
+          || (from == 'ready'     && to in ['live', 'checkin'])
+          || (from == 'live'      && to in ['halftime', 'finished'])
+          || (from == 'halftime'  && to in ['live', 'finished'])
+          || from == to;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    match /events/{eventId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+
+      function validChallengeScore(cid, v) {
+        let c = get(/databases/$(db)/documents/events/$(eventId)/challenges/$(cid)).data;
+        return v is number && v >= c.minValue && v <= c.maxValue;
+      }
+
+      // ── 組別／階段／小組 ──
+      match /divisions/{divisionId} {
+        allow read:  if true;
+        allow write: if isAdmin();
+        match /{sub=**} {
+          allow read:  if true;
+          allow write: if isAdmin();
+        }
+      }
+
+      // ── 球隊 ──
+      match /teams/{teamId} {
+        allow read:                 if true;
+        allow create, update, delete: if isAdmin();
+
+        // 聯絡資訊等敏感欄位放子集合，避免公開讀取
+        match /private/{docId} {
+          allow read, write: if isScorer();
+        }
+
+        // 完整名單（生日、身分證後四碼）：僅賽務以上
+        match /members/{memberId} {
+          allow read:  if isScorer();
+          allow write: if isAdmin();
+        }
+
+        // 公開投影：任何人可讀，只有 Admin SDK（Function）可寫
+        match /roster/{memberId} {
+          allow read:  if true;
+          allow write: if false;
+        }
+      }
+
+      // ── 場次 ──
+      match /matches/{matchId} {
+        allow read: if true;
+        allow create, delete: if isAdmin();
+
+        allow update: if
+          // (A) Admin 全權
+          isAdmin()
+
+          // (B) 賽務：限指派場地、限未鎖定、限白名單欄位
+          || ( isScorer()
+               && assignedVenue(resource.data.venueId)
+               && resource.data.lock.locked == false
+               && onlyChanged([
+                    'score', 'htScore', 'penaltyScore', 'status', 'period', 'clock',
+                    'result', 'checkin', 'lock', 'scoreSubmittedAt', 'scoreSubmittedBy',
+                    'scoreMismatch', 'updatedAt', 'updatedBy'
+                  ])
+               && request.resource.data.updatedBy == uid()
+               && validStatusTransition(resource.data.status, request.resource.data.status)
+               && validScore(request.resource.data.score.home)
+               && validScore(request.resource.data.score.away)
+               && unchanged('home') && unchanged('away')
+               && unchanged('divisionId') && unchanged('stageId') )
+
+          // (C) 場地主任覆核：已鎖定的 finished 也能改成 confirmed，但只准動 status
+          || ( isLead()
+               && assignedVenue(resource.data.venueId)
+               && resource.data.status == 'finished'
+               && request.resource.data.status == 'confirmed'
+               && onlyChanged(['status', 'updatedAt', 'updatedBy'])
+               && request.resource.data.updatedBy == uid() );
+
+        // ── 比賽事件：永不刪除，只作廢 ──
+        match /timeline/{timelineId} {
+          allow read:   if true;
+          allow create: if (isScorer() || isAdmin())
+                        && request.resource.data.createdBy == uid()
+                        && request.resource.data.matchId == matchId;
+          allow update: if isAdmin()
+                        || (isScorer()
+                            && onlyChanged(['voided', 'voidedBy', 'voidedAt', 'voidReason']));
+          allow delete: if false;
+        }
+      }
+
+      // ── 積分榜：Function 走 Admin SDK 繞過 rules ──
+      match /standings/{standingId} {
+        allow read:  if true;
+        allow write: if isAdmin();
+      }
+
+      match /matchSheets/{sheetId} {
+        allow read:  if true;
+        allow write: if isScorer() || isAdmin();
+      }
+
+      // ── 檢錄：doc id = matchId__memberId，天然防重複 ──
+      match /checkins/{checkinId} {
+        allow read:   if isScorer() || isAdmin();
+        allow create: if isScorer()
+                      && request.resource.data.scannedBy == uid()
+                      && checkinId == request.resource.data.matchId + '__'
+                                      + request.resource.data.memberId;
+        allow update: if isAdmin();
+        allow delete: if false;
+      }
+
+      match /venues/{venueId} {
+        allow read:  if true;
+        allow write: if isAdmin();
+      }
+
+      // ── 彙總看板：Function 產出 ──
+      match /boards/{boardId} {
+        allow read:  if true;
+        allow write: if false;
+      }
+
+      // ── Challenge ──
+      match /challenges/{challengeId} {
+        allow read:  if true;
+        allow write: if isAdmin();
+      }
+
+      match /players/{playerId} {
+        allow read: if true;
+        // 任何人可建立自己的 Game Pass，但欄位與初始值受限
+        allow create: if request.resource.data.keys().hasOnly([
+                          'playerId', 'eventId', 'nickname', 'avatarSeed', 'ageBand',
+                          'qrCode', 'createdAt', 'createdVia', 'completedChallengeIds',
+                          'luckyDrawEntries', 'linkedTeamId', 'lastActiveAt', 'contact'
+                        ])
+                      && request.resource.data.nickname is string
+                      && request.resource.data.nickname.size() >= 1
+                      && request.resource.data.nickname.size() <= 12
+                      && request.resource.data.completedChallengeIds.size() == 0
+                      && request.resource.data.luckyDrawEntries == 0;
+        // 進度與抽獎張數只有 Function／Admin 可改
+        allow update: if isAdmin()
+                      || onlyChanged(['nickname', 'lastActiveAt', 'contact']);
+        allow delete: if isAdmin();
+      }
+
+      match /attempts/{attemptId} {
+        allow read:   if true;
+        allow create: if isBooth()
+                      && assignedChallenge(request.resource.data.challengeId)
+                      && request.resource.data.staffUid == uid()
+                      && validChallengeScore(request.resource.data.challengeId,
+                                             request.resource.data.rawValue);
+        // 攤位只能作廢自己 10 分鐘內送出的紀錄
+        allow update: if isAdmin()
+                      || ( isBooth()
+                           && resource.data.staffUid == uid()
+                           && onlyChanged(['voided', 'voidReason'])
+                           && request.time < resource.data.createdAt + duration.value(10, 'm') );
+        allow delete: if false;
+      }
+
+      match /leaderboards/{lbId} {
+        allow read:  if true;
+        allow write: if false;
+      }
+
+      // ── 報名：公開表單，只能建 pending ──
+      match /registrations/{regId} {
+        allow read:   if isAdmin();
+        allow create: if request.resource.data.status == 'pending';
+        allow update: if isAdmin();
+        allow delete: if false;
+      }
+
+      // ── 稽核：只能新增，不可改不可刪 ──
+      match /audits/{auditId} {
+        allow read:   if isLead();
+        allow create: if isStaff() && request.resource.data.actor.uid == uid();
+        allow update, delete: if false;
+      }
+
+      match /awards/{awardId} {
+        allow read:  if resource.data.published == true || isAdmin();
+        allow write: if isAdmin();
+      }
+    }
+
+    // ══════════════════ 根層級 ══════════════════
+    match /config/{key} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+    match /rolePermissions/{role} {
+      allow read:  if true;
+      allow write: if hasRole('super_admin');
+    }
+    match /userPermissionGrants/{u} {
+      allow read:  if isAuth() && (u == uid() || isAdmin());
+      allow write: if isAdmin();
+    }
+    match /staff/{u} {
+      allow read:  if isAuth() && (u == uid() || isLead());
+      allow write: if isAdmin();
+    }
+
+    // 預設拒絕
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

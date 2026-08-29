@@ -1,0 +1,13 @@
+node_modules/
+.firebase/
+.firebase-config/
+coverage/
+test-results/
+playwright-report/
+.DS_Store
+*.log
+docs/previews/
+tools/
+.env
+.env.*
+serviceAccountKey*.json

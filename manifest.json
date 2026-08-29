@@ -1,0 +1,17 @@
+{
+  "name": "FEDA CUP 2026｜飛達盃",
+  "short_name": "FEDA CUP",
+  "description": "FEDA CUP 2026 賽事賽程、即時比分、積分榜與挑戰區",
+  "start_url": "/?src=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0B2E20",
+  "background_color": "#0B2E20",
+  "lang": "zh-Hant-TW",
+  "icons": [
+    { "src": "/img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/img/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/img/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
