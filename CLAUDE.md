@@ -25,6 +25,26 @@ Cloud Functions v2 nodejs22 @ asia-east1／LINE LIFF + Firebase Custom Token／C
 環境判斷**只有** `js/firebase-config.js` 一處，依 `location.hostname`。
 本機一律連 demo，永遠不會誤寫正式資料庫。
 
+## 開發流程（方向不可反）
+
+```
+改東西 → push demo → 在 cup-demo.toosterx.com 驗證 → merge 進 main → 上正式站
+```
+
+```bash
+git checkout demo
+# ...改東西...
+git add -A && git commit -m "..."
+git push                 # demo 站自動更新，先在那裡驗證
+
+git checkout main
+git merge demo
+git push                 # 驗證過才上正式站
+```
+
+**正式站永遠只拿到已經在 demo 驗證過的程式碼。** 不要直接在 main 上開發。
+唯一例外是 CI 設定、文件這類不影響網站行為的檔案。
+
 ## 硬性規則
 
 | ID | 規則 |
@@ -41,6 +61,8 @@ Cloud Functions v2 nodejs22 @ asia-east1／LINE LIFF + Firebase Custom Token／C
 | R-SEC-001 | 密鑰（QR SECRET、LINE Channel Secret）只放 Secret Manager，絕不進前端 |
 | R-SEC-002 | 稽核文件只能新增，不可 update / delete |
 | R-PRIV-001 | 身分證只存後四碼；未滿 13 歲球員公開端顯示遮蔽名，照片預設不公開 |
+| R-SEED-001 | `scripts/seed.js` 只允許對 ID 含 "demo" 的專案執行，正式資料庫一律走管理後台匯入 |
+| R-GIT-001 | 改動先進 `demo` 驗證，再 merge 進 `main`（見上方「開發流程」） |
 
 ## 不可協商的產品行為
 
@@ -62,7 +84,22 @@ CI 紅燈必須先修復。targeted test 不能替代完整 suite。
 ## 目前進度
 
 - [x] M0 規格定案（`docs/00`–`08`）＋互動原型
-- [x] 雲端環境開通（GitHub / Firebase ×2 / Cloudflare Pages ×2 / 自訂網域）
-- [ ] M1 資料層：rules 測試、索引、種子資料
+- [x] 雲端環境開通（GitHub / Firebase ×2 / Cloudflare Pages ×2 / 自訂網域 / CI）
+- [x] M1-a 賽制設定檔 `js/engine/formats.js`（4 個 Format、3 組 RankingRule、6 組別）
+- [x] M1-b 種子資料 `scripts/seed.js`：38 隊、75 場、1176 筆文件，含排程自檢
+- [x] M1-c rules 測試 `tests/firestore-rules/`：R01–R23 共 27 個案例（**尚未實跑**，見下）
+- [ ] M1-d 部署 rules 與索引到 demo，跑 `npm run test:rules` 確認全綠
 - [ ] M2 賽制引擎：`js/engine/{standing,ranking,advancement}.js`
 - [ ] M3 賽務端　[ ] M4 公開端　[ ] M5 檢錄＋Challenge　[ ] M6 彩排　[ ] M7 上線
+
+### ⚠️ 待確認：rules 測試尚未實際執行
+
+`tests/firestore-rules/` 的 27 個案例是照 `docs/07 §2.4` 寫的，但撰寫環境無法下載
+Firestore Emulator，所以**還沒有跑過一次綠燈**。第一件該做的事是：
+
+```bash
+npm install
+npm run test:rules      # 會自動下載並啟動 Emulator
+```
+
+有紅燈就修 `firestore.rules`，不要改測試去遷就規則。

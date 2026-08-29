@@ -16,9 +16,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          # NOTE: do NOT enable cache: npm yet.
+          # NOTE: do NOT enable "cache: npm" yet.
           # There is no package-lock.json in this repo, so setup-node fails with
-          # 'Dependencies lock file is not found'.
+          # "Dependencies lock file is not found".
           # Re-enable in M1, after running npm install and committing the lock file.
 
       - name: Version consistency (config.js / sw.js / index.html / asset query)

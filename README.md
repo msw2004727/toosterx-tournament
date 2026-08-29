@@ -75,22 +75,36 @@ docs/                       規格書（00–08）
 
 ---
 
-## 開發
+## 開發流程
+
+**方向不可反：改動先進 `demo` 驗證，確認後才 merge 進 `main`。**
+
+```
+改東西 → push demo → 在 cup-demo.toosterx.com 驗證 → merge 進 main → 上正式站
+```
 
 ```bash
 npm install
-npm run emu            # Firestore Emulator
-npm run serve          # 靜態伺服器（http://localhost:5173）
-npm run seed:demo      # 對 demo 專案灌 38 隊假資料
+npm run serve          # 靜態伺服器（http://localhost:5173，自動連 demo 專案）
+npm run emu            # Firestore + Auth Emulator
+
+npm run seed:dry       # 只驗算不連線：印出 38 隊 / 75 場 / 排程自檢
+npm run seed:emu       # 灌進本機 Emulator
+npm run seed:demo      # 灌進 feda-cup-demo
+npm run seed:reset     # 先清空種子資料再灌
 ```
+
+種子資料有安全鎖：專案 ID 不含 `demo` 一律中止，不可能誤灌正式資料庫。
 
 ## 測試
 
 ```bash
 npm run test:unit      # Jest 單元測試（賽制引擎、格式化、QR 簽章）
-npm run test:rules     # firestore.rules（Emulator）
+npm run test:rules     # firestore.rules R01–R23（會自動起 Emulator）
 npm run test:e2e       # Playwright
 ```
+
+> `test:rules` 需要下載 Firestore Emulator，第一次執行會多花一兩分鐘。
 
 CI 紅燈必須先修復；targeted test 不能替代完整 suite。
 
