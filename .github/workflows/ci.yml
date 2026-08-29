@@ -7,18 +7,42 @@ on:
     branches: [main, demo]
 
 jobs:
-  test:
+  static-checks:
+    name: Static checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-      - run: npm ci
-      - name: 單元測試（賽制引擎）
-        run: npm run test:unit
-      - name: Firestore 規則測試
-        run: npm run test:rules
-      - name: 版號一致性檢查
+          # NOTE: do NOT enable cache: npm yet.
+          # There is no package-lock.json in this repo, so setup-node fails with
+          # 'Dependencies lock file is not found'.
+          # Re-enable in M1, after running npm install and committing the lock file.
+
+      - name: Version consistency (config.js / sw.js / index.html / asset query)
         run: node scripts/bump-version.js --check
+
+      - name: JS syntax check
+        run: |
+          set -e
+          for f in app.js sw.js scripts/*.js js/*.js js/core/*.js js/engine/*.js js/modules/*/*.js; do
+            [ -e "$f" ] || continue
+            node --check "$f"
+          done
+          node --check functions/index.js
+
+  # TODO(M1): enable once the test suites exist.
+  #  tests:
+  #    name: Tests
+  #    runs-on: ubuntu-latest
+  #    steps:
+  #      - uses: actions/checkout@v4
+  #      - uses: actions/setup-node@v4
+  #        with:
+  #          node-version: '22'
+  #          cache: npm
+  #      - run: npm ci
+  #      - run: npm run test:unit     # engine T01-T16
+  #      - run: npm run test:rules    # firestore rules R01-R23
