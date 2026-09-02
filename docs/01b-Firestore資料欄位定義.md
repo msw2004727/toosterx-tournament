@@ -457,8 +457,40 @@ id：`${matchId}__${memberId}`（同場次同人只會有一筆，天然防重�
 }
 
 // boards/today  今日賽程精簡版（依日期一份）
-// boards/scorers 射手榜前 20
+
+// boards/scorers  射手榜（M3.9 起由 fn:rebuildBoards 維護）
+{
+  boardId: 'scorers',
+  rows: [
+    {
+      rank: 1,
+      playerId: 'm-101-07',
+      name: '王小＊',            // ⚠️ 取自 teams/{t}/roster 的 displayName（已遮蔽）
+      teamId: 't-101', teamName: '臺中野狼', jerseyNo: 7,
+      divisionId: 'adult-open',  // 公開端靠這個欄位篩組別
+      goals: 5, penalties: 1, openPlay: 4,
+      matchesPlayed: 3, minutesPlayed: null
+    }
+  ],
+  updatedAt: Timestamp,
+  computedBy: 'fn:rebuildBoards'
+}
+
+// boards/fairplay  行為分排行（同上，rows 帶 divisionId）
+{ boardId: 'fairplay', rows: [ { rank, teamId, name, divisionId, fairPlayPoints, yellow, red, played } ], updatedAt }
 ```
+
+> **每個組別最多 20 列**，六組共用同一份 `rows`。重建某一組別時只換掉
+> `divisionId` 相符的那幾列，其他組別原封不動（交易保護，六組會同時完賽）。
+>
+> ⚠️ **姓名一律取自 `teams/{teamId}/roster/{memberId}` 的 `displayName`**，
+> 不可以用 timeline 事件上的 `playerName`。後者是賽務端記的真名，
+> 而 `boards/*` 是 `allow read: if true`——寫上去等於把未滿 13 歲球員的
+> 真名公開掛出去（R-PRIV-001、docs/03 §7.3）。名冊上查不到的球員留 `null`，
+> 公開端顯示背號即可。
+>
+> ⚠️ **PK 大戰的罰球不計入個人進球**（docs/03 §9.2）。它跟場中罰球在 timeline
+> 上是同一個 type，只差 `periodId === 'pk'`。
 
 ### 1.14 `audits/{auditId}`
 

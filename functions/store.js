@@ -126,6 +126,29 @@ export async function loadTeams(eventId, teamIds) {
   return out;
 }
 
+/**
+ * 公開名冊投影（teams/{t}/roster/{m}）。
+ *
+ * ⚠️ 任何要寫進**公開可讀**文件的球員姓名，一律從這裡拿。
+ *    timeline 事件上的 playerName 是賽務端記的**真名**，
+ *    未滿 13 歲的球員在名冊上是遮蔽過的（王小＊，R-PRIV-001／docs/03 §7.3）。
+ *    直接把事件上的名字寫進 boards/*，就是把兒童的真名公開掛出去。
+ *
+ * @returns {Object<string, {displayName, jerseyNo, teamId, divisionId}>} memberId → 投影
+ */
+export async function loadRosters(eventId, teamIds) {
+  const ids = [...new Set(teamIds.filter(Boolean))];
+  const out = {};
+  await Promise.all(ids.map(async teamId => {
+    const snap = await evRef(eventId).collection('teams').doc(teamId)
+      .collection('roster').get();
+    for (const d of snap.docs) {
+      out[d.id] = { memberId: d.id, teamId, ...d.data() };
+    }
+  }));
+  return out;
+}
+
 /** 隊伍資料 → engine 要的 teamMeta（只有顯示欄位） */
 export function teamMetaOf(teams) {
   const meta = {};

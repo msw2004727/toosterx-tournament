@@ -181,6 +181,21 @@ const MUTANTS = [
     file: 'js/engine/timeline.js',
     from: `  return typeof v === 'number' && Number.isFinite(v) ? v : null;`,
     to: `  const n = Number(v); return Number.isFinite(n) ? n : null;`
+  },
+  {
+    name: '#26 PK 大戰的罰球算進射手榜（一場 5:4 的 PK 讓九個人各多一球）',
+    file: 'js/engine/awards.js',
+    from: `    if (e.periodId === 'pk') continue;`,
+    to: `    if (false) continue;`
+  },
+  {
+    name: '#27 遮蔽名保留名字最後一字（遮蔽力更弱，且與公開名冊不一致）',
+    file: 'js/lib/format.js',
+    from: `  if (s.length <= 2) return s;
+  return s.slice(0, 2) + '＊';`,
+    to: `  if (s.length <= 1) return s;
+  if (s.length === 2) return s[0] + '○';
+  return s[0] + '○'.repeat(s.length - 2) + s.at(-1);`
   }
 ];
 

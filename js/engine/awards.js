@@ -16,7 +16,7 @@ const COUNTED_STATUSES = ['finished', 'confirmed', 'walkover'];
 /**
  * 射手榜。
  *
- * @param {Array<object>} events   timeline 事件（可跨場次）
+ * @param {Array<object>} events   timeline 事件（可跨場次；periodId==='pk' 的不計）
  * @param {object} [opts]
  * @param {Set<string>|string[]} [opts.countedMatchIds] 只計這些場次；省略則全計
  * @param {Object<string,object>} [opts.playerMeta] playerId → { name, teamId, teamName, jerseyNo }
@@ -34,6 +34,10 @@ export function computeScorers(events, opts = {}) {
     if (!SCORING_TYPES.includes(e.type)) continue;      // own_goal 在這裡被擋掉
     // 01b §1.8 的 goalType 列舉裡也有 'own'，兩種寫法都要擋，否則烏龍球會混進射手榜
     if (e.goalType === 'own') continue;
+    // PK 大戰的罰球不計入個人進球（docs/03 §9.2，國際慣例）。
+    // 它跟「比賽進行中的罰球」是同一個事件型別，只差在期別，
+    // 少了這一條，一場 5:4 的 PK 大戰會讓九個人的射手榜各加一球。
+    if (e.periodId === 'pk') continue;
     if (!e.playerId) continue;
     if (only && e.matchId && !only.has(e.matchId)) continue;
 

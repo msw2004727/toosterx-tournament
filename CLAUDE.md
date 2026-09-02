@@ -100,7 +100,7 @@ git push                 # 驗證過才上正式站
 ```
 npm run test:unit         賽制引擎（T01–T32，見 docs/02 §11）
 npm run test:rules        R01–R31（見 docs/07 §2.4）
-npm run test:fn           結果管線 F01–F13（Emulator，見 docs/07 §3.1）
+npm run test:fn           結果管線 F01–F14（Emulator，見 docs/07 §3.1）
 npm run test:e2e          Playwright
 npm run test:mutation     引擎與前端的變異測試
 npm run test:mutation:fn  結果管線的變異測試
@@ -139,8 +139,8 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       254 單元 ＋ 24 變異 ＋ 96 E2E（三種視窗寬度）＋ 70 rules
 - [x] M3.9 結果管線：把 M2 引擎接上 Firestore。`functions/` 改 ESM、
       `js/engine/` 由 `scripts/sync-engine.js` 同步進部署範圍，
-      積分榜／晉級／最終排名／射手榜全部自動化。18 個模擬器整合測試（F01–F13）
-      ＋ 7 條變異。實測 Functions 在真的執行環境載得起來（23 個 endpoint）
+      積分榜／晉級／最終排名／射手榜全部自動化。21 個模擬器整合測試（F01–F14）
+      ＋ 10 條變異。實測 Functions 在真的執行環境載得起來（23 個 endpoint）
 - [ ] M4 報名與球隊管理（docs/10）　[ ] M5 公開端
 - [ ] M6 檢錄＋Challenge　[ ] M7 彩排 → 上線
 
@@ -151,12 +151,12 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 263 全綠（14 個 suite） |
-| `npm run test:mutation` | ✅ 25 / 25 全被抓到 |
+| `npm run test:unit` | ✅ 264 全綠（14 個 suite） |
+| `npm run test:mutation` | ✅ 29 / 29 全被抓到 |
 | `npm run test:e2e` | ✅ 96 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 70 全綠（含 R24–R30 自撤回、R31 完賽即鎖定） |
-| `npm run test:fn` | ✅ 18 全綠（F01–F13 結果管線，Emulator） |
-| `npm run test:mutation:fn` | ✅ 7 / 7 全被抓到 |
+| `npm run test:fn` | ✅ 21 全綠（F01–F14 結果管線，Emulator） |
+| `npm run test:mutation:fn` | ✅ 10 / 10 全被抓到 |
 
 ### 這一輪審查抓到並修掉的三個缺陷
 
@@ -317,6 +317,20 @@ CI 只在根目錄 `npm ci`，剛好躲過；本機一起模擬器就炸。
 重試會重新讀到最新的場次——所以最後落地的一定是用最新資料算出來的。
 （只比 `version` 大小擋不住：兩邊都是 `prev + 1`，先寫的反而可能資料比較新。）
 
+### 公開看板的兩條鐵則
+
+`boards/*` 是 `allow read: if true`，寫進去的東西全世界都看得到。
+
+1. **姓名一律取自 `teams/{t}/roster/{m}` 的 `displayName`**（已遮蔽），
+   不可以用 timeline 事件上的 `playerName`——那是賽務端記的真名。
+   名冊查不到就留 `null`，公開端顯示背號（R-PRIV-001、docs/03 §7.3）。
+2. **單一文件**：`boards/scorers`、`boards/fairplay` 各一份，rows 帶 `divisionId`。
+   規格要求首頁只監聽一份文件；每組一份的話公開端得先知道有哪些組別再開六個監聽。
+
+遮蔽規則是「姓氏＋名字首字＋＊」（王小明 → 王小＊）。
+`js/lib/format.js` 的 `maskName` 原本寫成「王○明」——遮蔽力更弱，
+而且跟 `scripts/seed/build.js` 寫進名冊的那一份不一致，已修正並補上變異 #27。
+
 ### fail-closed 是預設值
 
 `rankingRuleId` 打錯、小組設定讀不到、分組賽還沒打完、最終排名算不完整——
@@ -348,11 +362,11 @@ Function 負責讀寫與填 `serverTimestamp`，引擎只負責算。
 ### 測試
 
 ```bash
-npm run test:unit                  # 263 個案例（引擎 T01–T32 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
-npm run test:mutation              # 25 條變異，證明測試有鑑別力
+npm run test:unit                  # 264 個案例（引擎 T01–T32 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
+npm run test:mutation              # 29 條變異，證明測試有鑑別力
 npm run test:rules                 # 70 個案例，自動起 Emulator
-npm run test:fn                    # 18 個結果管線整合測試（F01–F13），自動起 Emulator
-npm run test:mutation:fn           # 7 條結果管線變異
+npm run test:fn                    # 21 個結果管線整合測試（F01–F14），自動起 Emulator
+npm run test:mutation:fn           # 10 條結果管線變異
 npm run test:e2e                   # 96 個 Playwright 案例（× mobile / desktop / 320px）
 npm run test:e2e:offline           # 只跑離線三態那幾條
 ```

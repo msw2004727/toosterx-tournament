@@ -92,9 +92,11 @@ describe('球員與隱私', () => {
   });
 
   test('遮蔽名（R-PRIV-001：未滿 13 歲公開端）', () => {
-    expect(maskName('王小明')).toBe('王○明');
-    expect(maskName('歐陽小明')).toBe('歐○○明');
-    expect(maskName('王明')).toBe('王○');
+    // 規格是「姓氏＋名字首字＋＊」（docs/03 §7.3），不是「王○明」——
+    // 後者把名字最後一個字留著，遮蔽力更弱，而且跟公開名冊那一份不一致。
+    expect(maskName('王小明')).toBe('王小＊');
+    expect(maskName('歐陽小明')).toBe('歐陽＊');
+    expect(maskName('王明')).toBe('王明');      // 兩個字沒得遮，維持原樣
     expect(maskName('王')).toBe('王');
     expect(maskName('')).toBe('');
   });

@@ -27,6 +27,24 @@ describe('T15 射手榜', () => {
     expect(alt).toEqual([]);
   });
 
+  test('⭐ PK 大戰的罰球不計入個人進球（docs/03 §9.2）', () => {
+    // 這跟上面那條不衝突，是兩件事：
+    //   比賽進行中的罰球（periodId h1/h2/et）→ 計入
+    //   PK 大戰（periodId 'pk'）→ 不計入，國際慣例
+    // 兩者在 timeline 上是同一個 type，只差期別。少了這道判斷，
+    // 一場 5:4 的 PK 大戰會讓九個人的射手榜各憑空多一球。
+    const rows = computeScorers([
+      goal('m1', 'A', 'p1', 'goal', { periodId: 'h2' }),
+      goal('m1', 'A', 'p1', 'penalty_scored', { periodId: 'h2' }),   // 場中罰球：計入
+      goal('m1', 'A', 'p1', 'penalty_scored', { periodId: 'pk' }),   // PK 大戰：不計入
+      goal('m1', 'B', 'p2', 'penalty_scored', { periodId: 'pk' })
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].playerId).toBe('p1');
+    expect(rows[0].goals).toBe(2);
+    expect(rows[0].penalties).toBe(1);
+  });
+
   test('⭐ PK 進球計入射手，PK 失手不計入', () => {
     const rows = computeScorers(events);
     const p2 = rows.find(r => r.playerId === 'p2');

@@ -147,12 +147,21 @@ export function playerLabel(p) {
   return `${no}${p.displayName ?? p.name ?? ''}`.trim();
 }
 
-/** 未滿 13 歲公開端顯示遮蔽名：王小明 → 王○明（R-PRIV-001） */
+/**
+ * 未滿 13 歲公開端顯示遮蔽名（R-PRIV-001）。
+ *
+ * 規格是**姓氏＋名字首字＋＊**：王小明 → 王小＊（docs/03 §7.3）。
+ * 這裡本來寫成「王○明」——保留了名字的最後一個字，遮蔽力反而比較弱，
+ * 而且跟 scripts/seed/build.js 寫進公開名冊的那一份不一致：
+ * 同一個小朋友在名冊上是「王小＊」、在別的畫面卻是「王○明」。
+ *
+ * ⚠️ 公開端**優先用 roster 的 displayName**（那一份已經遮蔽過了），
+ *    這個函式只是最後一道保險，不要拿它去遮 members 的真名再顯示。
+ */
 export function maskName(name) {
   const s = String(name ?? '');
-  if (s.length <= 1) return s;
-  if (s.length === 2) return s[0] + '○';
-  return s[0] + '○'.repeat(s.length - 2) + s.at(-1);
+  if (s.length <= 2) return s;
+  return s.slice(0, 2) + '＊';
 }
 
 /** 相對時間：剛剛／3 分鐘前／10:24 */

@@ -111,6 +111,14 @@ async function seed({ rankingRuleId = 'RR_FEDA_DEFAULT' } = {}) {
   for (const t of TEAMS) {
     b.set(db.doc(`events/${E}/teams/${t.teamId}`), { ...t, divisionId: DIV, withdrawn: false });
   }
+  // 公開名冊投影。displayName 是**已經遮蔽過**的那一份（R-PRIV-001），
+  // 跟 members 裡的真名不同——看板只准用這一份。
+  b.set(db.doc(`events/${E}/teams/t1/roster/p-1`), {
+    memberId: 'p-1', teamId: 't1', divisionId: DIV, displayName: '林小＊', jerseyNo: 10
+  });
+  b.set(db.doc(`events/${E}/teams/t2/roster/p-9`), {
+    memberId: 'p-9', teamId: 't2', divisionId: DIV, displayName: '陳大＊', jerseyNo: 4
+  });
   GROUP_MATCHES.forEach(([id, h, a], i) => b.set(matchRef(id), groupMatchDoc(id, h, a, i)));
   ['F1', 'F3'].forEach((k, i) => b.set(matchRef(k), finalMatchDoc(k, i)));
 
@@ -390,10 +398,57 @@ describe('F13 看板', () => {
     await play('g1', 2, 0);
     await rebuildBoardsFor({ eventId: E, divisionId: DIV });
 
-    const board = (await db.doc(`events/${E}/boards/scorers__${DIV}`).get()).data();
+    // 規格是**單一文件** boards/scorers（docs/01b §1.13），不是每組一份：
+    // 首頁只監聽一份文件是明確要求。
+    const board = (await db.doc(`events/${E}/boards/scorers`).get()).data();
     expect(board.rows).toHaveLength(1);
     expect(board.rows[0].playerId).toBe('p-1');
     expect(board.rows[0].goals).toBe(1);
     expect(board.rows[0].teamName).toBe('飛達一');
+    expect(board.rows[0].divisionId).toBe(DIV);      // 公開端靠這個欄位篩組別
+  });
+
+  test('F14 ⭐ 看板上的球員姓名一律取自已遮蔽的公開名冊，不可以用事件上的真名', async () => {
+    // boards/* 是 allow read: if true。timeline 事件上的 playerName 是賽務端
+    // 記的真名，未滿 13 歲的球員在名冊上才是遮蔽過的（王小＊）。
+    // 把事件上的名字寫上去，就是把兒童真名公開掛出來（R-PRIV-001）。
+    await db.doc(`events/${E}/matches/g1/timeline/0001-goal`).set({
+      matchId: 'g1', type: 'goal', side: 'home', teamId: 't1',
+      playerId: 'p-1', playerName: '林小美', jerseyNo: 10,   // ← 真名
+      seq: 1, clockSec: 300, voided: false
+    });
+    await play('g1', 1, 0);
+    await rebuildBoardsFor({ eventId: E, divisionId: DIV });
+
+    const row = (await db.doc(`events/${E}/boards/scorers`).get()).data().rows[0];
+    expect(row.name).toBe('林小＊');
+    expect(row.name).not.toBe('林小美');
+  });
+
+  test('F14b 名冊上查不到的球員留 null，不要退回事件上的真名', async () => {
+    await db.doc(`events/${E}/matches/g1/timeline/0001-goal`).set({
+      matchId: 'g1', type: 'goal', side: 'home', teamId: 't1',
+      playerId: 'p-unknown', playerName: '沒在名冊上的人', jerseyNo: 77,
+      seq: 1, clockSec: 300, voided: false
+    });
+    await play('g1', 1, 0);
+    await rebuildBoardsFor({ eventId: E, divisionId: DIV });
+
+    const row = (await db.doc(`events/${E}/boards/scorers`).get()).data().rows[0];
+    expect(row.name).toBeNull();
+    expect(JSON.stringify(row)).not.toContain('沒在名冊上的人');
+  });
+
+  test('F14c 重建某一組別時，其他組別的列不會被清掉', async () => {
+    // 單一文件的代價：六個組別共用一份 rows。這裡守的是「換自己那幾列」。
+    await db.doc(`events/${E}/boards/scorers`).set({
+      boardId: 'scorers',
+      rows: [{ rank: 1, playerId: 'x-1', divisionId: 'adult-open', goals: 9 }]
+    });
+    await play('g1', 2, 0);
+    await rebuildBoardsFor({ eventId: E, divisionId: DIV });
+
+    const rows = (await db.doc(`events/${E}/boards/scorers`).get()).data().rows;
+    expect(rows.some(r => r.divisionId === 'adult-open' && r.playerId === 'x-1')).toBe(true);
   });
 });

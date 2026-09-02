@@ -53,6 +53,24 @@ const MUTANTS = [
     file: 'functions/pipeline.js',
     from: '  const counted = countedMatchIdsOf(matches);',
     to: '  const counted = new Set(matches.map(m => m.matchId));'
+  },
+  {
+    name: 'FN#8 看板用事件上的真名（未滿 13 歲的球員真名被公開掛出去，R-PRIV-001）',
+    file: 'functions/pipeline.js',
+    from: "      name: r?.displayName ?? null,          // ← 已遮蔽的公開名，查不到就留 null",
+    to: "      name: r?.displayName ?? e.playerName ?? null,"
+  },
+  {
+    name: 'FN#9 重建看板時把整份 rows 蓋掉（一個組別完賽，其他五組的榜全消失）',
+    file: 'functions/pipeline.js',
+    from: "    const kept = (snap.data()?.rows || []).filter(r => r.divisionId !== divisionId);",
+    to: "    const kept = [];"
+  },
+  {
+    name: 'FN#10 看板寫成每組一份（規格是單一文件，首頁只監聽一份）',
+    file: 'functions/pipeline.js',
+    from: "  const ref = evRef(eventId).collection('boards').doc(boardId);",
+    to: "  const ref = evRef(eventId).collection('boards').doc(`${boardId}__${divisionId}`);"
   }
 ];
 

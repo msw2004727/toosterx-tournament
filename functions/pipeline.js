@@ -26,7 +26,7 @@ import { reconcileScore } from './engine/timeline.js';
 import {
   db, evRef, loadRankingRule, loadFormat, loadDivision, loadGroups,
   loadDivisionMatches, loadStageMatchesTx, loadCardEvents, loadTeams, loadTimeline,
-  teamMetaOf, withdrawnIdsOf, standingRef, loadStandings, writeAudit
+  loadRosters, teamMetaOf, withdrawnIdsOf, standingRef, loadStandings, writeAudit
 } from './store.js';
 
 /** 已產生勝負、會被計入統計的狀態 */
@@ -311,13 +311,22 @@ export async function publishFinalRankingFor({ eventId, divisionId, actorUid = n
 //  獎項看板（射手榜 / 行為分）
 // ══════════════════════════════════════════════════════════════
 
+/** 每個組別在榜上最多留幾列（docs/01b §1.13「射手榜前 20」） */
+const BOARD_LIMIT = 20;
+
 /**
- * 重建某組別的射手榜與行為分排行。
- * 射手榜只採「真的被計入統計」的場次，所以要把作廢／退賽的場次排掉——
- * 這件事 engine 已經做好了（countedMatchIdsOf），這裡只負責餵資料。
+ * 重建射手榜與行為分排行。
+ *
+ * 寫入的是**單一文件** `boards/scorers`／`boards/fairplay`（docs/01b §1.13）。
+ * 首頁與統計頁只監聽一份文件是規格的明確要求——每個組別各一份的話，
+ * 公開端得先知道有哪些組別、再開六個監聽。
+ * 這個函式一次只算一個組別，所以用交易把該組別那幾列換掉，其他組別原封不動。
+ *
+ * ⚠️ 球員姓名一律取自 roster 投影，不可以用 timeline 事件上的 playerName。
+ *    後者是賽務端記的真名；boards/* 是 `allow read: if true`。
+ *    名冊上查不到的球員寧可留 null（公開端顯示背號），也不要把真名寫上去。
  */
 export async function rebuildBoardsFor({ eventId, divisionId }) {
-  const division = await loadDivision(eventId, divisionId);
   const matches = await loadDivisionMatches(eventId, divisionId);
 
   // 「哪些場次算數」只認引擎這一份判定（countedMatchIdsOf）。
@@ -333,40 +342,51 @@ export async function rebuildBoardsFor({ eventId, divisionId }) {
     for (const d of snap.docs) events.push({ timelineId: d.id, ...d.data() });
   }));
 
-  // playerMeta 直接從事件上的反正規化欄位組（buildGoalEvent 會把名字與背號寫進去），
-  // 這樣不用為了一張榜再去翻每一隊的 roster。
-  const teams = await loadTeams(eventId, [...new Set(matches.flatMap(m => m.teamIds || []))]);
+  const teamIds = [...new Set(matches.flatMap(m => m.teamIds || []))];
+  const teams = await loadTeams(eventId, teamIds);
+  const roster = await loadRosters(eventId, teamIds);
+
   const playerMeta = {};
   for (const e of events) {
     if (!e.playerId || playerMeta[e.playerId]) continue;
+    const r = roster[e.playerId];
     playerMeta[e.playerId] = {
-      name: e.playerName ?? null,
-      teamId: e.teamId ?? null,
-      teamName: teams[e.teamId]?.shortName ?? teams[e.teamId]?.name ?? null,
-      jerseyNo: e.jerseyNo ?? null
+      name: r?.displayName ?? null,          // ← 已遮蔽的公開名，查不到就留 null
+      teamId: r?.teamId ?? e.teamId ?? null,
+      teamName: teams[r?.teamId ?? e.teamId]?.shortName ?? teams[r?.teamId ?? e.teamId]?.name ?? null,
+      jerseyNo: r?.jerseyNo ?? null
     };
   }
 
-  const scorers = computeScorers(events, { countedMatchIds: counted, playerMeta });
+  const scorers = computeScorers(events, { countedMatchIds: counted, playerMeta })
+    .slice(0, BOARD_LIMIT)
+    .map(r => ({ ...r, divisionId }));
+
   const standings = Object.values(await loadStandings(eventId, divisionId));
-  const fairPlay = computeFairPlayBoard(standings);
+  const fairPlay = computeFairPlayBoard(standings).slice(0, BOARD_LIMIT);
 
-  const boardRef = evRef(eventId).collection('boards').doc(`scorers__${divisionId}`);
-  await boardRef.set({
-    boardId: `scorers__${divisionId}`, eventId, divisionId,
-    scorerBoardEnabled: division.display?.scorerBoard !== false,
-    rows: scorers,
-    computedAt: FieldValue.serverTimestamp(),
-    computedBy: 'fn:rebuildBoards'
-  });
-
-  const fpRef = evRef(eventId).collection('boards').doc(`fairplay__${divisionId}`);
-  await fpRef.set({
-    boardId: `fairplay__${divisionId}`, eventId, divisionId,
-    rows: fairPlay,
-    computedAt: FieldValue.serverTimestamp(),
-    computedBy: 'fn:rebuildBoards'
-  });
+  await Promise.all([
+    replaceDivisionRows(eventId, 'scorers', divisionId, scorers),
+    replaceDivisionRows(eventId, 'fairplay', divisionId, fairPlay)
+  ]);
 
   return { scorers: scorers.length, fairPlay: fairPlay.length };
+}
+
+/**
+ * 把單一看板文件裡「屬於這個組別」的列換成新的，其他組別保持不動。
+ * 用交易而不是讀-改-寫：六個組別的完賽事件會同時打進來。
+ */
+async function replaceDivisionRows(eventId, boardId, divisionId, rows) {
+  const ref = evRef(eventId).collection('boards').doc(boardId);
+  await db().runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    const kept = (snap.data()?.rows || []).filter(r => r.divisionId !== divisionId);
+    tx.set(ref, {
+      boardId,
+      rows: [...kept, ...rows],
+      updatedAt: FieldValue.serverTimestamp(),
+      computedBy: 'fn:rebuildBoards'
+    }, { merge: true });
+  });
 }
