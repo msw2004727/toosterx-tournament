@@ -49,7 +49,17 @@ export default defineConfig({
   projects: [
     { name: 'chromium-mobile', use: { ...devices['Pixel 7'], ...launch() } },
     // 賽務端也在桌機跑一次：現場偶爾會有人用筆電當記錄台
-    { name: 'chromium-desktop', use: { ...devices['Desktop Chrome'], ...launch() } }
+    { name: 'chromium-desktop', use: { ...devices['Desktop Chrome'], ...launch() } },
+    // 320px：iPhone SE 一代與各種便宜 Android 的實際寬度。
+    // 設計基準是 360px，但這一档不能破版——現場真的有人拿這種手機來記分。
+    {
+      name: 'chromium-320',
+      use: {
+        ...devices['Pixel 7'],
+        ...launch(),
+        viewport: { width: 320, height: 568 }
+      }
+    }
   ],
 
   webServer: {

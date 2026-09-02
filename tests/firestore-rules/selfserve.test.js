@@ -72,7 +72,7 @@ describe('Demo 站行為（config/env.allowSelfServeStaff = true）', () => {
   test('自助身分可以改自己的角色，但仍限於白名單', async () => {
     await setDoc(doc(authed(env, 'u-new'), 'staff', 'u-new'), selfDoc('u-new'));
     await assertSucceeds(updateDoc(doc(authed(env, 'u-new'), 'staff', 'u-new'), {
-      ...selfDoc('u-new', { roles: ['venue_lead'] })
+      ...selfDoc('u-new', { roles: ['referee'] })
     }));
     await assertFails(updateDoc(doc(authed(env, 'u-new'), 'staff', 'u-new'), {
       ...selfDoc('u-new', { roles: ['admin'] })

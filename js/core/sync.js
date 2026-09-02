@@ -154,7 +154,7 @@ function fail(rec, err) {
 export function describeError(err) {
   const code = err?.code || '';
   const map = {
-    'permission-denied': '權限不足。這個場次可能不在你的指派場地，或已被鎖定；請找場地主任處理。',
+    'permission-denied': '權限不足。這個場次可能不在你的指派場地，或已被鎖定；請聯絡管理員處理。',
     'unauthenticated': '登入已失效，請重新登入後再送出一次。',
     'not-found': '找不到這筆資料，可能已被管理員刪除或改判。',
     'failed-precondition': '資料狀態已改變（可能有人同時修改），請重新整理後再試。',

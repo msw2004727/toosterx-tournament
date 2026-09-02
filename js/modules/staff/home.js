@@ -9,6 +9,8 @@
  */
 
 import { el, emptyState, toast, mount } from '../../core/ui.js';
+import { iconText } from '../../core/icons.js';
+import { themeSwitch } from '../../core/theme.js';
 import { hhmm, dateLabelFromYmd, STATUS_LABEL } from '../../lib/format.js';
 import { staff, user, isPersistenceDegraded } from '../../core/firebase.js';
 import { navigate } from '../../core/router.js';
@@ -32,11 +34,6 @@ export function pickCurrent(matches, nowMs = Date.now()) {
 const msOf = v => (v?.toMillis ? v.toMillis() : Date.parse(v ?? '') || Number.MAX_SAFE_INTEGER);
 
 const DONE = new Set(['finished', 'confirmed', 'walkover']);
-const STATUS_DOT = {
-  confirmed: '✅', finished: '✅', walkover: '✅',
-  live: '🔴', halftime: '🟠', checkin: '🔵', ready: '🔵',
-  scheduled: '⚪', postponed: '⏸', cancelled: '✖'
-};
 
 export async function staffHome({ scope, view }) {
   const me = staff();
@@ -106,6 +103,7 @@ export async function staffHome({ scope, view }) {
         el('strong', { text: line.join('　·　') }),
         el('span', { class: 'staff__date', text: `${dateLabelFromYmd(date)}　${EVENT.venueName}` })
       ]),
+      themeSwitch(),
       indicator.node
     ]);
   }
@@ -125,7 +123,7 @@ export async function staffHome({ scope, view }) {
       ]);
     }
     return el('section', { class: 'card card--current' }, [
-      el('h2', { class: 'card__head', text: '⚡ 目前場次' }),
+      el('h2', { class: 'card__head' }, iconText('live', '目前場次')),
       el('div', { class: 'cur' }, [
         el('span', { class: 'cur__meta', text: `${m.label || m.matchId}　${hhmm(m.kickoffAt)}　${m.venueName || venueLabel(m.venueId) || ''}` }),
         el('div', { class: 'cur__teams' }, [
@@ -137,7 +135,7 @@ export async function staffHome({ scope, view }) {
         el('button', {
           class: 'btn btn--xl btn--primary', type: 'button',
           onClick: () => navigate(`/staff/match/${encodeURIComponent(m.matchId)}`)
-        }, '進入賽務台 →')
+        }, [...iconText('forward', '進入賽務台', { trailing: true })])
       ])
     ]);
   }
@@ -156,7 +154,9 @@ export async function staffHome({ scope, view }) {
           class: 'mlist__btn', type: 'button',
           onClick: () => navigate(`/staff/match/${encodeURIComponent(m.matchId)}`)
         }, [
-          el('span', { class: 'mlist__dot', 'aria-hidden': 'true', text: STATUS_DOT[m.status] || '⚪' }),
+          // 狀態是 CSS 圓點（.dot[data-status]），不是 emoji：
+          // 顏色要跟著主題走，而且 emoji 在各平台的形狀不一致
+          el('span', { class: 'dot', dataset: { status: m.status || 'scheduled' }, 'aria-hidden': 'true' }),
           el('span', { class: 'mlist__time num', text: hhmm(m.kickoffAt) }),
           el('span', { class: 'mlist__label', text: m.label || m.matchId }),
           el('span', { class: 'mlist__teams', text: `${m.home?.name || '待定'} vs ${m.away?.name || '待定'}` }),
@@ -171,7 +171,7 @@ export async function staffHome({ scope, view }) {
       el('button', {
         class: 'btn btn--lg', type: 'button',
         onClick: () => toast('QR 檢錄在 M5 開放。目前可先用「出場名單」手動確認。', 'warn')
-      }, '📷 檢錄掃碼'),
+      }, [...iconText('qr', '檢錄掃碼')]),
       el('button', {
         class: 'btn btn--lg', type: 'button',
         onClick: () => {
@@ -179,7 +179,7 @@ export async function staffHome({ scope, view }) {
           if (!m) return toast('目前沒有可管理的場次。', 'warn');
           navigate(`/staff/sheet/${encodeURIComponent(m.matchId)}`);
         }
-      }, '📋 出場名單')
+      }, [...iconText('list', '出場名單')])
     ]);
   }
 

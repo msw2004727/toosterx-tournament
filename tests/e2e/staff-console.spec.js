@@ -99,7 +99,7 @@ test('S01 進入賽務首頁就看到自己的場地與場次，不需要任何�
 test('S02 從首頁記錄一顆進球，總共 4 次點擊 @staff', async ({ page }) => {
   await gotoApp(page, '/#/staff');
 
-  await page.getByRole('button', { name: '進入賽務台 →' }).click();          // 1
+  await page.getByRole('button', { name: '進入賽務台' }).click();          // 1
   await expect(page.locator('.sb__num').first()).toHaveText('0');
 
   await page.locator('.bigbtn', { hasText: '進球' }).click();                   // 2
@@ -142,7 +142,7 @@ test('⭐ 同一球員第二張黃牌會主動提示改記兩黃換紅 @staff', 
     await page.locator('.bigbtn', { hasText: '出牌' }).click();
     await opt(page, '臺中野狼').click();
     await opt(page, '王小明').click();
-    await opt(page, '🟨 黃牌').click();
+    await opt(page, '黃牌').click();
   };
 
   await giveYellow();
@@ -309,7 +309,7 @@ test('⭐ 部署當下模組載入失敗要能自動重試，不可停在「載�
   });
 
   await gotoApp(page, '/#/staff');
-  await page.getByRole('button', { name: '進入賽務台 →' }).click();
+  await page.getByRole('button', { name: '進入賽務台' }).click();
 
   // 重試成功 → 看得到賽務台，而不是錯誤頁
   await expect(page.locator('.sb')).toBeVisible();

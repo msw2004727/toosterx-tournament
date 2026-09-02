@@ -102,8 +102,9 @@ export function hasRole(...roles) {
 }
 
 /** 賽務以上（可記分） */
-export const canScore = () => hasRole('scorer', 'referee', 'venue_lead', 'admin', 'super_admin');
-export const isLead   = () => hasRole('venue_lead', 'admin', 'super_admin');
+export const canScore = () => hasRole('scorer', 'referee', 'admin', 'super_admin');
+// 覆核／稽核閱讀權原本屬於 venue_lead，2026-08-29 起併回 admin
+export const isLead   = () => hasRole('admin', 'super_admin');
 export const isAdmin  = () => hasRole('admin', 'super_admin');
 
 /** 是否被指派到這個場地（admin 不受限，未指派場地者視為全場地） */

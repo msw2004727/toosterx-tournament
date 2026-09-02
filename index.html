@@ -5,16 +5,34 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>FEDA CUP 2026｜飛達盃</title>
 <meta name="description" content="FEDA CUP 2026 飛達盃：賽程、即時比分、積分榜、球隊名單與現場挑戰區。">
-<meta name="theme-color" content="#0B2E20">
+<meta name="theme-color" content="#F1F5F3">
 <meta property="og:title" content="FEDA CUP 2026｜飛達盃">
 <meta property="og:description" content="從社群走向賽場・2026/10/9–11・太原足球場">
 <meta property="og:type" content="website">
+<script>
+/* 首屏主題｜必須是同步 inline，而且要在 CSS 之前。
+   放到模組裡就會先閃一下淺色再變深色（模組是 defer 的）。
+   ⚠️ 這裡的 'feda_theme' 與解析規則必須跟 js/core/theme.js 一致，
+      tests/unit/theme.test.js 有一條案例會讀這個檔案對照。 */
+(function () {
+  try {
+    var pref = null;
+    try { pref = localStorage.getItem('feda_theme'); } catch (e) {}
+    var resolved = (pref === 'light' || pref === 'dark')
+      ? pref
+      : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.dataset.theme = resolved;
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0C1210' : '#F1F5F3');
+  } catch (e) { /* 出錯就維持 CSS 的淺色預設，不能因此擋住整頁 */ }
+})();
+</script>
 <link rel="manifest" href="/manifest.json">
-<link rel="stylesheet" href="/css/tokens.css?v=0.20260829f">
-<link rel="stylesheet" href="/css/base.css?v=0.20260829f">
-<link rel="stylesheet" href="/css/components.css?v=0.20260829f">
-<link rel="stylesheet" href="/css/modules/staff.css?v=0.20260829f">
-<script>window.__APP_VERSION__ = '0.20260829f';</script>
+<link rel="stylesheet" href="/css/tokens.css?v=0.20260902">
+<link rel="stylesheet" href="/css/base.css?v=0.20260902">
+<link rel="stylesheet" href="/css/components.css?v=0.20260902">
+<link rel="stylesheet" href="/css/modules/staff.css?v=0.20260902">
+<script>window.__APP_VERSION__ = '0.20260902';</script>
 </head>
 <body>
   <div id="demo-banner" hidden></div>
@@ -22,6 +40,6 @@
   <main id="app-view" aria-live="polite"></main>
   <nav id="app-nav" aria-label="主要導覽"></nav>
   <div id="toast-root" aria-live="assertive"></div>
-  <script type="module" src="/app.js?v=0.20260829f"></script>
+  <script type="module" src="/app.js?v=0.20260902"></script>
 </body>
 </html>

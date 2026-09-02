@@ -100,16 +100,24 @@ function querySnapOf(w) {
 
 const cmp = (a, b) => (a == null ? 1 : b == null ? -1 : a < b ? -1 : a > b ? 1 : 0);
 
-/** 模擬「本機立刻生效、伺服器稍後確認」 */
+/**
+ * 模擬「本機立刻生效、伺服器稍後確認」
+ *
+ * apply(offline) 會被呼叫兩次：離線寫入的當下一次（serverTimestamp 還是 null），
+ * 恢復連線送出時再一次（這次才填得出時間）。真的 Firestore 就是這樣：
+ * 預設的 serverTimestamps: 'none' 讓還沒被伺服器確認的時間戳讀出來是 **null**。
+ * 這件事很重要——三分鐘自撤回的倒數就是靠「時間戳還是不是 null」判斷能不能開始算。
+ */
 function write(path, apply, label) {
-  apply();                                  // 本機立即生效
+  apply(!S.online);                         // 本機立即生效
   notify();
   if (S.failNext) {
     const code = S.failNext; S.failNext = null;
     return Promise.reject(Object.assign(new Error(code), { code }));
   }
   if (!S.online) {
-    return new Promise((resolve, reject) => S.pending.push({ resolve, reject, apply: () => {}, label, path }));
+    return new Promise((resolve, reject) =>
+      S.pending.push({ resolve, reject, apply: () => apply(false), label, path }));
   }
   return Promise.resolve();
 }
@@ -144,24 +152,26 @@ export function onSnapshot(ref, a, b, c) {
 }
 
 export function setDoc(ref, data, opts) {
-  return write(ref.path, () => {
+  return write(ref.path, offline => {
     const prev = opts?.merge ? (store.get(ref.path) || {}) : {};
-    store.set(ref.path, { ...prev, ...resolveSentinels(data) });
+    store.set(ref.path, { ...prev, ...resolveSentinels(data, offline) });
   });
 }
 export function updateDoc(ref, data) {
-  return write(ref.path, () => store.set(ref.path, { ...(store.get(ref.path) || {}), ...resolveSentinels(data) }));
+  return write(ref.path, offline =>
+    store.set(ref.path, { ...(store.get(ref.path) || {}), ...resolveSentinels(data, offline) }));
 }
 export function addDoc(ref, data) {
   const id = 'auto-' + Math.random().toString(36).slice(2, 10);
   const path = `${ref.path}/${id}`;
-  return write(path, () => store.set(path, resolveSentinels(data))).then(() => ({ id, path }));
+  return write(path, offline => store.set(path, resolveSentinels(data, offline)))
+    .then(() => ({ id, path }));
 }
 export const deleteDoc = ref => write(ref.path, () => store.delete(ref.path));
 
 export const serverTimestamp = () => ({ __sentinel: 'ts' });
-const resolveSentinels = obj => JSON.parse(JSON.stringify(obj, (k, v) =>
-  v && v.__sentinel === 'ts' ? new Date().toISOString() : v));
+const resolveSentinels = (obj, offline = false) => JSON.parse(JSON.stringify(obj, (k, v) =>
+  v && v.__sentinel === 'ts' ? (offline ? null : new Date().toISOString()) : v));
 
 export const Timestamp = { now: () => ({ toMillis: () => Date.now() }), fromMillis: ms => ({ toMillis: () => ms }) };
 export const setLogLevel = () => {};

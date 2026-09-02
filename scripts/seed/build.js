@@ -81,14 +81,14 @@ const BUFFER_MIN = 10;
 
 // ─── Challenge 五關 ───────────────────────────────────────────────
 const CHALLENGES = [
-  { challengeId: 'g01-nine-grid', order: 1, icon: '🎯',
+  { challengeId: 'g01-nine-grid', order: 1, icon: 'target',
     name: '九宮格射門挑戰', shortName: '九宮格', boothLocation: '攤位 1',
     description: '球門設置九宮格目標，於指定距離射門，不同位置不同分數。',
     rulesText: '每人 5 球。一般區 1 分、中難度 2 分、高難度角落 3 分，加總為總分。',
     scoreType: 'points', unit: '分', rankingRule: 'higher', decimals: 0,
     minValue: 0, maxValue: 15, inputMode: 'shots', shotCount: 5, shotOptions: [0, 1, 2, 3] },
 
-  { challengeId: 'g02-header-king', order: 2, icon: '🦘',
+  { challengeId: 'g02-header-king', order: 2, icon: 'header',
     name: 'C羅高空頭球挑戰', shortName: 'C羅頭球', boothLocation: '攤位 2',
     description: '取材自 C 羅具代表性的高空頭球，挑戰能完成多高位置的頭球。',
     rulesText: '依序挑戰各高度，完成後可挑戰下一級，紀錄成功完成的最高高度。',
@@ -96,21 +96,21 @@ const CHALLENGES = [
     minValue: 150, maxValue: 260, inputMode: 'ladder',
     ladderSteps: [180, 190, 200, 205, 210, 215, 220] },
 
-  { challengeId: 'g03-crossbar', order: 3, icon: '🎪',
+  { challengeId: 'g03-crossbar', order: 3, icon: 'crossbar',
     name: 'Ronaldinho 橫樑挑戰', shortName: '橫樑', boothLocation: '攤位 3',
     description: '取材自 Ronaldinho 經典的橫樑足球技巧，從指定距離射門擊中橫樑。',
     rulesText: '固定 5 球，紀錄擊中橫樑次數。',
     scoreType: 'count', unit: '次', rankingRule: 'higher', decimals: 0,
     minValue: 0, maxValue: 5, inputMode: 'stepper', stepperMax: 5 },
 
-  { challengeId: 'g04-speed-king', order: 4, icon: '⚡',
+  { challengeId: 'g04-speed-king', order: 4, icon: 'speed',
     name: '足球球速王', shortName: '球速王', boothLocation: '攤位 4',
     description: '使用球速雷達測量射門球速。',
     rulesText: '每人 3 球，取最高一次球速。',
     scoreType: 'speed', unit: 'km/h', rankingRule: 'higher', decimals: 0,
     minValue: 20, maxValue: 150, inputMode: 'numpad' },
 
-  { challengeId: 'g05-first-touch', order: 5, icon: '🎯',
+  { challengeId: 'g05-first-touch', order: 5, icon: 'target',
     name: '停球王挑戰', shortName: '停球王', boothLocation: '攤位 5',
     description: '利用發球設備將球送向玩家，玩家必須完成第一腳停球控制。',
     rulesText: '5 次停球。完美區 3 分、控制區 2 分、外圍 1 分、失敗 0 分。',
@@ -121,14 +121,14 @@ const CHALLENGES = [
 const DEFAULT_ATTEMPT_POLICY = { maxAttemptsPerPlayer: 3, allowRepeat: true, rankBy: 'best' };
 
 // ─── 角色權限 ─────────────────────────────────────────────────────
+// 2026-08-29：拿掉 venue_lead（場地主任）。覆核改由 admin 做，
+// captain（球隊隊長）不在這張表裡——它是球隊層級的身分，見 docs/10 §2。
 const ROLE_PERMISSIONS = {
   guest:       { perms: {} },
   booth:       { perms: { 'challenge.attempt.write': true } },
   scorer:      { perms: { 'match.score.write': true, 'checkin.write': true, 'matchsheet.write': true } },
   referee:     { perms: { 'match.score.write': true, 'checkin.write': true, 'matchsheet.write': true,
                           'match.confirm': true } },
-  venue_lead:  { perms: { 'match.score.write': true, 'checkin.write': true, 'matchsheet.write': true,
-                          'match.confirm': true, 'audit.read': true } },
   admin:       { perms: { 'match.score.write': true, 'match.score.override': true, 'match.reopen': true,
                           'checkin.write': true, 'matchsheet.write': true, 'match.confirm': true,
                           'team.manage': true, 'schedule.manage': true, 'standing.manual': true,
@@ -139,7 +139,6 @@ const ROLE_PERMISSIONS = {
 /** Demo 環境用的工作人員（safety：seed 只在 demo 專案執行） */
 const DEMO_STAFF = [
   { uid: 'demo-admin',   name: '示範管理員', roles: ['admin'],      venueIds: [],                     challengeIds: [] },
-  { uid: 'demo-lead-a',  name: '示範場地主任', roles: ['venue_lead'], venueIds: ['venue-a'],            challengeIds: [] },
   { uid: 'demo-scorer-a',name: '示範賽務A',   roles: ['scorer'],     venueIds: ['venue-a'],            challengeIds: [] },
   { uid: 'demo-scorer-b',name: '示範賽務B',   roles: ['scorer'],     venueIds: ['venue-b'],            challengeIds: [] },
   { uid: 'demo-referee', name: '示範裁判',    roles: ['referee'],    venueIds: ['venue-a', 'venue-b'], challengeIds: [] },

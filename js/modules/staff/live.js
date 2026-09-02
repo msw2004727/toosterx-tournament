@@ -12,24 +12,27 @@
  */
 
 import { el, toast, confirmDialog, sheet, buzz, emptyState, mount } from '../../core/ui.js';
+import { icon, iconText } from '../../core/icons.js';
 import { clockText, displayMinute, PERIOD_LABEL, STATUS_LABEL, hhmm } from '../../lib/format.js';
 import {
   elapsedSec, startClock, pauseClock, resetClock, nextPeriod,
   statusForPeriod, isPlayingPeriod, startTicker, now, isInAddedTime
 } from '../../core/clock.js';
-import { user, canScore, assignedToVenue, isLead } from '../../core/firebase.js';
+import { user, canScore, assignedToVenue } from '../../core/firebase.js';
 import { navigate } from '../../core/router.js';
 import {
   watchMatch, watchTimeline, getTeamRoster, getMatchSheet, getDivision,
-  patchMatch, addTimelineEvent, voidTimelineEvent, writeAudit
+  patchMatch, addTimelineEvent, voidTimelineEvent, writeAudit,
+  submitFinish, undoFinish
 } from './data.js';
 import {
   buildGoalEvent, buildCardEvent, buildSubEvent, buildPeriodEvent,
   buildFinishPatch, finishSummary, suggestCardType, sentOffPlayerIds,
   checkSubLimit, eventText, EVENT_ICON, CARD_LABEL, sortEventsDesc,
-  scoreFromTimeline, isLive
+  scoreFromTimeline, isLive, undoState, buildUndoPatch, UNDO_WINDOW_SEC
 } from './live-actions.js';
 import { syncIndicator } from './sync-indicator.js';
+import { isOnline } from '../../core/sync.js';
 
 export async function liveConsole({ params, scope, view }) {
   const { matchId } = params;
@@ -101,14 +104,14 @@ export async function liveConsole({ params, scope, view }) {
       clockPanel(m, readOnly),
       readOnly ? readOnlyNotice(m) : actionBar(m),
       timelineList(m, readOnly),
-      readOnly ? null : finishBar(m)
+      finishBar(m, readOnly)
     );
     paintClock();
   }
 
   function header(m) {
     return el('div', { class: 'live__head' }, [
-      el('button', { class: 'live__back', type: 'button', 'aria-label': '返回', onClick: () => navigate('/staff') }, '←'),
+      el('button', { class: 'live__back', type: 'button', 'aria-label': '返回', onClick: () => navigate('/staff') }, icon('back')),
       el('div', { class: 'live__title' }, [
         el('strong', { text: m.label || m.matchId }),
         el('span', { class: 'live__meta', text: `${m.venueName || m.venueId || ''}．${hhmm(m.kickoffAt)}．${STATUS_LABEL[m.status] || m.status}` })
@@ -135,7 +138,13 @@ export async function liveConsole({ params, scope, view }) {
         ].filter(Boolean))
       ]);
     };
-    return el('div', { class: 'sb' }, [mk('home'), el('span', { class: 'sb__dash', text: '-' }), mk('away')]);
+    // 中間的分隔號要跟兩側「數字那一列」對齊，所以給它一個同結構的隱形隊名列。
+    // 用 margin 硬調的話，字級一換（窄機的 --fs-score 會縮）就又跑掉了。
+    const mid = el('div', { class: 'sb__mid' }, [
+      el('span', { class: 'sb__team', 'aria-hidden': 'true', text: '　' }),
+      el('span', { class: 'sb__dash', 'aria-hidden': 'true', text: '-' })
+    ]);
+    return el('div', { class: 'sb' }, [mk('home'), mid, mk('away')]);
   }
 
   function clockPanel(m, readOnly) {
@@ -149,18 +158,18 @@ export async function liveConsole({ params, scope, view }) {
       el('div', { class: 'clockbox__minute', id: 'match-minute' }),
       readOnly ? null : el('div', { class: 'clockbox__btns' }, [
         period === 'pre'
-          ? el('button', { class: 'btn btn--lg btn--primary', type: 'button', onClick: () => startPeriod('h1') }, '▶ 開賽')
+          ? el('button', { class: 'btn btn--lg btn--primary', type: 'button', onClick: () => startPeriod('h1') }, iconText('play', '開賽'))
           : period === 'ht'
-            ? el('button', { class: 'btn btn--lg btn--primary', type: 'button', onClick: () => startPeriod('h2') }, '▶ 開始下半場')
+            ? el('button', { class: 'btn btn--lg btn--primary', type: 'button', onClick: () => startPeriod('h2') }, iconText('play', '開始下半場'))
             : period === 'ft'
               ? null
               : el('button', {
                   class: 'btn btn--lg', type: 'button',
                   onClick: () => (running ? pause() : resume())
-                }, running ? '⏸ 暫停' : '▶ 繼續'),
+                }, running ? iconText('pause', '暫停') : iconText('play', '繼續')),
         canPlay ? el('button', {
           class: 'btn btn--lg btn--ghost', type: 'button', onClick: () => endPeriod()
-        }, `⏹ 結束${PERIOD_LABEL[period]}`) : null
+        }, iconText('stop', `結束${PERIOD_LABEL[period]}`)) : null
       ].filter(Boolean))
     ].filter(Boolean));
   }
@@ -179,26 +188,41 @@ export async function liveConsole({ params, scope, view }) {
       mi.textContent = txt;
       mi.classList.toggle('is-added', isInAddedTime(m.clock, m.period, dur));
     }
+
+    // 撤回倒數：只換數字。歸零的那一秒重畫整列，把按鈕換成說明文字。
+    const left = document.getElementById('undo-left');
+    if (left) {
+      const u = undoState({ match: m, nowMs: now(), online: isOnline(), uid: user()?.uid ?? null });
+      if (!u.can) render();
+      else left.textContent = mmss(u.leftSec);
+    }
   }
 
   function actionBar(m) {
     return el('div', { class: 'actions' }, [
-      bigBtn('⚽', '進球', () => flowGoal()),
-      bigBtn('🟨', '出牌', () => flowCard()),
-      bigBtn('⇄', '換人', () => flowSub())
+      bigBtn('goal', '進球', () => flowGoal()),
+      bigBtn('card', '出牌', () => flowCard(), 'icon--card-fill icon--yellow'),
+      bigBtn('sub',  '換人', () => flowSub())
     ]);
   }
 
-  function bigBtn(icon, label, onClick) {
+  // 參數叫 iconName 而不是 icon：叫 icon 會蓋掉上面 import 進來的 icon()
+  function bigBtn(iconName, label, onClick, iconCls) {
     return el('button', { class: 'bigbtn', type: 'button', onClick }, [
-      el('span', { class: 'bigbtn__icon', 'aria-hidden': 'true', text: icon }),
+      el('span', { class: 'bigbtn__icon' }, icon(iconName, { cls: iconCls })),
       el('span', { class: 'bigbtn__label', text: label })
     ]);
   }
 
   function readOnlyNotice(m) {
+    // 還在自撤回視窗內時不要說「需要管理員解鎖」——下面那一列就有撤回按鈕，
+    // 兩句話互相矛盾會讓賽務直接放棄，改去打電話。
+    const canUndo = undoState({
+      match: m, nowMs: now(), online: isOnline(), uid: user()?.uid ?? null
+    }).can;
     const why = !canScore() ? '你的帳號沒有記分權限。'
-      : !assignedToVenue(m.venueId) ? '這個場次不在你被指派的場地，請找場地主任處理。'
+      : !assignedToVenue(m.venueId) ? '這個場次不在你被指派的場地，請聯絡管理員調整指派。'
+      : canUndo ? '這場已送出完賽。要修改請先用下方的「撤回完賽」。'
       : '這場已完賽並鎖定，需要管理員解鎖才能修改。';
     return el('div', { class: 'notice notice--warn' }, [
       el('strong', { text: '唯讀模式' }),
@@ -220,25 +244,94 @@ export async function liveConsole({ params, scope, view }) {
       class: `tl__item ${e.voided ? 'is-voided' : ''} tl__item--${e.side}`
     }, [
       el('span', { class: 'tl__min num', text: displayMinute(e.clockSec ?? 0, e.periodId, dur) }),
-      el('span', { class: 'tl__icon', 'aria-hidden': 'true', text: EVENT_ICON[e.type] || '•' }),
+      // 黃牌與紅牌要一眼分得出來——裁判在陽光下掃時間軸，靠的是顏色不是文字
+      el('span', { class: 'tl__icon' }, icon(EVENT_ICON[e.type] || 'note', {
+        cls: e.type === 'card'
+          ? `icon--card-fill ${e.cardType === 'yellow' ? 'icon--yellow' : 'icon--red'}`
+          : undefined
+      })),
       el('span', { class: 'tl__text', text: eventText(e) }),
       el('span', { class: 'tl__team', text: teamNameOf(e.side) }),
       (!readOnly && !e.voided)
-        ? el('button', { class: 'tl__more', type: 'button', 'aria-label': '修正這筆事件', onClick: () => voidFlow(e) }, '⋯')
+        ? el('button', { class: 'tl__more', type: 'button', 'aria-label': '修正這筆事件', onClick: () => voidFlow(e) }, icon('more'))
         : null
     ].filter(Boolean)))));
     return wrap;
   }
 
-  function finishBar(m) {
-    if (m.period === 'ft' || m.status === 'finished') {
-      return el('div', { class: 'finishbar' }, [
-        el('p', { class: 'finishbar__done', text: '已送出，積分榜更新中…' })
+  /**
+   * 底部主要動作列。
+   *
+   * ⚠️ 完賽當下就會 lock.locked = true，整頁進入唯讀——但撤回列**必須**留著，
+   *    否則三分鐘自撤回這個功能等於不存在（第一版就是這樣寫的，
+   *    E2E「完賽並鎖定後進入唯讀模式」剛好蓋不到，差點就出去了）。
+   */
+  function finishBar(m, readOnly) {
+    const submitted = m.status === 'finished' || m.status === 'confirmed' || m.period === 'ft';
+    if (submitted) return el('div', { class: 'finishbar' }, [undoBar(m)]);
+    if (readOnly) return null;
+    return el('div', { class: 'finishbar' }, [
+      el('button', { class: 'btn btn--xl btn--primary', type: 'button', onClick: () => flowFinish() }, iconText('check', '完賽送出'))
+    ]);
+  }
+
+  /**
+   * 完賽之後的那一列：三分鐘內可以自己撤回（docs/10 §5.3）。
+   *
+   * 倒數的 DOM 由 paintClock() 每秒更新，不重畫整列——重畫會把手指下的
+   * 按鈕抽掉。離線時這裡不會有倒數，只有一句「待同步」，
+   * 因為此時根本不知道伺服器認可的送出時間（見 undoState 的註解）。
+   */
+  function undoBar(m) {
+    const u = undoState({
+      match: m, nowMs: now(), online: isOnline(),
+      uid: user()?.uid ?? null
+    });
+
+    if (!u.can) {
+      return el('div', { class: 'undobar' }, [
+        el('p', { class: 'undobar__msg', id: 'undo-msg', text: u.reason || '已送出，積分榜更新中…' })
       ]);
     }
-    return el('div', { class: 'finishbar' }, [
-      el('button', { class: 'btn btn--xl btn--primary', type: 'button', onClick: () => flowFinish() }, '✅ 完賽送出')
+    return el('div', { class: 'undobar' }, [
+      el('p', { class: 'undobar__msg' }, [
+        document.createTextNode('已送出。發現記錯了？'),
+        el('span', { class: 'undobar__left num', id: 'undo-left', text: mmss(u.leftSec) }),
+        document.createTextNode(' 內可自行撤回。')
+      ]),
+      el('button', {
+        class: 'btn btn--ghost', type: 'button', onClick: () => flowUndo()
+      }, iconText('undo', '撤回完賽'))
     ]);
+  }
+
+  const mmss = sec => `${Math.floor(Math.max(0, sec) / 60)}:${String(Math.max(0, sec) % 60).padStart(2, '0')}`;
+
+  async function flowUndo() {
+    const m = state.match;
+    const u = undoState({ match: m, nowMs: now(), online: isOnline(), uid: user()?.uid ?? null });
+    if (!u.can) { toast(u.reason, 'warn'); render(); return; }
+
+    const ok = await confirmDialog({
+      title: '撤回完賽',
+      body: '場次會退回「進行中」，比分與所有事件都保留，計時歸零。撤回後請記得重新送出完賽。',
+      confirmText: '撤回', tone: 'danger'
+    });
+    if (!ok) return;
+
+    const patch = buildUndoPatch({ uid: user()?.uid ?? null, events: state.events });
+    const { promise } = undoFinish(matchId, patch, `撤回完賽　${m.label || matchId}`);
+    writeAudit({
+      entity: 'match', entityId: matchId, action: 'match.finish.undo',
+      before: { status: 'finished' }, after: { status: 'live' },
+      reason: `送出者三分鐘內自行撤回（剩 ${u.leftSec} 秒）`
+    });
+    toast('已送出撤回。狀態請看右上角的燈號。', 'success');
+    promise.then(r => {
+      if (r.state !== 'saved') {
+        toast(`撤回沒有成功：${r.error?.message ?? ''}　場次仍然是已完賽。`, 'error');
+      }
+    });
   }
 
   const teamNameOf = side => (side === 'home' || side === 'away')
@@ -317,7 +410,7 @@ export async function liveConsole({ params, scope, view }) {
     // 而且失敗的那筆會出現在待重送清單，不會靜靜消失。
     patchMatch(matchId, { score: nextScore }, `比分 ${nextScore.home}:${nextScore.away}`, { kind: 'score' });
     addTimelineEvent(matchId, event, `記錄進球　${player.displayName ? '#' + (player.jerseyNo ?? '') + ' ' + player.displayName : '未指定球員'}`);
-    toast(`已記錄 ⚽ ${player.displayName ? playerShort(player) : '進球'}`, 'success');
+    toast(`已記錄進球　${player.displayName ? playerShort(player) : '（未指定球員）'}`, 'success');
   }
 
   const playerShort = p => `${p.jerseyNo != null ? '#' + p.jerseyNo + ' ' : ''}${p.displayName || p.name || ''}`;
@@ -335,9 +428,9 @@ export async function liveConsole({ params, scope, view }) {
       title: `${playerShort(player)} 的卡片`,
       columns: 1,
       options: [
-        { value: 'yellow', label: '🟨 黃牌' },
-        { value: 'second_yellow', label: '🟨🟥 兩黃換紅' },
-        { value: 'red', label: '🟥 直接紅牌' }
+        { value: 'yellow', label: '黃牌', iconName: 'card', iconCls: 'icon--yellow icon--card-fill' },
+        { value: 'second_yellow', label: '兩黃換紅', iconName: 'card', iconCls: 'icon--red icon--card-fill' },
+        { value: 'red', label: '直接紅牌', iconName: 'card', iconCls: 'icon--red icon--card-fill' }
       ]
     });
     if (!cardType) return;
@@ -385,7 +478,7 @@ export async function liveConsole({ params, scope, view }) {
     if (!inP?.memberId) return;
 
     addTimelineEvent(matchId, buildSubEvent({ ...ctxFor(side), outPlayer: outP, inPlayer: inP }),
-      `記錄換人　${playerShort(outP)} ↓ ${playerShort(inP)} ↑`);
+      `記錄換人　${playerShort(outP)} 下場／${playerShort(inP)} 上場`);
     buzz(30);
     toast(`已記錄換人（本隊第 ${chk.used + 1} 人次）`, 'success');
   }
@@ -488,10 +581,8 @@ export async function liveConsole({ params, scope, view }) {
       el('p', { class: 'finish__score num', text: `${s.home}　${s.score}　${s.away}` }),
       s.htScore ? el('p', { class: 'finish__ht', text: `半場 ${s.htScore}` }) : null,
       el('p', { class: 'finish__count', text: `事件 ${s.eventCount} 筆` }),
-      el('p', {
-        class: `finish__check ${s.consistency.ok ? 'is-ok' : 'is-warn'}`,
-        text: (s.consistency.ok ? '✅ ' : '⚠️ ') + s.consistency.message
-      })
+      el('p', { class: `finish__check ${s.consistency.ok ? 'is-ok' : 'is-warn'}` },
+        iconText(s.consistency.ok ? 'check' : 'warn', s.consistency.message))
     ].filter(Boolean));
 
     const ok = await confirmDialog({ title: '確認完賽', body, confirmText: '確認完賽' });
@@ -502,7 +593,9 @@ export async function liveConsole({ params, scope, view }) {
       events: state.events, uid: user()?.uid ?? null
     });
 
-    const { promise } = patchMatch(matchId, patch, `完賽送出　${s.home} ${s.score} ${s.away}`, { kind: 'finish' });
+    // 用 submitFinish 而不是 patchMatch：它會補上伺服器時間的 scoreSubmittedAt，
+    // 三分鐘自撤回的視窗完全靠那個欄位算（rules 分支 D）。
+    const { promise } = submitFinish(matchId, patch, `完賽送出　${s.home} ${s.score} ${s.away}`);
 
     // ⚠️ 不 await 這個 promise 來決定要不要顯示成功。
     //    離線時它永遠不會 resolve，畫面會卡住，賽務會以為當機而重複點擊。
@@ -510,8 +603,9 @@ export async function liveConsole({ params, scope, view }) {
     toast('已記錄完賽。狀態請看右上角：綠燈＝已儲存，黃燈＝待同步。', 'success');
     promise.then(r => {
       if (r.state === 'saved') {
-        toast('已送出，積分榜更新中…', 'success');
-        setTimeout(() => navigate('/staff'), 3000);
+        // 不自動跳回首頁：三分鐘的撤回視窗要留在這一頁才按得到。
+        toast('已送出，積分榜更新中。三分鐘內在下方可以自行撤回。', 'success');
+        render();
       } else {
         toast(`完賽尚未送出：${r.error?.message ?? ''}`, 'error');
       }

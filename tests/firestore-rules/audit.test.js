@@ -37,9 +37,9 @@ describe('稽核日誌', () => {
     }));
   });
 
-  test('附加：一般賽務不可讀稽核日誌，場地主任以上才可以', async () => {
+  test('附加：一般賽務不可讀稽核日誌，Admin 才可以', async () => {
     await assertFails(getDoc(auditRef(authed(env, 'u-scorer'))));
-    await assertSucceeds(getDoc(auditRef(authed(env, 'u-lead'))));
+    await assertFails(getDoc(auditRef(authed(env, 'u-referee'))));
     await assertSucceeds(getDoc(auditRef(authed(env, 'u-admin'))));
   });
 });

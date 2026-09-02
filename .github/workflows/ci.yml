@@ -20,16 +20,55 @@ jobs:
       - name: Version consistency (config.js / sw.js / index.html / package.json)
         run: node scripts/bump-version.js --check
 
+      # 這一條原本寫成 grep -rlIz -P 的 NUL 樣式，看起來很對，實測**永遠不會命中**：
+      #   -I 把含 NUL 的檔案當成二進位直接跳過，
+      #   -z 又把 NUL 當成行分隔符（分隔符不屬於行內容，樣式沒東西可匹配）。
+      # 也就是說 R-SRC-001 曾經有一盞紅不起來的綠燈，正是 R-TEST-001 講的那種。
+      # 改成 Node 直接讀 bytes，附帶好處是 Windows 上也跑得動。
       - name: No NUL bytes in source files
         run: |
-          set -e
-          if grep -rlIz -P '\x00' --include='*.js' --include='*.json' \
-               --include='*.md' --include='*.html' --include='*.css' \
-               --include='*.rules' --include='*.yml' . \
-               --exclude-dir=node_modules --exclude-dir=.git | grep .; then
-            echo "Files above contain NUL bytes; git will treat them as binary."
-            exit 1
-          fi
+          node -e "
+            const fs=require('fs'),path=require('path');
+            const EXT=new Set(['.js','.cjs','.mjs','.json','.md','.html','.css','.rules','.yml','.yaml']);
+            const SKIP=new Set(['node_modules','.git','coverage','test-results','playwright-report']);
+            const bad=[];
+            (function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){
+              if(SKIP.has(e.name)) continue;
+              const p=path.join(d,e.name);
+              if(e.isDirectory()) walk(p);
+              else if(EXT.has(path.extname(e.name)) && fs.readFileSync(p).includes(0)) bad.push(p);
+            }})('.');
+            if(bad.length){
+              console.error('R-SRC-001: NUL bytes found; git will treat these as binary:');
+              console.error(bad.join('\n')); process.exit(1);
+            }
+            console.log('OK');
+          "
+
+      # 主題只能靠 <html data-theme>。CSS 裡一旦冒出 prefers-color-scheme，
+      # 使用者選的「淺色」就會在深色系統下被 media query 蓋回去（R-UI-005）。
+      # 這裡擋的是 css/**；base.css 的 prefers-reduced-motion 不在此限。
+      - name: Theme is driven only by data-theme
+        run: |
+          node -e "
+            const fs=require('fs'),path=require('path');
+            const files=[];(function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){
+              const p=path.join(d,e.name); e.isDirectory()?walk(p):e.name.endsWith('.css')&&files.push(p);}})('css');
+            const bad=[];
+            for(const f of files){
+              // 註解裡提到它是可以的（那是在解釋為什麼不用），實際的 at-rule 才不行
+              const src=fs.readFileSync(f,'utf8').replace(/\/\*[\s\S]*?\*\//g,'');
+              if(/@media[^{;]*prefers-color-scheme/.test(src)) bad.push(f);
+            }
+            if(bad.length){
+              console.error('R-UI-005: css must not branch on prefers-color-scheme; resolve it into data-theme in js/core/theme.js');
+              console.error(bad.join('\n')); process.exit(1);
+            }
+            if(!fs.readFileSync('css/tokens.css','utf8').includes('[data-theme=\"dark\"]')){
+              console.error('css/tokens.css must define the dark palette under [data-theme=\"dark\"]'); process.exit(1);
+            }
+            console.log('OK');
+          "
 
       - name: Cache headers cover unversioned modules
         run: |
@@ -50,7 +89,7 @@ jobs:
           node --check functions/index.js
 
   unit-tests:
-    name: Engine unit tests (T01-T16)
+    name: Unit tests (engine T01-T31 + staff core + theme/icons/undo)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -86,7 +125,7 @@ jobs:
           retention-days: 7
 
   rules-tests:
-    name: Firestore rules tests (R01-R23)
+    name: Firestore rules tests (R01-R31)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

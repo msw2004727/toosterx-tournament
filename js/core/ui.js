@@ -7,6 +7,8 @@
  * 這個檔案是唯一允許組 HTML 字串的地方，其餘模組請用這裡的 h() 或直接操作 DOM。
  */
 
+import { icon } from './icons.js';
+
 /** HTML 逸出。所有來自 Firestore 的文字進模板前都要過這一關。 */
 export function escapeHTML(v) {
   return String(v ?? '')
@@ -74,7 +76,7 @@ export function toast(message, kind = 'success', { action } = {}) {
   const node = el('div', { class: `toast toast--${kind}`, role: kind === 'error' ? 'alert' : 'status' }, [
     el('span', { class: 'toast__msg', text: message }),
     action && el('button', { class: 'toast__action', type: 'button', onClick: () => { action.onClick?.(); close(); } }, action.label),
-    kind === 'error' && el('button', { class: 'toast__close', type: 'button', 'aria-label': '關閉', onClick: () => close() }, '✕')
+    kind === 'error' && el('button', { class: 'toast__close', type: 'button', 'aria-label': '關閉', onClick: () => close() }, icon('close'))
   ].filter(Boolean));
 
   root.append(node);
@@ -137,7 +139,7 @@ export function sheet({ title, options, onPick, columns = 1 }) {
       el('div', { class: 'sheet__panel' }, [
         el('div', { class: 'sheet__head' }, [
           el('h2', { class: 'sheet__title', text: title }),
-          el('button', { class: 'sheet__close', type: 'button', 'aria-label': '取消', onClick: () => finish(null) }, '✕')
+          el('button', { class: 'sheet__close', type: 'button', 'aria-label': '取消', onClick: () => finish(null) }, icon('close'))
         ]),
         el('div', { class: `sheet__grid sheet__grid--${columns}` },
           options.map(o => el('button', {
@@ -145,6 +147,7 @@ export function sheet({ title, options, onPick, columns = 1 }) {
             type: 'button', disabled: o.disabled || false,
             onClick: () => finish(o.value)
           }, [
+            o.iconName ? el('span', { class: 'sheet__opt-icon' }, icon(o.iconName, { cls: o.iconCls })) : null,
             o.sub != null ? el('span', { class: 'sheet__opt-sub', text: o.sub }) : null,
             el('span', { class: 'sheet__opt-main', text: o.label }),
             o.note ? el('span', { class: 'sheet__opt-note', text: o.note }) : null
@@ -173,8 +176,9 @@ export function skeleton(lines = 3) {
   return el('div', { class: 'skeleton' }, Array.from({ length: lines }, () => el('div', { class: 'skeleton__line' })));
 }
 
-export function emptyState({ title, note, actionLabel, onAction }) {
+export function emptyState({ title, note, actionLabel, onAction, iconName }) {
   return el('div', { class: 'empty' }, [
+    iconName ? el('span', { class: 'empty__icon' }, icon(iconName)) : null,
     el('p', { class: 'empty__title', text: title }),
     note ? el('p', { class: 'empty__note', text: note }) : null,
     actionLabel ? el('button', { class: 'btn btn--primary', type: 'button', onClick: onAction }, actionLabel) : null

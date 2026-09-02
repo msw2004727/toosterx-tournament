@@ -20,7 +20,7 @@ service cloud.firestore {
 
     // ⚠️ 效能鐵則：Firestore rules 每個請求最多評估 1000 個運算式。
     //    角色判斷一律經過 myRoles()，**不要**再寫 isA() 呼叫 isB() 的巢狀鏈
-    //    （例如 isScorer → isLead → isAdmin → hasRole → isStaff），
+    //    （例如 isScorer → isAdmin → hasRole → isStaff），
     //    那會把 staff 文件重複展開數十次，很容易撞到上限，
     //    讓「合法」的寫入也被判 PERMISSION_DENIED。
     function myRoles() {
@@ -31,10 +31,13 @@ service cloud.firestore {
     function isStaff()      { return myRoles().size() > 0; }
     function isSuperAdmin() { return myRoles().hasAny(['super_admin']); }
     function isAdmin()      { return myRoles().hasAny(['admin', 'super_admin']); }
-    function isLead()       { return myRoles().hasAny(['admin', 'super_admin', 'venue_lead']); }
-    function isScorer()     { return myRoles().hasAny(['admin', 'super_admin', 'venue_lead',
+    // 2026-08-29：拿掉 venue_lead（場地主任）。現場一天只有三個場地，
+    // 多一層「可以覆核但不能退回」的角色沒有帶來實質好處，卻讓每條規則
+    // 都要多列一個字串、每次權限爭議都要先問「他是主任還是 admin」。
+    // 覆核（finished → confirmed）改由 Admin 做。
+    function isScorer()     { return myRoles().hasAny(['admin', 'super_admin',
                                                         'scorer', 'referee']); }
-    function isBooth()      { return myRoles().hasAny(['admin', 'super_admin', 'venue_lead', 'booth']); }
+    function isBooth()      { return myRoles().hasAny(['admin', 'super_admin', 'booth']); }
 
     // ── 指派範圍 ─────────────────────────────────────────────
     // 只有非 admin 才會走到 myAssignment()，此時 staff 文件必定存在
@@ -63,7 +66,7 @@ service cloud.firestore {
         && d.get('active', false) == true
         && d.roles is list
         && d.roles.size() > 0
-        && d.roles.hasOnly(['scorer', 'referee', 'venue_lead', 'booth']);
+        && d.roles.hasOnly(['scorer', 'referee', 'booth']);
     }
 
     // ── 欄位控制 ─────────────────────────────────────────────
@@ -75,6 +78,28 @@ service cloud.firestore {
     }
     function validScore(v) {
       return v is int && v >= 0 && v <= 99;
+    }
+
+    // scoreSubmittedAt 只能保持原樣，或被寫成「這一次請求的伺服器時間」
+    // （也就是客戶端用 serverTimestamp() 寫的值）。
+    // 沒有這一條的話，賽務可以先塞一個很遠的未來時間進去，
+    // 讓下面 (D) 的三分鐘視窗變成無限期。
+    function serverStampedSubmit() {
+      return request.resource.data.get('scoreSubmittedAt', null)
+               == resource.data.get('scoreSubmittedAt', null)
+          || request.resource.data.get('scoreSubmittedAt', null) == request.time
+          || request.resource.data.get('scoreSubmittedAt', null) == null;
+    }
+
+    // 完賽就必須同時上鎖。
+    // 沒有這一條的話，賽務只要在送出完賽時「不寫 lock.locked = true」，
+    // 場次就會停在「已完賽但未鎖定」——分支 (B) 的 lock.locked == false 永遠成立，
+    // 於是已完賽的比分可以被無限期改寫，而且完全不受三分鐘視窗約束。
+    // 「完賽即鎖定」是自撤回設計的前提，前提本身必須由規則守住，
+    // 不能只靠客戶端的 buildFinishPatch 有沒有好好填。
+    function finishMustLock() {
+      return request.resource.data.status != 'finished'
+          || request.resource.data.lock.locked == true;
     }
 
     // 非 Admin 分支專用的狀態機。
@@ -155,14 +180,41 @@ service cloud.firestore {
                && validScore(request.resource.data.score.home)
                && validScore(request.resource.data.score.away)
                && unchanged('home') && unchanged('away')
-               && unchanged('divisionId') && unchanged('stageId') )
+               && unchanged('divisionId') && unchanged('stageId')
+               && serverStampedSubmit()
+               && finishMustLock() )
 
-          // (C) 場地主任覆核：已鎖定的 finished 也能改成 confirmed，但只准動 status
-          || ( isLead()
-               && assignedVenue(resource.data.venueId)
+          // (C) 覆核：已鎖定的 finished 改成 confirmed，只准動 status。
+          //     這一支現在只有 Admin 走得到（isAdmin() 在 (A) 已經全開），
+          //     保留條文是為了讓「覆核」這個動作在規則裡看得見，
+          //     日後若要再開給某個受限角色，改這一行就好。
+          || ( isAdmin()
                && resource.data.status == 'finished'
                && request.resource.data.status == 'confirmed'
                && onlyChanged(['status', 'updatedAt', 'updatedBy'])
+               && request.resource.data.updatedBy == uid() )
+
+          // (D) 三分鐘自撤回：送出完賽的人本人，可以在三分鐘內把場次退回進行中。
+          //     （docs/10 §5.3。這是 (B) 走不到的路徑——完賽當下已經 lock.locked = true。）
+          //
+          //     時間基準完全在伺服器手上：
+          //       resource.data.scoreSubmittedAt  ← 上一次寫入時的 request.time（見 serverStampedSubmit）
+          //       request.time                    ← 這一次的伺服器時間
+          //     所以把手機時間往回調沒有用，離線放著等一小時再送也沒有用。
+          //     ⚠️ 三分鐘這個數字與 js/modules/staff/live-actions.js 的
+          //        UNDO_WINDOW_SEC 必須一致，改一邊要改兩邊（R09b 測試會抓）。
+          || ( isScorer()
+               && assignedVenue(resource.data.venueId)
+               && resource.data.status == 'finished'
+               && resource.data.get('scoreSubmittedBy', '') == uid()
+               && resource.data.get('scoreSubmittedAt', null) != null
+               && request.time < resource.data.scoreSubmittedAt + duration.value(3, 'm')
+               && request.resource.data.status == 'live'
+               && request.resource.data.lock.locked == false
+               && request.resource.data.get('scoreSubmittedAt', null) == null
+               && onlyChanged(['status', 'period', 'lock', 'result',
+                               'scoreSubmittedAt', 'scoreSubmittedBy',
+                               'updatedAt', 'updatedBy'])
                && request.resource.data.updatedBy == uid() );
 
         // ── 比賽事件：永不刪除，只作廢 ──
@@ -267,7 +319,7 @@ service cloud.firestore {
 
       // ── 稽核：只能新增，不可改不可刪 ──
       match /audits/{auditId} {
-        allow read:   if isLead();
+        allow read:   if isAdmin();
         allow create: if isStaff() && request.resource.data.actor.uid == uid();
         allow update, delete: if false;
       }
@@ -292,7 +344,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     match /staff/{u} {
-      allow read:  if isAuth() && (u == uid() || isLead());
+      allow read:  if isAuth() && (u == uid() || isAdmin());
       allow write: if isAdmin();
 
       // ── Demo 專用：自助建立工作人員身分 ──────────────────────

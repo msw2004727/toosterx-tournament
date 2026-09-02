@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20260829f';
+export const CACHE_VERSION = '0.20260902';
 
 /** 本次活動。未來要辦第二場時，這裡改成從路由或設定讀取。 */
 export const EVENT_ID = 'feda-cup-2026';
@@ -32,10 +32,13 @@ export const MATCH_STATUS = [
 /** 比賽期別 */
 export const PERIODS = ['pre', 'h1', 'ht', 'h2', 'et1', 'et2', 'pk', 'ft'];
 
-/** 角色（與 07-權限安全 §1.1 一致） */
+/** 角色（與 07-權限安全 §1.1 一致）
+ *  2026-08-29：拿掉 venue_lead，新增 captain（球隊隊長，見 docs/10 §2）。
+ *  captain 不是 staff 角色——它是「某一隊的隊長」，寫在 teams/{id}.captainUid，
+ *  這裡列出來只是為了讓 UI 有一個統一的角色字典。 */
 export const ROLES = [
-  'guest', 'player', 'booth', 'scorer', 'referee',
-  'venue_lead', 'admin', 'super_admin'
+  'guest', 'player', 'captain', 'booth', 'scorer', 'referee',
+  'admin', 'super_admin'
 ];
 
 /** Challenge 成績型態 */

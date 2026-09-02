@@ -9,6 +9,8 @@
 
 import { IS_DEMO, ENV } from './js/firebase-config.js';
 import { EVENT } from './js/config.js';
+import { iconText } from './js/core/icons.js';
+import { themeSwitch } from './js/core/theme.js';
 
 const App = {
   env: ENV,
@@ -20,6 +22,12 @@ const App = {
 window.App = App;
 
 async function boot() {
+  // 主題要在任何畫面出現之前就定案。首屏的 data-theme 由 index.html 的
+  // inline script 設好，這裡接手三態偏好、系統變化與跨分頁同步。
+  const { initTheme } = await import('./js/core/theme.js');
+  initTheme();
+  mountAppHeader();
+
   const { initFirebase } = await import('./js/core/firebase.js');
   const { initRouter, route, navigate } = await import('./js/core/router.js');
   const { initSync } = await import('./js/core/sync.js');
@@ -73,6 +81,29 @@ function watchForNewVersion() {
   if (navigator.serviceWorker.controller) sessionStorage.setItem('sw-claimed', '1');
 }
 
+/**
+ * 全站頁首只放主題切換。
+ * 賽務端有自己的頁首（.staff__head），所以進到 /staff 之後這一列會收起來，
+ * 由 staffHome 自己那顆切換接手——否則畫面上會同時出現兩個。
+ */
+function mountAppHeader() {
+  const host = document.getElementById('app-header');
+  if (!host) return;
+  const sync = () => {
+    const inStaff = location.hash.startsWith('#/staff');
+    if (inStaff) { host.replaceChildren(); return; }
+    if (host.firstElementChild) return;      // 已經有了就不要重建，切換會閃
+    const bar = document.createElement('div');
+    bar.className = 'apphead';
+    const spacer = document.createElement('div');
+    spacer.className = 'apphead__spacer';
+    bar.append(spacer, themeSwitch());
+    host.replaceChildren(bar);
+  };
+  sync();
+  window.addEventListener('hashchange', sync);
+}
+
 function landing(navigate) {
   const wrap = document.createElement('div');
   wrap.className = 'landing';
@@ -92,7 +123,7 @@ function landing(navigate) {
   const btn = document.createElement('button');
   btn.className = 'btn btn--xl btn--primary';
   btn.type = 'button';
-  btn.textContent = '進入賽務端 →';
+  btn.append(...iconText('forward', '進入賽務端', { trailing: true }));
   btn.addEventListener('click', () => navigate('/staff'));
 
   wrap.append(h, p, note, btn);

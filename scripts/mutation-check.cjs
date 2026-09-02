@@ -98,6 +98,70 @@ const MUTANTS = [
     file: 'js/engine/ranking.js',
     from: `      const sub = orderTied(bucket, ctx, 0);`,
     to: `      const sub = { ordered: [...bucket], unresolved: false };`
+  },
+
+  // ── M3.5：主題、圖示、三分鐘自撤回 ──────────────────────
+  {
+    name: '#13 離線也給撤回（會在恢復連線時被 rules 擋掉 → 假成功）',
+    file: 'js/modules/staff/live-actions.js',
+    from: `  if (online !== true || pendingWrite === true) {`,
+    to: `  if (false) {`
+  },
+  {
+    name: '#14 用 Number() 換算送出時間（null → 1970 → 誤判「已超過三分鐘」）',
+    file: 'js/modules/staff/live-actions.js',
+    from: `  if (v == null) return null;`,
+    to: `  if (v == null) return Number(v);`
+  },
+  {
+    name: '#15 誰都能撤回別人送出的完賽',
+    file: 'js/modules/staff/live-actions.js',
+    from: `  if (!uid || match.scoreSubmittedBy !== uid) {`,
+    to: `  if (false) {`
+  },
+  {
+    name: '#16 覆核之後仍可自撤回（改動已認可的成績）',
+    file: 'js/modules/staff/live-actions.js',
+    from: `  if (match.status === 'confirmed') return no('主辦已覆核這場成績，要更正請找管理員。');`,
+    to: ``
+  },
+  {
+    name: '#17 撤回一律退回下半場（延長賽／PK 會被退錯期別）',
+    file: 'js/modules/staff/live-actions.js',
+    from: `  return best?.periodId ?? 'h2';`,
+    to: `  return 'h2';`
+  },
+  {
+    name: '#18 主題偏好把 system 正規化成 light（使用者再也回不去跟隨系統）',
+    file: 'js/core/theme.js',
+    from: `  return THEME_PREFS.includes(raw) ? raw : 'system';`,
+    to: `  return THEME_PREFS.includes(raw) ? raw : 'light';`
+  },
+  {
+    name: '#19 明確選了淺色仍被系統的深色蓋過去',
+    file: 'js/core/theme.js',
+    from: `  if (pref === 'light' || pref === 'dark') return pref;`,
+    to: `  if (pref === 'dark') return pref;`
+  },
+  {
+    name: '#20 EVENT_ICON 改回 emoji（跨平台形狀不一、深色無法換色）',
+    file: 'js/modules/staff/live-actions.js',
+    from: `  goal: 'goal', own_goal: 'goal', penalty_scored: 'goal', penalty_missed: 'close',`,
+    to: `  goal: '⚽', own_goal: 'goal', penalty_scored: 'goal', penalty_missed: 'close',`
+  },
+  {
+    name: '#21 rules 的 finishMustLock() 被架空（完賽可以不上鎖 → 已完賽的比分無限期可改）',
+    file: 'firestore.rules',
+    from: `      return request.resource.data.status != 'finished'
+          || request.resource.data.lock.locked == true;`,
+    to: `      return true;`
+  },
+  {
+    name: '#22 分支 (B) 沒有呼叫 finishMustLock()（函式寫對了也沒用）',
+    file: 'firestore.rules',
+    from: `               && serverStampedSubmit()
+               && finishMustLock() )`,
+    to: `               && serverStampedSubmit() )`
   }
 ];
 

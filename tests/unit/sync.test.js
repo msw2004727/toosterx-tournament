@@ -87,7 +87,7 @@ describe('錯誤訊息要說下一步', () => {
       expect(d.message.length).toBeGreaterThan(8);
       expect(d.message).not.toMatch(/^驗證失敗$/);
     }
-    expect(describeError(fsError('permission-denied')).message).toContain('場地主任');
+    expect(describeError(fsError('permission-denied')).message).toContain('管理員');
   });
 
   test('未知錯誤也給得出下一步', () => {

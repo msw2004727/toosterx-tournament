@@ -1,0 +1,141 @@
+/**
+ * 圖示
+ * ------------------------------------------------------------------
+ * 規格：docs/08 §2.5、docs/10 §7
+ *
+ * 為什麼不用 emoji：
+ *   1. 每個平台長得都不一樣。🟨 在 Android 是圓角、iOS 是方角、Windows 有邊框，
+ *      裁判要在陽光下一眼分辨黃紅牌，這種差異不能接受。
+ *   2. 顏色寫死在字型裡，深色主題下 ⚪ 會整顆消失在白底、🔴 在深底過亮。
+ *   3. 字級一大就糊，⚽ 在 28px 以上會看到 emoji 字型的點陣邊緣。
+ *   4. 螢幕閱讀器會把 ⚽ 念成「足球」混在句子裡。
+ *
+ * 全部 24×24、stroke=currentColor、fill=none，所以顏色一律由 CSS 決定，
+ * 主題切換不需要換圖。sprite 直接內嵌在 JS 裡而不是外部 icons.svg：
+ * 外部檔要多一次請求，而且 <use href="外部檔#id"> 在 file:// 與 E2E 的
+ * 假環境下都拿不到；內嵌只有約 4KB，跟著模組一起帶版號（R-REL-015）。
+ */
+
+const P = {
+  /* 賽事 */
+  goal:        '<circle cx="12" cy="12" r="9"/><path d="m12 6.6 5.2 3.8-2 6.1H8.8l-2-6.1z"/>',
+  card:        '<rect x="7" y="2.5" width="10" height="19" rx="2"/>',
+  sub:         '<path d="M4 8.5h11m-3-3 3 3-3 3"/><path d="M20 15.5H9m3 3-3-3 3-3"/>',
+  injury:      '<path d="M12 5.5v13M5.5 12h13"/>',
+  note:        '<path d="M4 20.5h4L19.2 9.3a2.1 2.1 0 0 0-3-3L5 17.5z"/>',
+  whistle:     '<path d="M13 8h7.5a1.5 1.5 0 0 1 0 3H13"/><circle cx="7.5" cy="13.5" r="5"/>',
+
+  /* 時鐘與流程 */
+  play:        '<path d="M8 5.2v13.6L19 12z"/>',
+  pause:       '<path d="M9.5 5v14M14.5 5v14"/>',
+  stop:        '<rect x="6" y="6" width="12" height="12" rx="2"/>',
+  clock:       '<circle cx="12" cy="12" r="9"/><path d="M12 6.8v5.4l3.4 2"/>',
+  undo:        '<path d="M4.5 9h10.5a5 5 0 0 1 0 10H9"/><path d="m8.5 4.5-4 4.5 4 4.5"/>',
+
+  /* 狀態 */
+  check:       '<path d="m4.5 12.5 5 5.2L19.5 6.5"/>',
+  warn:        '<path d="M12 3.2 2.6 20.3h18.8z"/><path d="M12 10v4.2"/><circle cx="12" cy="17.4" r=".9" fill="currentColor" stroke="none"/>',
+  close:       '<path d="m6 6 12 12M18 6 6 18"/>',
+  retry:       '<path d="M20.2 12a8.2 8.2 0 1 1-2.7-6.1"/><path d="M20.5 3.8v5.4h-5.4"/>',
+  info:        '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".9" fill="currentColor" stroke="none"/>',
+  live:        '<circle cx="12" cy="12" r="2.8"/><path d="M6.6 6.6a7.6 7.6 0 0 0 0 10.8M17.4 6.6a7.6 7.6 0 0 1 0 10.8"/>',
+
+  /* 導覽 */
+  back:        '<path d="m14.5 5-7 7 7 7"/>',
+  forward:     '<path d="M4.5 12h15m-6-6 6 6-6 6"/>',
+  up:          '<path d="M12 20V5m-6 6 6-6 6 6"/>',
+  down:        '<path d="M12 4v15m-6-6 6 6 6-6"/>',
+  more:        '<circle cx="12" cy="5.5" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="18.5" r="1.6" fill="currentColor" stroke="none"/>',
+
+  /* 功能 */
+  qr:          '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3.2v3.2H14zM20.8 14v3.2M14 20.8h3.2M20.8 20.6v.2"/>',
+  list:        '<path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.1" fill="currentColor" stroke="none"/>',
+  person:      '<circle cx="12" cy="8" r="3.6"/><path d="M4.6 20.2a7.4 7.4 0 0 1 14.8 0"/>',
+  team:        '<circle cx="9" cy="8.4" r="3.2"/><path d="M2.8 20a6.2 6.2 0 0 1 12.4 0"/><path d="M16.2 6a3.2 3.2 0 0 1 0 6M17.6 14.6a6.2 6.2 0 0 1 3.6 5.4"/>',
+  table:       '<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9.5h18M9 9.5V19.5"/>',
+
+  /* 主題 */
+  'theme-light':  '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.1M12 19.3v2.1M4.6 4.6 6.1 6.1M17.9 17.9l1.5 1.5M2.6 12h2.1M19.3 12h2.1M4.6 19.4 6.1 17.9M17.9 6.1l1.5-1.5"/>',
+  'theme-dark':   '<path d="M20.3 14.8A8.6 8.6 0 0 1 9.2 3.7a8.6 8.6 0 1 0 11.1 11.1z"/>',
+  'theme-system': '<rect x="2.8" y="4" width="18.4" height="12.4" rx="2"/><path d="M8 20.4h8M12 16.4v4"/>'
+};
+
+export const ICON_NAMES = Object.keys(P);
+
+const SPRITE_ID = 'icon-sprite';
+let injected = false;
+
+/** 把 symbol 表塞進文件（只做一次）。icon() 會自動呼叫。 */
+export function injectSprite(doc = globalThis.document) {
+  if (injected || !doc?.body) return;
+  if (doc.getElementById(SPRITE_ID)) { injected = true; return; }
+
+  const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.id = SPRITE_ID;
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('style', 'position:absolute;width:0;height:0;overflow:hidden');
+  // 這裡的內容全部是本檔案的常數，沒有任何使用者輸入，innerHTML 是安全的
+  svg.innerHTML = Object.entries(P).map(([name, d]) => (
+    `<symbol id="i-${name}" viewBox="0 0 24 24" fill="none" stroke="currentColor"` +
+    ` stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</symbol>`
+  )).join('');
+
+  doc.body.prepend(svg);
+  injected = true;
+}
+
+/**
+ * 產生一個圖示節點。
+ *
+ * @param {string} name       ICON_NAMES 之一
+ * @param {object} [opts]
+ * @param {string} [opts.cls] 額外 class
+ * @param {string} [opts.label] 有值時圖示自己帶語意（單獨當按鈕內容時用）；
+ *                              預設 aria-hidden，因為旁邊通常已經有文字了
+ */
+export function icon(name, opts = {}) {
+  if (!P[name]) {
+    // 靜默退回會讓打錯的名字永遠不被發現，現場才看到空白
+    console.warn('[icons] 沒有這個圖示：', name);
+  }
+  injectSprite();
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', ['icon', opts.cls].filter(Boolean).join(' '));
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '1em');
+  svg.setAttribute('height', '1em');
+  svg.setAttribute('focusable', 'false');
+
+  if (opts.label) {
+    svg.setAttribute('role', 'img');
+    const title = document.createElementNS(NS, 'title');
+    title.textContent = opts.label;
+    svg.append(title);
+  } else {
+    svg.setAttribute('aria-hidden', 'true');
+  }
+
+  const use = document.createElementNS(NS, 'use');
+  use.setAttribute('href', `#i-${name}`);
+  svg.append(use);
+  return svg;
+}
+
+/**
+ * 圖示 + 文字，回傳可直接丟進 mount()／el() 的陣列。
+ * 按鈕內容一律用這個，才不會有人又把 emoji 串進字串裡。
+ *
+ * @param {object} [opts]
+ * @param {boolean} [opts.trailing] 圖示放在文字後面（「進入賽務台 →」這種）
+ */
+export function iconText(name, text, opts = {}) {
+  const span = document.createElement('span');
+  span.textContent = text;
+  const ic = icon(name, opts);
+  return opts.trailing ? [span, ic] : [ic, span];
+}
+
+/** 測試用：讓下一次 icon() 重新注入 sprite */
+export function _resetSprite() { injected = false; }

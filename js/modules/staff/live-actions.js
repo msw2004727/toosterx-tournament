@@ -257,6 +257,78 @@ export function buildFinishPatch({ score, htScore, penaltyScore, events, uid, ma
   };
 }
 
+// ── 完賽後三分鐘自撤回（docs/10 §5.3）─────────────────────────
+
+/** 撤回視窗。⚠️ firestore.rules 分支 (D) 的 duration.value(3,'m') 必須一致。 */
+export const UNDO_WINDOW_SEC = 180;
+
+/** 各種時間格式（Firestore Timestamp / Date / 毫秒 / ISO 字串）→ 毫秒。
+ *  ⚠️ 不要用 Number(v)（R-ENG-002）：Number(null) 是 0，會被當成 1970 年，
+ *     於是「還沒同步」看起來就像「早就超過三分鐘」。 */
+function toMs(v) {
+  if (v == null) return null;
+  if (typeof v.toMillis === 'function') return v.toMillis();
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string') { const t = Date.parse(v); return Number.isNaN(t) ? null : t; }
+  return null;
+}
+
+/** 送出完賽之後、實際打過的最後一個期別（撤回要退回這裡，不能一律當成下半場） */
+export function lastPlayedPeriod(events) {
+  let best = null;
+  for (const e of events || []) {
+    if (!isLive(e) || e.type !== 'period_start') continue;
+    if (best === null || (e.seq ?? 0) >= (best.seq ?? 0)) best = e;
+  }
+  return best?.periodId ?? 'h2';
+}
+
+/**
+ * 完賽之後可不可以自己撤回。純函式，時間由呼叫端給（R-ENG-004）。
+ *
+ * 離線時一律不給撤回，而且**不顯示倒數**：
+ * 倒數要有意義，得先知道伺服器認可的送出時間；離線時那個時間還不存在
+ * （serverTimestamp 在本機快照裡是 null）。硬畫一個倒數，賽務會照著按，
+ * 然後在恢復連線的瞬間被 rules 擋掉——那就是「假成功」，是不可協商的紅線。
+ *
+ * @returns {{can:boolean, leftSec:number|null, reason:string}}
+ */
+export function undoState({ match, nowMs, online, uid, pendingWrite = false }) {
+  const no = reason => ({ can: false, leftSec: null, reason });
+
+  if (!match) return no('沒有場次資料');
+  if (match.status === 'confirmed') return no('主辦已覆核這場成績，要更正請找管理員。');
+  if (match.status !== 'finished')  return no('這場還沒送出完賽。');
+  if (!uid || match.scoreSubmittedBy !== uid) {
+    return no('只有送出完賽的那個人可以自行撤回，其他人請找管理員。');
+  }
+  if (online !== true || pendingWrite === true) {
+    return no('完賽還在待同步，連上線之後才會開始計算可撤回時間。');
+  }
+
+  const at = toMs(match.scoreSubmittedAt);
+  if (at == null) return no('完賽還在待同步，連上線之後才會開始計算可撤回時間。');
+
+  const leftSec = Math.ceil((at + UNDO_WINDOW_SEC * 1000 - nowMs) / 1000);
+  if (leftSec <= 0) return no(`已超過 ${UNDO_WINDOW_SEC / 60} 分鐘，要更正請找管理員。`);
+
+  return { can: true, leftSec, reason: '' };
+}
+
+/** 撤回完賽的 patch。比分與事件全部保留，只是把場次退回進行中。 */
+export function buildUndoPatch({ uid, events }) {
+  return {
+    status: 'live',
+    period: lastPlayedPeriod(events),
+    result: null,
+    lock: { locked: false, lockedBy: null },
+    scoreSubmittedAt: null,
+    scoreSubmittedBy: null,
+    updatedBy: uid
+  };
+}
+
 /** 完賽確認畫面要顯示的摘要 */
 export function finishSummary({ match, events }) {
   const check = consistencyCheck(match?.score, events);
@@ -273,10 +345,11 @@ export function finishSummary({ match, events }) {
 
 // ── 事件顯示 ─────────────────────────────────────────────────
 
+/** 事件類型 → js/core/icons.js 的圖示名稱（不是 emoji，理由見該檔開頭） */
 export const EVENT_ICON = {
-  goal: '⚽', own_goal: '⚽', penalty_scored: '⚽', penalty_missed: '✖',
-  card: '🟨', substitution: '⇄', injury: '＋',
-  period_start: '▶', period_end: '⏹', note: '✎'
+  goal: 'goal', own_goal: 'goal', penalty_scored: 'goal', penalty_missed: 'close',
+  card: 'card', substitution: 'sub', injury: 'injury',
+  period_start: 'play', period_end: 'stop', note: 'note'
 };
 
 /** 事件的一行文字（不含 HTML，呼叫端用 textContent） */
@@ -289,7 +362,7 @@ export function eventText(e) {
     case 'penalty_missed': return `罰球失　${who}`;
     case 'own_goal':       return `烏龍球　${who}（記給對隊）`;
     case 'card':           return `${CARD_LABEL[e.cardType] || '出牌'}　${who}`;
-    case 'substitution':   return `換人　${who} ↓ ／ ${e.subInJerseyNo != null ? '#' + e.subInJerseyNo + ' ' : ''}${e.subInPlayerName ?? ''} ↑`;
+    case 'substitution':   return `換人　${who} 下場 ／ ${e.subInJerseyNo != null ? '#' + e.subInJerseyNo + ' ' : ''}${e.subInPlayerName ?? ''} 上場`;
     case 'period_start':   return `${PERIOD_TEXT[e.periodId] ?? e.periodId} 開始`;
     case 'period_end':     return `${PERIOD_TEXT[e.periodId] ?? e.periodId} 結束`;
     case 'note':           return e.note || '備註';

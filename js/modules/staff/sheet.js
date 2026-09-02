@@ -9,6 +9,7 @@
  */
 
 import { el, toast, confirmDialog, emptyState, mount } from '../../core/ui.js';
+import { icon } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
 import { canScore, assignedToVenue } from '../../core/firebase.js';
 import { watchMatch, getTeamRoster, getMatchSheet, saveMatchSheet, patchMatch } from './data.js';
@@ -67,7 +68,7 @@ export async function matchSheetPage({ params, scope, view }) {
 
     mount(root,
       el('div', { class: 'staff__head' }, [
-        el('button', { class: 'live__back', type: 'button', 'aria-label': '返回', onClick: () => navigate('/staff') }, '←'),
+        el('button', { class: 'live__back', type: 'button', 'aria-label': '返回', onClick: () => navigate('/staff') }, icon('back')),
         el('div', { class: 'staff__who' }, [
           el('strong', { text: `${m.label || m.matchId} 出場名單` }),
           el('span', { class: 'staff__date', text: `先發 ${starters} / ${needStart}` })

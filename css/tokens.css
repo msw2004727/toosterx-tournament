@@ -1,38 +1,139 @@
-/* 設計 Token｜規格：docs/08-UI規範與前端架構.md §1 */
+/* 設計 Token｜規格：docs/08-UI規範與前端架構.md §1、docs/10 §7
+   ------------------------------------------------------------------
+   骨架沿用 msw2004727/FC 的 token 詞彙（--bg-root / --bg-card / --bg-elevated /
+   --text-primary / --text-secondary / --text-muted / --border / --accent …），
+   色相換成飛達盃的識別綠。這樣兩邊的元件可以互相搬，但視覺是自己的。
+
+   ⚠️ 主題切換靠 <html data-theme="light|dark">，**不用** prefers-color-scheme。
+      原因：使用者可以自己選「淺色／深色」而不受系統擺佈（三態見 js/core/theme.js）。
+      淺色寫在裸 :root，所以就算 JS 掛掉、data-theme 沒被設上去，畫面仍然是完整的。
+      「跟隨系統」由 JS 解析成實際的 light/dark 寫進 data-theme，CSS 這裡不必知道。
+*/
+
+/* ── 與主題無關的尺寸／字體 ─────────────────────────── */
 :root{
-  --brand-900:#0B2E20; --brand-700:#12513A; --brand-500:#1B7A56;
-  --brand-300:#5FB894; --brand-100:#DCF2E7;
-
-  --accent-600:#D94F2B; --accent-400:#F2793E; --gold-500:#D4A03C;
-
-  --ink-900:#14181A; --ink-700:#3A4247; --ink-500:#6B767D;
-  --ink-300:#B9C2C7; --ink-100:#E9EDEF;
-  --surface:#FFFFFF; --surface-2:#F6F8F8; --surface-3:#EDF1F1;
-
-  --live:#D94F2B; --finished:#1B7A56; --pending:#C9902B;
-  --danger:#C8362A; --info:#2B6CB0;
-
-  --div-u6:#E86F51; --div-u8:#E0A63C; --div-u10:#5AA469;
-  --div-women:#B064A8; --div-fun:#4A90C4; --div-open:#2C5D8A;
-
-  --font-sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --font-sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,-apple-system,sans-serif;
   --font-num:"Roboto Mono","SF Mono",ui-monospace,monospace;
 
   --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-8:48px;
-  --r-sm:6px; --r-md:10px; --r-lg:16px; --r-full:999px;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-full:999px;
 
   --fs-xs:12px; --fs-sm:14px; --fs-md:16px; --fs-lg:20px;
   --fs-xl:28px; --fs-2xl:40px; --fs-score:56px;
 
-  --shadow-1:0 1px 2px rgba(0,0,0,.06),0 1px 3px rgba(0,0,0,.08);
-  --shadow-2:0 4px 12px rgba(0,0,0,.10);
+  --topbar-h:56px;
+  --bottombar-h:64px;
+  --tap:44px;               /* 最小觸控目標 */
+  --tap-lg:56px;            /* 賽務端主要動作 */
+  --page-max:600px;         /* 手機優先，桌機置中不拉寬 */
+
+  --transition:.2s cubic-bezier(.4,0,.2,1);
 }
 
-@media (prefers-color-scheme: dark){
+/* ── 淺色（預設）─────────────────────────────────────
+   裸 :root 是刻意的。data-theme 沒設上去時不能整頁沒有顏色。 */
+:root{
+  color-scheme:light;
+
+  --bg-root:#F1F5F3;
+  --bg-card:#FFFFFF;
+  --bg-elevated:#E7EDEA;
+  --bg-input:#EDF2F0;
+  --border:#D9E2DE;
+  --border-strong:#BFCCC7;
+
+  --text-primary:#14201B;
+  --text-secondary:#4C5C55;
+  --text-muted:#66766F;      /* 4.7:1 on --bg-card，比 FC 的灰再暗一階以過 AA */
+  --text-on-accent:#FFFFFF;
+
+  --accent:#12704F;
+  --accent-hover:#0D5A3F;
+  --accent-bg:rgba(18,112,79,.10);
+  --primary:#0B2E20;         /* 頁首、品牌底色 */
+
+  --primary-btn-bg:#12704F;
+  --primary-btn-hover:#0D5A3F;
+  --primary-btn-active:#0A4732;
+
+  --danger:#C8362A;
+  --warning:#96600A;
+  --info:#2B6CB0;
+  --success:#12704F;
+
+  /* 提示色塊：底／字／框三件一組，元件不必再寫深色版 */
+  --warn-bg:#FDF3E0;   --warn-text:#7A4E06;  --warn-border:#E9C87A;
+  --info-bg:#E4EEF8;   --info-text:#1E4E80;  --info-border:#B9D2EC;
+  --danger-bg:#FDECEA; --danger-text:#932117; --danger-border:#F0BDB7;
+  --ok-bg:#DCF2E7;     --ok-text:#0A4732;    --ok-border:#A9DCC5;
+
+  /* 場次狀態 */
+  --live:#D94F2B; --finished:#12704F; --pending:#B3860F; --idle:#9AA8A2;
+
+  /* 組別識別色 */
+  --div-u6:#D95F3F; --div-u8:#C08A22; --div-u10:#3F8C55;
+  --div-women:#9C4F91; --div-fun:#3A7CAE; --div-open:#245079;
+
+  --overlay:rgba(9,16,14,.42);
+  --shadow-1:0 1px 2px rgba(16,32,26,.06),0 1px 3px rgba(16,32,26,.08);
+  --shadow-2:0 4px 16px rgba(16,32,26,.12);
+  --skeleton-base:var(--bg-elevated);
+  --skeleton-glow:var(--bg-card);
+}
+
+/* ── 深色 ───────────────────────────────────────────── */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+
+  --bg-root:#0C1210;
+  --bg-card:#151D1A;
+  --bg-elevated:#1E2926;
+  --bg-input:#1E2926;
+  --border:#2E3B37;
+  --border-strong:#41524C;
+
+  --text-primary:#F2F6F4;
+  --text-secondary:#C8D4CF;
+  --text-muted:#93A39D;
+  --text-on-accent:#FFFFFF;
+
+  --accent:#4FC291;
+  --accent-hover:#7BD7AD;
+  --accent-bg:rgba(79,194,145,.16);
+  --primary:#0F3B2B;
+
+  --primary-btn-bg:#17805C;   /* 白字 4.9:1；再亮就過不了 AA */
+  --primary-btn-hover:#1D9A6F;
+  --primary-btn-active:#12664A;
+
+  --danger:#F2837A;
+  --warning:#E2B04A;
+  --info:#6AA8E8;
+  --success:#4FC291;
+
+  --warn-bg:#3A2E14;   --warn-text:#F0D9A6;  --warn-border:#6B5520;
+  --info-bg:#16283A;   --info-text:#AFD1F0;  --info-border:#2F4E6E;
+  --danger-bg:#3A1F1C; --danger-text:#F6B6AF; --danger-border:#6B322B;
+  --ok-bg:#123326;     --ok-text:#A9DCC5;    --ok-border:#245741;
+
+  --live:#FF8A62; --finished:#4FC291; --pending:#E2B04A; --idle:#6C7C76;
+
+  --div-u6:#E8836A; --div-u8:#D9AE55; --div-u10:#6BBE84;
+  --div-women:#C583BB; --div-fun:#6FA9D4; --div-open:#5B8EC0;
+
+  --overlay:rgba(0,0,0,.65);
+  --shadow-1:0 1px 2px rgba(0,0,0,.4),0 1px 3px rgba(0,0,0,.3);
+  --shadow-2:0 6px 20px rgba(0,0,0,.5);
+  --skeleton-base:var(--bg-elevated);
+  --skeleton-glow:var(--bg-card);
+}
+
+/* ── 320px 窄機：整組尺規縮一階 ──────────────────────
+   只調 token，不逐個元件改。iPhone SE 一代／Android 小螢幕不破版。 */
+@media (max-width:359px){
   :root{
-    --surface:#0F1416; --surface-2:#161D20; --surface-3:#1E272A;
-    --ink-900:#F2F5F6; --ink-700:#C6D0D3; --ink-500:#8D999E;
-    --ink-300:#4A5559; --ink-100:#2A3336;
-    --brand-100:#123326;
+    --fs-xs:11px; --fs-sm:13px; --fs-md:15px; --fs-lg:18px;
+    --fs-xl:24px; --fs-2xl:32px; --fs-score:44px;
+    --sp-3:10px; --sp-4:12px; --sp-5:18px; --sp-6:24px;
   }
 }

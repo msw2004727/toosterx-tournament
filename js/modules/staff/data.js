@@ -102,6 +102,35 @@ export function patchMatch(matchId, patch, label, meta = {}) {
 }
 
 /**
+ * 完賽送出。
+ *
+ * 與 patchMatch 的差別只在 scoreSubmittedAt：它必須是**伺服器**時間，
+ * 因為三分鐘自撤回的視窗是拿它跟 rules 的 request.time 相減算出來的。
+ * 引擎（buildFinishPatch）是純函式、不碰 serverTimestamp，所以在這裡補。
+ */
+export function submitFinish(matchId, patch, label) {
+  const { doc, updateDoc, serverTimestamp } = sdk();
+  const ref = doc(db(), 'events', EVENT_ID, 'matches', matchId);
+  const full = {
+    ...patch,
+    scoreSubmittedAt: serverTimestamp(),
+    scoreSubmittedBy: uid(),
+    updatedAt: serverTimestamp(),
+    updatedBy: uid()
+  };
+  return track(label, () => updateDoc(ref, full), { matchId, kind: 'finish' });
+}
+
+/** 三分鐘內自行撤回完賽（rules 分支 D）。超時或非本人會被擋，並顯示紅燈。 */
+export function undoFinish(matchId, patch, label) {
+  const { doc, updateDoc, serverTimestamp } = sdk();
+  const ref = doc(db(), 'events', EVENT_ID, 'matches', matchId);
+  return track(label, () => updateDoc(ref, {
+    ...patch, updatedAt: serverTimestamp(), updatedBy: uid()
+  }), { matchId, kind: 'undo-finish' });
+}
+
+/**
  * 新增比賽事件。
  * 用固定 id（seq 補零）而非 add()：離線時 add() 產生的 id 在恢復連線後
  * 仍然唯一，但我們要的是「同一顆進球重複按兩次不會變成兩筆」。

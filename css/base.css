@@ -1,15 +1,72 @@
+/* 基礎樣式｜規格：docs/08 §1
+   手機優先。所有版面的最小驗證寬度是 320px，設計基準是 360px。 */
+
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{
-  font-family:var(--font-sans);font-size:var(--fs-md);line-height:1.6;
-  color:var(--ink-900);background:var(--surface-2);
-  -webkit-font-smoothing:antialiased;
-  padding-bottom:calc(64px + env(safe-area-inset-bottom));
+
+html{
+  /* 主題切換時整頁不閃白：背景畫在 html 上，body 的過場才不會露出底色 */
+  background:var(--bg-root);
+  -webkit-text-size-adjust:100%;
 }
-img{max-width:100%;height:auto}
-button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
-a{color:var(--brand-500)}
-:focus-visible{outline:2px solid var(--accent-600);outline-offset:2px;border-radius:4px}
+
+body{
+  font-family:var(--font-sans);
+  font-size:var(--fs-md);
+  line-height:1.6;
+  color:var(--text-primary);
+  background:var(--bg-root);
+  min-height:100vh;
+  min-height:100dvh;
+  -webkit-font-smoothing:antialiased;
+  /* 320px 不可以出現橫向捲軸——任何一個元件溢出都會被這行擋掉，
+     但也會把 bug 藏起來，所以 E2E 有一條專門量 scrollWidth 的案例。 */
+  overflow-x:hidden;
+  overscroll-behavior-y:none;
+  padding-bottom:calc(var(--bottombar-h) + env(safe-area-inset-bottom));
+  transition:background var(--transition),color var(--transition);
+}
+
+img{max-width:100%;height:auto;display:block}
+
+button{
+  font:inherit;color:inherit;background:none;border:0;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  /* 賽務端會連續快點，選取到文字會很煩 */
+  -webkit-user-select:none;user-select:none;
+}
+
+a{color:var(--accent);text-decoration:none}
+a:hover{color:var(--accent-hover)}
+
+input,select,textarea{
+  font:inherit;font-size:var(--fs-md);   /* iOS 低於 16px 會自動放大整頁 */
+  color:var(--text-primary);
+  background:var(--bg-input);
+  border:1px solid var(--border);
+  border-radius:var(--r-sm);
+  padding:10px 12px;
+  width:100%;max-width:100%;
+  outline:none;
+  transition:border-color var(--transition);
+}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
 .num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
 [hidden]{display:none!important}
-@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+
+/* 只給螢幕閱讀器 */
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+}
+
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition:none!important}
+}

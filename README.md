@@ -100,7 +100,7 @@ npm run seed:reset     # 先清空種子資料再灌
 
 ```bash
 npm run test:unit      # Jest 單元測試（賽制引擎、格式化、QR 簽章）
-npm run test:rules     # firestore.rules R01–R23（會自動起 Emulator）
+npm run test:rules     # firestore.rules R01–R31（會自動起 Emulator）
 npm run test:e2e       # Playwright
 ```
 

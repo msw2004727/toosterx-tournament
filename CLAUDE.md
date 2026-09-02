@@ -1,6 +1,10 @@
 # toosterx-tournament｜AI 專案指引
 
 > 這份是給 AI 助手（與新加入的人）的單一真相來源。完整規格在 `docs/`。
+>
+> `docs/00`–`10` 是**規格**，是實作的依據。
+> `docs/90`、`91` 是**背景文件**（原始企劃書與贊助提案），說明「為什麼」，
+> 兩者衝突時**一律以編號規格為準**——那是後來討論修正過的版本。
 
 ## 專案本質
 
@@ -74,6 +78,9 @@ git push                 # 驗證過才上正式站
 | R-UI-001 | 換節點一律用 `mount(node, ...)`，禁用 `node.replaceChildren(...)`——後者會把 `null` 印成字串 "null" |
 | R-UI-002 | 送出後**不可** `await` Firestore 的 Promise 再更新 UI。離線時它永遠不會 resolve，畫面會卡住 |
 | R-UI-003 | 所有 `onSnapshot` 一律經 `store.hold(scope, unsub)` 註冊，換頁自動回收 |
+| R-UI-004 | 功能性 UI **不得用 emoji**，一律 `icon()` / `iconText()`（`js/core/icons.js`）。emoji 各平台形狀不一、顏色寫死在字型裡（深色主題換不掉）、放大會糊。狀態圓點用 `.dot[data-status]`。`tests/unit/icons.test.js` 會掃描整個前端 |
+| R-UI-005 | 主題只靠 `<html data-theme>`，CSS 裡**不得**出現 `@media (prefers-color-scheme)`；淺色一定要寫在裸 `:root`（JS 掛掉時畫面不能沒有顏色）。需要深淺不同色的地方用語意色組（`--warn-bg/-text/-border`），不要在元件裡寫深色覆蓋 |
+| R-UI-006 | 版面最小驗證寬度 **320px**、設計基準 360px。窄機優先調 token，不逐個元件改 |
 | R-REL-015 | `js/` 與 `css/` 一律 `max-age=0, must-revalidate`（見 `_headers`）。Cloudflare Pages 預設 4 小時，會造成「新 HTML 配舊模組」的混版；動態 import 的網址帶不了版號，這是唯一的解 |
 | R-REL-016 | 動態 `import()` 一律經過 `router.lazy()`，並在網址加 `?v=CACHE_VERSION`：重試要換 query 才有效（瀏覽器會記住失敗的模組網址） |
 | R-DEMO-001 | Demo 專屬程式碼只放 `js/modules/demo/`，正式版**不 import**（不是用旗標關掉） |
@@ -81,6 +88,9 @@ git push                 # 驗證過才上正式站
 ## 不可協商的產品行為
 
 1. **送出三態**：賽務端每一次送出都要明示「已儲存／待同步／失敗」，絕不假成功
+   ・**離線時不得畫出任何「看起來可以按」的限時操作**。三分鐘自撤回就是例子：
+   　離線時伺服器認可的送出時間還不存在（`serverTimestamp` 在本機快照是 `null`），
+   　硬畫一個倒數，賽務會照著按，然後在恢復連線的瞬間被 rules 擋掉——那就是假成功
 2. **離線可用**：檢錄與比分記錄在飛航模式下必須能完成，恢復連線自動補送
 3. **一切可修正、一切留痕**：所有結果性資料 Admin 都能改，且必留 before/after/who/when/why
 4. **同分不隨機**：條件用盡就標記 `hasUnresolvedTie`，等主辦裁定
@@ -89,7 +99,7 @@ git push                 # 驗證過才上正式站
 
 ```
 npm run test:unit    賽制引擎（T01–T16，見 docs/02 §11）
-npm run test:rules   R01–R23（見 docs/07 §2.4）
+npm run test:rules   R01–R31（見 docs/07 §2.4）
 npm run test:e2e     Playwright
 ```
 
@@ -121,7 +131,65 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze）
       ＋ 14 條變異測試。程式碼審查抓出 12 個缺陷，全數修正並補上對應測試
 - [x] M3 賽務端：前端核心（firebase/store/sync/clock/ui/router）＋ LIVE 賽務台、
       賽務首頁、出場名單。221 個單元測試 ＋ 26 個 E2E（含離線三態實測）
-- [ ] M4 公開端　[ ] M5 檢錄＋Challenge　[ ] M6 彩排　[ ] M7 上線
+- [x] M3.5 主題重做：FC token 系統、三態主題（系統／淺色／深色）、SVG 圖示取代 emoji、
+      320px 窄版、拿掉 `venue_lead`、完賽三分鐘自撤回。
+      254 單元 ＋ 24 變異 ＋ 96 E2E（三種視窗寬度）＋ 70 rules
+- [ ] M4 報名與球隊管理（docs/10）　[ ] M5 公開端
+- [ ] M6 檢錄＋Challenge　[ ] M7 彩排 → 上線
+
+## 現在的狀態（2026-09-02，Claude Code 接手後已全數實跑）
+
+M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分支 (D) 用到的三個新語法
+（`resource.data.get()`、`duration.value(3,'m')`、`== request.time`）模擬器都吃得下。
+
+| 關卡 | 狀態 |
+|---|---|
+| `npm run test:unit` | ✅ 254 全綠（13 個 suite） |
+| `npm run test:mutation` | ✅ 24 / 24 全被抓到 |
+| `npm run test:e2e` | ✅ 96 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:rules` | ✅ 70 全綠（含 R24–R30 自撤回、R31 完賽即鎖定） |
+
+### 這一輪審查抓到並修掉的三個缺陷
+
+1. **`tests/unit/icons.test.js` 在 Windows 上整個 suite 崩潰**（高）
+   `new URL('../../', import.meta.url).pathname` 在 Windows 是 `/D:/…`，
+   丟給 `fs.readdirSync` 會被解成 `D:\D:\…` 而 ENOENT。改用 `fileURLToPath()`。
+   影響不只是少六條案例——掛掉的正好是**掃描整個前端「不得有 emoji」的守門測試**，
+   而 jest 只會印一行 `1 failed`，案例總數默默從 253 變成 247。
+
+2. **CI 的 NUL 位元組檢查是一盞紅不起來的綠燈**（中）
+   `grep -rlIz -P '\x00'` 永遠不會命中：`-I` 把含 NUL 的檔當二進位跳過，
+   `-z` 又把 NUL 當行分隔符。R-SRC-001 等於沒有人在守。改成 Node 直接讀 bytes，
+   並實測過「乾淨 → 綠、植入 NUL → 紅」。
+
+3. **rules 允許「完賽但不上鎖」**（中高，`firestore.rules` 分支 (B)）
+   賽務只要在送出完賽時不寫 `lock.locked = true`，場次就停在「已完賽但未鎖定」，
+   分支 (B) 的 `lock.locked == false` 永遠成立——**已完賽的比分可以無限期改寫**，
+   而且完全不受三分鐘視窗約束。已用模擬器實證（改動前 P1／P2 都通過）。
+   修法是新增 `finishMustLock()` 並在分支 (B) 串上，補 R31／R31b／R31c 三條規則測試、
+   一條讀 `firestore.rules` 的單元測試，以及變異 #21／#22。
+
+### 已知但未修（低）
+
+- `buildFinishPatch` / `buildUndoPatch` 寫 `lock` 時只給 `{locked, lockedBy}`，
+  沒有 `lockedAt`。`updateDoc` 的巢狀 map 是整包取代，所以 `lock.lockedAt`
+  （docs/01b §262 有定義、seed 也會寫）會被靜靜刪掉。目前沒有任何程式讀它，
+  純粹是 schema 漂移，等 M4 一起處理。
+- `app.js` 的 `mountAppHeader()` 進到 `#/staff` 時直接 `replaceChildren()`，
+  沒有呼叫 `themeSwitch()` 的 `destroy`，訂閱者要等下一次主題變動才自清。
+  數量有界且會自癒，不影響現場。
+
+### 等對方（小麥）處理的事
+
+1. **Blaze 升級** ×2 專案（`feda-cup-demo`、`feda-cup-2026`）——帳單相關不代勞
+2. **兩組 LIFF Channel**：⚠️ 必須建在 **FC-Football 所屬的同一個 LINE Provider** 底下。
+   換 Provider 就會拿到不同的 userId，等球隊開始報名才發現就要整個重做（docs/10 §8.5）
+3. **報名截止日** → 寫進 `config/registration.closesAt`
+
+### 下一個里程碑
+
+M4 報名與球隊管理，規格在 `docs/10-報名與球隊管理.md`（已定案，經三輪討論）。
+後端要等 Blaze 與 LIFF，但前端畫面可以先做。
 
 ## 賽務端（M3）
 
@@ -132,6 +200,8 @@ js/core/
 ├── sync.js       送出三態 queued / saved / failed，離線佇列與重試
 ├── clock.js      比賽時鐘（純函式）＋ 期別狀態機
 ├── router.js     hash 路由，換頁自動回收該頁監聽
+├── theme.js      系統／淺色／深色 三態（首屏由 index.html 的 inline script 負責）
+├── icons.js      SVG sprite ＋ icon() / iconText()（取代所有 emoji）
 └── ui.js         escapeHTML / mount / toast / confirmDialog / sheet
 
 js/modules/staff/
@@ -171,11 +241,11 @@ Function 負責讀寫與填 `serverTimestamp`，引擎只負責算。
 ### 測試
 
 ```bash
-npm run test:unit                  # 221 個案例（引擎 T01–T28 ＋ 賽務端核心）
-npm run test:mutation              # 14 條變異，證明測試有鑑別力
-npm run test:rules                 # 52 個案例，自動起 Emulator
-npm run test:e2e                   # 26 個 Playwright 案例（賽務台）
-npm run test:e2e:offline           # 只跑離線三態那一條
+npm run test:unit                  # 254 個案例（引擎 T01–T31 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
+npm run test:mutation              # 24 條變異，證明測試有鑑別力
+npm run test:rules                 # 70 個案例，自動起 Emulator
+npm run test:e2e                   # 96 個 Playwright 案例（× mobile / desktop / 320px）
+npm run test:e2e:offline           # 只跑離線三態那幾條
 ```
 
 E2E 用 `tests/e2e/fake-firebase.js` 取代 gstatic 的 SDK：
@@ -187,3 +257,9 @@ E2E 用 `tests/e2e/fake-firebase.js` 取代 gstatic 的 SDK：
 改過 `js/engine/` 一定要跑 `test:unit` **和** `mutation-check`。
 第一版實作的 115 個測試曾經全綠，卻抓不到三個真實缺陷——
 「測試綠」本身不是證據，鑑別力才是（見 R-TEST-001）。
+
+E2E 也一樣要驗鑑別力。M3.5 的「離線不給撤回」原本有兩條綠燈的 E2E，
+但把 `online` 檢查整條拿掉之後**還是全綠**：那兩條測的情境剛好
+`scoreSubmittedAt` 本來就是 `null`，被下一道防線接住了。
+真正只有 `online` 擋得住的是「線上送出之後才斷線」，補上那一條才有鑑別力。
+改完一個行為，順手把它改壞一次再跑一遍——這件事只花一分鐘。

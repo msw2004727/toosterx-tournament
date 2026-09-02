@@ -10,10 +10,12 @@
 import { subscribe, list, retry, retryAll, dismiss, exportFailed, summary } from '../../core/sync.js';
 import { el, toast, mount } from '../../core/ui.js';
 
+// 燈號是 CSS 畫的圓點（.dot），不是文字符號：
+// ● 在不同字型下大小差很多，而且深色主題無法換色。
 const TEXT = {
-  saved:  { dot: '●', label: '已連線' },
-  queued: { dot: '●', label: '待同步' },
-  failed: { dot: '●', label: '送出失敗' }
+  saved:  '已連線',
+  queued: '待同步',
+  failed: '送出失敗'
 };
 
 /**
@@ -21,7 +23,7 @@ const TEXT = {
  * @returns {{node:HTMLElement, destroy:Function}}
  */
 export function syncIndicator() {
-  const dot = el('span', { class: 'sync__dot', 'aria-hidden': 'true' });
+  const dot = el('span', { class: 'dot', 'aria-hidden': 'true' });
   const label = el('span', { class: 'sync__label' });
   const count = el('span', { class: 'sync__count num', hidden: true });
 
@@ -34,10 +36,8 @@ export function syncIndicator() {
   const node = el('div', { class: 'sync-wrap' }, [btn, panel]);
 
   const off = subscribe(s => {
-    const t = TEXT[s.level];
     btn.dataset.level = s.level;
-    dot.textContent = t.dot;
-    label.textContent = s.online ? t.label : '離線';
+    label.textContent = s.online ? TEXT[s.level] : '離線';
     const n = s.failed || s.queued;
     count.hidden = n === 0;
     count.textContent = String(n);

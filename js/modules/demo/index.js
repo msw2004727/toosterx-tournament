@@ -10,35 +10,41 @@
  */
 
 import { EVENT_ID } from '../../config.js';
-import { toast, el, sheet } from '../../core/ui.js';
+// ⚠️ 這個模組自己有一個 export function mount(App)，
+//    直接匯入 ui 的 mount 會被蓋掉（而且是無聲的遞迴），所以改名。
+import { toast, el, sheet, mount as setChildren } from '../../core/ui.js';
 
 const ROLES = [
   { value: 'scorer',     label: '記錄員／賽務', sub: 'scorer',     note: 'A 場．可記分與完賽送出' },
   { value: 'referee',    label: '裁判',        sub: 'referee',    note: 'A 場．同賽務，另可簽核' },
-  { value: 'venue_lead', label: '場地主任',     sub: 'venue_lead', note: 'A 場．可覆核完賽' },
   { value: 'booth',      label: '挑戰攤位',     sub: 'booth',      note: '挑戰區成績登錄（M5）' }
 ];
 
 export function mount(App) {
-  banner();
-  roleSwitcher(App);
+  banner(App);
 }
 
-function banner() {
-  const elBanner = document.getElementById('demo-banner');
-  if (!elBanner) return;
-  elBanner.hidden = false;
-  elBanner.textContent = 'DEMO 展示環境・此處比分與名次皆為測試資料，非正式賽果';
-  elBanner.className = 'demo-banner';
-}
-
-function roleSwitcher(App) {
-  const btn = el('button', {
-    class: 'demo-switch', type: 'button',
-    title: '免登入切換身分（僅 Demo 環境）',
-    onClick: () => pick(App)
-  }, '切換身分');
-  document.body.append(btn);
+/**
+ * Demo 橫幅 ＋ 切換身分。
+ *
+ * 「切換身分」原本是右下角的浮動鈕，但 fixed 元素一定會蓋到某一列——
+ * 在賽務首頁它壓住「出場名單」，在賽務台它壓住事件時間軸。
+ * 改成掛在橫幅裡：橫幅本來就是 sticky 且永遠在最上面，
+ * 不會擋到任何操作，而且「這是 demo」與「換個身分看看」本來就是同一件事。
+ */
+function banner(App) {
+  const host = document.getElementById('demo-banner');
+  if (!host) return;
+  host.hidden = false;
+  host.className = 'demo-banner';
+  setChildren(host,
+    el('span', { class: 'demo-banner__text', text: 'DEMO 展示環境・比分與名次皆為測試資料' }),
+    el('button', {
+      class: 'demo-switch', type: 'button',
+      title: '免登入切換身分（僅 Demo 環境）',
+      onClick: () => pick(App)
+    }, '切換身分')
+  );
 }
 
 async function pick(App) {

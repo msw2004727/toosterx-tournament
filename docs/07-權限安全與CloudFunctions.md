@@ -16,23 +16,33 @@
 | 攤位人員 | `booth` | Admin 指派 |
 | 記錄員 | `scorer` | Admin 指派 |
 | 裁判 | `referee` | Admin 指派 |
-| 場地主任 | `venue_lead` | Admin 指派 |
 | 管理員 | `admin` | 超管指派 |
 | 超級管理員 | `super_admin` | 手動設定 |
 
 ### 1.2 權限矩陣
 
-| 動作 | guest | booth | scorer | referee | venue_lead | admin |
-|---|:--:|:--:|:--:|:--:|:--:|:--:|
-| 讀公開賽程／比分／積分榜 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 讀球員敏感欄位（生日、身分證後四碼） | ❌ | ❌ | ✅※ | ✅※ | ✅ | ✅ |
-| 寫檢錄紀錄 | ❌ | ❌ | ✅※ | ✅※ | ✅ | ✅ |
-| 確認出場名單 | ❌ | ❌ | ✅※ | ✅※ | ✅ | ✅ |
-| 開賽／計時／記錄事件 | ❌ | ❌ | ✅※ | ✅※ | ✅ | ✅ |
-| 完賽送出 | ❌ | ❌ | ✅※ | ✅※ | ✅ | ✅ |
-| 改已鎖定比分 | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| 覆核完賽（finished→confirmed） | ❌ | ❌ | ❌ | ❌ | ✅※ | ✅ |
-| 退回完賽（finished→live） | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| 動作 | guest | booth | scorer | referee | admin |
+|---|:--:|:--:|:--:|:--:|:--:|
+| 讀公開賽程／比分／積分榜 | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 讀球員敏感欄位（生日、身分證後四碼） | ❌ | ❌ | ✅※ | ✅※ | ✅ |
+| 寫檢錄紀錄 | ❌ | ❌ | ✅※ | ✅※ | ✅ |
+| 確認出場名單 | ❌ | ❌ | ✅※ | ✅※ | ✅ |
+| 開賽／計時／記錄事件 | ❌ | ❌ | ✅※ | ✅※ | ✅ |
+| 完賽送出 | ❌ | ❌ | ✅※ | ✅※ | ✅ |
+| 改已鎖定比分 | ❌ | ❌ | ❌ | ❌ | ✅ |
+| 覆核完賽（finished→confirmed） | ❌ | ❌ | ❌ | ❌ | ✅ |
+| 退回完賽（finished→live） | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **三分鐘內自行撤回完賽** | ❌ | ❌ | ✅◎ | ✅◎ | ✅ |
+
+◎ 只有送出完賽的**本人**，且送出後未滿三分鐘、場次尚未被覆核。
+　 時間基準是伺服器寫入的 `scoreSubmittedAt` 與 rules 的 `request.time`，
+　 客戶端改手機時間或離線囤著再送都無效（見 §2.3 分支 D）。
+
+> **2026-08-29：拿掉場地主任（`venue_lead`）。**
+> 現場一天只有三個場地，多一層「可以覆核但不能退回」的角色沒有帶來實質好處，
+> 卻讓每條規則都要多列一個字串、每次權限爭議都要先問「他是主任還是 admin」。
+> 覆核改由 Admin 做；主任原本真正需要的「送錯了想馬上改」由三分鐘自撤回解決，
+> 而且更快——不必找人。
 | 建立／修改球隊名單 | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | 產生／調整賽程 | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | 手動裁定名次 | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
@@ -61,7 +71,7 @@ userPermissionGrants/{uid} = { grants: { 'match.score.override': { enabled:true 
 而 rules 裡每多一層 `get()` 與函式巢狀，運算式就成倍成長。
 
 實測結果：早期版本的角色判斷寫成巢狀鏈
-（`isScorer() → isLead() → isAdmin() → hasRole() → isStaff()`，每層都展開一次 staff 文件），
+（`isScorer() → isAdmin() → hasRole() → isStaff()`，每層都展開一次 staff 文件），
 現場最常見的「完賽送出」（一次更新 10 個欄位）就會撞到上限，
 錯誤訊息是 `Unable to evaluate the expression as the maximum of 1000 expressions has been reached`——
 **合法操作被誤判為 PERMISSION_DENIED**。
@@ -104,10 +114,9 @@ service cloud.firestore {
     function isStaff()      { return myRoles().size() > 0; }
     function isSuperAdmin() { return myRoles().hasAny(['super_admin']); }
     function isAdmin()      { return myRoles().hasAny(['admin', 'super_admin']); }
-    function isLead()       { return myRoles().hasAny(['admin', 'super_admin', 'venue_lead']); }
-    function isScorer()     { return myRoles().hasAny(['admin', 'super_admin', 'venue_lead',
+    function isScorer()     { return myRoles().hasAny(['admin', 'super_admin',
                                                         'scorer', 'referee']); }
-    function isBooth()      { return myRoles().hasAny(['admin', 'super_admin', 'venue_lead', 'booth']); }
+    function isBooth()      { return myRoles().hasAny(['admin', 'super_admin', 'booth']); }
 
     // ── 動態權限 ──
     function rolePerms(r) {
@@ -216,8 +225,8 @@ service cloud.firestore {
                && unchanged('home') && unchanged('away')
                && unchanged('divisionId') && unchanged('stageId')
              )
-          // (C) 場地主任覆核：已鎖定的 finished 也能改成 confirmed，但只准動 status
-          || ( isLead()
+          // (C) 覆核：已鎖定的 finished 也能改成 confirmed，但只准動 status
+          || ( isAdmin()
                && assignedVenue(resource.data.venueId)
                && resource.data.status == 'finished'
                && request.resource.data.status == 'confirmed'
@@ -329,7 +338,7 @@ service cloud.firestore {
 
       // ── 稽核：只能新增，不可改不可刪 ──
       match /audits/{auditId} {
-        allow read:   if isLead();
+        allow read:   if isAdmin();
         allow create: if isStaff() && request.resource.data.actor.uid == uid();
         allow update, delete: if false;
       }
@@ -346,7 +355,7 @@ service cloud.firestore {
     match /userPermissionGrants/{u}{ allow read: if isAuth() && (u == uid() || isAdmin());
                                      allow write: if isAdmin(); }
     match /staff/{u} {
-      allow read:  if isAuth() && (u == uid() || isLead());
+      allow read:  if isAuth() && (u == uid() || isAdmin());
       allow write: if isAdmin();
     }
 
@@ -405,9 +414,19 @@ function validScoreRange(eventId, cid, v) {
 | R19 | 訪客寫 `leaderboards` | 拒絕 |
 | R20 | 訪客建立 `registrations` 且 `status:'approved'` | 拒絕 |
 | R21 | scorer 把 `scheduled` 改成 `postponed` | 拒絕（僅 Admin） |
-| R22 | venue_lead 把 `finished` 改成 `confirmed` | 允許（只動 status） |
-| R23 | venue_lead 在覆核時順便改比分 | 拒絕 |
-| R24 | 完賽送出一次更新 10 個欄位 | 允許，且不得撞到 1000 運算式上限 |
+| R22 | Admin 把 `finished` 改成 `confirmed` | 允許（只動 status） |
+| R23 | 一般賽務改已鎖定的場次 | 拒絕 |
+| R24 | 送出者在三分鐘內把 `finished` 退回 `live` | 允許 |
+| R25 | 超過三分鐘後再撤回 | 拒絕 |
+| R26 | 別人送出的完賽，同場地的另一位賽務要撤回 | 拒絕 |
+| R27 | 撤回時順便改比分 | 拒絕 |
+| R28 | 已 `confirmed` 的場次要自撤回 | 拒絕 |
+| R29 | 撤回時不清掉 `scoreSubmittedAt`（想讓視窗續命） | 拒絕 |
+| R30 | 賽務自己塞一個未來的 `scoreSubmittedAt` | 拒絕 |
+| R31 | 賽務「完賽但不上鎖」（`status:'finished'` 而 `lock.locked:false`） | 拒絕 |
+| R31b | 完賽時同時上鎖 | 允許（正常路徑） |
+| R31c | 已 `finished` 但未鎖定的場次，賽務再改比分 | 拒絕 |
+| R32 | 完賽送出一次更新 10 個欄位 | 允許，且不得撞到 1000 運算式上限 |
 
 ---
 

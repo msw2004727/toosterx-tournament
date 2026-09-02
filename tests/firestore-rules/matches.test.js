@@ -68,6 +68,55 @@ describe('場次寫入', () => {
     }));
   });
 
+
+  // ── R31：完賽即鎖定 ────────────────────────────────────────
+  // 「完賽就鎖定」是三分鐘自撤回（分支 D）的前提。前提沒被規則守住的話，
+  // 賽務只要在送出完賽時不寫 lock.locked = true，就得到一個永遠可改的成績。
+
+  test('R31 ⭐ 賽務不可以「完賽但不上鎖」', async () => {
+    await asAdminSdk(env, db => setDoc(
+      doc(db, 'events', EVENT, 'matches', MATCH),
+      baseMatch(MATCH, 'venue-a', { status: 'live' })
+    ));
+    await assertFails(updateDoc(matchRef(authed(env, 'u-scorer')), {
+      status: 'finished', period: 'ft',
+      score: { home: 3, away: 0 },
+      lock: { locked: false, lockedAt: null, lockedBy: null },
+      scoreSubmittedBy: 'u-scorer',
+      updatedBy: 'u-scorer'
+    }));
+  });
+
+  test('R31b 完賽時同時上鎖則允許（正常路徑）', async () => {
+    await asAdminSdk(env, db => setDoc(
+      doc(db, 'events', EVENT, 'matches', MATCH),
+      baseMatch(MATCH, 'venue-a', { status: 'live' })
+    ));
+    await assertSucceeds(updateDoc(matchRef(authed(env, 'u-scorer')), {
+      status: 'finished', period: 'ft',
+      score: { home: 3, away: 0 },
+      lock: { locked: true, lockedAt: null, lockedBy: 'u-scorer' },
+      scoreSubmittedBy: 'u-scorer',
+      updatedBy: 'u-scorer'
+    }));
+  });
+
+  test('R31c ⭐ 已完賽但未鎖定的場次，賽務也不能再改比分', async () => {
+    // 這是 R31 沒守住時真正會痛的那一步：狀態停在 finished、lock 是 false，
+    // 分支 (B) 的 from == to 讓比分可以一直改，而且完全沒有時間上限。
+    await asAdminSdk(env, db => setDoc(
+      doc(db, 'events', EVENT, 'matches', MATCH),
+      baseMatch(MATCH, 'venue-a', {
+        status: 'finished', period: 'ft',
+        score: { home: 3, away: 0 },
+        lock: { locked: false, lockedAt: null, lockedBy: null }
+      })
+    ));
+    await assertFails(updateDoc(matchRef(authed(env, 'u-scorer')), {
+      score: { home: 9, away: 0 }, updatedBy: 'u-scorer'
+    }));
+  });
+
   test('R07 賽務不可竄改對戰隊伍', async () => {
     await assertFails(updateDoc(matchRef(authed(env, 'u-scorer')), {
       home: { teamId: 't-999', name: '假球隊' }, updatedBy: 'u-scorer'
@@ -122,23 +171,25 @@ describe('場次寫入', () => {
     }));
   });
 
-  test('R22 場地主任可把 finished 覆核為 confirmed（即使已鎖定）', async () => {
+  test('R22 Admin 可把 finished 覆核為 confirmed（即使已鎖定）', async () => {
     await asAdminSdk(env, db => setDoc(
       doc(db, 'events', EVENT, 'matches', MATCH),
       baseMatch(MATCH, 'venue-a', { status: 'finished', lock: { locked: true, lockedAt: null, lockedBy: 'x' } })
     ));
-    await assertSucceeds(updateDoc(matchRef(authed(env, 'u-lead')), {
-      status: 'confirmed', updatedBy: 'u-lead'
+    await assertSucceeds(updateDoc(matchRef(authed(env, 'u-admin')), {
+      status: 'confirmed', updatedBy: 'u-admin'
     }));
   });
 
-  test('R23 場地主任覆核時不可順便改比分', async () => {
+  test('R23 一般賽務不可覆核已鎖定的場次（覆核僅限 Admin）', async () => {
     await asAdminSdk(env, db => setDoc(
       doc(db, 'events', EVENT, 'matches', MATCH),
       baseMatch(MATCH, 'venue-a', { status: 'finished', lock: { locked: true, lockedAt: null, lockedBy: 'x' } })
     ));
-    await assertFails(updateDoc(matchRef(authed(env, 'u-lead')), {
-      status: 'confirmed', score: { home: 9, away: 0 }, updatedBy: 'u-lead'
+    // 2026-08-29 拿掉 venue_lead 之後，這條要證明的是「賽務碰不到已鎖定的場次」，
+    // 而不是原本的「主任覆核時不能順便改比分」。
+    await assertFails(updateDoc(matchRef(authed(env, 'u-scorer')), {
+      status: 'confirmed', updatedBy: 'u-scorer'
     }));
   });
 
