@@ -179,12 +179,46 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
   沒有呼叫 `themeSwitch()` 的 `destroy`，訂閱者要等下一次主題變動才自清。
   數量有界且會自癒，不影響現場。
 
+### ⚠️ 上線後才驗得出來的一條：R-REL-015 目前在正式網域上是失效的
+
+`_headers` 本身是對的，Pages 也確實套用了——但**自訂網域前面那層 Cloudflare zone
+把它蓋掉了**。實測（2026-09-02，部署後）：
+
+| 網址 | `/js/config.js` 的 Cache-Control |
+|---|---|
+| `feda-cup-demo.pages.dev`（Pages 原站） | `max-age=0, must-revalidate` ✅ |
+| `cup-demo.toosterx.com` | `max-age=14400, must-revalidate` ❌ |
+| `cup.toosterx.com`（正式站） | `max-age=14400, must-revalidate` ❌ |
+
+`/manifest.json` 在三個網址都是 `max-age=0`，因為 `.json` 不在 Cloudflare 預設會
+快取的副檔名清單裡，所以沒被改到；`.js` / `.css` 會被快取，就吃到 zone 的
+**Browser Cache TTL = 4 小時**，`max-age` 被改寫。
+
+也就是說 M3a／M3b 想修的「新 HTML 配舊模組」**現在還在**：比賽當天早上推修正，
+賽務手機最久要四小時後才會拿到新模組，中間是新舊混用。
+
+**這個要在 Cloudflare 後台改，程式碼裡改不掉：**
+toosterx.com zone → Caching → Configuration → Browser Cache TTL
+改成 **Respect Existing Headers**；
+或建一條 Cache Rule 只針對 `cup.toosterx.com` / `cup-demo.toosterx.com` 的
+`/js/*`、`/css/*`，Browser TTL 設為「Respect origin」。
+
+改完用這行確認（要看到 `max-age=0`）：
+
+```bash
+curl -sI https://cup-demo.toosterx.com/js/config.js | grep -i cache-control
+```
+
+⚠️ CI 的 `Cache headers cover unversioned modules` 只檢查 `_headers` 檔案內容，
+檢查不到 zone 設定——所以那盞燈綠著，實際行為卻是錯的。上線前請手動 curl 一次。
+
 ### 等對方（小麥）處理的事
 
 1. **Blaze 升級** ×2 專案（`feda-cup-demo`、`feda-cup-2026`）——帳單相關不代勞
 2. **兩組 LIFF Channel**：⚠️ 必須建在 **FC-Football 所屬的同一個 LINE Provider** 底下。
    換 Provider 就會拿到不同的 userId，等球隊開始報名才發現就要整個重做（docs/10 §8.5）
 3. **報名截止日** → 寫進 `config/registration.closesAt`
+4. **Cloudflare zone 的 Browser Cache TTL** 改成 Respect Existing Headers（見上一節）
 
 ### 下一個里程碑
 
