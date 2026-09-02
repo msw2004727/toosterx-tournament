@@ -164,7 +164,7 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 |---|---|
 | `npm run test:unit` | ✅ 345 全綠（18 個 suite） |
 | `npm run test:mutation` | ✅ 53 / 53 全被抓到 |
-| `npm run test:e2e` | ✅ 210 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:e2e` | ✅ 213 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 111 全綠（含 R34–R64 報名與身分授權） |
 | `npm run test:mutation:rules` | ✅ 12 / 12 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
@@ -218,8 +218,11 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 ### 等對方（小麥）處理的事
 
 > 逐步操作手冊在 **`docs/11-上線前設定步驟.md`**（含每一項的驗證方法）。
+> 換一台電腦接手看 **`docs/12-換設備接手指引.md`**。
 
-1. ~~Blaze 升級~~ ✅　~~兩組 LIFF Channel~~ ✅　~~報名截止日~~ ✅（demo）
+1. ~~Blaze 升級~~ ✅　~~兩組 LIFF Channel~~ ✅　~~報名截止日~~ ✅（demo，截止 10/8 00:00）
+   ⚠️ 截止日仍建議提前到 9/28 或 10/1——彩排排在 10/6–10/7，
+   10/8 才截止的話彩排時名單還沒定案
 2. ~~授權 `signBlob`~~ ✅ demo 已完成。
    ⚠️ **正式站的那一份要等第一次 `deploy:fn:prod` 之後才做得了**——
    `{編號}-compute@developer.gserviceaccount.com` 是部署 Functions 時才被建立的，
@@ -278,7 +281,16 @@ Firestore 的 `setDoc()` 在離線時回傳的 Promise **永遠 pending**，
 > 頁面模組收到的 `view` 是那一次導頁的容器，不是 `#app-view` 本身。
 > 不要去抓 `document.getElementById('app-view')` 自己畫。
 
-## 帳號與 LINE 登入（M4-b①）
+## 帳號與 LINE 登入（M4-b①，已實機驗證 ✅）
+
+2026-09-02 實測成功：`U7774e1410479bafff4997f51b2c47b95` 出現在 Firebase Auth，
+**與 FC-Football 的 uid 完全一致**。一次驗證了三件事——
+LIFF 建在正確的 Provider、signBlob 授權有效、custom token 流程通了（docs/10 §8.5）。
+
+⚠️ **custom token 登入的 Firebase user 沒有 displayName／photoURL**，永遠是 null。
+名稱與頭像的權威在 `users/{uid}`（由 lineLogin Function 每次登入時更新），
+畫面要讀那一份，不要讀 Firebase 使用者身上的欄位。
+
 
 ```
 js/core/liff.js            LIFF SDK 載入與登入流程
@@ -473,7 +485,7 @@ npm run test:rules                 # 111 個案例，自動起 Emulator
 npm run test:mutation:rules        # 12 條權限規則變異
 npm run test:fn                    # 35 個 Function 整合測試（F01–F14 結果管線、FR01–FR08 報名）
 npm run test:mutation:fn           # 16 條 Function 變異
-npm run test:e2e                   # 210 個 Playwright 案例（× mobile / desktop / 320px）
+npm run test:e2e                   # 213 個 Playwright 案例（× mobile / desktop / 320px）
 npm run test:e2e:offline           # 只跑離線三態那幾條
 ```
 

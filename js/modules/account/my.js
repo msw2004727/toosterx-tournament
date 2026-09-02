@@ -36,7 +36,7 @@ export async function myPage({ scope, view }) {
   const root = el('div', { class: 'acct' });
   mount(view, root);
 
-  const state = { teams: null, loading: true };
+  const state = { teams: null, profile: null, loading: true };
 
   // ⚠️ 不可以寫成「掛載時如果已登入就讀一次」。
   //    onAuth 的第一次回呼可能在頁面掛載**之後**才到（Firebase 要先還原
@@ -47,10 +47,29 @@ export async function myPage({ scope, view }) {
 
   async function ensureTeams() {
     const u = user();
-    if (!u) { state.teams = null; loadedFor = null; return; }
+    if (!u) { state.teams = null; state.profile = null; loadedFor = null; return; }
     if (loadedFor === u.uid) return;         // 同一個人不重複讀
     loadedFor = u.uid;
-    await loadTeams();
+    await Promise.all([loadTeams(), loadProfile()]);
+  }
+
+  /**
+   * LINE 名稱與頭像。
+   *
+   * ⚠️ 不能用 Firebase 使用者身上的 displayName／photoURL：
+   *    custom token 登入不帶這些欄位，永遠是 null——畫面會一直顯示
+   *    「（沒有名稱）」，而我們明明拿得到。權威在 users/{uid}，
+   *    由 lineLogin Function 在每次登入時更新（docs/10 §1.4）。
+   */
+  async function loadProfile() {
+    try {
+      const { doc, getDoc } = sdk();
+      const snap = await getDoc(doc(db(), 'users', user().uid));
+      state.profile = snap.exists() ? snap.data() : null;
+    } catch (err) {
+      console.warn('[my] 讀不到使用者名錄', err);
+      state.profile = null;
+    }
   }
 
   // onAuth 會立刻用目前的值呼叫一次，所以初次載入也走這條路。
@@ -87,14 +106,16 @@ export async function myPage({ scope, view }) {
     const u = user();
     const s = staff();
     const roles = s?.active === true ? (s.roles || []) : [];
+    const name = state.profile?.displayName || u.displayName || '（沒有名稱）';
+    const photo = state.profile?.pictureUrl || u.photoURL || null;
 
     return el('section', { class: 'acct__card' }, [
       el('div', { class: 'acct__me' }, [
-        u.photoURL
-          ? el('img', { class: 'acct__avatar', src: u.photoURL, alt: '', referrerpolicy: 'no-referrer' })
+        photo
+          ? el('img', { class: 'acct__avatar', src: photo, alt: '', referrerpolicy: 'no-referrer' })
           : el('span', { class: 'acct__avatar acct__avatar--none' }, icon('person')),
         el('div', { class: 'acct__meText' }, [
-          el('strong', { text: u.displayName || '（沒有名稱）' }),
+          el('strong', { text: name }),
           el('span', {
             class: 'acct__roles',
             text: roles.length ? roles.map(r => ROLE_LABEL[r] || r).join('、') : '一般使用者'

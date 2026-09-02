@@ -36,7 +36,9 @@ const seed = () => ({
   [`events/${EVENT}/teams/t-2`]: {
     teamId: 't-2', name: '別人的隊', divisionId: 'u10',
     captainUid: 'u-someone-else', status: 'approved', memberCount: 11
-  }
+  },
+  // LINE 名稱與頭像的權威在這裡，不在 Firebase 的使用者身上
+  [`users/${UID}`]: { uid: UID, displayName: '金小麥', pictureUrl: null, roles: [] }
 });
 
 async function stub(page, { sdkOk = true, user = null, lineLoggedIn = false, loginFails = false } = {}) {
@@ -215,4 +217,14 @@ test('⭐ 一次導頁只掛載一次頁面，不會重複讀同一份資料 @ac
 
   // 「我的」只查一次自己帶的球隊
   expect(await page.evaluate(() => window.__fake.__stats.getDocs)).toBe(1);
+});
+
+test('⭐ 名稱取自 users/{uid}，不是 Firebase 使用者（custom token 不帶名字）@account', async ({ page }) => {
+  // custom token 登入的 Firebase user 沒有 displayName，永遠是 null。
+  // 直接讀它的話畫面會一直顯示「（沒有名稱）」，而我們明明拿得到。
+  await stub(page, { user: { uid: UID, displayName: null, photoURL: null } });
+  await go(page, '/#/my');
+
+  await expect(page.locator('.acct')).toContainText('金小麥');
+  await expect(page.locator('.acct')).not.toContainText('沒有名稱');
 });
