@@ -241,9 +241,10 @@ curl -sI https://cup-demo.toosterx.com/js/config.js | grep -i cache-control
 > 逐步操作手冊在 **`docs/11-上線前設定步驟.md`**（含每一項的驗證方法）。
 
 1. ~~Blaze 升級~~ ✅　~~兩組 LIFF Channel~~ ✅　~~報名截止日~~ ✅（demo）
-2. ⚠️ **授權 `signBlob` 給 Functions 的執行身分**（docs/11 §1.5）——
-   `createCustomToken()` 需要它，而預設的 `roles/editor` **不含** signBlob。
-   沒授權的話部署會成功、探索會成功，**只有真的有人用 LINE 登入時才會炸**
+2. ~~授權 `signBlob`~~ ✅ demo 已完成。
+   ⚠️ **正式站的那一份要等第一次 `deploy:fn:prod` 之後才做得了**——
+   `{編號}-compute@developer.gserviceaccount.com` 是部署 Functions 時才被建立的，
+   現在對 `feda-cup-2026` 跑會得到 `NOT_FOUND: Unknown service account`（docs/11 §1.5）
 3. **Cloudflare zone 的 Browser Cache TTL** 改成 Respect Existing Headers
 4. **Functions 映像檔清理政策**
 
