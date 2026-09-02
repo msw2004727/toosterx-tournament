@@ -322,7 +322,9 @@ export function buildUndoPatch({ uid, events }) {
     status: 'live',
     period: lastPlayedPeriod(events),
     result: null,
-    lock: { locked: false, lockedBy: null },
+    // lockedAt 一定要一起寫。updateDoc 對巢狀 map 是**整包取代**，
+    // 少列一個欄位就等於把它從文件上刪掉（docs/01b §262 有定義這個欄位）。
+    lock: { locked: false, lockedAt: null, lockedBy: null },
     scoreSubmittedAt: null,
     scoreSubmittedBy: null,
     updatedBy: uid

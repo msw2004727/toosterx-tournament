@@ -162,6 +162,12 @@ const MUTANTS = [
     from: `               && serverStampedSubmit()
                && finishMustLock() )`,
     to: `               && serverStampedSubmit() )`
+  },
+  {
+    name: '#23 撤回的 lock map 漏寫 lockedAt（巢狀 map 整包取代 → 欄位被刪掉）',
+    file: 'js/modules/staff/live-actions.js',
+    from: `    lock: { locked: false, lockedAt: null, lockedBy: null },`,
+    to: `    lock: { locked: false, lockedBy: null },`
   }
 ];
 

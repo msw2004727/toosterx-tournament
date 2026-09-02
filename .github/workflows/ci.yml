@@ -76,6 +76,8 @@ jobs:
           test -f _headers || { echo "_headers is missing; /js/* would be cached for 4h after deploy"; exit 1; }
           grep -q '^/js/\*' _headers || { echo "_headers must cover /js/*"; exit 1; }
           grep -A2 '^/js/\*' _headers | grep -q 'max-age=0' || { echo "/js/* must not be long-cached"; exit 1; }
+          # no-cache 是給 Cloudflare zone 改寫 max-age 時的保險（見 _headers 的註解）
+          grep -A2 '^/js/\*' _headers | grep -q 'no-cache' || { echo "/js/* must also send no-cache; a zone-level Browser Cache TTL can rewrite max-age"; exit 1; }
           echo "OK"
 
       - name: JS syntax check

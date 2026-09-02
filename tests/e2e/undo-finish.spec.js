@@ -85,6 +85,14 @@ test('⭐ 完賽送出後撤回列仍然看得到（整頁已經是唯讀）@sta
   await expect(page.getByRole('button', { name: /撤回完賽/ })).toBeVisible();
   // 唯讀提示要跟撤回按鈕講同一件事，不能叫人去找管理員
   await expect(page.getByText('要修改請先用下方的「撤回完賽」')).toBeVisible();
+
+  // ⭐ 完賽當下要把整個 lock map 寫完整（locked / lockedAt / lockedBy）。
+  //    updateDoc 對巢狀 map 是整包取代，漏一個欄位就是把它從文件上刪掉。
+  const doc = await page.evaluate(({ ev, match }) =>
+    window.__fake.__dump()[`events/${ev}/matches/${match}`], { ev: EVENT, match: MATCH });
+  expect(doc.lock.locked).toBe(true);
+  expect(doc.lock.lockedBy).toBe('u-e2e');
+  expect(doc.lock.lockedAt).toBeTruthy();
 });
 
 test('⭐ 撤回之後場次退回進行中，比分與事件都留著 @staff @undo', async ({ page }) => {
@@ -109,6 +117,9 @@ test('⭐ 撤回之後場次退回進行中，比分與事件都留著 @staff @u
   expect(m.score).toEqual({ home: 1, away: 0 });
   expect(m.scoreSubmittedAt).toBeNull();
   expect(m.result).toBeNull();
+  // lock 是巢狀 map，updateDoc 整包取代——lockedAt 少寫就等於把欄位刪掉
+  expect(m.lock).toHaveProperty('lockedAt', null);
+  expect(m.lock).toHaveProperty('lockedBy', null);
 });
 
 test('⭐ 離線送出完賽時，不可以出現倒數或撤回按鈕 @staff @undo @offline', async ({ page }) => {

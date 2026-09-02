@@ -89,15 +89,20 @@ function watchForNewVersion() {
 function mountAppHeader() {
   const host = document.getElementById('app-header');
   if (!host) return;
+  // themeSwitch() 會向 theme.js 註冊一個訂閱者。直接 replaceChildren() 把它
+  // 拔掉的話，那個閉包要等到下一次主題變動才會自己退訂，每進一次 /staff 就多留一個。
+  let current = null;
+  const drop = () => { current?.destroy?.(); current = null; host.replaceChildren(); };
   const sync = () => {
     const inStaff = location.hash.startsWith('#/staff');
-    if (inStaff) { host.replaceChildren(); return; }
+    if (inStaff) { if (current) drop(); return; }
     if (host.firstElementChild) return;      // 已經有了就不要重建，切換會閃
     const bar = document.createElement('div');
     bar.className = 'apphead';
     const spacer = document.createElement('div');
     spacer.className = 'apphead__spacer';
-    bar.append(spacer, themeSwitch());
+    current = themeSwitch();
+    bar.append(spacer, current);
     host.replaceChildren(bar);
   };
   sync();

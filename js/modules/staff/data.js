@@ -113,6 +113,10 @@ export function submitFinish(matchId, patch, label) {
   const ref = doc(db(), 'events', EVENT_ID, 'matches', matchId);
   const full = {
     ...patch,
+    // lock 是巢狀 map，updateDoc 會整包取代它——所以 lockedAt 要在這裡補進去，
+    // 否則 docs/01b §262 定義的這個欄位會在完賽的瞬間從文件上消失。
+    // 引擎（buildFinishPatch）是純函式、不碰 serverTimestamp，同 scoreSubmittedAt。
+    lock: { ...patch.lock, lockedAt: serverTimestamp() },
     scoreSubmittedAt: serverTimestamp(),
     scoreSubmittedBy: uid(),
     updatedAt: serverTimestamp(),

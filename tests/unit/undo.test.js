@@ -111,7 +111,8 @@ describe('T31-4 撤回的 patch', () => {
     const p = buildUndoPatch({ uid: 'u1', events: [ev(1, 'h1'), ev(9, 'h2')] });
     expect(p.status).toBe('live');
     expect(p.period).toBe('h2');
-    expect(p.lock).toEqual({ locked: false, lockedBy: null });
+    // lockedAt 必須在：updateDoc 對巢狀 map 是整包取代，漏一個欄位就是刪掉它
+    expect(p.lock).toEqual({ locked: false, lockedAt: null, lockedBy: null });
     expect(p.result).toBeNull();
     expect(p.scoreSubmittedAt).toBeNull();
     expect(p.scoreSubmittedBy).toBeNull();
