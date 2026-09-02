@@ -3,7 +3,7 @@
  * 對應 docs/07 §2.4 的 R01–R10、R18、R21–R23
  */
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collectionGroup, getDocs, query, where } from 'firebase/firestore';
 import {
   makeEnv, seedBaseline, asAdminSdk, authed, guest,
   EVENT, MATCH, MATCH_B, baseMatch
@@ -230,6 +230,18 @@ describe('積分榜與比賽事件', () => {
       doc(guest(env), 'events', EVENT, 'standings', 'adult-open__group__A'),
       { rows: [] }
     ));
+  });
+
+  test('R33 ⭐ 訪客可以用 collectionGroup 查某位球員的出賽紀錄', async () => {
+    // 巢狀路徑的 allow read 吃不到 collectionGroup 查詢，要有專門的一條規則。
+    // 少了它，球員頁的「出賽紀錄」永遠是 PERMISSION_DENIED。
+    await asAdminSdk(env, db => setDoc(
+      doc(db, 'events', EVENT, 'matches', MATCH, 'timeline', 'tl-9'),
+      { matchId: MATCH, type: 'goal', side: 'home', playerId: 'm-101-07', seq: 1, createdBy: 'u-scorer', voided: false }
+    ));
+    await assertSucceeds(getDocs(query(
+      collectionGroup(guest(env), 'timeline'), where('playerId', '==', 'm-101-07')
+    )));
   });
 
   test('附加：賽務可新增比賽事件，但不可刪除', async () => {

@@ -4,13 +4,14 @@
  * ⚠️ R-REL-013：HTML 一律 network-first，禁止 cache-first。
  * ⚠️ R-REL-014：新資源必須由 scripts/bump-version.js 納管。
  */
-const CACHE_NAME = 'feda-cup-0.20260902b';
+const CACHE_NAME = 'feda-cup-0.20260902c';
 
 const APP_SHELL = [
   '/css/tokens.css',
   '/css/base.css',
   '/css/components.css',
   '/css/modules/staff.css',
+  '/css/modules/public.css',
   '/app.js',
   '/manifest.json'
 ];

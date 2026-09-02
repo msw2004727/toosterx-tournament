@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>找不到頁面｜FEDA CUP 2026</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F1F5F3">
+<script>
+/* 首屏主題。與 index.html 同一段邏輯、同一個 KEY。
+   ⚠️ 這裡不能改用模組：模組是 defer 的，會先閃一下淺色再變深色。
+      404 頁沒有 app.js，所以這段是它唯一的主題來源。 */
+(function () {
+  try {
+    var pref = null;
+    try { pref = localStorage.getItem('feda_theme'); } catch (e) {}
+    var resolved = (pref === 'light' || pref === 'dark')
+      ? pref
+      : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.dataset.theme = resolved;
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0C1210' : '#F1F5F3');
+  } catch (e) { /* 出錯就維持 CSS 的淺色預設 */ }
+})();
+</script>
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/components.css">
+<link rel="stylesheet" href="/css/modules/public.css">
+</head>
+<body>
+  <main class="p404">
+    <p class="p404__code">404</p>
+    <h1 class="p404__title">找不到這個頁面</h1>
+    <p class="p404__note">網址可能打錯了，或這個頁面已經移除。賽程、比分與積分榜都在首頁。</p>
+    <a class="btn btn--primary" href="/#/">回首頁</a>
+  </main>
+</body>
+</html>

@@ -1,46 +1,207 @@
 {
   "indexes": [
-    { "collectionGroup": "matches", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "date", "order": "ASCENDING" },
-      { "fieldPath": "kickoffAt", "order": "ASCENDING" } ] },
-    { "collectionGroup": "matches", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "divisionId", "order": "ASCENDING" },
-      { "fieldPath": "stageId", "order": "ASCENDING" },
-      { "fieldPath": "matchNo", "order": "ASCENDING" } ] },
-    { "collectionGroup": "matches", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "venueId", "order": "ASCENDING" },
-      { "fieldPath": "kickoffAt", "order": "ASCENDING" } ] },
-    { "collectionGroup": "matches", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "status", "order": "ASCENDING" },
-      { "fieldPath": "kickoffAt", "order": "ASCENDING" } ] },
-    { "collectionGroup": "matches", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "teamIds", "arrayConfig": "CONTAINS" },
-      { "fieldPath": "kickoffAt", "order": "ASCENDING" } ] },
-    { "collectionGroup": "timeline", "queryScope": "COLLECTION_GROUP", "fields": [
-      { "fieldPath": "matchId", "order": "ASCENDING" },
-      { "fieldPath": "seq", "order": "ASCENDING" } ] },
-    { "collectionGroup": "timeline", "queryScope": "COLLECTION_GROUP", "fields": [
-      { "fieldPath": "type", "order": "ASCENDING" },
-      { "fieldPath": "playerId", "order": "ASCENDING" } ] },
-    { "collectionGroup": "checkins", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "matchId", "order": "ASCENDING" },
-      { "fieldPath": "teamId", "order": "ASCENDING" },
-      { "fieldPath": "scannedAt", "order": "ASCENDING" } ] },
-    { "collectionGroup": "attempts", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "challengeId", "order": "ASCENDING" },
-      { "fieldPath": "isBest", "order": "DESCENDING" },
-      { "fieldPath": "rawValue", "order": "DESCENDING" } ] },
-    { "collectionGroup": "attempts", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "challengeId", "order": "ASCENDING" },
-      { "fieldPath": "isBest", "order": "DESCENDING" },
-      { "fieldPath": "rawValue", "order": "ASCENDING" } ] },
-    { "collectionGroup": "attempts", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "playerId", "order": "ASCENDING" },
-      { "fieldPath": "createdAt", "order": "DESCENDING" } ] },
-    { "collectionGroup": "audits", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "entity", "order": "ASCENDING" },
-      { "fieldPath": "entityId", "order": "ASCENDING" },
-      { "fieldPath": "createdAt", "order": "DESCENDING" } ] }
+    {
+      "collectionGroup": "matches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "kickoffAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "matches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "divisionId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stageId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "matchNo",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "matches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "venueId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "kickoffAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "matches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "kickoffAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "matches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "teamIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "kickoffAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "timeline",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "matchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "seq",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "timeline",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "type",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "playerId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "checkins",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "matchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "teamId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scannedAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "attempts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "challengeId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isBest",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "rawValue",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "attempts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "challengeId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isBest",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "rawValue",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "attempts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "playerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "audits",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "entity",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "entityId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "timeline",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "playerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "seq",
+          "order": "DESCENDING"
+        }
+      ]
+    }
   ],
   "fieldOverrides": []
 }

@@ -141,7 +141,10 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       `js/engine/` 由 `scripts/sync-engine.js` 同步進部署範圍，
       積分榜／晉級／最終排名／射手榜全部自動化。21 個模擬器整合測試（F01–F14）
       ＋ 10 條變異。實測 Functions 在真的執行環境載得起來（23 個 endpoint）
-- [ ] M4 報名與球隊管理（docs/10）　[ ] M5 公開端
+- [x] M5 公開端：8 條路由（首頁／賽程／比賽／組別／球隊／球員／統計／直播牆）
+      ＋ 404 頁。322 單元 ＋ 47 變異 ＋ 171 E2E。整合時修掉四個欄位路徑錯誤
+      （見下方「公開端」章節）
+- [ ] M4 報名與球隊管理（docs/10）
 - [ ] M6 檢錄＋Challenge　[ ] M7 彩排 → 上線
 
 ## 現在的狀態（2026-09-02，Claude Code 接手後已全數實跑）
@@ -151,10 +154,10 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 264 全綠（14 個 suite） |
-| `npm run test:mutation` | ✅ 29 / 29 全被抓到 |
-| `npm run test:e2e` | ✅ 96 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 70 全綠（含 R24–R30 自撤回、R31 完賽即鎖定） |
+| `npm run test:unit` | ✅ 322 全綠（16 個 suite） |
+| `npm run test:mutation` | ✅ 47 / 47 全被抓到 |
+| `npm run test:e2e` | ✅ 171 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:rules` | ✅ 71 全綠（含 R31 完賽即鎖定、R33 collectionGroup） |
 | `npm run test:fn` | ✅ 21 全綠（F01–F14 結果管線，Emulator） |
 | `npm run test:mutation:fn` | ✅ 10 / 10 全被抓到 |
 
@@ -267,6 +270,51 @@ Firestore 的 `setDoc()` 在離線時回傳的 Promise **永遠 pending**，
 所以絕不能 `await` 它再更新 UI；正確做法是立刻顯示「已記錄」，
 真正的狀態交給 `sync.js` 追蹤並反映在右上角的燈號上。
 
+## 公開端（M5）
+
+```
+js/modules/public/
+├── index.js      路由註冊（lazy() ＋ ?v=，同 staff/index.js）
+├── data.js       Firestore 存取，onSnapshot 一律經 store.hold
+├── selectors.js  純邏輯：排序／分群／篩選／積分榜投影／隱私白名單
+├── follows.js    關注（localStorage，免登入個人化）
+├── bits.js       共用元件
+└── home / schedule / match / division / team / stats
+```
+
+公開端**完全免登入**，前端不假裝擋任何東西——邊界在 `firestore.rules`
+（公開集合 `allow read: if true`，`members` 連讀都讀不到，已對 demo 實測 403）。
+
+### 這一輪整合時修掉的四個欄位路徑錯誤
+
+M5 是照**想像的 schema** 寫的，四個欄位在真實資料庫裡都不存在（已對
+`feda-cup-demo` 逐一核對）。共同特徵是**寫錯路徑不會噴錯，只會安靜地不生效**：
+
+| 讀成 | 實際 | 後果 |
+|---|---|---|
+| `division.youth` | 沒有這個欄位 | 「兒童組不公開個人射手榜」的守衛永遠不會生效 |
+| `division.featureFlags` | `config/featureFlags`（另一份文件） | 同上 |
+| `division.mercyRule` | `division.display.mercyRule` | 仁慈規則封頂永遠不生效，兒童組的 12:0 照實印 |
+| `division.qualifyCount` | 不存在（規格也沒有） | 晉級區反白永遠不亮 |
+
+判斷「哪些組別不公開個人榜」現在走 `selectors.hiddenScorerDivisions()`，
+依據是 `display.scorerBoard === false`（seed 對 u6/u8/u10 就是這樣寫的），
+**不把 divisionId 寫死**。而且要在「全部組別」的檢視也篩掉——
+只在選了組別時才擋，等於沒擋。
+
+> E2E 的替身資料當時也照著錯的 schema 寫，所以測試看起來全綠。
+> **替身資料寫錯 schema 比沒有測試更危險**：它會主動證明錯的東西是對的。
+> 現在替身種子已對齊真實資料庫，並補了四條 E2E 專門盯欄位路徑。
+
+### 統計頁只有兩張榜
+
+`boards/scorers`（球員）與 `boards/fairplay`（球隊）是**兩份文件、兩種 rows 形狀**，
+畫面分開渲染，不可以互相退回去當備援——那會畫出一張看起來正常、但每個人都 0 分的錯表。
+
+docs/03 §9.1 還列了「助攻榜」，這裡沒有：賽務端目前根本不記錄助攻
+（`buildGoalEvent` 有 `assistPlayerId` 欄位，但沒有任何介面會填它），引擎也沒有這張榜。
+掛一個永遠「整理中」的分頁只會讓人以為網站壞了，等 M6 補上記錄再開。
+
 ## 結果管線（M3.9）
 
 M2 的引擎一直到 M3.9 之前都**沒有任何東西呼叫**——`standing / ranking /
@@ -362,12 +410,12 @@ Function 負責讀寫與填 `serverTimestamp`，引擎只負責算。
 ### 測試
 
 ```bash
-npm run test:unit                  # 264 個案例（引擎 T01–T32 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
-npm run test:mutation              # 29 條變異，證明測試有鑑別力
-npm run test:rules                 # 70 個案例，自動起 Emulator
+npm run test:unit                  # 322 個案例（引擎 T01–T32 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
+npm run test:mutation              # 47 條變異，證明測試有鑑別力
+npm run test:rules                 # 71 個案例，自動起 Emulator
 npm run test:fn                    # 21 個結果管線整合測試（F01–F14），自動起 Emulator
 npm run test:mutation:fn           # 10 條結果管線變異
-npm run test:e2e                   # 96 個 Playwright 案例（× mobile / desktop / 320px）
+npm run test:e2e                   # 171 個 Playwright 案例（× mobile / desktop / 320px）
 npm run test:e2e:offline           # 只跑離線三態那幾條
 ```
 

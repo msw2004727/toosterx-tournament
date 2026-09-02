@@ -1,0 +1,336 @@
+/* 公開端版面｜規格：docs/03-功能規格-公開端.md、docs/08 §1、§3
+   ------------------------------------------------------------------
+   R-UI-005：這裡**沒有**任何 @media (prefers-color-scheme)。
+             深淺兩套色由 css/tokens.css 的 [data-theme] 提供，
+             需要不同色的地方一律用語意色組（--warn-bg/-text/-border）。
+   R-UI-006：最小驗證寬度 320px。窄機只調間距與字級，不改版面結構。
+
+   命名一律 p- 前綴（public），避免跟賽務端的 class 撞名。 */
+
+.pub{padding-bottom:var(--sp-6)}
+
+/* ── 頁首 ───────────────────────────────────────────────── */
+.phead{
+  display:flex;align-items:center;gap:var(--sp-2);
+  padding:var(--sp-3);
+  padding-top:calc(var(--sp-3) + env(safe-area-inset-top));
+  background:var(--primary);color:#fff;
+  position:sticky;top:0;z-index:60;
+}
+.phead__back{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  min-width:var(--tap);min-height:var(--tap);color:#fff;font-size:var(--fs-lg);
+}
+.phead__title{display:flex;flex-direction:column;min-width:0;flex:1}
+.phead__title strong{
+  font-size:var(--fs-md);line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.phead__sub{font-size:var(--fs-xs);opacity:.8;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── 分頁列 ─────────────────────────────────────────────── */
+.ptabs{
+  display:flex;gap:var(--sp-2);padding:var(--sp-3);
+  overflow-x:auto;scrollbar-width:none;
+}
+.ptabs::-webkit-scrollbar{display:none}
+.ptabs__btn{
+  display:inline-flex;align-items:center;gap:5px;flex:none;
+  min-height:var(--tap);padding:0 var(--sp-3);border-radius:var(--r-full);
+  background:var(--bg-elevated);color:var(--text-secondary);
+  font-size:var(--fs-sm);font-weight:700;white-space:nowrap;
+}
+.ptabs__btn.is-active{background:var(--accent);color:var(--text-on-accent)}
+.ptabs--sub{padding-top:0}
+
+/* ── 篩選列 ─────────────────────────────────────────────── */
+.pfilter{display:flex;gap:var(--sp-2);padding:0 var(--sp-3) var(--sp-3);flex-wrap:wrap}
+.pfilter__sel{flex:1;min-width:120px;min-height:var(--tap)}
+.pfilter .chip{flex:none}
+
+/* ── 區塊卡片 ───────────────────────────────────────────── */
+.pcard{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);
+  margin:var(--sp-3);padding:var(--sp-3);box-shadow:var(--shadow-1);
+}
+.pcard__head{
+  display:flex;align-items:center;gap:6px;
+  margin:0 0 var(--sp-2);font-size:var(--fs-md);color:var(--text-secondary);
+}
+.pcard__foot{display:flex;justify-content:flex-end;margin-top:var(--sp-2)}
+.pcard .empty{padding:var(--sp-4) var(--sp-2)}
+
+/* ── 場次列 ─────────────────────────────────────────────── */
+.plist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.prow{display:flex;align-items:stretch;gap:var(--sp-2);border-top:1px solid var(--border)}
+.prow:first-child{border-top:0}
+/* 未定隊伍（排名階段還沒解算）：虛線框 ＋ 斜體，一眼看得出「還不確定」 */
+.prow.is-placeholder .prow__team{font-style:italic;color:var(--text-muted)}
+.prow.is-placeholder{border-left:2px dashed var(--border-strong)}
+
+.prow__btn{
+  flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;
+  padding:var(--sp-3) 0;text-align:left;
+}
+.prow__head{display:flex;align-items:center;gap:var(--sp-2);min-width:0}
+.prow__time{font-size:var(--fs-sm);color:var(--text-secondary);flex:none;
+  font-variant-numeric:tabular-nums}
+.prow__meta{
+  flex:1;min-width:0;font-size:var(--fs-xs);color:var(--text-muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.prow__score{display:flex;align-items:center;gap:var(--sp-2);min-width:0}
+.prow__team{
+  flex:1;min-width:0;font-size:var(--fs-sm);font-weight:700;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.prow__team--away{text-align:right}
+.prow__nums{display:flex;align-items:center;gap:6px;flex:none;
+  font-size:var(--fs-md);font-weight:700;font-variant-numeric:tabular-nums}
+.prow__dash{color:var(--text-muted);font-weight:400}
+.prow__note{font-size:var(--fs-xs);color:var(--text-muted)}
+
+/* ── 狀態徽章：顏色一定伴隨文字（docs/03 §12.5）─────────── */
+.pbadge{display:inline-flex;align-items:center;gap:5px;flex:none;
+  font-size:var(--fs-xs);font-weight:700;color:var(--text-secondary)}
+.pbadge[data-status="live"]{color:var(--live)}
+.pbadge[data-status="halftime"]{color:var(--pending)}
+.pbadge[data-status="finished"],
+.pbadge[data-status="confirmed"]{color:var(--finished)}
+.pbadge[data-status="postponed"],
+.pbadge[data-status="cancelled"]{color:var(--text-muted)}
+.pbadge__text{white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* ── 關注 ───────────────────────────────────────────────── */
+.fstar{
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  flex:none;align-self:center;white-space:nowrap;
+  min-height:var(--tap);padding:0 6px;margin-left:2px;border-radius:var(--r-full);
+  font-size:var(--fs-xs);font-weight:700;color:var(--text-muted);
+  border:1px solid var(--border);
+}
+.fstar.is-on{color:var(--accent);background:var(--accent-bg)}
+
+/* ── 時段標題 ───────────────────────────────────────────── */
+.psched{margin:0 var(--sp-3)}
+.pslot{
+  margin:var(--sp-4) 0 var(--sp-1);font-size:var(--fs-sm);font-weight:700;
+  color:var(--text-muted);font-variant-numeric:tabular-nums;
+}
+
+/* ── 首頁小卡 ───────────────────────────────────────────── */
+.pchips{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+.ptop{list-style:none;margin:0;padding:0;counter-reset:t}
+.ptop__row{
+  display:grid;grid-template-columns:2em 1fr auto auto;gap:var(--sp-2);
+  align-items:center;min-height:var(--tap);border-top:1px solid var(--border);
+}
+.ptop__row:first-child{border-top:0}
+.ptop__rank{color:var(--text-muted);font-size:var(--fs-sm)}
+.ptop__name{font-weight:700;font-size:var(--fs-sm);min-width:0;text-align:left;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ptop__team{font-size:var(--fs-xs);color:var(--text-muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:8em}
+.ptop__val{font-weight:700;font-size:var(--fs-sm);white-space:nowrap}
+
+.psponsor{
+  margin:var(--sp-4) var(--sp-3) 0;padding:var(--sp-3);
+  border-top:1px solid var(--border);
+  display:flex;flex-direction:column;gap:2px;align-items:center;text-align:center;
+}
+.psponsor__label{font-size:var(--fs-xs);color:var(--text-muted)}
+.psponsor__name{font-size:var(--fs-sm);font-weight:700;color:var(--text-secondary)}
+
+/* ── LIVE 比賽頁 ────────────────────────────────────────── */
+.psb{
+  display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);
+  padding:var(--sp-4) var(--sp-3);background:var(--bg-card);
+  border-bottom:1px solid var(--border);
+}
+.psb__status{display:inline-flex;align-items:center;gap:6px;
+  font-size:var(--fs-sm);font-weight:700;color:var(--text-secondary)}
+.psb[data-status="live"] .psb__status{color:var(--live)}
+.psb__statusText{font-variant-numeric:tabular-nums}
+.psb__row{display:flex;align-items:center;gap:var(--sp-2);width:100%}
+.psb__team{
+  flex:1;min-width:0;font-size:var(--fs-sm);font-weight:700;text-align:center;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.psb__nums{display:flex;align-items:center;gap:var(--sp-2);flex:none;
+  font-size:var(--fs-score);font-weight:700;line-height:1;
+  font-variant-numeric:tabular-nums}
+.psb__dash{color:var(--text-muted);font-size:var(--fs-xl)}
+.psb__num{min-width:1.1em;text-align:center;display:inline-block}
+/* 比分變動時彈跳一下（docs/03 §4.3） */
+.psb__num.is-bump{animation:psb-bump .25s ease-out}
+@keyframes psb-bump{0%{transform:scale(1)}45%{transform:scale(1.28)}100%{transform:scale(1)}}
+.psb__ht,.psb__note{margin:0;font-size:var(--fs-sm);color:var(--text-muted)}
+
+.pmatch__actions{display:flex;gap:var(--sp-2);padding:var(--sp-3);align-items:center}
+
+/* 事件流 */
+.ptl{list-style:none;margin:0;padding:0 var(--sp-3)}
+.ptl__item{
+  display:grid;grid-template-columns:3.4em auto 1fr auto;gap:var(--sp-2);
+  align-items:center;min-height:48px;padding:var(--sp-2) 0;
+  border-bottom:1px solid var(--border);
+  animation:ptl-in .18s ease-out;
+}
+@keyframes ptl-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.ptl__min{font-size:var(--fs-sm);color:var(--text-muted);font-variant-numeric:tabular-nums}
+.ptl__icon{display:inline-flex;font-size:var(--fs-md);color:var(--text-secondary)}
+.ptl__text{font-size:var(--fs-sm);min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ptl__team{font-size:var(--fs-xs);color:var(--text-muted);white-space:nowrap;
+  max-width:6em;overflow:hidden;text-overflow:ellipsis}
+
+/* 陣容 */
+.plineup{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);padding:var(--sp-3)}
+.plineup__team{margin:0 0 var(--sp-2);font-size:var(--fs-sm);font-weight:700;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plineup__list{list-style:none;margin:0;padding:0}
+.plineup__row{display:grid;grid-template-columns:2em 1fr auto;gap:6px;
+  align-items:center;min-height:40px;border-top:1px solid var(--border)}
+.plineup__row:first-child{border-top:0}
+.plineup__no{color:var(--text-muted);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
+.plineup__name{font-size:var(--fs-sm);text-align:left;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plineup__pos{font-size:var(--fs-xs);color:var(--text-muted)}
+
+/* 統計表 */
+.pstats{width:100%;border-collapse:collapse;margin:var(--sp-3) 0}
+.pstats th,.pstats td{padding:var(--sp-2);font-size:var(--fs-sm);text-align:center}
+.pstats thead th{color:var(--text-muted);font-size:var(--fs-xs);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:8em}
+.pstats tbody th{color:var(--text-muted);font-weight:400;font-size:var(--fs-xs)}
+.pstats tbody td{font-weight:700;font-variant-numeric:tabular-nums}
+.pstats tbody tr{border-top:1px solid var(--border)}
+
+/* ── 積分榜 ─────────────────────────────────────────────── */
+.pstand{margin:0}
+/* 320px 塞不下十欄，橫向捲動是刻意的——縮字級會讓數字看不清楚 */
+.ptable-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.ptable{width:100%;border-collapse:collapse;min-width:460px}
+.ptable th,.ptable td{padding:6px 4px;font-size:var(--fs-sm);text-align:center;white-space:nowrap}
+.ptable thead th{font-size:var(--fs-xs);color:var(--text-muted);font-weight:700}
+.ptable th.is-left{text-align:left}
+.ptable tbody tr{border-top:1px solid var(--border)}
+.ptable td{font-variant-numeric:tabular-nums}
+.ptable__team{font-weight:700;font-size:var(--fs-sm);text-align:left;
+  max-width:8em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ptable__pts{font-weight:700}
+/* 晉級區：底色 ＋ 左邊條，兩個訊號不只靠顏色 */
+.ptable tbody tr.is-qualified{background:var(--ok-bg)}
+.ptable tbody tr.is-qualified td:first-child{
+  box-shadow:inset 3px 0 0 var(--finished);
+}
+/* 排不出名次的那一列：不要偷偷給它一個數字 */
+.ptable tbody tr.is-unresolved td{color:var(--text-muted);font-style:italic}
+.pstand__legend{display:flex;align-items:center;gap:4px;flex-wrap:wrap;
+  margin:var(--sp-2) 0 0;font-size:var(--fs-xs);color:var(--text-muted)}
+
+/* ── 球隊／球員 ─────────────────────────────────────────── */
+.prec{display:flex;gap:var(--sp-2);padding:var(--sp-3);flex-wrap:wrap}
+.prec__cell{
+  flex:1;min-width:56px;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:var(--sp-2);border-radius:var(--r-md);background:var(--bg-elevated);
+}
+.prec__val{font-size:var(--fs-lg);font-weight:700;font-variant-numeric:tabular-nums}
+.prec__label{font-size:var(--fs-xs);color:var(--text-muted)}
+
+.proster{list-style:none;margin:0;padding:0}
+.proster__row{border-top:1px solid var(--border)}
+.proster__row:first-child{border-top:0}
+.proster__btn{
+  /* 五個子節點就要五欄：背號／姓名＋隊長／位置／進球／箭頭。
+     欄數少一個，多出來的那個會掉到第二行（320px 上特別明顯）。 */
+  display:grid;grid-template-columns:2.4em 1fr auto auto auto;gap:var(--sp-2);
+  align-items:center;width:100%;min-height:var(--tap);padding:var(--sp-2) 0;text-align:left;
+}
+.proster__nameWrap{display:flex;align-items:center;gap:6px;min-width:0}
+.proster__no{color:var(--text-muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
+.proster__name{font-weight:700;font-size:var(--fs-sm);min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proster__tag{font-size:var(--fs-xs);color:var(--accent);background:var(--accent-bg);
+  padding:1px 6px;border-radius:var(--r-full);white-space:nowrap}
+.proster__pos,.proster__goals{font-size:var(--fs-xs);color:var(--text-muted);white-space:nowrap}
+
+.pteams{list-style:none;margin:0;padding:0 var(--sp-3)}
+.pteams__btn{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);
+  width:100%;min-height:var(--tap);border-top:1px solid var(--border);color:var(--text-primary)}
+.pteams li:first-child .pteams__btn{border-top:0}
+.pteams__name{font-weight:700;font-size:var(--fs-sm);min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.papp{list-style:none;margin:0;padding:0}
+.papp__row{display:grid;grid-template-columns:auto 1fr auto;gap:var(--sp-2);
+  align-items:center;min-height:var(--tap);border-top:1px solid var(--border)}
+.papp__row:first-child{border-top:0}
+.papp__date{font-size:var(--fs-xs);color:var(--text-muted);white-space:nowrap}
+.papp__opp{font-size:var(--fs-sm);font-weight:700;text-align:left;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.papp__marks{font-size:var(--fs-xs);color:var(--text-muted);white-space:nowrap}
+
+/* ── 直播 ───────────────────────────────────────────────── */
+.video{
+  position:relative;aspect-ratio:16/9;width:100%;
+  background:var(--bg-elevated);border-radius:var(--r-md);overflow:hidden;
+}
+.video iframe{width:100%;height:100%;border:0;display:block}
+.video__poster{
+  position:absolute;inset:0;width:100%;height:100%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  color:var(--text-secondary);
+}
+.video__poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.video__play{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;
+  width:56px;height:56px;border-radius:50%;
+  background:var(--accent);color:var(--text-on-accent);font-size:var(--fs-xl);
+}
+.video__hint{position:relative;font-size:var(--fs-xs);font-weight:700}
+.video__off{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:6px;
+  color:var(--text-muted);font-size:var(--fs-sm);
+}
+
+.pwall{display:flex;flex-direction:column;gap:var(--sp-3);padding:var(--sp-3)}
+.pwall__cell{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);
+  padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2);
+}
+.pwall__head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2)}
+.pwall__score{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);
+  font-size:var(--fs-sm);font-weight:700;width:100%;min-height:36px;
+}
+.pwall__score span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pwall__score .num{flex:none;font-variant-numeric:tabular-nums}
+
+/* ── 404 ────────────────────────────────────────────────── */
+.p404{
+  min-height:100vh;min-height:100dvh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:var(--sp-3);padding:var(--sp-6) var(--sp-4);text-align:center;
+}
+.p404__code{font-size:var(--fs-2xl);font-weight:700;color:var(--text-muted);
+  font-variant-numeric:tabular-nums}
+.p404__title{margin:0;font-size:var(--fs-lg)}
+.p404__note{margin:0;color:var(--text-muted);font-size:var(--fs-sm);max-width:32ch}
+
+/* ── 320–359px：只調間距與字級，不改結構 ───────────────── */
+@media (max-width:359px){
+  .pcard{margin:var(--sp-2);padding:var(--sp-2)}
+  .plineup{grid-template-columns:1fr;gap:var(--sp-3)}
+  .ptl__item{grid-template-columns:3em auto 1fr;row-gap:0}
+  .ptl__team{grid-column:3;font-size:10px;max-width:100%;text-align:right}
+  .proster__btn{grid-template-columns:2.2em 1fr auto auto}   /* 進球欄在窄機隱藏 */
+  .proster__goals{display:none}
+  .prec__cell{min-width:48px;padding:6px 2px}
+}
+
+/* ── 桌機：置中不拉寬（賽事網站的主場是手機）───────────── */
+@media (min-width:840px){
+  .pwall{display:grid;grid-template-columns:1fr 1fr}
+}

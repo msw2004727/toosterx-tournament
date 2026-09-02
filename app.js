@@ -9,7 +9,6 @@
 
 import { IS_DEMO, ENV } from './js/firebase-config.js';
 import { EVENT } from './js/config.js';
-import { iconText } from './js/core/icons.js';
 import { themeSwitch } from './js/core/theme.js';
 
 const App = {
@@ -41,8 +40,8 @@ async function boot() {
   const staff = await import('./js/modules/staff/index.js');
   staff.registerStaffRoutes();
 
-  // 公開端首頁在 M4；先給一個可以走到賽務端的落地頁
-  route('/', ({ view }) => { view.replaceChildren(landing(navigate)); }, { title: '首頁' });
+  // 公開端（M5）。必須註冊在下面那條落地頁之前——路由是先註冊先贏。
+  (await import('./js/modules/public/index.js')).registerPublicRoutes();
 
   // Demo 專屬功能：正式版整段不載入（不是用 flag 關掉）
   if (IS_DEMO) {
@@ -109,31 +108,6 @@ function mountAppHeader() {
   window.addEventListener('hashchange', sync);
 }
 
-function landing(navigate) {
-  const wrap = document.createElement('div');
-  wrap.className = 'landing';
-
-  const h = document.createElement('h1');
-  h.className = 'landing__title';
-  h.textContent = EVENT.name;
-
-  const p = document.createElement('p');
-  p.className = 'landing__sub';
-  p.textContent = `${EVENT.slogan}・${EVENT.dates[0].replaceAll('-', '/')}–${EVENT.dates.at(-1).slice(-2)}・${EVENT.venueName}`;
-
-  const note = document.createElement('p');
-  note.className = 'landing__note';
-  note.textContent = '公開端（賽程、即時比分、積分榜）在 M4 開放。目前可先進入賽務端。';
-
-  const btn = document.createElement('button');
-  btn.className = 'btn btn--xl btn--primary';
-  btn.type = 'button';
-  btn.append(...iconText('forward', '進入賽務端', { trailing: true }));
-  btn.addEventListener('click', () => navigate('/staff'));
-
-  wrap.append(h, p, note, btn);
-  return wrap;
-}
 
 boot().catch(err => {
   console.error('[boot]', err);

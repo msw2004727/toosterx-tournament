@@ -331,6 +331,18 @@ service cloud.firestore {
     }
 
     // ══════════════════ 根層級 ══════════════════
+    // ── 球員出賽紀錄：collectionGroup('timeline') ──────────────
+    // timeline 在 matches/{id}/timeline 底下已經是 allow read: if true，
+    // 但**巢狀路徑的規則吃不到 collectionGroup 查詢**，要另外開這一條，
+    // 否則球員頁的「出賽紀錄」永遠是 PERMISSION_DENIED。
+    //
+    // 只開 read，而且開的是同一批已經公開的資料——事件上的 playerName
+    // 來自賽務端從公開名冊（roster）挑的 displayName，未滿 13 歲已遮蔽。
+    // 寫入一律走上面那條（賽務／Admin，且永不刪除，R-SEC-002）。
+    match /{path=**}/timeline/{timelineId} {
+      allow read: if true;
+    }
+
     match /config/{key} {
       allow read:  if true;
       allow write: if isAdmin();

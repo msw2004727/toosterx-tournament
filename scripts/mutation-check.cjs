@@ -196,6 +196,115 @@ const MUTANTS = [
     to: `  if (s.length <= 1) return s;
   if (s.length === 2) return s[0] + '○';
   return s[0] + '○'.repeat(s.length - 2) + s.at(-1);`
+  },
+  // ── M5：公開端（純函式，跑 tests/unit/public-*.test.js）──────
+  {
+    name: '#P1 沒有時間的場次排最前面（會被當成下一場）',
+    file: 'js/modules/public/selectors.js',
+    from: `    if (ta == null) return 1;\n    if (tb == null) return -1;`,
+    to: `    if (ta == null) return -1;\n    if (tb == null) return 1;`
+  },
+  {
+    name: '#P2 未來的 finished 場次也算「剛結束」',
+    file: 'js/modules/public/selectors.js',
+    from: `    .filter(m => {\n      const t = toMillis(m?.scoreSubmittedAt) ?? toMillis(m?.kickoffAt);\n      return t == null || t <= nowMs;\n    })`,
+    to: `    .filter(() => true)`
+  },
+  {
+    name: '#P3 關注的球隊不置頂',
+    file: 'js/modules/public/selectors.js',
+    from: `    .sort((a, b) => (followed(b) ? 1 : 0) - (followed(a) ? 1 : 0))`,
+    to: ``
+  },
+  {
+    name: '#P4 晉級區用陣列位置判斷，不是用 rank',
+    file: 'js/modules/public/selectors.js',
+    from: `      qualified: qualifyCount > 0 && Number.isFinite(r?.rank) && r.rank <= qualifyCount,`,
+    to: `      qualified: qualifyCount > 0 && i < qualifyCount,`
+  },
+  {
+    name: '#P5 rank 為 null 時不標 unresolved（等於默默給了名次）',
+    file: 'js/modules/public/selectors.js',
+    from: `      unresolved: r?.rank == null || r?.hasUnresolvedTie === true,`,
+    to: `      unresolved: r?.hasUnresolvedTie === true,`
+  },
+  {
+    name: '#P6 吞掉 hasUnresolvedTie',
+    file: 'js/modules/public/selectors.js',
+    from: `    hasUnresolvedTie: doc?.hasUnresolvedTie === true,`,
+    to: `    hasUnresolvedTie: false,`
+  },
+  {
+    name: '#P7 積分欄位用 Number() 硬轉（壞資料會被當成數字）',
+    file: 'js/modules/public/selectors.js',
+    from: `function num(v, fallback = 0) {\n  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;\n}`,
+    to: `function num(v, fallback = 0) {\n  const n = Number(v);\n  return Number.isFinite(n) ? n : fallback;\n}`
+  },
+  {
+    name: '#P8 名單直接整包丟出去，不過白名單',
+    file: 'js/modules/public/selectors.js',
+    from: `  for (const k of PUBLIC_MEMBER_FIELDS) if (doc?.[k] !== undefined) out[k] = doc[k];`,
+    to: `  Object.assign(out, doc || {});`
+  },
+  {
+    name: '#P9 直播 status:off 被忽略（Admin 關不掉，破圖）',
+    file: 'js/modules/public/selectors.js',
+    from: `  const off = s => !s || s.status === 'off' || s.enabled === false;`,
+    to: `  const off = s => !s;`
+  },
+  {
+    name: '#P10 直播改用 youtube.com（第三方 Cookie 回來了）',
+    file: 'js/modules/public/selectors.js',
+    from: `    return \`https://www.youtube-nocookie.com/embed/\${encodeURIComponent(ms.videoId)}\``,
+    to: `    return \`https://www.youtube.com/embed/\${encodeURIComponent(ms.videoId)}\``
+  },
+  {
+    name: '#P11 沒有背號的球員被當成 0 號排最前面',
+    file: 'js/modules/public/selectors.js',
+    from: `    (num(a?.jerseyNo, 9999) - num(b?.jerseyNo, 9999)) ||`,
+    to: `    (num(a?.jerseyNo) - num(b?.jerseyNo)) ||`
+  },
+  {
+    name: '#P12 時間未定的場次也套上時段標題（標題騙人）',
+    file: 'js/modules/public/selectors.js',
+    from: `      const g = { key, label: ms == null ? '時間未定' : hhmmOf(Number(key)), matches: [] };`,
+    to: `      const g = { key, label: hhmmOf(Number(key)), matches: [] };`
+  },
+  {
+    name: '#P12b 無時間的場次各自成群，不會合併',
+    file: 'js/modules/public/selectors.js',
+    from: `    const key = ms == null ? 'unknown' : String(Math.floor(ms / size) * size);`,
+    to: `    const key = ms == null ? 'unknown-' + (m?.matchId ?? '') : String(Math.floor(ms / size) * size);`
+  },
+  {
+    name: '#P13 關注清單沒有上限（被當成書籤存到爆）',
+    file: 'js/modules/public/follows.js',
+    from: `.slice(0, 200);`,
+    to: `;`
+  },
+  {
+    name: '#P14 篩選的「我的關注」沒寫進網址（分享出去就掉了）',
+    file: 'js/modules/public/selectors.js',
+    from: `  if (f.onlyFollowed) p.set('follow', '1');`,
+    to: ``
+  },
+  {
+    name: '#P15 名單沒有經過 publicMember（第二道隱私防線被拿掉）',
+    file: 'js/modules/public/team.js',
+    from: `    state.roster = sortRoster(raw.map(publicMember));`,
+    to: `    state.roster = sortRoster(raw);`
+  },
+  {
+    name: '#P17 兒童組守衛讀不存在的欄位（division.youth，永遠不會生效）',
+    file: 'js/modules/public/selectors.js',
+    from: `    .filter(d => d?.display?.scorerBoard === false && d?.divisionId)`,
+    to: `    .filter(d => d?.youth === true && d?.divisionId)`
+  },
+  {
+    name: '#P18 youthScorerBoard 用寬鬆比較（字串 "false" 也會解除隱藏）',
+    file: 'js/modules/public/selectors.js',
+    from: `  if (featureFlags?.youthScorerBoard === true) return new Set();`,
+    to: `  if (featureFlags?.youthScorerBoard) return new Set();`
   }
 ];
 
