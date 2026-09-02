@@ -200,43 +200,20 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
   沒有呼叫 `themeSwitch()` 的 `destroy`，訂閱者要等下一次主題變動才自清。
   數量有界且會自癒，不影響現場。
 
-### ⚠️ 上線後才驗得出來的一條：R-REL-015 目前在正式網域上是失效的
+### R-REL-015｜為什麼 `_headers` 這麼重要（已修復，留著當教訓）
 
-`_headers` 本身是對的，Pages 也確實套用了——但**自訂網域前面那層 Cloudflare zone
-把它蓋掉了**。實測（2026-09-02，部署後）：
+自訂網域前面那層 Cloudflare zone 原本把 `/js/*`、`/css/*` 的 `Cache-Control`
+整條換成 4 小時。**2026-09-02 已改成 Respect Existing Headers**，兩個網域實測
+都回我們自己的值。
 
-| 網址 | `/js/config.js` 的 Cache-Control |
-|---|---|
-| `feda-cup-demo.pages.dev`（Pages 原站） | `max-age=0, must-revalidate` ✅ |
-| `cup-demo.toosterx.com` | `max-age=14400, must-revalidate` ❌ |
-| `cup.toosterx.com`（正式站） | `max-age=14400, must-revalidate` ❌ |
+設定改好之前剛好親眼看到這條規則要防的事：M4-b 部署後，瀏覽器拿到
+**新的 `js/core/liff.js` 配舊的 `js/firebase-config.js`**，整頁掛在
+`does not provide an export named 'LIFF'`。伺服器上兩個檔都是新的，
+壞的是還沒過期的瀏覽器快取。
 
-`/manifest.json` 在三個網址都是 `max-age=0`，因為 `.json` 不在 Cloudflare 預設會
-快取的副檔名清單裡，所以沒被改到；`.js` / `.css` 會被快取，就吃到 zone 的
-**Browser Cache TTL = 4 小時**，`max-age` 被改寫。
-
-也就是說 M3a／M3b 想修的「新 HTML 配舊模組」**現在還在**：比賽當天早上推修正，
-賽務手機最久要四小時後才會拿到新模組，中間是新舊混用。
-
-試過在 `_headers` 多送一個 `no-cache` 想蓋過去——**沒有用**。zone 是把整條
-Cache-Control 換掉，不是只改 max-age 的數值（`cf-cache-status: MISS` 確認是新鮮
-回源、內容也是新版，`no-cache` 一樣被剝掉；回應裡那個 `must-revalidate` 是
-Cloudflare 自己補的）。所以程式碼側沒有便宜的解。
-
-**這個要在 Cloudflare 後台改：**
-toosterx.com zone → Caching → Configuration → Browser Cache TTL
-改成 **Respect Existing Headers**；
-或建一條 Cache Rule 只針對 `cup.toosterx.com` / `cup-demo.toosterx.com` 的
-`/js/*`、`/css/*`，Browser TTL 設為「Respect origin」。
-
-改完用這行確認（要看到 `max-age=0`）：
-
-```bash
-curl -sI https://cup-demo.toosterx.com/js/config.js | grep -i cache-control
-```
-
-⚠️ CI 的 `Cache headers cover unversioned modules` 只檢查 `_headers` 檔案內容，
-檢查不到 zone 設定——所以那盞燈綠著，實際行為卻是錯的。上線前請手動 curl 一次。
+`app.js` 靜態 import 的三個模組（`firebase-config.js` / `config.js` / `theme.js`）
+帶不了版號——沒有打包工具，只有動態 import 的網址加得上 `?v=`。
+所以那一層只能靠 HTTP 標頭守。**不要動 `_headers`，CI 有檢查。**
 
 ### 等對方（小麥）處理的事
 
@@ -247,8 +224,8 @@ curl -sI https://cup-demo.toosterx.com/js/config.js | grep -i cache-control
    ⚠️ **正式站的那一份要等第一次 `deploy:fn:prod` 之後才做得了**——
    `{編號}-compute@developer.gserviceaccount.com` 是部署 Functions 時才被建立的，
    現在對 `feda-cup-2026` 跑會得到 `NOT_FOUND: Unknown service account`（docs/11 §1.5）
-3. **Cloudflare zone 的 Browser Cache TTL** 改成 Respect Existing Headers
-4. **Functions 映像檔清理政策**
+3. ~~Cloudflare Browser Cache TTL~~ ✅ 已完成，兩個網域實測都回我們自己的標頭
+4. **Functions 映像檔清理政策**（`npx firebase functions:artifacts:setpolicy`）
 
 ### 下一個里程碑
 
