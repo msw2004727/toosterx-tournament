@@ -40,7 +40,11 @@ async function boot() {
   const staff = await import('./js/modules/staff/index.js');
   staff.registerStaffRoutes();
 
-  // 公開端（M5）。必須註冊在下面那條落地頁之前——路由是先註冊先贏。
+  // 帳號（登入與「我的」，M4-b）。註冊在公開端之前——路由是先註冊先贏，
+  // 而 /login 與 /my 不該被任何萬用路由接走。
+  (await import('./js/modules/account/index.js')).registerAccountRoutes();
+
+  // 公開端（M5）
   (await import('./js/modules/public/index.js')).registerPublicRoutes();
 
   // Demo 專屬功能：正式版整段不載入（不是用 flag 關掉）

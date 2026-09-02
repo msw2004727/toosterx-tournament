@@ -1,0 +1,108 @@
+/* 帳號（登入與「我的」）｜規格：docs/10 §1.4、docs/08 §1
+   ------------------------------------------------------------------
+   R-UI-005：這裡**沒有** @media (prefers-color-scheme)。深淺兩套色一律
+             由 css/tokens.css 的 [data-theme] 提供。
+   R-UI-006：最小驗證寬度 320px。
+
+   命名一律 acct- 前綴，避免跟賽務端（live/staff）與公開端（p-）撞名。 */
+
+.acct{
+  max-width:var(--page-max);margin:0 auto;
+  padding:var(--sp-4) var(--sp-3) var(--sp-6);
+  display:flex;flex-direction:column;gap:var(--sp-4);
+}
+
+/* ── 登入頁 ─────────────────────────────────────────────── */
+.acct__hero{text-align:center;padding:var(--sp-5) 0 var(--sp-2)}
+.acct__title{font-size:var(--fs-xl);line-height:1.25;color:var(--text-primary)}
+.acct__sub{
+  margin-top:var(--sp-2);font-size:var(--fs-sm);
+  color:var(--text-secondary);line-height:1.6;
+}
+
+.acct__box{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3);
+  align-items:stretch;
+}
+.acct__box--warn{
+  background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn-text);
+}
+.acct__box--warn .acct__note{color:var(--warn-text);opacity:.9}
+
+.acct__icon{display:flex;justify-content:center;font-size:var(--fs-xl)}
+.acct__note{font-size:var(--fs-sm);color:var(--text-secondary);line-height:1.6}
+.acct__fine{font-size:var(--fs-xs);color:var(--text-muted);line-height:1.6;text-align:center}
+
+/* LINE 的品牌綠。這是外部服務的識別色，不走主題 token——
+   使用者要一眼認出「這是 LINE 登入」，深色主題下也一樣。 */
+.btn--line{background:#06C755;color:#fff;border-color:#06C755}
+.btn--line:hover{background:#05b34c;border-color:#05b34c}
+.btn--line:active{background:#049e43;border-color:#049e43}
+
+/* ── 我的 ───────────────────────────────────────────────── */
+.acct__card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3);
+}
+.acct__cardHead{
+  font-size:var(--fs-md);color:var(--text-primary);
+  display:flex;align-items:center;gap:var(--sp-2);
+}
+
+.acct__me{display:flex;align-items:center;gap:var(--sp-3);min-width:0}
+.acct__avatar{
+  width:56px;height:56px;border-radius:50%;flex:none;
+  object-fit:cover;background:var(--bg-elevated);
+}
+.acct__avatar--none{
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-muted);
+}
+.acct__meText{display:flex;flex-direction:column;gap:2px;min-width:0}
+.acct__meText strong{
+  font-size:var(--fs-md);color:var(--text-primary);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.acct__roles{font-size:var(--fs-xs);color:var(--text-secondary)}
+
+/* uid 是跨專案對帳的鍵，要看得清楚也要複製得到。
+   320px 上一定塞不下一行，所以直接允許換行而不是縮成看不懂的省略號。 */
+.acct__uid{
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);
+  background:var(--bg-elevated);border-radius:var(--r-sm);padding:var(--sp-2) var(--sp-3);
+}
+.acct__uidLabel{font-size:var(--fs-xs);color:var(--text-muted);flex:none}
+.acct__uidValue{
+  font-family:var(--font-num);font-size:var(--fs-xs);color:var(--text-primary);
+  flex:1 1 100%;min-width:0;word-break:break-all;line-height:1.5;
+  user-select:all;              /* 點一下就整段選起來，複製鈕被擋時的退路 */
+}
+
+.acct__list{display:flex;flex-direction:column;gap:var(--sp-2)}
+.acct__row{
+  width:100%;display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;
+  min-height:var(--tap);padding:var(--sp-2) var(--sp-3);
+  background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--r-sm);
+  color:var(--text-primary);text-align:left;
+}
+.acct__row:hover{border-color:var(--border-strong)}
+.acct__rowMain{flex:1 1 auto;min-width:0;font-size:var(--fs-sm);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct__rowSub{font-size:var(--fs-xs);color:var(--text-muted);flex:none}
+
+.acct__badge{
+  flex:none;font-size:var(--fs-xs);padding:2px var(--sp-2);border-radius:999px;
+  background:var(--bg-input);color:var(--text-secondary);
+}
+.acct__badge--approved{background:var(--ok-bg);color:var(--success)}
+.acct__badge--submitted{background:var(--info-bg);color:var(--info)}
+.acct__badge--rejected{background:var(--danger-bg);color:var(--danger)}
+
+.acct__empty{display:flex;flex-direction:column;gap:var(--sp-3);align-items:stretch}
+.acct__foot{display:flex;justify-content:center;padding-top:var(--sp-2)}
+
+@media (max-width:359px){
+  .acct{padding-left:var(--sp-2);padding-right:var(--sp-2)}
+  .acct__avatar{width:44px;height:44px}
+}

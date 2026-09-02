@@ -127,7 +127,10 @@ async function stub(page, seed) {
 
 async function go(page, hash) {
   await page.goto(hash);
-  await page.waitForFunction(() => !!window.__fake, null, { timeout: 10_000 });
+  // 測試站是 python -m http.server，單一個行程要餵三個 worker × 兩百多條測試。
+  // 10 秒在健康時綽綽有餘，但套件長大之後偶爾會有一次請求排隊排到逾時——
+  // 偶發紅燈比慢一點危險得多（久了大家會開始無視 CI），所以給寬一點。
+  await page.waitForFunction(() => !!window.__fake, null, { timeout: 30_000 });
   await page.waitForSelector('.pub', { timeout: 10_000 });
 }
 

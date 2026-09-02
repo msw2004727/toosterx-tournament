@@ -125,13 +125,22 @@ async function loadStaff(uid) {
   }
 }
 
-/** LINE LIFF → Custom Token（docs/04 §2）。LIFF ID 到位後才會走這條。 */
+/**
+ * LINE LIFF → Custom Token（docs/04 §2、docs/07 §3.4）。
+ *
+ * ⚠️ callable 的回傳有**兩層 data**：httpsCallable 把 Function 的回傳值包在
+ *    `.data` 裡，而我們的 Function 本身回的是 `{ ok: true, data: {...} }` 信封。
+ *    所以 customToken 在 `res.data.data.customToken`。
+ *    先前這裡讀的是 `res.data.customToken`，永遠是 undefined——
+ *    LIFF 一接上就會卡在「沒有回傳 customToken」。
+ */
 export async function signInWithLine(idToken) {
   const { httpsCallable, signInWithCustomToken } = ctx.sdk;
   const call = httpsCallable(ctx.sdk._fns, 'lineLogin');
-  const { data } = await call({ idToken });
-  if (!data?.customToken) throw new Error('lineLogin 沒有回傳 customToken');
-  return signInWithCustomToken(ctx.auth, data.customToken);
+  const res = await call({ idToken });
+  const payload = res?.data?.data ?? res?.data ?? null;   // 兩種形狀都吃得下
+  if (!payload?.customToken) throw new Error('lineLogin 沒有回傳 customToken');
+  return signInWithCustomToken(ctx.auth, payload.customToken);
 }
 
 export async function signOutStaff() {

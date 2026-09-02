@@ -58,8 +58,14 @@ export function registerStaffRoutes() {
 function loginView() {
   return el('div', { class: 'login' }, [
     el('h1', { class: 'login__title', text: '工作人員登入' }),
-    el('p', { class: 'login__note', text: '請從主辦提供的 LINE 連結進入，系統會自動辨識你的身分與指派場地。' }),
-    el('p', { class: 'login__note muted', text: '若你已收到連結卻仍看到這個畫面，可能是登入逾時，請重新點一次連結。' }),
-    el('button', { class: 'btn btn--primary', type: 'button', onClick: () => navigate('/') }, '回首頁')
+    el('p', { class: 'login__note', text: '用 LINE 登入，系統會自動辨識你的身分與指派場地。' }),
+    el('p', { class: 'login__note muted', text: '登入後若仍看到這個畫面，代表你的帳號還沒有被指派為工作人員，請聯絡主辦。' }),
+    // 登入畫面只有一個入口（js/modules/account/login.js），賽務端不另做一套：
+    // 兩套登入等於兩套「拿不到 idToken 該怎麼辦」的處理，遲早會分岔。
+    el('button', {
+      class: 'btn btn--xl btn--primary', type: 'button',
+      onClick: () => navigate('/login?next=/staff')
+    }, '前往 LINE 登入'),
+    el('button', { class: 'btn btn--ghost', type: 'button', onClick: () => navigate('/') }, '回首頁')
   ]);
 }

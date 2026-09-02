@@ -150,7 +150,9 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       R34–R64 共 40 個 rules 測試 ＋ 12 條規則變異
 - [x] M4 Function：`onMemberWritten` 公開投影（未滿 13 歲遮名、白名單欄位）、
       `onTeamWritten` 建隊數、重複申請退件。FR01–FR08 ＋ 4 條變異
-- [ ] M4-b 報名前端（隊長端／家長端／大總管授權介面，等 LIFF）
+- [x] M4-b①  LINE 登入：`js/core/liff.js`、`#/login`、`#/my`。
+      LIFF ID 已接（正式 2011382367 / demo 2011382448，同一個 Provider）
+- [ ] M4-b②  報名流程畫面（建隊／邀請碼加入／隊長審核／大總管授權）
 - [ ] M6 檢錄＋Challenge　[ ] M7 彩排 → 上線
 
 ## 現在的狀態（2026-09-02，Claude Code 接手後已全數實跑）
@@ -162,7 +164,7 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 |---|---|
 | `npm run test:unit` | ✅ 345 全綠（18 個 suite） |
 | `npm run test:mutation` | ✅ 53 / 53 全被抓到 |
-| `npm run test:e2e` | ✅ 171 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:e2e` | ✅ 195 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 111 全綠（含 R34–R64 報名與身分授權） |
 | `npm run test:mutation:rules` | ✅ 12 / 12 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
@@ -280,6 +282,35 @@ js/modules/staff/
 Firestore 的 `setDoc()` 在離線時回傳的 Promise **永遠 pending**，
 所以絕不能 `await` 它再更新 UI；正確做法是立刻顯示「已記錄」，
 真正的狀態交給 `sync.js` 追蹤並反映在右上角的燈號上。
+
+## 帳號與 LINE 登入（M4-b①）
+
+```
+js/core/liff.js            LIFF SDK 載入與登入流程
+js/modules/account/
+├── index.js               路由（/login、/my）
+├── login.js               登入頁 ＋ needLogin() 共用區塊
+└── my.js                  我的：身分、uid、我帶的球隊
+```
+
+**一個登入入口通吃三種人**（隊長、家長、工作人員）。登入之後是誰、能做什麼，
+由 `staff/{uid}.roles` 與 `teams/{id}.captainUid` 決定，不在路由層分流。
+賽務端的登入頁也導到同一支——兩套登入等於兩套「拿不到 idToken 該怎麼辦」的
+處理，遲早會分岔。
+
+### 三件容易寫錯的事
+
+1. **callable 的回傳有兩層 `data`**：`httpsCallable` 把 Function 的回傳值包在
+   `.data`，而我們的 Function 本身回 `{ ok, data }` 信封，所以 customToken 在
+   `res.data.data.customToken`。先前 `signInWithLine` 讀的是 `res.data.customToken`，
+   永遠是 undefined——LIFF 一接上就會卡在「沒有回傳 customToken」。
+2. **LIFF 只在註冊過的 Endpoint URL 上運作**。在 localhost 按登入會被導去
+   demo 站，不會回到本機。要測登入請直接開 demo 站。
+3. **SDK 載不到時不可以留一顆按不動的按鈕**。`#/login` 會換成看得懂的原因
+   加一顆「再試一次」，而且**同時把登入鈕收掉**——E2E 有一條專門守這件事。
+
+`#/my` 會把 uid 顯示出來而且可以複製：那是跨專案對帳唯一的鍵
+（飛達盃的 uid 必須等於 FC-Football 的 uid，docs/10 §8.5），出問題第一個要對它。
 
 ## 公開端（M5）
 
@@ -440,7 +471,7 @@ npm run test:rules                 # 111 個案例，自動起 Emulator
 npm run test:mutation:rules        # 12 條權限規則變異
 npm run test:fn                    # 35 個 Function 整合測試（F01–F14 結果管線、FR01–FR08 報名）
 npm run test:mutation:fn           # 16 條 Function 變異
-npm run test:e2e                   # 171 個 Playwright 案例（× mobile / desktop / 320px）
+npm run test:e2e                   # 195 個 Playwright 案例（× mobile / desktop / 320px）
 npm run test:e2e:offline           # 只跑離線三態那幾條
 ```
 
