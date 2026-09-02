@@ -34,6 +34,7 @@ const STAFF = {
   'u-scorer-b':{ roles: ['scorer'],     venueIds: ['venue-b'], challengeIds: [] },
   'u-referee': { roles: ['referee'],    venueIds: ['venue-a'], challengeIds: [] },
   'u-admin':   { roles: ['admin'],      venueIds: [],          challengeIds: [] },
+  'u-super':   { roles: ['super_admin'], venueIds: [],         challengeIds: [] },
   'u-booth':   { roles: ['booth'],      venueIds: [],          challengeIds: [CHALLENGE] },
   'u-booth-x': { roles: ['booth'],      venueIds: [],          challengeIds: ['g01-nine-grid'] },
   'u-suspended': { roles: ['scorer'],   venueIds: ['venue-a'], challengeIds: [], inactive: true }

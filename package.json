@@ -29,7 +29,8 @@
     "deploy:storage:prod": "firebase deploy --only storage --project prod",
     "sync:engine": "node scripts/sync-engine.js",
     "test:fn": "node scripts/sync-engine.js && firebase emulators:exec --only firestore --project demo-fn-test \"node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/\"",
-    "test:mutation:fn": "node scripts/sync-engine.js && firebase emulators:exec --only firestore --project demo-fn-test \"node scripts/mutation-fn.cjs\""
+    "test:mutation:fn": "node scripts/sync-engine.js && firebase emulators:exec --only firestore --project demo-fn-test \"node scripts/mutation-fn.cjs\"",
+    "test:mutation:rules": "firebase emulators:exec --only firestore --project demo-rules-test \"node scripts/mutation-rules.cjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",

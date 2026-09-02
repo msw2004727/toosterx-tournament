@@ -1,0 +1,323 @@
+/**
+ * firestore.rules｜M4 報名與球隊管理（R34–R64）
+ * 對應 docs/10 §5.1／§5.2、§10 的驗收條件 A01–A06、A10
+ *
+ * 這一組守的是三條線：
+ *   ① 權限升級只有一條路——只有 super_admin 動得了身分，Admin 連自己的都不行
+ *   ② 報名開關是 fail-closed——設定讀不到就是關著
+ *   ③ 名單凍結是真的凍結——隊長不能自己把鎖打開
+ */
+import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
+import { doc, setDoc, updateDoc, deleteDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { makeEnv, seedBaseline, asAdminSdk, authed, guest, EVENT } from './helpers.js';
+
+let env;
+beforeAll(async () => { env = await makeEnv(); });
+afterAll(async () => { await env.cleanup(); });
+beforeEach(async () => {
+  await env.clearFirestore();
+  await seedBaseline(env);
+  await openRegistration();
+});
+
+const TEAM = 't-new';
+const CAP = 'u-captain';
+const PARENT = 'u-parent';
+
+const teamRef = (db, id = TEAM) => doc(db, 'events', EVENT, 'teams', id);
+const memberRef = (db, mid, tid = TEAM) => doc(db, 'events', EVENT, 'teams', tid, 'members', mid);
+
+/** 報名開放中（沒有起訖限制） */
+async function openRegistration(over = {}) {
+  await asAdminSdk(env, db => setDoc(doc(db, 'config', 'registration'), {
+    open: true, opensAt: null, closesAt: null, maxTeamsPerAccount: 3, ...over
+  }));
+}
+
+const newTeamDoc = (over = {}) => ({
+  teamId: TEAM, eventId: EVENT, divisionId: 'adult-open',
+  name: '測試隊', shortName: '測試',
+  captainUid: CAP, captainName: '隊長',
+  status: 'draft', rosterLocked: false, memberCount: 0,
+  inviteCode: 'ABC123',
+  ...over
+});
+
+/** 直接鋪一支球隊（繞過 rules），供更新類的案例用 */
+async function seedTeam(over = {}) {
+  await asAdminSdk(env, db => setDoc(teamRef(db), newTeamDoc(over)));
+}
+
+const newMemberDoc = (over = {}) => ({
+  memberId: 'm-1', guardianUid: PARENT, isSelf: false,
+  name: '王小明', birthDate: '2016-03-14', idLast4: '1234',
+  jerseyNo: 7, kind: 'player', status: 'pending',
+  consent: { given: true, at: null, byUid: PARENT }, source: 'guardian',
+  ...over
+});
+
+async function seedMember(over = {}) {
+  await asAdminSdk(env, db => setDoc(memberRef(db, over.memberId || 'm-1'), newMemberDoc(over)));
+}
+
+// ══════════════════════════════════════════════════════════════
+describe('R34–R39 身分授權（docs/10 §5.1）', () => {
+  const staffRef = (db, u) => doc(db, 'staff', u);
+
+  test('R34 ⭐ Admin 不能把自己升成 super_admin（驗收 A05）', async () => {
+    await assertFails(updateDoc(staffRef(authed(env, 'u-admin'), 'u-admin'), {
+      roles: ['admin', 'super_admin']
+    }));
+  });
+
+  test('R35 ⭐ Admin 不能改任何人的身分，連降級別人也不行', async () => {
+    await assertFails(updateDoc(staffRef(authed(env, 'u-admin'), 'u-scorer'), { roles: ['admin'] }));
+    await assertFails(updateDoc(staffRef(authed(env, 'u-admin'), 'u-scorer'), { active: false }));
+  });
+
+  test('R36 ⭐ 大總管可以指派 admin（驗收 A06）', async () => {
+    await assertSucceeds(setDoc(staffRef(authed(env, 'u-super'), 'u-new'), {
+      uid: 'u-new', name: '新管理員', roles: ['admin'], active: true,
+      assignment: { eventId: EVENT, venueIds: [], divisionIds: [], challengeIds: [] }
+    }));
+  });
+
+  test('R37 ⭐ 大總管也不能由介面造出第二個大總管', async () => {
+    // 白名單裡沒有 super_admin。第一位由種子／Console 建立，走 Admin SDK 不經 rules。
+    await assertFails(setDoc(staffRef(authed(env, 'u-super'), 'u-new'), {
+      uid: 'u-new', name: '第二個大總管', roles: ['super_admin'], active: true,
+      assignment: { eventId: EVENT, venueIds: [], divisionIds: [], challengeIds: [] }
+    }));
+  });
+
+  test('R38 大總管可以改自己的指派場地（roles 原封不動）', async () => {
+    // 他自己的 roles 是 ['super_admin']，過不了白名單，所以規則要放行「角色沒變」的更新
+    await assertSucceeds(updateDoc(staffRef(authed(env, 'u-super'), 'u-super'), {
+      assignment: { eventId: EVENT, venueIds: ['venue-a'], divisionIds: [], challengeIds: [] }
+    }));
+  });
+
+  test('R39 只有大總管刪得掉 staff 文件', async () => {
+    await assertFails(deleteDoc(staffRef(authed(env, 'u-admin'), 'u-scorer')));
+    await assertSucceeds(deleteDoc(staffRef(authed(env, 'u-super'), 'u-scorer')));
+  });
+});
+
+describe('R40–R42 使用者名錄（docs/10 §1.4）', () => {
+  const userRef = (db, u) => doc(db, 'users', u);
+
+  test('R40 登入者可以留下自己的一筆', async () => {
+    await assertSucceeds(setDoc(userRef(authed(env, CAP), CAP), {
+      uid: CAP, displayName: '隊長', pictureUrl: null, firstSeenAt: null, lastSeenAt: null
+    }));
+  });
+
+  test('R41 ⭐ 但不准自帶 roles（那是快取，權威在 staff/{uid}）', async () => {
+    await assertFails(setDoc(userRef(authed(env, CAP), CAP), {
+      uid: CAP, displayName: '我是管理員', roles: ['admin']
+    }));
+  });
+
+  test('R42 不能寫別人的那一筆，也不能刪', async () => {
+    await assertFails(setDoc(userRef(authed(env, CAP), PARENT), { uid: PARENT, displayName: 'x' }));
+    await asAdminSdk(env, db => setDoc(userRef(db, CAP), { uid: CAP, displayName: '隊長' }));
+    await assertFails(deleteDoc(userRef(authed(env, CAP), CAP)));
+  });
+});
+
+describe('R43–R48 報名開關與建隊（docs/10 §2.3）', () => {
+  test('R43 ⭐ 報名關閉時不能建隊（驗收 A10）', async () => {
+    await openRegistration({ open: false });
+    await assertFails(setDoc(teamRef(authed(env, CAP)), newTeamDoc()));
+  });
+
+  test('R44 ⭐ 已過截止日不能建隊', async () => {
+    await openRegistration({ closesAt: Timestamp.fromMillis(Date.now() - 60_000) });
+    await assertFails(setDoc(teamRef(authed(env, CAP)), newTeamDoc()));
+  });
+
+  test('R44b 還沒到開放日也不行', async () => {
+    await openRegistration({ opensAt: Timestamp.fromMillis(Date.now() + 60_000) });
+    await assertFails(setDoc(teamRef(authed(env, CAP)), newTeamDoc()));
+  });
+
+  test('R45 ⭐ 設定文件不存在時一律視為關閉（fail-closed）', async () => {
+    await asAdminSdk(env, db => deleteDoc(doc(db, 'config', 'registration')));
+    await assertFails(setDoc(teamRef(authed(env, CAP)), newTeamDoc()));
+  });
+
+  test('R46 開放中可以建隊', async () => {
+    await assertSucceeds(setDoc(teamRef(authed(env, CAP)), newTeamDoc()));
+  });
+
+  test('R46b 訪客不能建隊', async () => {
+    await assertFails(setDoc(teamRef(guest(env)), newTeamDoc()));
+  });
+
+  test('R47 ⭐ 不能冒名建隊（captainUid 必須是自己）', async () => {
+    await assertFails(setDoc(teamRef(authed(env, CAP)), newTeamDoc({ captainUid: PARENT })));
+  });
+
+  test('R48 ⭐ 建隊時不准自帶已核准狀態或鎖定旗標', async () => {
+    await assertFails(setDoc(teamRef(authed(env, CAP)), newTeamDoc({ status: 'approved' })));
+    await assertFails(setDoc(teamRef(authed(env, CAP)), newTeamDoc({ rosterLocked: true })));
+    await assertFails(setDoc(teamRef(authed(env, CAP)), newTeamDoc({ memberCount: 99 })));
+  });
+});
+
+describe('R49–R54 球隊狀態機（docs/10 §3）', () => {
+  test('R49 隊長可以送出報名（draft → submitted）', async () => {
+    await seedTeam();
+    await assertSucceeds(updateDoc(teamRef(authed(env, CAP)), {
+      status: 'submitted', submittedAt: null, updatedBy: CAP
+    }));
+  });
+
+  test('R50 ⭐ 送出之後隊伍資料就凍結了（驗收 A03）', async () => {
+    await seedTeam({ status: 'submitted' });
+    await assertFails(updateDoc(teamRef(authed(env, CAP)), { name: '改過的隊名' }));
+  });
+
+  test('R51 但可以撤回報名（submitted → draft），撤回後又能改', async () => {
+    await seedTeam({ status: 'submitted' });
+    const db = authed(env, CAP);
+    await assertSucceeds(updateDoc(teamRef(db), { status: 'draft', updatedBy: CAP }));
+    await assertSucceeds(updateDoc(teamRef(db), { name: '改過的隊名' }));
+  });
+
+  test('R52 ⭐ 隊長不能自己把報名改成已核准', async () => {
+    await seedTeam({ status: 'submitted' });
+    await assertFails(updateDoc(teamRef(authed(env, CAP)), { status: 'approved' }));
+  });
+
+  test('R53 ⭐ 隊長不能自己關掉 rosterLocked（凍結就形同虛設）', async () => {
+    await seedTeam({ status: 'approved', rosterLocked: true });
+    await assertFails(updateDoc(teamRef(authed(env, CAP)), { rosterLocked: false }));
+  });
+
+  test('R53c ⭐ 還在 draft 時隊長也設不了 rosterLocked（那是 Admin 的鎖）', async () => {
+    // ⚠️ 這一條跟 R53 不一樣，別合併：R53 的球隊已經 approved，
+    //    擋住它的其實是「凍結後只准動 status」那一段，白名單有沒有列
+    //    rosterLocked 根本測不出來（變異 RU#6 就是這樣逃掉的）。
+    //    要驗白名單，球隊必須處在**可編輯**的狀態。
+    await seedTeam();                       // status: 'draft'
+    await assertFails(updateDoc(teamRef(authed(env, CAP)), { rosterLocked: true }));
+  });
+
+  test('R53b 隊長也動不了 seed / finalRank 這類主辦欄位', async () => {
+    await seedTeam();
+    await assertFails(updateDoc(teamRef(authed(env, CAP)), { seed: 1 }));
+    await assertFails(updateDoc(teamRef(authed(env, CAP)), { finalRank: 1 }));
+  });
+
+  test('R54 Admin 可以審核通過並鎖定名單', async () => {
+    await seedTeam({ status: 'submitted' });
+    await assertSucceeds(updateDoc(teamRef(authed(env, 'u-admin')), {
+      status: 'approved', rosterLocked: true, reviewedBy: 'u-admin'
+    }));
+  });
+
+  test('R54b 別人的球隊碰不得', async () => {
+    await seedTeam();
+    await assertFails(updateDoc(teamRef(authed(env, PARENT)), { name: '搶過來' }));
+  });
+});
+
+describe('R55–R64 名單與加入申請（docs/10 §3.3／§4）', () => {
+  test('R55 家長可以送出加入申請（驗收 A01）', async () => {
+    await seedTeam();
+    await assertSucceeds(setDoc(memberRef(authed(env, PARENT), 'm-1'), newMemberDoc()));
+  });
+
+  test('R56 ⭐ 申請人不能自己核准——隊長同意才是閘門（§3.3）', async () => {
+    await seedTeam();
+    await assertFails(setDoc(memberRef(authed(env, PARENT), 'm-1'),
+      newMemberDoc({ status: 'approved' })));
+  });
+
+  test('R56b ⭐ 也不能冒別人的名義申請', async () => {
+    await seedTeam();
+    await assertFails(setDoc(memberRef(authed(env, PARENT), 'm-1'),
+      newMemberDoc({ guardianUid: 'u-someone-else' })));
+  });
+
+  test('R57 ⭐ 隊長同意之後人數才算數（驗收 A02）', async () => {
+    await seedTeam();
+    await seedMember();
+    await assertSucceeds(updateDoc(memberRef(authed(env, CAP), 'm-1'), {
+      status: 'approved', decidedBy: CAP
+    }));
+  });
+
+  test('R57b 隊長可以婉拒，也可以移除已核准的隊員', async () => {
+    await seedTeam();
+    await seedMember({ memberId: 'm-2', status: 'approved' });
+    await assertSucceeds(updateDoc(memberRef(authed(env, CAP), 'm-2'), { status: 'removed' }));
+  });
+
+  test('R58 ⭐ 名單凍結後隊長不能再決定申請（驗收 A04）', async () => {
+    await seedTeam({ status: 'approved', rosterLocked: true });
+    await seedMember();
+    await assertFails(updateDoc(memberRef(authed(env, CAP), 'm-1'), { status: 'approved' }));
+  });
+
+  test('R59 但備註凍結後還是能改（不影響參賽資格，§4）', async () => {
+    await seedTeam({ status: 'approved', rosterLocked: true });
+    await seedMember({ status: 'approved' });
+    await assertSucceeds(updateDoc(memberRef(authed(env, CAP), 'm-1'), { note: '腳踝有舊傷' }));
+  });
+
+  test('R60 ⭐ 名單一律不可刪除（移除是改 status）', async () => {
+    await seedTeam();
+    await seedMember();
+    await assertFails(deleteDoc(memberRef(authed(env, CAP), 'm-1')));
+    await assertFails(deleteDoc(memberRef(authed(env, 'u-admin'), 'm-1')));
+  });
+
+  test('R61 家長可以在被決定之前修正自己填的資料', async () => {
+    await seedTeam();
+    await seedMember();
+    await assertSucceeds(updateDoc(memberRef(authed(env, PARENT), 'm-1'), {
+      name: '王小華', jerseyNo: 9
+    }));
+  });
+
+  test('R61b ⭐ 但改不動 status，也不能把自己換成別人', async () => {
+    await seedTeam();
+    await seedMember();
+    const db = authed(env, PARENT);
+    await assertFails(updateDoc(memberRef(db, 'm-1'), { status: 'approved' }));
+    await assertFails(updateDoc(memberRef(db, 'm-1'), { guardianUid: 'u-someone-else' }));
+  });
+
+  test('R62 ⭐ 決定之後家長就改不動了', async () => {
+    await seedTeam();
+    await seedMember({ status: 'approved' });
+    await assertFails(updateDoc(memberRef(authed(env, PARENT), 'm-1'), { name: '偷改' }));
+  });
+
+  test('R63 ⭐ 讀取邊界：隊長、本人、賽務看得到；其他登入者看不到', async () => {
+    await seedTeam();
+    await seedMember();
+    await assertSucceeds(getDoc(memberRef(authed(env, CAP), 'm-1')));
+    await assertSucceeds(getDoc(memberRef(authed(env, PARENT), 'm-1')));
+    await assertSucceeds(getDoc(memberRef(authed(env, 'u-scorer'), 'm-1')));
+
+    // 生日與身分證後四碼在這份文件上，路人不該讀得到
+    await assertFails(getDoc(memberRef(authed(env, 'u-outsider'), 'm-1')));
+    await assertFails(getDoc(memberRef(guest(env), 'm-1')));
+  });
+
+  test('R64 ⭐ 報名截止後不能再送申請', async () => {
+    await seedTeam();
+    await openRegistration({ open: false });
+    await assertFails(setDoc(memberRef(authed(env, PARENT), 'm-9'),
+      newMemberDoc({ memberId: 'm-9' })));
+  });
+
+  test('R64b 名單凍結後也不能再送申請', async () => {
+    await seedTeam({ status: 'submitted' });
+    await assertFails(setDoc(memberRef(authed(env, PARENT), 'm-9'),
+      newMemberDoc({ memberId: 'm-9' })));
+  });
+});

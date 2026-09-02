@@ -427,6 +427,50 @@ function validScoreRange(eventId, cid, v) {
 | R31b | 完賽時同時上鎖 | 允許（正常路徑） |
 | R31c | 已 `finished` 但未鎖定的場次，賽務再改比分 | 拒絕 |
 | R32 | 完賽送出一次更新 10 個欄位 | 允許，且不得撞到 1000 運算式上限 |
+| R33 | 訪客用 collectionGroup 查某球員的出賽紀錄 | 允許（球員頁「出賽紀錄」） |
+
+### M4 報名與球隊管理（docs/10 §5）
+
+| # | 情境 | 期望 |
+|---|---|---|
+| R34 | Admin 把自己升成 `super_admin` | 拒絕（驗收 A05） |
+| R35 | Admin 改別人的 `roles` 或停權 | 拒絕 |
+| R36 | 大總管指派 admin | 允許（驗收 A06） |
+| R37 | 大總管由介面造出第二個大總管 | 拒絕（白名單不含 `super_admin`） |
+| R38 | 大總管改自己的指派場地（roles 不變） | 允許 |
+| R39 | Admin 刪 staff 文件 | 拒絕；大總管允許 |
+| R40 | 登入者建立自己的 `users/{uid}` | 允許 |
+| R41 | 自己的 `users/{uid}` 帶 `roles` | 拒絕（快取欄位，權威在 staff） |
+| R42 | 寫別人的 `users/{uid}`／刪自己的 | 拒絕 |
+| R43 | 報名關閉時建隊 | 拒絕（驗收 A10） |
+| R44 | 已過 `closesAt` ／未到 `opensAt` 建隊 | 拒絕 |
+| R45 | `config/registration` 不存在時建隊 | 拒絕（**fail-closed**） |
+| R46 | 開放中建隊 | 允許；訪客拒絕 |
+| R47 | `captainUid` 不是自己 | 拒絕 |
+| R48 | 建隊時自帶 `approved` ／ `rosterLocked` ／ `memberCount` | 拒絕 |
+| R49 | 隊長 `draft → submitted` | 允許 |
+| R50 | 送出後改隊伍資料 | 拒絕（驗收 A03） |
+| R51 | 隊長 `submitted → draft`（撤回）後再改 | 允許 |
+| R52 | 隊長自己改成 `approved` | 拒絕 |
+| R53 | 隊長關掉 `rosterLocked`／在 draft 時設定它 | 拒絕 |
+| R54 | Admin 審核通過並鎖定名單 | 允許；別人的球隊拒絕 |
+| R55 | 家長送出加入申請 | 允許（驗收 A01） |
+| R56 | 申請時自帶 `approved`／冒用他人 `guardianUid` | 拒絕 |
+| R57 | 隊長同意／婉拒／移除隊員 | 允許（驗收 A02） |
+| R58 | 名單凍結後隊長再決定申請 | 拒絕（驗收 A04） |
+| R59 | 凍結後改備註 | 允許（不影響參賽資格） |
+| R60 | 刪除名單文件（含 Admin） | 拒絕（移除是改 status） |
+| R61 | 家長在被決定前修正自己填的資料 | 允許；改 status／`guardianUid` 拒絕 |
+| R62 | 決定之後家長再改 | 拒絕 |
+| R63 | 名單讀取邊界（隊長／本人／賽務可讀，其他拒絕） | 依角色 |
+| R64 | 報名截止後或名單凍結後再送申請 | 拒絕 |
+
+> **⚠️ rules 表達不了的兩件事**，寫在這裡免得日後以為漏做：
+> 1. `maxTeamsPerAccount`（每帳號最多 3 隊）——rules 沒辦法 count 文件。
+>    由 Function 維護 `users/{uid}.teamCount` 並在超額時退件。屬於防洗版，不是權限邊界。
+> 2. 「同一帳號對同一隊只能有一筆申請」（docs/10 §3.3）——rules 查不到
+>    「有沒有另一筆 `guardianUid` 相同且 `pending` 的文件」。由 Function 與介面把關。
+>    真正的閘門是隊長同意，這兩條只是減少雜訊。
 
 ---
 

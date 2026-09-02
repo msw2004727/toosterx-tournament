@@ -68,6 +68,7 @@ git push                 # 驗證過才上正式站
 | R-SEED-001 | `scripts/seed.js` 只允許對 ID 含 "demo" 的專案執行，正式資料庫一律走管理後台匯入 |
 | R-GIT-001 | 改動先進 `demo` 驗證，再 merge 進 `main`（見上方「開發流程」） |
 | R-RULES-001 | `firestore.rules` 的角色判斷一律經過 `myRoles()`，禁止 `isA()` 呼叫 `isB()` 的巢狀鏈——會撞到每請求 1000 運算式上限，讓合法寫入被誤擋 |
+| R-RULES-003 | 身分（`staff/{uid}.roles`）只有 `super_admin` 寫得動，且角色白名單**不含** `super_admin`——大總管不能由介面產生第二個。不看 `rolePermissions`（見 R-RULES-002）|
 | R-RULES-002 | 動態權限（`rolePermissions`）只用在 UI 層，不進 rules；rules 只做粗粒度的角色 × 指派範圍 × 欄位白名單 |
 | R-ENG-002 | 引擎的比分／數值一律用嚴格型別檢查，禁用 `Number(v)`——`Number(null)` 是 0，會把「沒填比分」判成 0:0 平手 |
 | R-ENG-003 | 行為分（−3／−5）是「同一場、同一球員」的判定，彙總時分堆鍵**必須含 matchId**；卡片時序以 `clockSec` 為權威 |
@@ -144,7 +145,10 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 - [x] M5 公開端：8 條路由（首頁／賽程／比賽／組別／球隊／球員／統計／直播牆）
       ＋ 404 頁。322 單元 ＋ 47 變異 ＋ 171 E2E。整合時修掉四個欄位路徑錯誤
       （見下方「公開端」章節）
-- [ ] M4 報名與球隊管理（docs/10）
+- [x] M4-a 報名的資料模型與權限邊界：`users/{uid}` 名錄、`config/registration`、
+      球隊狀態機、名單凍結、身分授權收斂到 super_admin。
+      R34–R64 共 40 個 rules 測試 ＋ 12 條規則變異
+- [ ] M4-b 報名前端（隊長端／家長端／大總管授權介面，等 LIFF）
 - [ ] M6 檢錄＋Challenge　[ ] M7 彩排 → 上線
 
 ## 現在的狀態（2026-09-02，Claude Code 接手後已全數實跑）
@@ -157,7 +161,8 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 | `npm run test:unit` | ✅ 322 全綠（16 個 suite） |
 | `npm run test:mutation` | ✅ 47 / 47 全被抓到 |
 | `npm run test:e2e` | ✅ 171 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 71 全綠（含 R31 完賽即鎖定、R33 collectionGroup） |
+| `npm run test:rules` | ✅ 111 全綠（含 R34–R64 報名與身分授權） |
+| `npm run test:mutation:rules` | ✅ 12 / 12 全被抓到 |
 | `npm run test:fn` | ✅ 21 全綠（F01–F14 結果管線，Emulator） |
 | `npm run test:mutation:fn` | ✅ 10 / 10 全被抓到 |
 
@@ -412,7 +417,8 @@ Function 負責讀寫與填 `serverTimestamp`，引擎只負責算。
 ```bash
 npm run test:unit                  # 322 個案例（引擎 T01–T32 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
 npm run test:mutation              # 47 條變異，證明測試有鑑別力
-npm run test:rules                 # 71 個案例，自動起 Emulator
+npm run test:rules                 # 111 個案例，自動起 Emulator
+npm run test:mutation:rules        # 12 條權限規則變異
 npm run test:fn                    # 21 個結果管線整合測試（F01–F14），自動起 Emulator
 npm run test:mutation:fn           # 10 條結果管線變異
 npm run test:e2e                   # 171 個 Playwright 案例（× mobile / desktop / 320px）

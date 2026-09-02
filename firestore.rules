@@ -52,6 +52,29 @@ service cloud.firestore {
         || cid in myAssignment().challengeIds;
     }
 
+    // ── 報名（M4，docs/10 §2.3／§5.2）───────────────────────
+    // ⚠️ 這一組會做 get()，但只出現在報名相關路徑，不在比分寫入的熱路徑上，
+    //    所以不會壓縮到 1000 運算式的預算（R-RULES-001）。
+    //
+    // 開放條件是 AND：主辦手動開關 **且** 現在在起訖區間內（docs/10 §2.3）。
+    // 少任何一邊，主辦就沒辦法提前關閉或延長。
+    // 設定文件不存在時一律視為**未開放**——fail-closed，不要「沒設定就當開著」。
+    function regOpen() {
+      let p = /databases/$(db)/documents/config/registration;
+      return exists(p)
+        && get(p).data.get('open', false) == true
+        && (get(p).data.get('opensAt', null) == null || request.time >= get(p).data.opensAt)
+        && (get(p).data.get('closesAt', null) == null || request.time <= get(p).data.closesAt);
+    }
+
+    // staff 文件可以被指派的角色。**白名單裡沒有 super_admin**：
+    // 大總管不能由介面產生第二個（docs/10 §5.1）。第一位由種子／Console 建立，
+    // 走的是 Admin SDK，不經過 rules。
+    function staffRolesAssignable(d) {
+      return d.roles is list && d.roles.size() > 0
+          && d.roles.hasOnly(['scorer', 'referee', 'booth', 'admin']);
+    }
+
     // ── Demo 自助身分（見下方 match /staff/{u} 的說明）─────────
     // 只在 config/env.allowSelfServeStaff == true 的專案生效。
     // 這個 get() 只出現在 staff 文件的 create/update 路徑，
@@ -135,19 +158,128 @@ service cloud.firestore {
       }
 
       // ── 球隊 ──
+      // 隊長：決定申請、移除隊員、改備註、調背號。
+      // 備註凍結後也能改（不影響參賽資格，docs/10 §4），
+      // 但「誰在這支隊」的決定只能在凍結前做。
+      function captainMemberPatchOk(tid) {
+        return onlyChanged(['status', 'decidedAt', 'decidedBy', 'note', 'jerseyNo', 'updatedAt'])
+            && ( onlyChanged(['note', 'updatedAt'])
+                 || ( !rosterFrozen(tid)
+                      && captainMemberTransition(resource.data.status,
+                                                 request.resource.data.status) ) );
+      }
+      function captainMemberTransition(from, to) {
+        return (from == 'pending'  && to in ['pending', 'approved', 'rejected'])
+            || (from == 'approved' && to in ['approved', 'removed'])
+            || from == to;
+      }
+
+      // 家長／本人：申請還沒被決定之前可以修正自己填的資料，
+      // 但**不能自己把 status 改成 approved**——那就等於不用隊長同意了。
+      function guardianMemberPatchOk() {
+        return request.resource.data.status == 'pending'
+            && unchanged('guardianUid')
+            && onlyChanged(['name', 'birthDate', 'idLast4', 'jerseyNo', 'position',
+                            'kind', 'consent', 'updatedAt']);
+      }
+
+      // ── 球隊與名單（M4，docs/10 §5.2）────────────────────────
+      // 隊長不是全站角色，是球隊文件上的一個欄位（docs/10 §1.2）：
+      // 同一個人可能是 A 隊隊長、同時是 B 隊球員，做成角色就分不清了。
+      function teamPath(tid) { return /databases/$(db)/documents/events/$(eventId)/teams/$(tid); }
+      function isCaptainOf(tid) {
+        return isAuth() && exists(teamPath(tid))
+            && get(teamPath(tid)).data.get('captainUid', '') == uid();
+      }
+
+      // 名單凍結：隊長按下「送出報名」的當下就凍結（docs/10 §3.1）。
+      // 從送出到主辦審核可能隔好幾天，這期間名單還能改的話，
+      // 主辦審的跟通過的會是兩份不同的東西。
+      // rosterLocked 是 Admin 審核通過後的第二道鎖。
+      function rosterFrozen(tid) {
+        let t = get(teamPath(tid)).data;
+        return !(t.get('status', 'draft') in ['draft', 'rejected'])
+            || t.get('rosterLocked', false) == true;
+      }
+
+      // 隊長只動得了這份白名單上的欄位。
+      // rosterLocked / memberCount / seed / finalRank / reviewedAt / reviewedBy /
+      // rejectReason / divisionId 都**不在**上面——少了這道，隊長送出報名之後
+      // 可以自己把 rosterLocked 關掉，凍結就形同虛設。
+      //
+      // ⚠️ 白名單就是唯一的那道閘，不要再加一條「rosterLocked 必須不變」。
+      //    第一版兩條都寫了，於是拆掉任何一條測試都照樣全綠——
+      //    兩道一模一樣的守衛互相遮蔽，等於兩道都沒有被測到（變異 RU#6）。
+      function captainTeamPatchOk() {
+        return onlyChanged(['name', 'shortName', 'abbr', 'colorPrimary', 'contact',
+                            'announcement', 'status', 'captainUid', 'captainName',
+                            'submittedAt', 'updatedAt', 'updatedBy'])
+            // 凍結之後只准撤回（動 status），隊伍資料本身不能再編輯
+            && ( resource.data.get('status', 'draft') in ['draft', 'rejected']
+                 || onlyChanged(['status', 'submittedAt', 'updatedAt', 'updatedBy']) );
+      }
+
+      // 隊長走得到的狀態轉換只有「送出」與「撤回」，以及被退回之後重新編輯。
+      // approved / rejected / withdrawn 一律只有 Admin 設得了（docs/10 §3）。
+      function captainTeamTransition(from, to) {
+        return (from == 'draft'     && to in ['draft', 'submitted'])
+            || (from == 'submitted' && to in ['submitted', 'draft'])
+            || (from == 'rejected'  && to in ['rejected', 'draft']);
+      }
+
       match /teams/{teamId} {
-        allow read:                 if true;
-        allow create, update, delete: if isAdmin();
+        allow read: if true;
+
+        // 建立：登入 + 報名開放中 + 自己是隊長。
+        // ⚠️ docs/10 §2.3 的「每個帳號最多 3 隊」**不在這裡**：
+        //    rules 沒辦法 count 文件。那道上限由 Function 維護
+        //    users/{uid}.teamCount 並在超額時退件，屬於防洗版而非權限邊界。
+        allow create: if isAuth()
+                      && request.resource.data.captainUid == uid()
+                      && request.resource.data.status == 'draft'
+                      && request.resource.data.get('rosterLocked', false) == false
+                      && request.resource.data.get('memberCount', 0) == 0
+                      && regOpen();
+
+        allow update: if isAdmin()
+                      || ( isCaptainOf(teamId)
+                           && captainTeamPatchOk()
+                           && captainTeamTransition(resource.data.get('status', 'draft'),
+                                                    request.resource.data.status) );
+        allow delete: if isAdmin();
 
         // 聯絡資訊等敏感欄位放子集合，避免公開讀取
         match /private/{docId} {
           allow read, write: if isScorer();
         }
 
-        // 完整名單（生日、身分證後四碼）：僅賽務以上
+        // 完整名單（生日、身分證後四碼）：賽務以上、該隊隊長、以及自己報的那一筆
         match /members/{memberId} {
-          allow read:  if isScorer();
-          allow write: if isAdmin();
+          allow read: if isScorer()
+                      || isCaptainOf(teamId)
+                      || (isAuth() && resource.data.get('guardianUid', '') == uid());
+
+          // 加入申請不另開集合，就是名單上 status == 'pending' 的那幾筆（docs/10 §2.2）。
+          // 知道 inviteCode 只能「申請」，不等於「加入」——隊長同意才是閘門（§3.3）。
+          //
+          // ⚠️ §3.3 的「同一帳號對同一隊只能有一筆申請」**沒有寫在這裡**：
+          //    rules 查不到「有沒有另一筆 guardianUid 相同且 pending 的文件」。
+          //    那一條由 Function 與介面把關；rules 守的是真正的權限邊界。
+          allow create: if isAuth()
+                        && request.resource.data.guardianUid == uid()
+                        && request.resource.data.status == 'pending'
+                        && regOpen()
+                        && !rosterFrozen(teamId);
+
+          allow update: if isAdmin()
+                        || ( isCaptainOf(teamId) && captainMemberPatchOk(teamId) )
+                        || ( isAuth()
+                             && resource.data.get('guardianUid', '') == uid()
+                             && resource.data.status == 'pending'
+                             && guardianMemberPatchOk() );
+
+          // 移除是把 status 改成 'removed'，不刪文件（docs/10 §4）
+          allow delete: if false;
         }
 
         // 公開投影：任何人可讀，只有 Admin SDK（Function）可寫
@@ -355,9 +487,45 @@ service cloud.firestore {
       allow read:  if isAuth() && (u == uid() || isAdmin());
       allow write: if isAdmin();
     }
+    // ── 使用者名錄（docs/10 §1.4）─────────────────────────────
+    // LINE 的 userId 沒辦法憑空查，所以任何人登入時都留一筆自己的紀錄，
+    // 大總管才有名單可以指派身分。
+    match /users/{u} {
+      allow read: if isAuth() && (u == uid() || isAdmin());
+
+      // 自己只寫得動自己那一筆，而且**不准帶 roles**：
+      // 那是給後台列表用的快取，權威永遠是 staff/{uid}.roles。
+      // 少了這道，任何人登入時就能自稱 admin，後台列表會照著顯示。
+      allow create: if isAdmin()
+                    || ( isAuth() && u == uid()
+                         && request.resource.data.uid == u
+                         && !('roles' in request.resource.data) );
+      allow update: if isAdmin()
+                    || ( isAuth() && u == uid()
+                         && request.resource.data.uid == u
+                         && request.resource.data.get('roles', [])
+                              == resource.data.get('roles', []) );
+      allow delete: if false;
+    }
+
     match /staff/{u} {
       allow read:  if isAuth() && (u == uid() || isAdmin());
-      allow write: if isAdmin();
+
+      // ⚠️ 權限升級只有一條路：**只有 super_admin 動得了身分**（docs/10 §5.1）。
+      //    Admin 連自己的都改不了，也造不出第二個大總管——
+      //    staffRolesAssignable() 的白名單裡沒有 super_admin。
+      //
+      //    這裡原本是 `allow write: if isAdmin()`，等於任何管理員都能把自己
+      //    升成大總管。這條線必須由 rules 強制，不看 rolePermissions
+      //    （R-RULES-002：動態權限只用在 UI 層）——FC 的 R-IAM-004 就是
+      //    動態權限與 rules 不同步造成的已知漏洞，不要複製那個模式。
+      allow create: if isSuperAdmin() && staffRolesAssignable(request.resource.data);
+      // 更新時允許「角色原封不動」，大總管才改得了自己的指派場地
+      // （他自己的 roles 是 ['super_admin']，過不了白名單）。
+      allow update: if isSuperAdmin()
+                    && ( staffRolesAssignable(request.resource.data)
+                         || request.resource.data.roles == resource.data.roles );
+      allow delete: if isSuperAdmin();
 
       // ── Demo 專用：自助建立工作人員身分 ──────────────────────
       // 目的：demo 站要能免 LINE 登入就試用賽務台（也供 M6 彩排用）。

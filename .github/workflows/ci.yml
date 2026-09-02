@@ -155,7 +155,7 @@ jobs:
       - run: npm run test:mutation:fn
 
   rules-tests:
-    name: Firestore rules tests (R01-R31)
+    name: Firestore rules (R01-R64 + mutation)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -169,3 +169,7 @@ jobs:
           java-version: '17'
       - run: npm ci
       - run: npm run test:rules
+
+      # 權限規則是最容易寫出「假守衛」的地方：放寬一條線，happy path 完全不受
+      # 影響，測試照樣全綠。每一條邊界都要反向驗證一次。
+      - run: npm run test:mutation:rules

@@ -137,7 +137,19 @@ const ROLE_PERMISSIONS = {
 };
 
 /** Demo 環境用的工作人員（safety：seed 只在 demo 專案執行） */
+/** 邀請碼：6 碼英數。種子資料用可預測的算法，正式報名由 Function 產生亂碼。 */
+function inviteCodeOf(n) {
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // 去掉 I O 0 1，現場念得出來
+  let out = '', x = n * 2654435761 % 1073741824;
+  for (let i = 0; i < 6; i++) { out += A[x % A.length]; x = Math.floor(x / A.length) + n * 31; }
+  return out;
+}
+
 const DEMO_STAFF = [
+  // 大總管是唯一能指派身分的人（docs/10 §5.1）。第一位一定要由種子／Console 寫入，
+  // 因為 rules 的角色白名單裡沒有 super_admin——介面永遠造不出第二個。
+  { uid: 'demo-super',   name: '示範大總管', roles: ['super_admin'], venueIds: [],                    challengeIds: [] },
+  { uid: 'U7774e1410479bafff4997f51b2c47b95', name: '小麥（大總管）', roles: ['super_admin'], venueIds: [], challengeIds: [] },
   { uid: 'demo-admin',   name: '示範管理員', roles: ['admin'],      venueIds: [],                     challengeIds: [] },
   { uid: 'demo-scorer-a',name: '示範賽務A',   roles: ['scorer'],     venueIds: ['venue-a'],            challengeIds: [] },
   { uid: 'demo-scorer-b',name: '示範賽務B',   roles: ['scorer'],     venueIds: ['venue-b'],            challengeIds: [] },
@@ -180,6 +192,16 @@ function buildTeams(rng) {
         intro: `${name}足球隊，${div.name}參賽隊伍。本資料為 Demo 種子資料。`,
         founded: 2015 + (idx % 8),
         homeRegion: '臺中市',
+        // ── M4 報名欄位（docs/10 §2.1）──────────────────────
+        // 種子資料的球隊當作「已經報名並通過審核」：status=approved、名單已鎖。
+        // captainUid 給一個可預測的 demo uid，方便在 demo 站試隊長端。
+        captainUid: `demo-cap-${teamSeq}`,
+        captainName: `${name}隊長`,
+        contact: { phone: null, email: null, lineDisplayName: null },
+        status: 'approved',
+        submittedAt: null, reviewedAt: null, reviewedBy: 'demo-admin', rejectReason: null,
+        inviteCode: inviteCodeOf(teamSeq),
+        announcement: { text: null, updatedAt: null, updatedBy: null },
         rosterLocked: true,
         memberCount: { player: playerCount, staff: staffRoles.length },
         seed: idx + 1,
@@ -406,7 +428,32 @@ export function buildSeed({ seed = 20261009 } = {}) {
     allowSelfServeStaff: true,
     note: '這是 Demo 環境設定。正式環境不可開啟 allowSelfServeStaff。'
   });
+  // 報名開關（docs/10 §2.3）。開放條件是 AND：open 為真**且**在起訖區間內。
+  // ⚠️ closesAt 尚未定案（docs/10 §9 待補 #1），先留 null＝不設截止。
+  //    firestore.rules 讀不到這份文件時一律視為關閉（fail-closed），
+  //    所以少了它報名不會意外開著，只會打不開。
+  add('config/registration', {
+    open: false,
+    opensAt: null,
+    closesAt: null,
+    maxTeamsPerAccount: 3,
+    minMembers: null, maxMembers: null,
+    note: '報名截止日待主辦決定後填入 closesAt，並把 open 改成 true。'
+  });
+
   for (const [role, v] of Object.entries(ROLE_PERMISSIONS)) add(`rolePermissions/${role}`, v);
+
+  // 使用者名錄（docs/10 §1.4）：LINE 的 userId 沒辦法憑空查，
+  // 大總管要有一份名單才指派得了身分。正式站由每個人登入時自己寫一筆。
+  for (const s of DEMO_STAFF) {
+    add(`users/${s.uid}`, {
+      uid: s.uid, displayName: s.name, pictureUrl: null,
+      firstSeenAt: null, lastSeenAt: null,
+      roles: s.roles,          // 快取，權威在 staff/{uid}.roles
+      seedData: true
+    });
+  }
+
   for (const s of DEMO_STAFF) {
     add(`staff/${s.uid}`, {
       uid: s.uid, name: s.name, lineUserId: null, roles: s.roles,
