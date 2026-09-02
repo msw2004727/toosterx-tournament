@@ -197,7 +197,12 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 也就是說 M3a／M3b 想修的「新 HTML 配舊模組」**現在還在**：比賽當天早上推修正，
 賽務手機最久要四小時後才會拿到新模組，中間是新舊混用。
 
-**這個要在 Cloudflare 後台改，程式碼裡改不掉：**
+試過在 `_headers` 多送一個 `no-cache` 想蓋過去——**沒有用**。zone 是把整條
+Cache-Control 換掉，不是只改 max-age 的數值（`cf-cache-status: MISS` 確認是新鮮
+回源、內容也是新版，`no-cache` 一樣被剝掉；回應裡那個 `must-revalidate` 是
+Cloudflare 自己補的）。所以程式碼側沒有便宜的解。
+
+**這個要在 Cloudflare 後台改：**
 toosterx.com zone → Caching → Configuration → Browser Cache TTL
 改成 **Respect Existing Headers**；
 或建一條 Cache Rule 只針對 `cup.toosterx.com` / `cup-demo.toosterx.com` 的

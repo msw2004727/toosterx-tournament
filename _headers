@@ -15,16 +15,23 @@
 # 代價很小：有 ETag，沒改就是 304，只有幾百 bytes。
 # 真正的離線效能由 Service Worker 的 app shell 快取負責，不靠 HTTP 快取。
 #
-# ⚠️ 為什麼同時寫 max-age=0 **和** no-cache（看起來重複）：
-#    自訂網域前面還有一層 Cloudflare zone，它的 Browser Cache TTL 設定會
-#    **改寫 max-age**——實測 cup-demo.toosterx.com 與 cup.toosterx.com 上
-#    /js/* 都變成 max-age=14400（4 小時），只有 .json 與 HTML 逃過一劫
-#    （不在 Cloudflare 預設會快取的副檔名清單裡）。
-#    但它只換掉 max-age 的數值，其他 directive 原封不動，所以多加一個
-#    no-cache 就能把行為救回來：no-cache 在瀏覽器語意上勝過任何 max-age，
-#    每次使用前一律回來驗證。
-#    正解仍然是把 zone 的 Browser Cache TTL 改成 Respect Existing Headers，
-#    但那要進後台；這一行讓「還沒改」的期間也是安全的。
+# ⚠️ 這個檔案是對的，但**在自訂網域上目前無效**（2026-09-02 實測）：
+#
+#      feda-cup-demo.pages.dev  → public, max-age=0, must-revalidate, no-cache  ✅
+#      cup-demo.toosterx.com    → public, max-age=14400, must-revalidate        ❌
+#      cup.toosterx.com         → public, max-age=14400, must-revalidate        ❌
+#
+#    自訂網域前面那層 Cloudflare zone 的 Browser Cache TTL（4 小時）會把
+#    **整條 Cache-Control 換掉**——不是只改 max-age 的數值。
+#    試過多送一個 no-cache 想蓋過去，沒有用：cf-cache-status: MISS（確定是
+#    新鮮回源）、內容也是新版，但 no-cache 一樣被剝掉。`must-revalidate`
+#    是 Cloudflare 自己補的，不是這裡送出去的那個。
+#    .json 與 HTML 逃過一劫，只是因為不在 Cloudflare 預設會快取的副檔名清單裡。
+#
+#    → 解法只有一個，而且在後台：toosterx.com zone → Caching → Configuration
+#      → Browser Cache TTL 改成 **Respect Existing Headers**。
+#      （或針對 cup*.toosterx.com 的 /js/*、/css/* 建一條 Cache Rule。）
+#    下面的 no-cache 先留著：語意上本來就該送，zone 設定改好之後它就會生效。
 #    驗證：curl -sI https://cup-demo.toosterx.com/js/config.js | grep -i cache-control
 
 /js/*
