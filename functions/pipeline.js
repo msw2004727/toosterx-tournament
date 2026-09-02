@@ -23,6 +23,7 @@ import { buildStanding, standingIdOf, isStaleWrite, diffRanking } from './engine
 import { resolveStage, canResolve, computeFinalRanking as computeFinalRankingPure } from './engine/advancement.js';
 import { computeScorers, computeFairPlayBoard, countedMatchIdsOf } from './engine/awards.js';
 import { reconcileScore } from './engine/timeline.js';
+import { rosterProjection } from './engine/privacy.js';
 import {
   db, evRef, loadRankingRule, loadFormat, loadDivision, loadGroups,
   loadDivisionMatches, loadStageMatchesTx, loadCardEvents, loadTeams, loadTimeline,
@@ -389,4 +390,116 @@ async function replaceDivisionRows(eventId, boardId, divisionId, rows) {
       computedBy: 'fn:rebuildBoards'
     }, { merge: true });
   });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  報名：公開投影與計數（M4，docs/10 §2）
+// ══════════════════════════════════════════════════════════════
+
+/** 年齡遮蔽的基準日：賽事第一天（見 js/engine/privacy.js 的說明） */
+async function ageBasisOf(eventId) {
+  const ev = (await evRef(eventId).get()).data();
+  const d = ev?.dates?.[0];
+  // fail-closed：讀不到日期就給一個不可能的早期日期，
+  // 這樣每個人都會被算成「未滿 13 歲」而遮起來。寧可遮過頭，不可漏。
+  return typeof d === 'string' ? d : '1900-01-01';
+}
+
+/**
+ * `members/{id}` → `roster/{id}` 的公開投影（docs/01b §1.6.1）。
+ *
+ * 只有 `status === 'approved'` 的成員會出現在公開名冊；其餘（pending／
+ * rejected／removed）一律把投影**刪掉**——名冊是投影，不是紀錄，
+ * 留著一筆已經被移除的隊員在公開端比沒有更糟。
+ * 原始的 members 文件永遠不刪（docs/10 §4）。
+ */
+export async function syncRosterFor({ eventId, teamId, memberId }) {
+  const rosterRef = evRef(eventId).collection('teams').doc(teamId)
+    .collection('roster').doc(memberId);
+  const snap = await evRef(eventId).collection('teams').doc(teamId)
+    .collection('members').doc(memberId).get();
+
+  if (!snap.exists || snap.data().status !== 'approved') {
+    await rosterRef.delete().catch(() => {});   // 本來就沒有也算成功
+    return { projected: false };
+  }
+
+  const member = { memberId, ...snap.data() };
+  const team = (await evRef(eventId).collection('teams').doc(teamId).get()).data();
+
+  const doc = rosterProjection(member, {
+    teamId,
+    divisionId: team?.divisionId ?? member.divisionId ?? null,
+    asOf: await ageBasisOf(eventId),
+    // 照片同意目前不收（docs/10 §6 不收圖片），所以一律 null。
+    // 之後要開放時，同意旗標在 members.consent 上，改這一行就好。
+    photoConsent: false
+  });
+
+  await rosterRef.set(doc);
+  return { projected: true, displayName: doc.displayName };
+}
+
+/** 已核准人數（docs/10 §2.1 memberCount）。公開端拿它顯示「N 人」。 */
+export async function recountTeamMembers({ eventId, teamId }) {
+  const snap = await evRef(eventId).collection('teams').doc(teamId)
+    .collection('members').where('status', '==', 'approved').get();
+  const teamRef = evRef(eventId).collection('teams').doc(teamId);
+  const cur = (await teamRef.get()).data();
+  if (!cur) return { memberCount: 0, skipped: '球隊不存在' };
+  if (cur.memberCount === snap.size) return { memberCount: snap.size, changed: false };
+
+  await teamRef.update({ memberCount: snap.size, updatedAt: FieldValue.serverTimestamp() });
+  return { memberCount: snap.size, changed: true };
+}
+
+/**
+ * 每個帳號建了幾支隊（docs/10 §2.3 maxTeamsPerAccount）。
+ *
+ * ⚠️ 這是**防洗版，不是權限邊界**：rules 沒辦法 count 文件，所以上限只能
+ *    在這裡把關，而且擋不住「同時送出三筆」的競態。真正的閘門是主辦審核。
+ */
+export async function recountUserTeams({ eventId, uid }) {
+  if (!uid) return { teamCount: 0, skipped: '沒有 uid' };
+  const snap = await evRef(eventId).collection('teams').where('captainUid', '==', uid).get();
+  await db().doc(`users/${uid}`).set({
+    uid, teamCount: snap.size, teamCountAt: FieldValue.serverTimestamp()
+  }, { merge: true });
+  return { teamCount: snap.size };
+}
+
+/**
+ * 同一個帳號對同一隊只能有一筆待審申請（docs/10 §3.3）。
+ *
+ * rules 查不到「有沒有另一筆 guardianUid 相同且 pending 的文件」，
+ * 所以這條在這裡把關：新的那一筆直接退件，**先送的那一筆留著**。
+ * 退件而不是刪除——申請人看得到自己被退了、為什麼被退。
+ *
+ * 家長替第二個小孩報名是合法的，所以退件的是「還沒被決定的重複申請」，
+ * 不是「同一個 guardianUid 的第二筆」。
+ *
+ * @returns {boolean} true 代表這一筆已被退件
+ */
+export async function rejectDuplicateApplication({ eventId, teamId, memberId, member }) {
+  const guardianUid = member?.guardianUid;
+  if (!guardianUid) return false;
+
+  const col = evRef(eventId).collection('teams').doc(teamId).collection('members');
+  // 只用單一欄位查（自動索引），status 在記憶體裡篩——一支隊的名單很小
+  const snap = await col.where('guardianUid', '==', guardianUid).get();
+  const others = snap.docs
+    .filter(d => d.id !== memberId && d.data().status === 'pending');
+  if (!others.length) return false;
+
+  await col.doc(memberId).update({
+    status: 'rejected',
+    rejectReason: '這個帳號對這支球隊已經有一筆待審的申請，請等隊長處理完再送下一筆。',
+    decidedAt: FieldValue.serverTimestamp(),
+    decidedBy: 'fn:rejectDuplicateApplication'
+  });
+  await writeAudit(eventId, {
+    entity: 'member', entityId: `${teamId}/${memberId}`, action: 'member.duplicateRejected',
+    after: { guardianUid }, reason: '同一帳號對同一隊只能有一筆待審申請（docs/10 §3.3）'
+  });
+  return true;
 }

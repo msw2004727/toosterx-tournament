@@ -11,6 +11,7 @@
 
 import { berger, snakeSeed, groupLabel } from '../../js/engine/berger.js';
 import { FORMATS, RANKING_RULES, DIVISIONS, STAGE_CODE } from '../../js/engine/formats.js';
+import { rosterProjection } from '../../js/engine/privacy.js';
 
 const EVENT_ID = 'feda-cup-2026';
 
@@ -69,6 +70,10 @@ const VENUES = [
 ];
 
 /** 各日可用場地：10/9 三片（5 人制）、10/10 與 10/11 兩片（9 人制） */
+/** 賽事日期。年齡遮蔽以**第一天**為基準：跨越活動生日的小孩，
+ *  第一天還未滿 13 歲就該遮，取第一天是比較保守的那一邊（R-PRIV-001）。 */
+const EVENT_DATES = ['2026-10-09', '2026-10-10', '2026-10-11'];
+
 const VENUES_BY_DATE = {
   '2026-10-09': ['venue-a', 'venue-b', 'venue-c'],
   '2026-10-10': ['venue-a', 'venue-b'],
@@ -203,7 +208,10 @@ function buildTeams(rng) {
         inviteCode: inviteCodeOf(teamSeq),
         announcement: { text: null, updatedAt: null, updatedBy: null },
         rosterLocked: true,
-        memberCount: { player: playerCount, staff: staffRoles.length },
+        // docs/10 §2.1：已核准人數，一個數字（由 Function 維護）。
+        // docs/01b 早期寫成 { player, staff } 物件，但公開端拿它直接印
+        // 「N 人」，物件會變成「[object Object] 人」。以 docs/10 為準。
+        memberCount: playerCount + staffRoles.length,
         seed: idx + 1,
         groupId: null,             // generateSchedule 時填入
         withdrawn: false,
@@ -475,7 +483,7 @@ export function buildSeed({ seed = 20261009 } = {}) {
     slogan: '從社群走向賽場',
     organizer: '臺中市足球教育發展協會',
     sponsors: [{ name: '台灣美津濃股份有限公司', tier: 'partner', logoUrl: null, linkUrl: null }],
-    dates: ['2026-10-09', '2026-10-10', '2026-10-11'],
+    dates: EVENT_DATES,
     venueName: '太原足球場',
     timezone: 'Asia/Taipei',
     status: 'published',
@@ -588,15 +596,11 @@ export function buildSeed({ seed = 20261009 } = {}) {
   for (const m of members) {
     const { _teamId, ...rest } = m;
     add(`${E}/teams/${_teamId}/members/${m.memberId}`, rest);
-    add(`${E}/teams/${_teamId}/roster/${m.memberId}`, {
-      memberId: m.memberId, teamId: m.teamId, divisionId: m.divisionId,
-      displayName: maskName(m.name, m.divisionId),
-      jerseyNo: m.jerseyNo, position: m.position, role: m.role,
-      isCaptain: m.isCaptain, isGoalkeeper: m.isGoalkeeper,
-      photoUrl: null,
-      stats: m.stats ?? { apps: 0, goals: 0, assists: 0, yellow: 0, red: 0 },
-      order: m.jerseyNo ?? 900
-    });
+    // 公開投影用引擎那一份（js/engine/privacy.js）——Cloud Function 的
+    // onMemberWritten 產的是同一個函式的輸出，種子資料才不會跟線上長得不一樣。
+    // 遮蔽依據是**年齡**（未滿 13 歲），不是組別。
+    add(`${E}/teams/${_teamId}/roster/${m.memberId}`,
+      rosterProjection(m, { teamId: m.teamId, divisionId: m.divisionId, asOf: EVENT_DATES[0] }));
   }
 
   // ── Challenge ──
@@ -618,11 +622,6 @@ export function buildSeed({ seed = 20261009 } = {}) {
   return { docs, stats: summarise(docs, scheduled) };
 }
 
-/** 未滿 13 歲只顯示「姓＋名首字＋＊」（docs/03 §7.3） */
-function maskName(name, divisionId) {
-  if (!['u6', 'u8', 'u10'].includes(divisionId)) return name;
-  return name.length <= 2 ? name : `${name.slice(0, 2)}＊`;
-}
 
 function summarise(docs, scheduled) {
   const count = p => docs.filter(d => d.path.includes(p)).length;

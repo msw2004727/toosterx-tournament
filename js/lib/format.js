@@ -148,21 +148,16 @@ export function playerLabel(p) {
 }
 
 /**
- * 未滿 13 歲公開端顯示遮蔽名（R-PRIV-001）。
+ * 未滿 13 歲公開端顯示遮蔽名（R-PRIV-001、docs/03 §7.3）。
  *
- * 規格是**姓氏＋名字首字＋＊**：王小明 → 王小＊（docs/03 §7.3）。
- * 這裡本來寫成「王○明」——保留了名字的最後一個字，遮蔽力反而比較弱，
- * 而且跟 scripts/seed/build.js 寫進公開名冊的那一份不一致：
- * 同一個小朋友在名冊上是「王小＊」、在別的畫面卻是「王○明」。
+ * 實作在 `js/engine/privacy.js`——那一份會被 scripts/sync-engine.js 同步給
+ * Cloud Function 用（投影 roster 的時候要遮），三個地方共用同一份（R-ENG-001）。
+ * 這裡只是 re-export，讓既有的 import 路徑不必跟著動。
  *
  * ⚠️ 公開端**優先用 roster 的 displayName**（那一份已經遮蔽過了），
  *    這個函式只是最後一道保險，不要拿它去遮 members 的真名再顯示。
  */
-export function maskName(name) {
-  const s = String(name ?? '');
-  if (s.length <= 2) return s;
-  return s.slice(0, 2) + '＊';
-}
+export { maskName } from '../engine/privacy.js';
 
 /** 相對時間：剛剛／3 分鐘前／10:24 */
 export function agoText(v, nowMs = Date.now()) {

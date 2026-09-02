@@ -71,6 +71,30 @@ const MUTANTS = [
     file: 'functions/pipeline.js',
     from: "  const ref = evRef(eventId).collection('boards').doc(boardId);",
     to: "  const ref = evRef(eventId).collection('boards').doc(`${boardId}__${divisionId}`);"
+  },
+  {
+    name: 'FN#11 賽事日期讀不到時給一個很晚的基準日（所有人都算成年，兒童真名外洩）',
+    file: 'functions/pipeline.js',
+    from: `  return typeof d === 'string' ? d : '1900-01-01';`,
+    to: `  return typeof d === 'string' ? d : '2999-01-01';`
+  },
+  {
+    name: 'FN#12 不是 approved 時不刪投影（被移除的隊員留在公開名冊上）',
+    file: 'functions/pipeline.js',
+    from: `    await rosterRef.delete().catch(() => {});   // 本來就沒有也算成功`,
+    to: `    // noop`
+  },
+  {
+    name: 'FN#13 重複申請退掉先送的那一筆（後來的把先來的擠掉）',
+    file: 'functions/pipeline.js',
+    from: `    .filter(d => d.id !== memberId && d.data().status === 'pending');`,
+    to: `    .filter(d => d.id !== memberId);`
+  },
+  {
+    name: 'FN#14 已核准人數把待審的也算進去',
+    file: 'functions/pipeline.js',
+    from: `    .collection('members').where('status', '==', 'approved').get();`,
+    to: `    .collection('members').get();`
   }
 ];
 

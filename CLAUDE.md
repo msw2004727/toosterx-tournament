@@ -148,6 +148,8 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 - [x] M4-a 報名的資料模型與權限邊界：`users/{uid}` 名錄、`config/registration`、
       球隊狀態機、名單凍結、身分授權收斂到 super_admin。
       R34–R64 共 40 個 rules 測試 ＋ 12 條規則變異
+- [x] M4 Function：`onMemberWritten` 公開投影（未滿 13 歲遮名、白名單欄位）、
+      `onTeamWritten` 建隊數、重複申請退件。FR01–FR08 ＋ 4 條變異
 - [ ] M4-b 報名前端（隊長端／家長端／大總管授權介面，等 LIFF）
 - [ ] M6 檢錄＋Challenge　[ ] M7 彩排 → 上線
 
@@ -158,13 +160,13 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 322 全綠（16 個 suite） |
-| `npm run test:mutation` | ✅ 47 / 47 全被抓到 |
+| `npm run test:unit` | ✅ 337 全綠（17 個 suite） |
+| `npm run test:mutation` | ✅ 51 / 51 全被抓到 |
 | `npm run test:e2e` | ✅ 171 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 111 全綠（含 R34–R64 報名與身分授權） |
 | `npm run test:mutation:rules` | ✅ 12 / 12 全被抓到 |
-| `npm run test:fn` | ✅ 21 全綠（F01–F14 結果管線，Emulator） |
-| `npm run test:mutation:fn` | ✅ 10 / 10 全被抓到 |
+| `npm run test:fn` | ✅ 35 全綠（F01–F14 結果管線、FR01–FR08 報名投影） |
+| `npm run test:mutation:fn` | ✅ 14 / 14 全被抓到 |
 
 ### 這一輪審查抓到並修掉的三個缺陷
 
@@ -370,6 +372,18 @@ CI 只在根目錄 `npm ci`，剛好躲過；本機一起模擬器就炸。
 重試會重新讀到最新的場次——所以最後落地的一定是用最新資料算出來的。
 （只比 `version` 大小擋不住：兩邊都是 `prev + 1`，先寫的反而可能資料比較新。）
 
+### 公開名冊（roster）的鐵則
+
+`members` 有生日與身分證後四碼，`roster` 是它唯一合法的出口（docs/01b §1.6.1）。
+
+1. **投影是「挑出來」，不是「刪掉不要的」**。前者在 members 新增欄位時預設
+   不外洩，後者預設外洩。白名單在 `js/engine/privacy.js` 的 `ROSTER_FIELDS`。
+2. **遮蔽依據是年齡，不是組別**。`if (divisionId === 'u10')` 在兩件事上會錯：
+   兒童組偶爾有超齡的隨隊職員，成人組也可能有未滿 13 歲的球員。
+3. **算不出年齡就遮**。生日缺漏、格式不對、賽事日期讀不到——一律當成未成年。
+   反過來寫的話，一筆沒填生日的兒童資料會直接以真名出現在公開端。
+4. 不是 `approved` 的成員，投影要**刪掉**。被移除的隊員留在公開名冊上比沒有更糟。
+
 ### 公開看板的兩條鐵則
 
 `boards/*` 是 `allow read: if true`，寫進去的東西全世界都看得到。
@@ -398,6 +412,7 @@ js/engine/
 ├── berger.js        循環賽程 + 蛇形分組（純函式）
 ├── formats.js       Format / RankingRule / Division 設定（純資料）
 ├── timeline.js      事件流 → 比分（烏龍球記給對隊）＋ 對帳，賽務端與 Function 共用
+├── privacy.js       遮蔽姓名／年齡判定／members → roster 公開投影
 ├── tally.js         「一批場次 → 每隊統計」的原語，standing 與 ranking 共用
 ├── standing.js      積分榜：computeRows / buildStanding / isStaleWrite / diffRanking
 ├── ranking.js       同分排序（§6.4 遞迴）＋ 行為分
@@ -415,12 +430,12 @@ Function 負責讀寫與填 `serverTimestamp`，引擎只負責算。
 ### 測試
 
 ```bash
-npm run test:unit                  # 322 個案例（引擎 T01–T32 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
-npm run test:mutation              # 47 條變異，證明測試有鑑別力
+npm run test:unit                  # 337 個案例（引擎 T01–T32 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
+npm run test:mutation              # 51 條變異，證明測試有鑑別力
 npm run test:rules                 # 111 個案例，自動起 Emulator
 npm run test:mutation:rules        # 12 條權限規則變異
-npm run test:fn                    # 21 個結果管線整合測試（F01–F14），自動起 Emulator
-npm run test:mutation:fn           # 10 條結果管線變異
+npm run test:fn                    # 35 個 Function 整合測試（F01–F14 結果管線、FR01–FR08 報名）
+npm run test:mutation:fn           # 14 條 Function 變異
 npm run test:e2e                   # 171 個 Playwright 案例（× mobile / desktop / 320px）
 npm run test:e2e:offline           # 只跑離線三態那幾條
 ```

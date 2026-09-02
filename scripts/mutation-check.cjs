@@ -190,7 +190,7 @@ const MUTANTS = [
   },
   {
     name: '#27 遮蔽名保留名字最後一字（遮蔽力更弱，且與公開名冊不一致）',
-    file: 'js/lib/format.js',
+    file: 'js/engine/privacy.js',
     from: `  if (s.length <= 2) return s;
   return s.slice(0, 2) + '＊';`,
     to: `  if (s.length <= 1) return s;
@@ -305,6 +305,31 @@ const MUTANTS = [
     file: 'js/modules/public/selectors.js',
     from: `  if (featureFlags?.youthScorerBoard === true) return new Set();`,
     to: `  if (featureFlags?.youthScorerBoard) return new Set();`
+  },
+  {
+    name: '#P19 生日缺漏時當成成年（fail-open → 沒填生日的兒童以真名公開）',
+    file: 'js/engine/privacy.js',
+    from: `  if (!b || !a) return true;`,
+    to: `  if (!b || !a) return false;`
+  },
+  {
+    name: '#P20 年齡不看「生日還沒到」（差一天滿 13 的小孩會被當成已滿）',
+    file: 'js/engine/privacy.js',
+    from: `  if (a.m < b.m || (a.m === b.m && a.d < b.d)) age -= 1;`,
+    to: `  if (false) age -= 1;`
+  },
+  {
+    name: '#P21 公開投影改成「整份帶過去再蓋掉」（members 的私密欄位全外洩）',
+    file: 'js/engine/privacy.js',
+    from: `    memberId: member?.memberId ?? null,`,
+    to: `    ...member,
+    memberId: member?.memberId ?? null,`
+  },
+  {
+    name: '#P22 照片同意用寬鬆比較（"沒說不要" 也算同意）',
+    file: 'js/engine/privacy.js',
+    from: `    photoUrl: photoConsent === true ? (member?.photoUrl ?? null) : null,`,
+    to: `    photoUrl: photoConsent ? (member?.photoUrl ?? null) : null,`
   }
 ];
 

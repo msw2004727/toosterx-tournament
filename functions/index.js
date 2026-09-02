@@ -24,7 +24,8 @@ import { ensureApp, db } from './admin.js';
 import {
   recalcStandingForMatch, recalcStandingsForStage, resolveDownstreamOf,
   resolveAdvancementForStage, computeFinalRankingFor, publishFinalRankingFor,
-  rebuildBoardsFor, reconcileMatchScore
+  rebuildBoardsFor, reconcileMatchScore,
+  syncRosterFor, recountTeamMembers, recountUserTeams, rejectDuplicateApplication
 } from './pipeline.js';
 import { writeAudit } from './store.js';
 
@@ -134,9 +135,55 @@ export const onTimelineWritten = onDocumentWritten(
     }
   });
 
+/**
+ * 名單寫入 → 重複申請退件 → 公開投影 → 已核准人數。
+ *
+ * 公開投影是 members 唯一合法的出口（docs/01b §1.6.1）：
+ * 未滿 13 歲遮蔽姓名、照片預設不公開、白名單以外的欄位一個都不帶。
+ */
 export const onMemberWritten = onDocumentWritten(
-  'events/{eventId}/teams/{teamId}/members/{memberId}', async () => {
-    // TODO(M4): 同步公開投影 teams/{teamId}/roster/{memberId}（僅公開欄位）
+  'events/{eventId}/teams/{teamId}/members/{memberId}', async (event) => {
+    const { eventId, teamId, memberId } = event.params;
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+
+    // 只有「新建立的待審申請」需要查重複。改動既有那筆不必再查一次，
+    // 否則隊長按同意時又會跑一輪查詢。
+    if (!before && after?.status === 'pending') {
+      const rejected = await rejectDuplicateApplication({
+        eventId, teamId, memberId, member: after
+      });
+      if (rejected) {
+        logger.info('[onMemberWritten] 重複申請已退件', { teamId, memberId });
+        return;                    // 退件那次寫入會再觸發一次，投影與計數交給它
+      }
+    }
+
+    const r = await syncRosterFor({ eventId, teamId, memberId });
+    const c = await recountTeamMembers({ eventId, teamId });
+    logger.info('[onMemberWritten]', { teamId, memberId, projected: r.projected, memberCount: c.memberCount });
+  });
+
+/**
+ * 球隊寫入 → 維護每個帳號的建隊數。
+ *
+ * 只在「建立、刪除、或換隊長」時才動作——球隊文件在報名期間會被改很多次
+ * （隊名、公告、狀態），每一次都去 count 一遍球隊集合太浪費。
+ */
+export const onTeamWritten = onDocumentWritten(
+  'events/{eventId}/teams/{teamId}', async (event) => {
+    const { eventId } = event.params;
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+
+    const oldCap = before?.captainUid ?? null;
+    const newCap = after?.captainUid ?? null;
+    if (oldCap === newCap && before && after) return;   // 隊長沒變，也不是建立／刪除
+
+    for (const uid of new Set([oldCap, newCap].filter(Boolean))) {
+      const r = await recountUserTeams({ eventId, uid });
+      logger.info('[onTeamWritten] 建隊數已更新', { uid, teamCount: r.teamCount });
+    }
   });
 
 export const onAttemptCreated = onDocumentCreated(
