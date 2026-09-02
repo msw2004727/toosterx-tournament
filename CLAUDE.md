@@ -238,6 +238,8 @@ curl -sI https://cup-demo.toosterx.com/js/config.js | grep -i cache-control
 
 ### 等對方（小麥）處理的事
 
+> 逐步操作手冊在 **`docs/11-上線前設定步驟.md`**（含每一項的驗證方法）。
+
 1. **Blaze 升級** ×2 專案（`feda-cup-demo`、`feda-cup-2026`）——帳單相關不代勞
 2. **兩組 LIFF Channel**：⚠️ 必須建在 **FC-Football 所屬的同一個 LINE Provider** 底下。
    換 Provider 就會拿到不同的 userId，等球隊開始報名才發現就要整個重做（docs/10 §8.5）
