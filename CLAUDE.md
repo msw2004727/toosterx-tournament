@@ -164,7 +164,7 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 |---|---|
 | `npm run test:unit` | ✅ 345 全綠（18 個 suite） |
 | `npm run test:mutation` | ✅ 53 / 53 全被抓到 |
-| `npm run test:e2e` | ✅ 201 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:e2e` | ✅ 210 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 111 全綠（含 R34–R64 報名與身分授權） |
 | `npm run test:mutation:rules` | ✅ 12 / 12 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
@@ -259,6 +259,24 @@ js/modules/staff/
 Firestore 的 `setDoc()` 在離線時回傳的 Promise **永遠 pending**，
 所以絕不能 `await` 它再更新 UI；正確做法是立刻顯示「已記錄」，
 真正的狀態交給 `sync.js` 追蹤並反映在右上角的燈號上。
+
+## 路由（js/core/router.js）
+
+換頁是 `hash → handle()`，中間有好幾個 await（cleanup、guard、動態 import
+頁面模組）。這件事帶來兩個**每一頁都會中**的陷阱，兩個都已修並有 E2E 守住：
+
+1. **同一個位置被處理兩次。** `initRouter()` 在沒有 hash 時會
+   `location.replace('#/')`（排一個 hashchange），接著又直接呼叫一次 `handle()`。
+   重複掛載不只是多畫一次——頁面會註冊兩份監聽、跑兩次一次性讀取，
+   而且第二次會把第一次的狀態蓋掉。用 `lastHandled` 擋掉；
+   `navigate()` 對「已經在這一頁」的情況傳 `force` 明確要求重跑。
+2. **兩次導頁同時在跑。** 頁面模組是「邊載入邊畫」的，所以光在最後檢查
+   世代沒有用——過期的那一頁在 await 回來之前就已經把東西畫進去了。
+   解法是**每一次導頁擁有自己的容器**，被換掉之後它繼續畫也只是畫在一個
+   離開文件的節點上。（實測：LINE 導回後網址是 `/login`、畫面卻是首頁。）
+
+> 頁面模組收到的 `view` 是那一次導頁的容器，不是 `#app-view` 本身。
+> 不要去抓 `document.getElementById('app-view')` 自己畫。
 
 ## 帳號與 LINE 登入（M4-b①）
 
@@ -455,7 +473,7 @@ npm run test:rules                 # 111 個案例，自動起 Emulator
 npm run test:mutation:rules        # 12 條權限規則變異
 npm run test:fn                    # 35 個 Function 整合測試（F01–F14 結果管線、FR01–FR08 報名）
 npm run test:mutation:fn           # 16 條 Function 變異
-npm run test:e2e                   # 201 個 Playwright 案例（× mobile / desktop / 320px）
+npm run test:e2e                   # 210 個 Playwright 案例（× mobile / desktop / 320px）
 npm run test:e2e:offline           # 只跑離線三態那幾條
 ```
 

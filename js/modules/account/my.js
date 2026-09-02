@@ -38,13 +38,29 @@ export async function myPage({ scope, view }) {
 
   const state = { teams: null, loading: true };
 
-  // 登入狀態變了就重畫（登出時要退回「請先登入」）。
-  // 經過 store.hold 註冊，換頁自動回收（R-UI-003）。
-  hold(scope, onAuth(() => render()), 'auth:my');
+  // ⚠️ 不可以寫成「掛載時如果已登入就讀一次」。
+  //    onAuth 的第一次回呼可能在頁面掛載**之後**才到（Firebase 要先還原
+  //    上一次的登入狀態），那時候 user() 還是 null，球隊就永遠不會被載入——
+  //    畫面停在「你還沒有建立球隊」，而使用者明明有隊。
+  //    所以讀取綁在身分變化上，不是綁在掛載時機上。
+  let loadedFor = null;
 
-  render();
-  if (user()) { await loadTeams(); }
-  state.loading = false;
+  async function ensureTeams() {
+    const u = user();
+    if (!u) { state.teams = null; loadedFor = null; return; }
+    if (loadedFor === u.uid) return;         // 同一個人不重複讀
+    loadedFor = u.uid;
+    await loadTeams();
+  }
+
+  // onAuth 會立刻用目前的值呼叫一次，所以初次載入也走這條路。
+  // 經過 store.hold 註冊，換頁自動回收（R-UI-003）。
+  hold(scope, onAuth(async () => {
+    await ensureTeams();
+    state.loading = false;
+    render();
+  }), 'auth:my');
+
   render();
 
   async function loadTeams() {

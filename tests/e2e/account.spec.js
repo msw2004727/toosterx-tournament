@@ -174,3 +174,45 @@ test('⭐ 換發失敗時錯誤要留在畫面上，不是跳一下就消失 @ac
   await expect(page.locator('.acct')).toContainText('customToken');
   await expect(page.getByRole('button', { name: /再試一次/ })).toBeVisible();
 });
+
+test('⭐ 從 LINE 導回時落在首頁也要完成登入（hash 會在導轉中被丟掉）@account', async ({ page }) => {
+  // 這是實機上真正發生的那個 bug：liff.login() 走 OAuth 導轉，
+  // 網址 `#/login` 那一段回不來，使用者落在公開首頁。
+  // 第一版的自動換發只寫在登入頁，所以完全沒跑到——
+  // 授權完停在首頁，看起來像什麼都沒發生。
+  await stub(page, { lineLoggedIn: true });
+  await page.goto('/?code=fake-code&state=fake-state');
+  await page.waitForFunction(() => !!window.__fake, null, { timeout: 30_000 });
+
+  await expect.poll(() => page.evaluate(() => location.hash), { timeout: 15_000 }).toBe('#/my');
+  // 一次性參數要從網址上抹掉，重新整理才不會又跑一次
+  await expect.poll(() => page.evaluate(() => location.search)).toBe('');
+});
+
+test('⭐ 導回時換發失敗要被帶到登入頁並說明原因 @account', async ({ page }) => {
+  await stub(page, { lineLoggedIn: true, loginFails: true });
+  await page.goto('/?code=fake-code&state=fake-state');
+  await page.waitForFunction(() => !!window.__fake, null, { timeout: 30_000 });
+
+  await expect.poll(() => page.evaluate(() => location.hash), { timeout: 15_000 }).toBe('#/login');
+  await expect(page.locator('.acct__box--warn')).toContainText('登入沒有完成');
+  await expect(page.locator('.acct')).toContainText('customToken');
+});
+
+test('⭐ 一次導頁只掛載一次頁面，不會重複讀同一份資料 @account', async ({ page }) => {
+  // initRouter() 在沒有 hash 時會 location.replace('#/')（排一個 hashchange），
+  // 接著又直接呼叫一次 handle()——同一個位置被處理兩次。
+  // 畫面上看不出來（兩次畫的東西一樣），只有從「同一份資料被讀了兩次」看得到。
+  // 重複掛載的代價是雙倍的一次性讀取，以及註冊兩份監聽。
+  await stub(page, { user: { uid: UID, displayName: '小麥', photoURL: null } });
+  await page.goto('/');
+  await page.waitForFunction(() => !!window.__fake, null, { timeout: 30_000 });
+  await page.evaluate(() => window.__fake.__resetStats());
+
+  await page.evaluate(() => { location.hash = '#/my'; });
+  await expect(page.locator('.acct__uidValue')).toHaveText(UID);
+  await page.waitForTimeout(500);
+
+  // 「我的」只查一次自己帶的球隊
+  expect(await page.evaluate(() => window.__fake.__stats.getDocs)).toBe(1);
+});

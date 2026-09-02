@@ -16,7 +16,7 @@ import { el, mount } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
 import { user, onAuth } from '../../core/firebase.js';
-import { initLiff, loginWithLine, isInLineClient, isLineLoggedIn, logoutLine } from '../../core/liff.js';
+import { initLiff, loginWithLine, isInLineClient, isLineLoggedIn, logoutLine, rememberNext } from '../../core/liff.js';
 import { EVENT } from '../../config.js';
 
 export async function loginPage({ view, query }) {
@@ -28,11 +28,20 @@ export async function loginPage({ view, query }) {
 
   const state = { phase: 'checking', error: null, inLine: false };
 
+  // 開機時處理 LINE 導回失敗的話，原因會被放在這裡（見 app.js）。
+  // 使用者是被導回登入頁的，畫面上一定要說得出為什麼。
+  try {
+    const boot = sessionStorage.getItem('feda:loginError');
+    if (boot) { sessionStorage.removeItem('feda:loginError'); state.phase = 'failed'; state.error = boot; }
+  } catch { /* 無痕模式讀不到就算了 */ }
+
   // 已經登入就不必再看到登入頁
   const off = onAuth(u => { if (u) { off(); navigate(next); } });
   if (user()) return;
 
   render();
+  if (state.phase === 'failed') return;      // 已經有導回失敗的原因，不要再蓋掉
+
   try {
     await initLiff();
     state.inLine = await isInLineClient();
@@ -128,8 +137,11 @@ export async function loginPage({ view, query }) {
 
   async function start() {
     try {
+      // ⚠️ 目的地存 sessionStorage，不靠網址的 hash——OAuth 導轉會把 `#` 之後
+      //    的內容丟掉（實測回來是落在公開首頁）。導回後由 app.js 撿回來。
+      rememberNext(next);
       // 尚未授權時這裡會導頁去 LINE，不會回來（回來時是新的一次載入）
-      await loginWithLine(location.href);
+      await loginWithLine(`${location.origin}/`);
       navigate(next);
     } catch (err) {
       console.error('[login]', err);

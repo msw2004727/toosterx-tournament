@@ -26,10 +26,12 @@ const S = (typeof window !== 'undefined')
       store: new Map(), watchers: new Set(), authCbs: new Set(),
       pending: [], online: window.__FAKE_OFFLINE !== true, failNext: null,
       currentUser: window.__FAKE_USER || null, seeded: false,
+      stats: { getDocs: 0, getDoc: 0 },
       // spec 可以讓頁面「一開始就離線」，重現開頁瞬間只有快取的情境
     })
   : { store: new Map(), watchers: new Set(), authCbs: new Set(),
-      pending: [], online: true, failNext: null, currentUser: null, seeded: false };
+      pending: [], online: true, failNext: null, currentUser: null, seeded: false,
+      stats: { getDocs: 0, getDoc: 0 } };
 
 const store = S.store;
 const watchers = S.watchers;
@@ -56,10 +58,21 @@ export function __goOnline() {
 }
 export function __failNext(code) { S.failNext = code; }
 export function __dump() { return Object.fromEntries(store); }
+
+/**
+ * 呼叫次數統計。用來抓「同一頁被掛載兩次」——那種 bug 畫面上看不出來
+ * （兩次畫的東西一樣），只有從「同一份資料被讀了兩次」才看得到。
+ *
+ * ⚠️ 一定要放在共用的 S 上，不能放模組作用域：這份替身會被當成四個獨立的
+ *    模組實例載入（見檔頭），getDocs 累加的那一份跟 window.__fake 指到的
+ *    那一份會是不同的物件，統計永遠是 0。
+ */
+export const __stats = S.stats;
+export function __resetStats() { S.stats.getDocs = 0; S.stats.getDoc = 0; }
 export function __pendingCount() { return S.pending.length; }
 
 if (typeof window !== 'undefined') {
-  window.__fake = { __seed, __goOffline, __goOnline, __failNext, __dump, __pendingCount, __setUser };
+  window.__fake = { __seed, __goOffline, __goOnline, __failNext, __dump, __pendingCount, __setUser, __stats, __resetStats };
 }
 
 function notify() {
@@ -140,8 +153,8 @@ export const where = (field, op, value) => ({ kind: 'where', field, op, value })
 export const orderBy = (field, dir = 'asc') => ({ kind: 'orderBy', field, dir });
 export const limit = n => ({ kind: 'limit', n });
 
-export async function getDoc(ref) { return snapOf(ref.path); }
-export async function getDocs(ref) { return querySnapOf({ prefix: ref.path, clauses: ref.clauses }); }
+export async function getDoc(ref) { S.stats.getDoc += 1; return snapOf(ref.path); }
+export async function getDocs(ref) { S.stats.getDocs += 1; return querySnapOf({ prefix: ref.path, clauses: ref.clauses }); }
 
 export function onSnapshot(ref, a, b, c) {
   const cb = typeof a === 'function' ? a : b;

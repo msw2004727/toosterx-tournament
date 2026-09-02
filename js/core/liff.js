@@ -102,6 +102,70 @@ export async function loginWithLine(redirectUri = location.href) {
   return { uid: cred?.user?.uid ?? null };
 }
 
+/**
+ * 從 LINE 授權導回來時要落腳的頁面。
+ *
+ * ⚠️ **不能靠網址的 hash 記住要去哪裡。**
+ *    `liff.login({ redirectUri })` 走的是 OAuth 導轉，而 `#` 之後的內容
+ *    在導轉過程中會被丟掉——實測按下登入之後回來是落在公開首頁，
+ *    不是 `#/login`。所以目的地存在 sessionStorage 裡，
+ *    由 completeLineRedirect() 在任何一頁把它撿回來。
+ */
+const NEXT_KEY = 'feda:loginNext';
+export const rememberNext = path => { try { sessionStorage.setItem(NEXT_KEY, path); } catch {} };
+const takeNext = () => {
+  try { const v = sessionStorage.getItem(NEXT_KEY); sessionStorage.removeItem(NEXT_KEY); return v; }
+  catch { return null; }
+};
+
+/**
+ * 網址上有沒有「剛從 LINE 導回來」的痕跡。
+ * LIFF 會在 query string 留下 code/state（或 liff.state / liffClientId），
+ * 只有偵測到這些才載入 LINE 的 SDK——一般訪客不該為了一個用不到的登入
+ * 多付一次跨網域請求。
+ */
+export function hasLineRedirect() {
+  const q = new URLSearchParams(location.search);
+  return q.has('liff.state') || q.has('liffClientId') || (q.has('code') && q.has('state'));
+}
+
+/**
+ * 在**任何一頁**完成 LINE 導回後的登入換發。由 app.js 開機時呼叫。
+ *
+ * @returns {Promise<{done:boolean, next:string|null, error:string|null}>}
+ */
+export async function completeLineRedirect(alreadySignedIn = false) {
+  if (!hasLineRedirect()) return { done: false, next: null, error: null };
+
+  const next = takeNext() || '/my';
+  try {
+    const liff = await initLiff();          // init 會消化掉網址上的 code
+    cleanUrl();
+    if (alreadySignedIn) return { done: true, next, error: null };
+    if (!liff.isLoggedIn()) return { done: false, next, error: 'LINE 授權沒有完成' };
+
+    const idToken = liff.getIDToken();
+    if (!idToken) return { done: false, next, error: '拿不到 LINE 的身分憑證（LIFF 的 Scopes 要勾 openid）' };
+
+    await signInWithLine(idToken);
+    return { done: true, next, error: null };
+  } catch (err) {
+    cleanUrl();
+    return { done: false, next, error: err.message };
+  }
+}
+
+/** 把 code/state 這些一次性參數從網址上抹掉，重新整理才不會又跑一次 */
+function cleanUrl() {
+  try {
+    const url = new URL(location.href);
+    for (const k of ['code', 'state', 'liff.state', 'liffClientId', 'liffRedirectUri', 'error', 'error_description']) {
+      url.searchParams.delete(k);
+    }
+    history.replaceState(null, '', url.pathname + (url.search || '') + url.hash);
+  } catch { /* 動不了網址不影響登入結果 */ }
+}
+
 /** 只登出 LINE 這一側（Firebase 那側由 signOutStaff 處理） */
 export async function logoutLine() {
   try {

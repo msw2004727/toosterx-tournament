@@ -44,6 +44,18 @@ async function boot() {
   // 而 /login 與 /my 不該被任何萬用路由接走。
   (await import('./js/modules/account/index.js')).registerAccountRoutes();
 
+  // ⚠️ 從 LINE 授權導回來時，落腳的**不一定是登入頁**：
+  //    liff.login() 走 OAuth 導轉，網址 `#` 之後的內容會被丟掉，
+  //    實測是回到公開首頁。所以換發登入必須在開機時做，不能只寫在登入頁
+  //    （第一版就是這樣，使用者授權完停在首頁，看起來像什麼都沒發生）。
+  //    只有偵測到網址上有 LINE 的導回參數才會載入 LINE 的 SDK。
+  const liffMod = await import('./js/core/liff.js');
+  const back = await liffMod.completeLineRedirect();
+  if (back.error) {
+    console.error('[line] 導回後換發失敗', back.error);
+    sessionStorage.setItem('feda:loginError', back.error);
+  }
+
   // 公開端（M5）
   (await import('./js/modules/public/index.js')).registerPublicRoutes();
 
@@ -54,6 +66,11 @@ async function boot() {
   }
 
   initRouter(App);
+
+  // 導回成功就把人送到原本要去的地方（預設「我的」）。
+  // 一定要在 initRouter() 之後——不然這一跳會被開機時的路由解析蓋掉。
+  if (back.done && back.next) navigate(back.next);
+  else if (back.error) navigate('/login');
 
   watchForNewVersion();
 }

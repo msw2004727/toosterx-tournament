@@ -68,7 +68,7 @@ function compile(pattern) {
 
 export function navigate(path, { replace = false } = {}) {
   const target = '#' + (path.startsWith('/') ? path : '/' + path);
-  if (location.hash === target) return handle();
+  if (location.hash === target) return handle(true);   // 明確要求重跑同一頁
   if (replace) location.replace(target);
   else location.hash = target;
 }
@@ -84,20 +84,56 @@ function currentQuery() {
   return new URLSearchParams(i >= 0 ? raw.slice(i + 1) : '');
 }
 
-async function handle() {
+/**
+ * 上一次真正處理過的位置（含 query）。
+ *
+ * ⚠️ 同一個位置被連續處理兩次是**真的會發生**的：initRouter() 在沒有 hash 時
+ *    會 `location.replace('#/')`（排一個 hashchange），接著又直接呼叫一次
+ *    handle()。重複掛載不只是多畫一次——頁面會註冊兩份監聽、跑兩次一次性讀取。
+ *    navigate() 對「已經在這一頁」的情況會明確要求重跑，那時候傳 force。
+ */
+let lastHandled = null;
+
+/**
+ * 導頁世代。**每一個 await 之後都要確認自己還是最新的那一次。**
+ *
+ * ⚠️ handle() 中間有好幾個 await（cleanup、guard、動態 import 頁面模組），
+ *    這期間使用者可以再導一次頁，於是兩個 handle() 同時在跑。
+ *    實測：LINE 導回後 app.js 先讓路由停在首頁、隨即導向 /login，
+ *    首頁的模組較慢載完，結果網址是 /login、畫面卻是首頁。
+ *    快速連點兩個分頁也會看到同一種錯亂。
+ */
+let generation = 0;
+
+async function handle(force = false) {
   const path = currentPath();
-  const view = document.getElementById('app-view');
-  if (!view) return;
+  const key = location.hash;                 // 連 query 一起比，?tab=x 換頁要算數
+  if (!force && key === lastHandled) return;
+  lastHandled = key;
+
+  const gen = ++generation;
+  const stale = () => gen !== generation;
+
+  const host = document.getElementById('app-view');
+  if (!host) return;
+
+  // 每一次導頁都有自己的容器。頁面模組是「邊載入邊畫」的（先骨架、拿到資料
+  // 再重畫），所以光在最後檢查 stale 沒有用——過期的那一頁在 await 還沒回來
+  // 之前就已經把東西畫進去了。給它獨立的容器，被換掉之後它繼續畫也只是畫在
+  // 一個離開文件的節點上。
+  const view = document.createElement('div');
 
   // 先收乾淨舊頁面：先 cleanup 再 releaseScope，
   // 讓頁面有機會在監聽被切斷前做最後的寫入（例如暫停計時器）
   try { await currentCleanup?.(); } catch (e) { console.error('[router] cleanup', e); }
+  if (stale()) return;
   currentCleanup = null;
   if (currentScope) releaseScope(currentScope);
 
   const match = routes.map(r => ({ r, m: r.re.exec(path) })).find(x => x.m);
   if (!match) {
     currentScope = null;
+    host.replaceChildren(view);
     mount(view, notFound(path));
     return;
   }
@@ -112,18 +148,28 @@ async function handle() {
   // 守衛（例如賽務頁需要登入）。回傳字串代表改導向該路徑。
   if (typeof r.opts.guard === 'function') {
     const verdict = await r.opts.guard({ params });
+    if (stale()) return;
     if (typeof verdict === 'string') return navigate(verdict, { replace: true });
     if (verdict === false) return;
   }
 
-  view.replaceChildren(skeleton(4));
-  view.scrollTop = 0;
+  if (stale()) return;
+  mount(view, skeleton(4));
+  host.replaceChildren(view);          // 這一刻起，畫面就是這一次導頁的了
   window.scrollTo({ top: 0 });
 
   try {
     const cleanup = await r.handler({ params, query: currentQuery(), scope, view });
+    if (stale()) {
+      // 已經被後來的導頁取代了。這一頁自己的清理仍要跑，
+      // 否則它註冊的計時器與監聽會留在背景。
+      try { await cleanup?.(); } catch { /* 收尾失敗不影響現在那一頁 */ }
+      releaseScope(scope);
+      return;
+    }
     currentCleanup = typeof cleanup === 'function' ? cleanup : null;
   } catch (err) {
+    if (stale()) return;
     console.error('[router]', path, err);
     mount(view, errorView(err));
     toast('頁面載入失敗，請重新整理。', 'error');
@@ -169,7 +215,8 @@ export function initRouter(App) {
   if (booted) return;
   booted = true;
   App.navigate = navigate;
-  window.addEventListener('hashchange', handle);
+  // 包一層：事件物件會被當成 force 參數（Event 是 truthy）
+  window.addEventListener('hashchange', () => handle());
   // 進站沒有 hash 時導到首頁，讓分享出去的網址永遠有明確路徑
   if (!location.hash) location.replace('#/');
   handle();
