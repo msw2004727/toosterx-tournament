@@ -12,11 +12,11 @@
  *    每一種都要換成看得懂的說明，而不是留一顆按了沒反應的按鈕。
  */
 
-import { el, mount, toast } from '../../core/ui.js';
+import { el, mount } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
 import { user, onAuth } from '../../core/firebase.js';
-import { initLiff, loginWithLine, isInLineClient } from '../../core/liff.js';
+import { initLiff, loginWithLine, isInLineClient, isLineLoggedIn, logoutLine } from '../../core/liff.js';
 import { EVENT } from '../../config.js';
 
 export async function loginPage({ view, query }) {
@@ -36,6 +36,19 @@ export async function loginPage({ view, query }) {
   try {
     await initLiff();
     state.inLine = await isInLineClient();
+
+    // ⚠️ 這一段是整頁最關鍵的地方。
+    //    liff.login() 會**離開這一頁**跳去 LINE 授權，授權完再導回來——
+    //    回來時是全新的一次載入，LINE 那側已經是登入狀態，但 Firebase 這側還不是。
+    //    少了下面這幾行，使用者授權完回來只會看到同一顆按鈕，
+    //    以為登入失敗（第一版就是這樣，實測時 lineLogin 一次都沒被呼叫到）。
+    //    在 LINE 內建瀏覽器裡也一樣受惠：那裡本來就已經登入，連按都不用按。
+    if (await isLineLoggedIn()) {
+      state.phase = 'exchanging';
+      render();
+      await start();
+      return;
+    }
     state.phase = 'ready';
   } catch (err) {
     state.phase = 'unavailable';
@@ -56,6 +69,26 @@ export async function loginPage({ view, query }) {
   function body() {
     if (state.phase === 'checking') {
       return el('p', { class: 'acct__note', text: '正在準備 LINE 登入…' });
+    }
+
+    if (state.phase === 'exchanging') {
+      return el('p', { class: 'acct__note', text: '已取得 LINE 授權，正在完成登入…' });
+    }
+
+    // 換發登入失敗（例如伺服器端少了簽章權限）。這種錯誤**必須留在畫面上**，
+    // 不能只跳一個會自己消失的提示——否則使用者只會看到「按了沒反應」。
+    if (state.phase === 'failed') {
+      return el('div', { class: 'acct__box acct__box--warn' }, [
+        el('strong', { text: '登入沒有完成' }),
+        el('p', { class: 'acct__note', text: state.error || '未知原因' }),
+        el('p', { class: 'acct__fine', text: '如果一直出現同樣的訊息，請把上面這句話回報給主辦。' }),
+        el('button', {
+          class: 'btn btn--lg', type: 'button', onClick: () => { state.phase = 'ready'; render(); }
+        }, iconText('retry', '再試一次')),
+        el('button', {
+          class: 'btn btn--ghost', type: 'button', onClick: () => resetLine()
+        }, '改用其他 LINE 帳號')
+      ]);
     }
 
     if (state.phase === 'unavailable') {
@@ -100,8 +133,18 @@ export async function loginPage({ view, query }) {
       navigate(next);
     } catch (err) {
       console.error('[login]', err);
-      toast(`登入沒有成功：${err.message}`, 'error');
+      state.phase = 'failed';
+      state.error = err.message;
+      render();
     }
+  }
+
+  /** 換一個 LINE 帳號：把 LINE 那側也登出，下一次才會重新問 */
+  async function resetLine() {
+    await logoutLine();
+    state.phase = 'ready';
+    state.error = null;
+    render();
   }
 }
 

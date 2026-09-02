@@ -16,17 +16,15 @@ const FAKE = fs.readFileSync(path.join(process.cwd(), 'tests/e2e/fake-firebase.j
 const EVENT = 'feda-cup-2026';
 const UID = 'U7774e1410479bafff4997f51b2c47b95';
 
-/** LIFF SDK 的替身。ok:false 用來測「載不到」那條路徑。 */
-const liffStub = (ok = true) => ok
-  ? `window.liff = {
-       init: () => Promise.resolve(),
-       isInClient: () => false,
-       isLoggedIn: () => false,
-       login: () => { window.__liffLoginCalled = true; },
-       getIDToken: () => 'fake-id-token',
-       logout: () => {}
-     };`
-  : 'window.__liffBroken = true;';
+/** LIFF SDK 的替身。loggedIn=true 模擬「剛從 LINE 授權回來」。 */
+const liffStub = (loggedIn = false) => `window.liff = {
+  init: () => Promise.resolve(),
+  isInClient: () => false,
+  isLoggedIn: () => ${loggedIn},
+  login: () => { window.__liffLoginCalled = true; },
+  getIDToken: () => 'fake-id-token',
+  logout: () => { window.__liffLogoutCalled = true; }
+};`;
 
 const seed = () => ({
   [`events/${EVENT}`]: { eventId: EVENT, name: 'FEDA CUP 2026' },
@@ -41,7 +39,7 @@ const seed = () => ({
   }
 });
 
-async function stub(page, { sdkOk = true, user = null } = {}) {
+async function stub(page, { sdkOk = true, user = null, lineLoggedIn = false, loginFails = false } = {}) {
   await page.route('https://www.gstatic.com/firebasejs/**', r =>
     r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: FAKE }));
   await page.route('https://firestore.googleapis.com/**', r =>
@@ -49,14 +47,15 @@ async function stub(page, { sdkOk = true, user = null } = {}) {
   // LIFF SDK：成功時回一個替身，失敗時直接讓請求掛掉（模擬連不到 LINE）
   await page.route('https://static.line-scdn.net/**', r =>
     sdkOk
-      ? r.fulfill({ status: 200, contentType: 'text/javascript', body: liffStub(true) })
+      ? r.fulfill({ status: 200, contentType: 'text/javascript', body: liffStub(lineLoggedIn) })
       : r.abort());
 
-  await page.addInitScript(({ s, u }) => {
+  await page.addInitScript(({ s, u, fail }) => {
     window.__FAKE_SEED = s;
     window.__FAKE_USER = u;
     window.__seedData = s;
-  }, { s: seed(), u: user });
+    window.__FAKE_CALL_ERROR = fail ? 'lineLogin 沒有回傳 customToken' : null;
+  }, { s: seed(), u: user, fail: loginFails });
 }
 
 async function go(page, hash) {
@@ -153,4 +152,25 @@ test('⭐ 320px 不出現橫向捲軸（uid 很長，最容易在這裡撐破）
     return { scrollWidth: d.scrollWidth, clientWidth: d.clientWidth, bad: bad.slice(0, 5) };
   });
   expect(over).toBeNull();
+});
+
+test('⭐ 從 LINE 授權回來時要自動完成登入，不可以又叫人按一次 @account', async ({ page }) => {
+  // liff.login() 會離開這一頁，授權後導回來是**全新的一次載入**：
+  // LINE 那側已經登入、Firebase 這側還沒。第一版少了自動換發，
+  // 使用者授權完只看到同一顆按鈕，實測時 lineLogin 一次都沒被呼叫到。
+  await stub(page, { lineLoggedIn: true });
+  await go(page, '/#/login');
+
+  // 換發成功之後會走到「我的」
+  await expect.poll(() => page.evaluate(() => location.hash), { timeout: 15_000 }).toBe('#/my');
+});
+
+test('⭐ 換發失敗時錯誤要留在畫面上，不是跳一下就消失 @account', async ({ page }) => {
+  // 「按了沒反應」是最難回報的故障。原因必須留在畫面上讓使用者唸得出來。
+  await stub(page, { lineLoggedIn: true, loginFails: true });
+  await go(page, '/#/login');
+
+  await expect(page.locator('.acct__box--warn')).toContainText('登入沒有完成');
+  await expect(page.locator('.acct')).toContainText('customToken');
+  await expect(page.getByRole('button', { name: /再試一次/ })).toBeVisible();
 });

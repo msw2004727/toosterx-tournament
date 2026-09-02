@@ -164,7 +164,7 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 |---|---|
 | `npm run test:unit` | ✅ 345 全綠（18 個 suite） |
 | `npm run test:mutation` | ✅ 53 / 53 全被抓到 |
-| `npm run test:e2e` | ✅ 195 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:e2e` | ✅ 201 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 111 全綠（含 R34–R64 報名與身分授權） |
 | `npm run test:mutation:rules` | ✅ 12 / 12 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
@@ -285,6 +285,13 @@ js/modules/account/
    demo 站，不會回到本機。要測登入請直接開 demo 站。
 3. **SDK 載不到時不可以留一顆按不動的按鈕**。`#/login` 會換成看得懂的原因
    加一顆「再試一次」，而且**同時把登入鈕收掉**——E2E 有一條專門守這件事。
+4. **從 LINE 授權回來時要自動完成登入**。`liff.login()` 會離開這一頁，
+   授權後導回來是**全新的一次載入**：LINE 那側已登入、Firebase 這側還沒。
+   第一版少了自動換發，使用者授權完只看到同一顆按鈕，以為失敗——
+   實測時 `lineLogin` 一次都沒被呼叫到（Function 日誌與 `users/` 集合都是空的）。
+   在 LINE 內建瀏覽器裡也受惠：那裡本來就已登入，連按都不用按。
+5. **換發失敗的原因必須留在畫面上**，不能只跳一個會自己消失的提示。
+   「按了沒反應」是最難回報的故障。
 
 `#/my` 會把 uid 顯示出來而且可以複製：那是跨專案對帳唯一的鍵
 （飛達盃的 uid 必須等於 FC-Football 的 uid，docs/10 §8.5），出問題第一個要對它。
@@ -448,7 +455,7 @@ npm run test:rules                 # 111 個案例，自動起 Emulator
 npm run test:mutation:rules        # 12 條權限規則變異
 npm run test:fn                    # 35 個 Function 整合測試（F01–F14 結果管線、FR01–FR08 報名）
 npm run test:mutation:fn           # 16 條 Function 變異
-npm run test:e2e                   # 195 個 Playwright 案例（× mobile / desktop / 320px）
+npm run test:e2e                   # 201 個 Playwright 案例（× mobile / desktop / 320px）
 npm run test:e2e:offline           # 只跑離線三態那幾條
 ```
 

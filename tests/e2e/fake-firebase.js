@@ -184,7 +184,14 @@ export async function signInAnonymously() {
   for (const cb of authCbs) cb(S.currentUser);
   return { user: S.currentUser };
 }
-export async function signInWithCustomToken() { return signInAnonymously(); }
+export async function signInWithCustomToken() {
+  // 真的流程裡 uid 就是 LINE userId（docs/10 §8.5）。替身沿用同一個值，
+  // 這樣「登入後看得到自己的 uid」那條測試才有意義。
+  S.currentUser = window.__FAKE_LINE_USER
+    || { uid: 'U7774e1410479bafff4997f51b2c47b95', displayName: '小麥', photoURL: null };
+  for (const cb of authCbs) cb(S.currentUser);
+  return { user: S.currentUser };
+}
 export async function signOut() { S.currentUser = null; for (const cb of authCbs) cb(null); }
 
 /** 讓 spec 直接指定身分，省掉登入流程 */
@@ -195,4 +202,29 @@ export function __setUser(u) {
 
 // ── firebase-functions ───────────────────────────────────────
 export const getFunctions = () => ({ __fake: true });
-export const httpsCallable = () => async () => ({ data: {} });
+/**
+ * Callable 的替身。
+ *
+ * ⚠️ 回傳形狀要跟真的一樣是**兩層 data**：httpsCallable 把 Function 的回傳值
+ *    包在 .data，而我們的 Function 本身回 `{ ok, data }` 信封（docs/07 §3.4）。
+ *    替身若只回 `{ data: {} }`，「登入成功」那條路徑就永遠測不到——
+ *    而那正是實機上唯一會走的路徑。
+ *
+ * spec 可以用 window.__FAKE_CALL_ERROR 讓呼叫失敗，測失敗的顯示。
+ */
+export const httpsCallable = (_fns, name) => async (payload) => {
+  if (window.__FAKE_CALL_ERROR) throw new Error(window.__FAKE_CALL_ERROR);
+  if (name === 'lineLogin') {
+    return {
+      data: {
+        ok: true,
+        data: {
+          customToken: 'fake-custom-token',
+          profile: { uid: 'U7774e1410479bafff4997f51b2c47b95', displayName: '小麥', pictureUrl: null },
+          roles: [], isStaff: false
+        }
+      }
+    };
+  }
+  return { data: { ok: true, data: {} } };
+};
