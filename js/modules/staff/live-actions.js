@@ -9,12 +9,15 @@
  */
 
 import { FAIR_PLAY } from '../../engine/ranking.js';
+import { GOAL_EVENT_TYPES, isLive, scoreFromTimeline, reconcileScore } from '../../engine/timeline.js';
 
-/** 會改變比分的事件型別（docs/01b §1.8 事件型別表） */
-export const SCORING_TYPES = ['goal', 'own_goal', 'penalty_scored'];
+// 比分推算搬去 js/engine/timeline.js 了：Cloud Function 對帳要用同一份邏輯，
+// 而 R-ENG-001 不允許有第二份實作。這裡只保留 re-export，
+// 讓既有的 import 路徑（與它們的測試）不必跟著動。
+export { isLive, scoreFromTimeline };
 
-/** 有效事件：未作廢 */
-export const isLive = e => !!e && e.voided !== true;
+/** 會改變比分的事件型別（docs/01b §1.8 事件型別表）。⚠️ 含 own_goal。 */
+export const SCORING_TYPES = GOAL_EVENT_TYPES;
 
 /** 下一個序號。同分鐘的事件靠 seq 排序，所以不能重複。 */
 export function nextSeq(events) {
@@ -23,44 +26,25 @@ export function nextSeq(events) {
 }
 
 /**
- * 由 timeline 推算比分。
+ * 一致性檢查（docs/04 §5.6）——畫面用的那一層。
+ * 判定本身在 engine 的 reconcileScore()，這裡只負責組人看得懂的句子。
  *
- * ⚠️ 烏龍球記給**對方**。這是最容易寫錯的一條：
- *    事件的 side 記的是「踢進球門的球員屬於哪一隊」，但分數要算給對手。
- *
- * @param {Array<object>} events
- * @returns {{home:number, away:number}}
- */
-export function scoreFromTimeline(events) {
-  const out = { home: 0, away: 0 };
-  for (const e of events || []) {
-    if (!isLive(e) || !SCORING_TYPES.includes(e.type)) continue;
-    if (e.side !== 'home' && e.side !== 'away') continue;
-    const credit = e.type === 'own_goal'
-      ? (e.side === 'home' ? 'away' : 'home')
-      : e.side;
-    out[credit] += 1;
-  }
-  return out;
-}
-
-/**
- * 一致性檢查（docs/04 §5.6）。
- * 不一致時**警示但允許送出**——現場以裁判判定為準，
+ * 不一致時**警示但允許送出**：現場以裁判判定為準，
  * 差異記在 match.scoreMismatch 供 Admin 事後檢視。
  */
 export function consistencyCheck(score, events) {
-  const derived = scoreFromTimeline(events);
-  const h = Number(score?.home) || 0;
-  const a = Number(score?.away) || 0;
-  const match = derived.home === h && derived.away === a;
+  const r = reconcileScore(score, events);
+  const { derived, entered } = r;
+  const shown = `${entered.home ?? '—'}:${entered.away ?? '—'}`;
   return {
-    ok: match,
+    ok: r.ok,
     derived,
-    entered: { home: h, away: a },
-    message: match
+    entered,
+    message: r.ok
       ? `事件加總（${derived.home}:${derived.away}）與比分一致`
-      : `事件加總為 ${derived.home}:${derived.away}，與比分 ${h}:${a} 不同，仍要送出嗎？`
+      : !r.complete
+        ? `比分還沒登錄完（目前 ${shown}），事件加總為 ${derived.home}:${derived.away}，仍要送出嗎？`
+        : `事件加總為 ${derived.home}:${derived.away}，與比分 ${shown} 不同，仍要送出嗎？`
   };
 }
 

@@ -6,8 +6,7 @@
  *
  * 用法：node scripts/mutation-check.cjs
  */
-const fs = require('fs');
-const { execSync } = require('child_process');
+const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
@@ -168,43 +167,25 @@ const MUTANTS = [
     file: 'js/modules/staff/live-actions.js',
     from: `    lock: { locked: false, lockedAt: null, lockedBy: null },`,
     to: `    lock: { locked: false, lockedBy: null },`
+  },
+  {
+    name: '#24 烏龍球記給自己（比分會少一分，而且沒有任何錯誤）',
+    file: 'js/engine/timeline.js',
+    from: `    const credit = e.type === 'own_goal'
+      ? (e.side === 'home' ? 'away' : 'home')
+      : e.side;`,
+    to: `    const credit = e.side;`
+  },
+  {
+    name: '#25 對帳用 Number() 換算比分（沒填比分 → 0，跟沒有事件剛好「一致」）',
+    file: 'js/engine/timeline.js',
+    from: `  return typeof v === 'number' && Number.isFinite(v) ? v : null;`,
+    to: `  const n = Number(v); return Number.isFinite(n) ? n : null;`
   }
 ];
 
-const backups = new Map();
-const read = f => fs.readFileSync(f, 'utf8');
-for (const m of new Set(MUTANTS.map(x => x.file))) backups.set(m, read(m));
-
-let caught = 0;
-const escaped = [];
-
-for (const m of MUTANTS) {
-  const orig = read(m.file);
-  if (!orig.includes(m.from)) {
-    console.log(`⚠️  ${m.name}\n    找不到要變異的程式碼，這條變異失效了，請更新腳本`);
-    escaped.push(m.name + '（變異失效）');
-    continue;
-  }
-  fs.writeFileSync(m.file, orig.replace(m.from, m.to), 'utf8');
-  let failed = false;
-  try {
-    execSync('npm run test:unit --silent', { stdio: 'pipe' });
-  } catch {
-    failed = true;
-  }
-  fs.writeFileSync(m.file, backups.get(m.file), 'utf8');
-
-  if (failed) { console.log(`✅ 抓到　${m.name}`); caught++; }
-  else { console.log(`❌ 漏掉　${m.name}`); escaped.push(m.name); }
-}
-
-// 還原後必須仍是綠的
-execSync('npm run test:unit --silent', { stdio: 'pipe' });
-
-console.log(`\n${caught} / ${MUTANTS.length} 個變異被測試抓到`);
-if (escaped.length) {
-  console.log('漏掉的變異（代表測試沒有鑑別力）：');
-  for (const e of escaped) console.log('  -', e);
-  process.exit(1);
-}
-console.log('全部變異都被抓到，測試具備鑑別力。');
+process.exit(runMutants({
+  mutants: MUTANTS,
+  testCmd: 'npm run test:unit --silent',
+  title: '引擎與前端｜變異測試'
+}));

@@ -98,9 +98,12 @@ git push                 # 驗證過才上正式站
 ## 測試
 
 ```
-npm run test:unit    賽制引擎（T01–T16，見 docs/02 §11）
-npm run test:rules   R01–R31（見 docs/07 §2.4）
-npm run test:e2e     Playwright
+npm run test:unit         賽制引擎（T01–T32，見 docs/02 §11）
+npm run test:rules        R01–R31（見 docs/07 §2.4）
+npm run test:fn           結果管線 F01–F13（Emulator，見 docs/07 §3.1）
+npm run test:e2e          Playwright
+npm run test:mutation     引擎與前端的變異測試
+npm run test:mutation:fn  結果管線的變異測試
 ```
 
 CI 紅燈必須先修復。targeted test 不能替代完整 suite。
@@ -110,7 +113,7 @@ CI 紅燈必須先修復。targeted test 不能替代完整 suite。
 ```
 npm run deploy:rules:demo      firestore.rules + 索引（Spark 方案就能跑）
 npm run deploy:storage:demo    storage.rules（需 Blaze + Console 先啟用 Storage）
-npm run deploy:fn:demo         Cloud Functions（需 Blaze）
+npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動同步 engine）
 ```
 
 **三者不可合併成一條指令。** Storage 與 Functions 都需要 Blaze 方案，
@@ -134,6 +137,10 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze）
 - [x] M3.5 主題重做：FC token 系統、三態主題（系統／淺色／深色）、SVG 圖示取代 emoji、
       320px 窄版、拿掉 `venue_lead`、完賽三分鐘自撤回。
       254 單元 ＋ 24 變異 ＋ 96 E2E（三種視窗寬度）＋ 70 rules
+- [x] M3.9 結果管線：把 M2 引擎接上 Firestore。`functions/` 改 ESM、
+      `js/engine/` 由 `scripts/sync-engine.js` 同步進部署範圍，
+      積分榜／晉級／最終排名／射手榜全部自動化。18 個模擬器整合測試（F01–F13）
+      ＋ 7 條變異。實測 Functions 在真的執行環境載得起來（23 個 endpoint）
 - [ ] M4 報名與球隊管理（docs/10）　[ ] M5 公開端
 - [ ] M6 檢錄＋Challenge　[ ] M7 彩排 → 上線
 
@@ -144,10 +151,12 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 254 全綠（13 個 suite） |
-| `npm run test:mutation` | ✅ 24 / 24 全被抓到 |
+| `npm run test:unit` | ✅ 263 全綠（14 個 suite） |
+| `npm run test:mutation` | ✅ 25 / 25 全被抓到 |
 | `npm run test:e2e` | ✅ 96 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 70 全綠（含 R24–R30 自撤回、R31 完賽即鎖定） |
+| `npm run test:fn` | ✅ 18 全綠（F01–F13 結果管線，Emulator） |
+| `npm run test:mutation:fn` | ✅ 7 / 7 全被抓到 |
 
 ### 這一輪審查抓到並修掉的三個缺陷
 
@@ -258,12 +267,70 @@ Firestore 的 `setDoc()` 在離線時回傳的 Promise **永遠 pending**，
 所以絕不能 `await` 它再更新 UI；正確做法是立刻顯示「已記錄」，
 真正的狀態交給 `sync.js` 追蹤並反映在右上角的燈號上。
 
+## 結果管線（M3.9）
+
+M2 的引擎一直到 M3.9 之前都**沒有任何東西呼叫**——`standing / ranking /
+advancement / awards` 有 254 個測試證明算得對，但賽務端送出完賽之後，
+積分榜不會動、晉級不會解、最終排名算不出來。M3.9 就是把這條線接起來。
+
+```
+functions/
+├── index.js      觸發器與 callable：只接參數、驗權限，不含任何計算
+├── pipeline.js   結果管線：重算積分榜／解晉級／算最終排名／重建看板
+├── store.js      Firestore 存取（設定一律讀 config/*，缺資料一律丟錯）
+├── admin.js      firebase-admin 的單一入口（見下方「兩份 admin」）
+└── engine/       ⚠️ 建置產物，js/engine/ 的複本，不進版控
+```
+
+### 引擎怎麼給 Functions 用（R-ENG-001）
+
+Firebase 部署**只上傳 `functions/` 這一個目錄**，而 `js/engine/` 必須留在
+網站根目錄下讓瀏覽器直接載——兩邊都動不了。所以：
+
+```bash
+npm run sync:engine          # js/engine/ → functions/engine/
+node scripts/sync-engine.js --check   # 檢查一致（CI 會跑）
+```
+
+`js/engine/` 是唯一的真相來源；`functions/engine/` 進 `.gitignore`，
+由 `firebase.json` 的 `predeploy` 在每次部署前重新產生。
+**不要編輯 `functions/engine/` 底下的任何檔案**，下一次同步就會被蓋掉。
+
+`functions/package.json` 是 `"type": "module"`：engine 是給瀏覽器載的 ES module，
+不可能改寫成 CJS，而 `require()` 一個 ESM 在 nodejs22 上的行為取決於 patch 版本。
+
+### 兩份 firebase-admin 這個坑
+
+專案裡有兩份 firebase-admin：根目錄一份（測試用）、`functions/` 一份（部署用）。
+Node 依檔案位置解析，`functions/` 底下的程式碼拿到的是 `functions/node_modules`
+那一份。測試若自己 `initializeApp()`，初始化的是**另一份**的 AppStore，
+pipeline 一呼叫 `getFirestore()` 就是「default Firebase app does not exist」。
+
+麻煩的是它只在「有人在 functions/ 跑過 npm install」之後才出現——
+CI 只在根目錄 `npm ci`，剛好躲過；本機一起模擬器就炸。
+所以所有人一律經過 `functions/admin.js` 拿 db，包含測試。
+
+### 併發模型
+
+積分榜重算放在交易裡，**場次與現有 standing 都在交易內重讀**。
+兩個 trigger 同時進來時，後 commit 的那個會撞到版本衝突而重試，
+重試會重新讀到最新的場次——所以最後落地的一定是用最新資料算出來的。
+（只比 `version` 大小擋不住：兩邊都是 `prev + 1`，先寫的反而可能資料比較新。）
+
+### fail-closed 是預設值
+
+`rankingRuleId` 打錯、小組設定讀不到、分組賽還沒打完、最終排名算不完整——
+一律**丟錯或原地返回，一個欄位都不寫**。fail-open 的程式碼在正常情況下
+跟正確的長得一模一樣，只有在資料缺漏的那一天才會現形，而那一天通常是比賽當天。
+`npm run test:mutation:fn` 的七條變異守的就是這件事。
+
 ## 賽制引擎（M2）
 
 ```
 js/engine/
 ├── berger.js        循環賽程 + 蛇形分組（純函式）
 ├── formats.js       Format / RankingRule / Division 設定（純資料）
+├── timeline.js      事件流 → 比分（烏龍球記給對隊）＋ 對帳，賽務端與 Function 共用
 ├── tally.js         「一批場次 → 每隊統計」的原語，standing 與 ranking 共用
 ├── standing.js      積分榜：computeRows / buildStanding / isStaleWrite / diffRanking
 ├── ranking.js       同分排序（§6.4 遞迴）＋ 行為分
@@ -272,6 +339,7 @@ js/engine/
 ```
 
 相依方向是單向的：`tally ← ranking ← standing ← advancement`。
+`timeline.js` 不相依任何人（純粹是事件流 → 比分），所以誰都可以用它。
 `ranking` 不可 import `standing`（會形成循環），需要積分計算時用 `tally`。
 
 全部是純函式：不碰 Firestore、不呼叫 `Date.now()`、不用隨機。
@@ -280,9 +348,11 @@ Function 負責讀寫與填 `serverTimestamp`，引擎只負責算。
 ### 測試
 
 ```bash
-npm run test:unit                  # 254 個案例（引擎 T01–T31 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
-npm run test:mutation              # 24 條變異，證明測試有鑑別力
+npm run test:unit                  # 263 個案例（引擎 T01–T32 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
+npm run test:mutation              # 25 條變異，證明測試有鑑別力
 npm run test:rules                 # 70 個案例，自動起 Emulator
+npm run test:fn                    # 18 個結果管線整合測試（F01–F13），自動起 Emulator
+npm run test:mutation:fn           # 7 條結果管線變異
 npm run test:e2e                   # 96 個 Playwright 案例（× mobile / desktop / 320px）
 npm run test:e2e:offline           # 只跑離線三態那幾條
 ```

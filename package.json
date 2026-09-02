@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "serve": "npx --yes serve -l 5173 .",
-    "emu": "firebase emulators:start --only firestore,auth --project demo-local",
+    "emu": "node scripts/sync-engine.js && firebase emulators:start --only firestore,auth,functions --project demo-local",
     "seed:dry": "node scripts/seed.js --dry-run",
     "seed:emu": "node scripts/seed.js --emulator",
     "seed:demo": "node scripts/seed.js --project feda-cup-demo",
@@ -26,7 +26,10 @@
     "deploy:fn:demo": "firebase deploy --only functions --project demo",
     "deploy:fn:prod": "firebase deploy --only functions --project prod",
     "deploy:storage:demo": "firebase deploy --only storage --project demo",
-    "deploy:storage:prod": "firebase deploy --only storage --project prod"
+    "deploy:storage:prod": "firebase deploy --only storage --project prod",
+    "sync:engine": "node scripts/sync-engine.js",
+    "test:fn": "node scripts/sync-engine.js && firebase emulators:exec --only firestore --project demo-fn-test \"node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/\"",
+    "test:mutation:fn": "node scripts/sync-engine.js && firebase emulators:exec --only firestore --project demo-fn-test \"node scripts/mutation-fn.cjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",

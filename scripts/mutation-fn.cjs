@@ -1,0 +1,68 @@
+/**
+ * 結果管線的變異測試（需要 Firestore Emulator）
+ * ------------------------------------------------------------------
+ * 執行：npm run test:mutation:fn
+ *   （外層由 firebase emulators:exec 起一次 Emulator，這裡只跑 jest）
+ *
+ * tests/functions/ 那 18 條整合測試全綠，只代表「happy path 接得起來」。
+ * 這裡要證的是它們**抓得到接錯線**——尤其是 fail-closed 那幾條：
+ * fail-open 的程式碼在正常情況下跑起來跟正確的一模一樣，
+ * 只有在資料缺漏的那一天才會現形，而那一天通常是比賽當天。
+ */
+const { runMutants } = require('./lib/mutate.cjs');
+
+const MUTANTS = [
+  {
+    name: 'FN#1 rankingRule 找不到就套預設（fail-open → 用錯規則排出一份看似正常的積分榜）',
+    file: 'functions/store.js',
+    from: '  if (!rule) throw new Error(`config/rankingRules 沒有 ${rankingRuleId}`);',
+    to: "  if (!rule) return { points: { win: 3, draw: 1, loss: 0 }, criteria: ['points'] };"
+  },
+  {
+    name: 'FN#2 小組設定讀不到就跳過重算（積分榜安靜地停在舊版）',
+    file: 'functions/pipeline.js',
+    from: '  if (!group) throw new Error(`找不到小組設定：${divisionId}/${stageId}/${groupId}`);',
+    to: '  if (!group) return null;'
+  },
+  {
+    name: 'FN#3 晉級解算不看前置條件（分組賽還沒打完就把 A1 填進冠軍賽）',
+    file: 'functions/pipeline.js',
+    from: '  if (!gate.ready && !force) {',
+    to: '  if (false) {'
+  },
+  {
+    name: 'FN#4 最終排名沒算完也照樣發布（公開端掛出錯的名次）',
+    file: 'functions/pipeline.js',
+    from: '  if (!complete) return { published: false, missing, ranking };',
+    to: '  if (false) return { published: false, missing, ranking };'
+  },
+  {
+    name: 'FN#5 積分榜不帶隊名（公開端每一列都要自己再查一次 teams）',
+    file: 'functions/pipeline.js',
+    from: '    teamMeta: teamMetaOf(teams),',
+    to: '    teamMeta: {},'
+  },
+  {
+    name: 'FN#6 對帳結論沒變也照寫（跟 onMatchWritten 互相打，每顆進球白花一次寫入）',
+    file: 'functions/pipeline.js',
+    from: '  if (match.scoreMismatch === mismatch) return { changed: false, mismatch, derived: r.derived };',
+    to: '  if (false) return { changed: false, mismatch, derived: r.derived };'
+  },
+  {
+    name: 'FN#7 射手榜不過濾未完賽場次（進行中的比賽就先進榜）',
+    file: 'functions/pipeline.js',
+    from: '  const counted = countedMatchIdsOf(matches);',
+    to: '  const counted = new Set(matches.map(m => m.matchId));'
+  }
+];
+
+// 想過但沒有加的一條：把 ensureApp() 的 `getApps()[0] ??` 拿掉。
+// 實測 firebase-admin v13 重複呼叫 initializeApp() 並不會丟錯，
+// 所以那個守衛不是承重牆，變異也就抓不到——留一條永遠漏掉的變異
+// 只會讓整份報告失去意義，不如寫清楚為什麼沒有它。
+
+process.exit(runMutants({
+  mutants: MUTANTS,
+  testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/ --silent',
+  title: '結果管線｜變異測試'
+}));

@@ -1,0 +1,372 @@
+/**
+ * Functions｜結果管線
+ * ------------------------------------------------------------------
+ * 規格：docs/07 §3.1、docs/02 §6–§8
+ *
+ * 這一層把 M2 的引擎接上資料庫。分工是死的（R-ENG-001）：
+ *   engine/  純函式，不碰 Firestore、不呼叫 Date.now()、不用隨機
+ *   這裡     負責讀、負責填 serverTimestamp、負責寫、負責併發控制
+ *
+ * 併發模型：
+ *   積分榜的重算放在交易裡，**場次與現有 standing 都在交易內重讀**。
+ *   兩個 trigger 同時打進來時，後commit 的那個會撞到版本衝突而重試，
+ *   重試會重新讀到最新的場次——所以最後落地的一定是「用最新資料算出來的」。
+ *   （只用 version 比大小擋不住：兩邊都是 prev+1，先寫的反而可能資料比較新。）
+ *
+ *   卡片事件與隊伍資料在交易外讀。卡片只影響同分排序的末端條件，
+ *   而且新增一張牌本身也會觸發 onTimelineWritten 再算一次，
+ *   把它們放進交易只會把交易撐大，換不到正確性。
+ */
+import { FieldValue } from 'firebase-admin/firestore';
+
+import { buildStanding, standingIdOf, isStaleWrite, diffRanking } from './engine/standing.js';
+import { resolveStage, canResolve, computeFinalRanking as computeFinalRankingPure } from './engine/advancement.js';
+import { computeScorers, computeFairPlayBoard, countedMatchIdsOf } from './engine/awards.js';
+import { reconcileScore } from './engine/timeline.js';
+import {
+  db, evRef, loadRankingRule, loadFormat, loadDivision, loadGroups,
+  loadDivisionMatches, loadStageMatchesTx, loadCardEvents, loadTeams, loadTimeline,
+  teamMetaOf, withdrawnIdsOf, standingRef, loadStandings, writeAudit
+} from './store.js';
+
+/** 已產生勝負、會被計入統計的狀態 */
+const DECIDED = ['finished', 'confirmed', 'walkover'];
+
+/** engine 要的 opts：全部從設定檔來，這裡不放任何預設值以外的判斷 */
+function optsOf({ division, rule, teams, cardEvents }) {
+  return {
+    cardEvents,
+    teamMeta: teamMetaOf(teams),
+    withdrawnTeamIds: withdrawnIdsOf(teams),
+    ...(division.withdrawalPolicy ? { withdrawalPolicy: division.withdrawalPolicy } : {}),
+    ...(division.display?.mercyRule ? { mercyRule: division.display.mercyRule } : {}),
+    ...(rule.walkover ? { walkover: rule.walkover } : {})
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  積分榜
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * 重算單一小組的積分榜。
+ *
+ * @returns {{standingId, version, hasUnresolvedTie, changed, diff, skipped?:true}}
+ */
+export async function recalcStandingForGroup({ eventId, divisionId, stageId, groupId, teamIds }) {
+  const division = await loadDivision(eventId, divisionId);
+  const rule = await loadRankingRule(division.rankingRuleId);
+
+  const teams = await loadTeams(eventId, teamIds);
+  const standingId = standingIdOf(divisionId, stageId, groupId);
+  const ref = standingRef(eventId, standingId);
+
+  // 卡片要先知道有哪些場次。交易外先抓一次「這個階段目前的場次」來取 matchId，
+  // 交易裡再重讀一次場次本身——卡片多讀或少讀一場不影響正確性（見檔頭）。
+  const preMatches = (await evRef(eventId).collection('matches')
+    .where('divisionId', '==', divisionId).where('stageId', '==', stageId).get())
+    .docs.map(d => ({ matchId: d.id, ...d.data() }));
+  const groupMatchIds = preMatches
+    .filter(m => m.groupId === groupId && DECIDED.includes(m.status))
+    .map(m => m.matchId);
+  const cardEvents = await loadCardEvents(eventId, groupMatchIds);
+
+  let result = null;
+
+  await db().runTransaction(async tx => {
+    const stageMatches = await loadStageMatchesTx(tx, eventId, divisionId, stageId);
+    const prevSnap = await tx.get(ref);
+    const prev = prevSnap.exists ? { standingId, ...prevSnap.data() } : null;
+
+    const matches = stageMatches.filter(m => m.groupId === groupId);
+
+    const doc = buildStanding({
+      eventId, divisionId, stageId, groupId,
+      teamIds, matches, rule,
+      opts: optsOf({ division, rule, teams, cardEvents }),
+      prev
+    });
+
+    // 交易內 prev 是最新的，version 必定是 prev+1，所以這一條理論上不會成立。
+    // 留著是因為它便宜，而且真的成立時代表併發模型出了問題，會留下線索。
+    if (isStaleWrite(prev, doc)) {
+      // 這一層刻意只依賴 firebase-admin（不 import firebase-functions），
+      // 整合測試才能直接從專案根目錄載入它跑，不必先在 functions/ 裝一次相依。
+      console.warn('[standing] 放棄過時的寫入', standingId, prev?.version, '→', doc.version);
+      result = { standingId, version: prev.version, hasUnresolvedTie: !!prev.hasUnresolvedTie, changed: false, diff: null, skipped: true };
+      return;
+    }
+
+    tx.set(ref, { ...doc, computedAt: FieldValue.serverTimestamp() });
+    result = {
+      standingId,
+      version: doc.version,
+      hasUnresolvedTie: doc.hasUnresolvedTie,
+      diff: diffRanking(prev, doc),
+      changed: diffRanking(prev, doc).changed
+    };
+  });
+
+  return result;
+}
+
+/** 重算某階段底下的所有小組（淘汰賽階段沒有小組，回空陣列） */
+export async function recalcStandingsForStage({ eventId, divisionId, stageId }) {
+  const groups = await loadGroups(eventId, divisionId, stageId);
+  const out = [];
+  for (const g of groups) {
+    out.push(await recalcStandingForGroup({
+      eventId, divisionId, stageId, groupId: g.groupId, teamIds: g.teamIds || []
+    }));
+  }
+  return out;
+}
+
+/**
+ * 某一場的結果變了 → 重算它所屬小組的積分榜。
+ * 淘汰賽場次沒有 groupId，也就沒有積分榜可以算，直接回 null。
+ */
+export async function recalcStandingForMatch({ eventId, match }) {
+  const { divisionId, stageId, groupId } = match;
+  if (!divisionId || !stageId || !groupId) return null;
+
+  const groups = await loadGroups(eventId, divisionId, stageId);
+  const group = groups.find(g => g.groupId === groupId);
+  // fail-closed：小組設定讀不到就不要「拿場次裡出現過的隊伍」硬湊一份名單，
+  // 那會讓退賽或還沒排進來的隊伍悄悄出現／消失在積分榜上（R-ENG-005）。
+  if (!group) throw new Error(`找不到小組設定：${divisionId}/${stageId}/${groupId}`);
+
+  return recalcStandingForGroup({
+    eventId, divisionId, stageId, groupId, teamIds: group.teamIds || []
+  });
+}
+
+/**
+ * 解算「依賴這個階段」的下游階段。
+ *
+ * 每一支都會先過 canResolve，前置條件不成立就原地返回，
+ * 所以重放是安全的——分組賽每改一次比分都可以無腦呼叫。
+ */
+export async function resolveDownstreamOf({ eventId, divisionId, stageId, actorUid = null }) {
+  const division = await loadDivision(eventId, divisionId);
+  const format = await loadFormat(division.formatId);
+  const stages = format.stages || [];
+
+  const idx = stages.findIndex(s => s.stageId === stageId);
+  const targets = stages.filter((s, i) =>
+    (s.dependsOn ? s.dependsOn === stageId : i === idx + 1) && (s.slots || []).length > 0);
+
+  const out = [];
+  for (const s of targets) {
+    out.push({
+      stageId: s.stageId,
+      ...await resolveAdvancementForStage({ eventId, divisionId, stageId: s.stageId, actorUid })
+    });
+  }
+  return out;
+}
+
+/**
+ * 事件加總 vs 登錄比分的對帳（docs/07 §3.1 onTimelineWritten）。
+ *
+ * 只在結論**改變**時才寫回去：無條件寫會讓 match 每次都被更新，
+ * 又把 onMatchWritten 叫起來，變成兩個 trigger 互相打。
+ * （onMatchWritten 只看 status/score/result，不看 scoreMismatch，所以不會成環，
+ *   但白寫一次仍然是白花一次寫入。）
+ */
+export async function reconcileMatchScore({ eventId, matchId }) {
+  const ref = evRef(eventId).collection('matches').doc(matchId);
+  const snap = await ref.get();
+  if (!snap.exists) return { skipped: '場次不存在' };
+  const match = snap.data();
+
+  const events = await loadTimeline(eventId, matchId);
+  const r = reconcileScore(match.score, events);
+  const mismatch = !r.ok;
+
+  if (match.scoreMismatch === mismatch) return { changed: false, mismatch, derived: r.derived };
+
+  await ref.update({ scoreMismatch: mismatch, updatedAt: FieldValue.serverTimestamp() });
+  return { changed: true, mismatch, derived: r.derived, entered: r.entered };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  晉級解算
+// ══════════════════════════════════════════════════════════════
+
+/** 組出 advancement 需要的 ctx */
+async function advancementCtx(eventId, divisionId, format) {
+  const matches = await loadDivisionMatches(eventId, divisionId);
+  const standings = await loadStandings(eventId, divisionId);
+  const teams = await loadTeams(eventId, [...new Set(matches.flatMap(m => m.teamIds || []))]);
+
+  const matchesByKey = {};
+  for (const m of matches) if (m.matchKey) matchesByKey[m.matchKey] = m;
+
+  const stageMatches = {};
+  for (const st of format.stages || []) {
+    stageMatches[st.stageId] = matches.filter(m => m.stageId === st.stageId);
+  }
+
+  return { divisionId, standings, matchesByKey, stageMatches, teams, matches };
+}
+
+/**
+ * 解算某個 Stage 的晉級。
+ *
+ * 前置條件不成立時**不寫任何東西**並回報原因（R-ENG-005）——
+ * 「還沒打完就先把 A1 填進冠軍賽」比「晉級欄位空著」危險得多。
+ *
+ * @param {boolean} [force] Admin 明確要求時可跳過 canResolve（仍受 isSlotWritable 保護）
+ */
+export async function resolveAdvancementForStage({ eventId, divisionId, stageId, force = false, actorUid = null }) {
+  const division = await loadDivision(eventId, divisionId);
+  const format = await loadFormat(division.formatId);
+  const ctx = await advancementCtx(eventId, divisionId, format);
+
+  const stage = (format.stages || []).find(s => s.stageId === stageId);
+  if (!stage) return { ready: false, reason: `Format 沒有 stage ${stageId}`, applied: [], blocked: [] };
+
+  // 解算的是「這一階段的 slots」，前置條件則是它依賴的上游階段全部打完。
+  const dependsOn = stage.dependsOn || previousStageIdOf(format, stageId);
+  const gate = dependsOn
+    ? canResolve(format, dependsOn, ctx, { manualHold: division.manualHold === true })
+    : { ready: true, reason: '' };
+
+  if (!gate.ready && !force) {
+    return { ready: false, reason: gate.reason, applied: [], blocked: [] };
+  }
+
+  const { updates, blocked, notApplicable } = resolveStage(format, stageId, ctx);
+  if (notApplicable) return { ready: false, reason: `${stageId} 不需要解算`, applied: [], blocked };
+
+  const applied = [];
+  const batch = db().batch();
+  for (const u of updates) {
+    if (u.noop) continue;
+    batch.update(evRef(eventId).collection('matches').doc(u.matchId), {
+      ...u.patch,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedBy: actorUid ?? 'fn:resolveAdvancement'
+    });
+    applied.push({ matchId: u.matchId, matchKey: u.matchKey, trace: u.trace });
+  }
+  if (applied.length) await batch.commit();
+
+  for (const a of applied) {
+    await writeAudit(eventId, {
+      entity: 'match', entityId: a.matchId, action: 'advancement.resolve',
+      after: { matchKey: a.matchKey }, reason: `${a.trace?.home ?? ''}／${a.trace?.away ?? ''}`
+    });
+  }
+
+  return { ready: true, reason: '', applied, blocked };
+}
+
+/** Format 的 stages 是有序的，沒寫 dependsOn 時就用前一個階段 */
+function previousStageIdOf(format, stageId) {
+  const list = (format.stages || []).map(s => s.stageId);
+  const i = list.indexOf(stageId);
+  return i > 0 ? list[i - 1] : null;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  最終排名
+// ══════════════════════════════════════════════════════════════
+
+export async function computeFinalRankingFor({ eventId, divisionId }) {
+  const division = await loadDivision(eventId, divisionId);
+  const format = await loadFormat(division.formatId);
+  const ctx = await advancementCtx(eventId, divisionId, format);
+  return computeFinalRankingPure(format, ctx);
+}
+
+/**
+ * 發布最終排名到公開端。
+ * **算不完整就不發布**——公開端上少一個名次，遠比掛一個錯的名次好收拾。
+ */
+export async function publishFinalRankingFor({ eventId, divisionId, actorUid = null }) {
+  const { ranking, complete, missing } = await computeFinalRankingFor({ eventId, divisionId });
+  if (!complete) return { published: false, missing, ranking };
+
+  const ref = evRef(eventId).collection('divisions').doc(divisionId);
+  const before = (await ref.get()).data()?.finalRanking ?? null;
+
+  await ref.update({
+    finalRanking: ranking,
+    finalRankingPublished: true,
+    finalRankingPublishedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actorUid ?? 'fn:publishFinalRanking'
+  });
+  await writeAudit(eventId, {
+    entity: 'division', entityId: divisionId, action: 'finalRanking.publish',
+    before, after: ranking, reason: '最終排名發布'
+  });
+
+  return { published: true, missing: [], ranking };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  獎項看板（射手榜 / 行為分）
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * 重建某組別的射手榜與行為分排行。
+ * 射手榜只採「真的被計入統計」的場次，所以要把作廢／退賽的場次排掉——
+ * 這件事 engine 已經做好了（countedMatchIdsOf），這裡只負責餵資料。
+ */
+export async function rebuildBoardsFor({ eventId, divisionId }) {
+  const division = await loadDivision(eventId, divisionId);
+  const matches = await loadDivisionMatches(eventId, divisionId);
+
+  // 「哪些場次算數」只認引擎這一份判定（countedMatchIdsOf）。
+  // 這裡本來在外層另外用 DECIDED 篩了一次——兩層一模一樣的過濾會互相遮蔽，
+  // 單獨改壞任何一層測試都抓不到（變異 FN#7 就是這樣逃掉的）。
+  // 現在同一個 Set 同時決定「要讀哪些 timeline」與「哪些進得了榜」。
+  const counted = countedMatchIdsOf(matches);
+
+  const events = [];
+  await Promise.all(matches.filter(m => counted.has(m.matchId)).map(async m => {
+    const snap = await evRef(eventId).collection('matches').doc(m.matchId)
+      .collection('timeline').get();
+    for (const d of snap.docs) events.push({ timelineId: d.id, ...d.data() });
+  }));
+
+  // playerMeta 直接從事件上的反正規化欄位組（buildGoalEvent 會把名字與背號寫進去），
+  // 這樣不用為了一張榜再去翻每一隊的 roster。
+  const teams = await loadTeams(eventId, [...new Set(matches.flatMap(m => m.teamIds || []))]);
+  const playerMeta = {};
+  for (const e of events) {
+    if (!e.playerId || playerMeta[e.playerId]) continue;
+    playerMeta[e.playerId] = {
+      name: e.playerName ?? null,
+      teamId: e.teamId ?? null,
+      teamName: teams[e.teamId]?.shortName ?? teams[e.teamId]?.name ?? null,
+      jerseyNo: e.jerseyNo ?? null
+    };
+  }
+
+  const scorers = computeScorers(events, { countedMatchIds: counted, playerMeta });
+  const standings = Object.values(await loadStandings(eventId, divisionId));
+  const fairPlay = computeFairPlayBoard(standings);
+
+  const boardRef = evRef(eventId).collection('boards').doc(`scorers__${divisionId}`);
+  await boardRef.set({
+    boardId: `scorers__${divisionId}`, eventId, divisionId,
+    scorerBoardEnabled: division.display?.scorerBoard !== false,
+    rows: scorers,
+    computedAt: FieldValue.serverTimestamp(),
+    computedBy: 'fn:rebuildBoards'
+  });
+
+  const fpRef = evRef(eventId).collection('boards').doc(`fairplay__${divisionId}`);
+  await fpRef.set({
+    boardId: `fairplay__${divisionId}`, eventId, divisionId,
+    rows: fairPlay,
+    computedAt: FieldValue.serverTimestamp(),
+    computedBy: 'fn:rebuildBoards'
+  });
+
+  return { scorers: scorers.length, fairPlay: fairPlay.length };
+}

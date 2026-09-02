@@ -70,6 +70,14 @@ jobs:
             console.log('OK');
           "
 
+      # functions/engine 是 js/engine 的複本（R-ENG-001）。同步腳本壞掉的話，
+      # 部署上去的會是一份舊引擎，而本機模擬器完全看不出來。
+      - name: Engine copy for functions is reproducible
+        run: |
+          set -e
+          node scripts/sync-engine.js
+          node scripts/sync-engine.js --check
+
       - name: Cache headers cover unversioned modules
         run: |
           set -e
@@ -125,6 +133,26 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  functions-tests:
+    name: Functions pipeline (F01-F13 + mutation)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - run: npm run test:fn
+
+      # 同一套鑑別力要求：fail-closed 的程式碼在 happy path 上跟 fail-open
+      # 長得一模一樣，只有變異測試分得出來。
+      - run: npm run test:mutation:fn
 
   rules-tests:
     name: Firestore rules tests (R01-R31)

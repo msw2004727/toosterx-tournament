@@ -432,7 +432,18 @@ function validScoreRange(eventId, cid, v) {
 
 ## 3. Cloud Functions 契約
 
-Region 一律 `asia-east1`。Runtime `nodejs22`。
+Region 一律 `asia-east1`。Runtime `nodejs22`。**ESM**（`functions/package.json`
+是 `"type": "module"`）。
+
+> **實作狀態（M3.9）**：結果管線那一段已完成並有 18 個模擬器整合測試
+> （F01–F13，`tests/functions/`）＋ 7 條變異（`npm run test:mutation:fn`）：
+> `onMatchWritten`、`onTimelineWritten`、`recalcStanding`、`resolveAdvancement`、
+> `computeFinalRanking`、`publishFinalRanking`、`rebuildBoards`。
+> 其餘 callable 一律丟 `unimplemented` 錯誤，**不回 `ok({})`**——
+> 回一個空的成功就是假成功，呼叫端會以為事情做完了。
+>
+> 計算邏輯全部在 `functions/engine/`，那是 `js/engine/` 的複本，
+> 由 `scripts/sync-engine.js` 同步（R-ENG-001；Firebase 只上傳 `functions/`）。
 
 ### 3.1 觸發器（Trigger）
 
