@@ -14,6 +14,7 @@ import { db as adminDb } from '../../functions/admin.js';
 import {
   syncRosterFor, recountTeamMembers, recountUserTeams, rejectDuplicateApplication
 } from '../../functions/pipeline.js';
+import { liffConfig, upsertUser } from '../../functions/line.js';
 
 const E = 'feda-cup-2026';
 const TEAM = 't-1';
@@ -207,5 +208,65 @@ describe('FR08 每個帳號建了幾支隊', () => {
     const r = await recountUserTeams({ eventId: E, uid: null });
     expect(r.teamCount).toBe(0);
     expect((await db.doc('users/undefined').get()).exists).toBe(false);
+  });
+});
+
+describe('FR09–FR13 LINE 登入的名錄與身分（docs/10 §1.4）', () => {
+  const UID = 'U7774e1410479bafff4997f51b2c47b95';
+  const profile = { uid: UID, displayName: '小麥', pictureUrl: 'https://example.com/p.jpg' };
+
+  test('FR09 ⭐ config/liff 讀不到 channelId 就拒絕登入（fail-closed）', async () => {
+    // 沒有 channelId 就沒辦法確認「這個 token 是發給我們的」，
+    // 那時候放行等於誰的 token 都收。
+    await expect(liffConfig()).rejects.toThrow(/config\/liff/);
+
+    await db.doc('config/liff').set({ liffId: 'x', channelId: null });
+    await expect(liffConfig()).rejects.toThrow(/config\/liff/);
+
+    await db.doc('config/liff').set({ liffId: 'x-1', channelId: '2011382448' });
+    expect((await liffConfig()).channelId).toBe('2011382448');
+  });
+
+  test('FR10 登入會留下使用者名錄', async () => {
+    const r = await upsertUser(profile);
+    expect(r.isStaff).toBe(false);
+
+    const doc = (await db.doc(`users/${UID}`).get()).data();
+    expect(doc.displayName).toBe('小麥');
+    expect(doc.roles).toEqual([]);
+    expect(doc.firstSeenAt).toBeTruthy();
+  });
+
+  test('FR11 ⭐ roles 從 staff 讀出來，不是相信呼叫端傳了什麼', async () => {
+    await db.doc(`staff/${UID}`).set({
+      uid: UID, name: '小麥', roles: ['super_admin'], active: true,
+      assignment: { eventId: E, venueIds: [], divisionIds: [], challengeIds: [] }
+    });
+    // 就算呼叫端硬塞 roles 也不該被採用
+    const r = await upsertUser({ ...profile, roles: ['admin', 'hacker'] });
+    expect(r.roles).toEqual(['super_admin']);
+    expect((await db.doc(`users/${UID}`).get()).data().roles).toEqual(['super_admin']);
+  });
+
+  test('FR12 ⭐ 停權的工作人員在名錄上就是沒有身分', async () => {
+    await db.doc(`staff/${UID}`).set({
+      uid: UID, name: '小麥', roles: ['admin'], active: false,
+      assignment: { eventId: E, venueIds: [], divisionIds: [], challengeIds: [] }
+    });
+    const r = await upsertUser(profile);
+    expect(r.roles).toEqual([]);
+    expect(r.isStaff).toBe(false);
+  });
+
+  test('FR13 再次登入只更新 lastSeenAt，firstSeenAt 保留第一次的', async () => {
+    await upsertUser(profile);
+    const first = (await db.doc(`users/${UID}`).get()).data().firstSeenAt;
+
+    await new Promise(r => setTimeout(r, 50));
+    await upsertUser({ ...profile, displayName: '小麥（改名）' });
+
+    const after = (await db.doc(`users/${UID}`).get()).data();
+    expect(after.displayName).toBe('小麥（改名）');
+    expect(after.firstSeenAt.toMillis()).toBe(first.toMillis());
   });
 });

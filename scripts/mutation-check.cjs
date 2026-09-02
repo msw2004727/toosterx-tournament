@@ -330,6 +330,18 @@ const MUTANTS = [
     file: 'js/engine/privacy.js',
     from: `    photoUrl: photoConsent === true ? (member?.photoUrl ?? null) : null,`,
     to: `    photoUrl: photoConsent ? (member?.photoUrl ?? null) : null,`
+  },
+  {
+    name: '#P23 LINE 登入不檢查 aud（別的應用程式發的 token 也能登入我們的系統）',
+    file: 'functions/line.js',
+    from: `  if (!aud.includes(String(channelId))) throw new Error('這個 token 不是發給本應用程式的');`,
+    to: `  if (false) throw new Error('這個 token 不是發給本應用程式的');`
+  },
+  {
+    name: '#P24 LINE 登入不檢查簽發者（任何人自己簽一個 token 都能用）',
+    file: 'functions/line.js',
+    from: `  if (payload.iss !== LINE_ISSUER) throw new Error(\`簽發者不是 LINE（iss=\${payload.iss}）\`);`,
+    to: `  if (false) throw new Error('x');`
   }
 ];
 

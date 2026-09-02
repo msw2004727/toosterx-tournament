@@ -28,6 +28,7 @@ import {
   syncRosterFor, recountTeamMembers, recountUserTeams, rejectDuplicateApplication
 } from './pipeline.js';
 import { writeAudit } from './store.js';
+import { loginWithLine } from './line.js';
 
 ensureApp();
 setGlobalOptions({ region: 'asia-east1', maxInstances: 10 });
@@ -246,7 +247,20 @@ export const rebuildBoards = onCall(async (req) => {
 });
 
 // ── 尚未實作（回錯誤，不回假成功）──────────────────────────
-export const lineLogin        = onCall(unimplemented('lineLogin', 'M4，需先建 LIFF Channel'));
+/**
+ * LINE 登入（docs/07 §3.2）。公開端點——還沒登入的人才會呼叫它。
+ *
+ * 驗證失敗一律回 `unauthenticated` 並附上 LINE 給的原因：
+ * 現場最常見的是 token 過期或 Channel 設錯，錯誤訊息含糊的話沒有人查得出來。
+ */
+export const lineLogin = onCall(async (req) => {
+  try {
+    return ok(await loginWithLine(req.data?.idToken));
+  } catch (err) {
+    logger.warn('[lineLogin] 失敗', { err: err.message });
+    fail('unauthenticated', err.message);
+  }
+});
 export const issuePlayerQr    = onCall(unimplemented('issuePlayerQr', 'M6'));
 export const revokePlayerQr   = onCall(unimplemented('revokePlayerQr', 'M6'));
 export const verifyCheckin    = onCall(unimplemented('verifyCheckin', 'M6'));

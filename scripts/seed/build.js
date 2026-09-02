@@ -436,6 +436,16 @@ export function buildSeed({ seed = 20261009 } = {}) {
     allowSelfServeStaff: true,
     note: '這是 Demo 環境設定。正式環境不可開啟 allowSelfServeStaff。'
   });
+  // LIFF（LINE 登入）。Function 用 channelId 向 LINE 驗證 idToken——
+  // 「這個 token 是不是發給我們的」就靠它。讀不到就整個拒絕登入（fail-closed）。
+  // ⚠️ 這是 demo 專案的 Channel。正式專案由 scripts/seed.js 的安全鎖擋住不會被灌到，
+  //    正式站的 config/liff 由管理後台或 Console 建立。
+  add('config/liff', {
+    liffId: '2011382448-5wfKxpsM',
+    channelId: '2011382448',
+    note: 'Demo 站的 LINE Login Channel。與正式站建在同一個 LINE Provider 底下。'
+  });
+
   // 報名開關（docs/10 §2.3）。開放條件是 AND：open 為真**且**在起訖區間內。
   // ⚠️ closesAt 尚未定案（docs/10 §9 待補 #1），先留 null＝不設截止。
   //    firestore.rules 讀不到這份文件時一律視為關閉（fail-closed），

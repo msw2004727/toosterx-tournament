@@ -95,6 +95,18 @@ const MUTANTS = [
     file: 'functions/pipeline.js',
     from: `    .collection('members').where('status', '==', 'approved').get();`,
     to: `    .collection('members').get();`
+  },
+  {
+    name: 'FN#15 config/liff 讀不到就套一個預設 channelId（fail-open，等於誰的 token 都收）',
+    file: 'functions/line.js',
+    from: `  if (!channelId) throw new Error('config/liff.channelId 不存在，無法驗證 LINE 登入');`,
+    to: `  if (!channelId) return { channelId: '0000000000', liffId: null };`
+  },
+  {
+    name: 'FN#16 名錄相信呼叫端傳的 roles（登入時就能自稱大總管）',
+    file: 'functions/line.js',
+    from: `  const roles = staff?.roles ?? [];`,
+    to: `  const roles = arguments[0]?.roles ?? staff?.roles ?? [];`
   }
 ];
 

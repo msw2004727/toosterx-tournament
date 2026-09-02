@@ -160,13 +160,13 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 337 全綠（17 個 suite） |
-| `npm run test:mutation` | ✅ 51 / 51 全被抓到 |
+| `npm run test:unit` | ✅ 345 全綠（18 個 suite） |
+| `npm run test:mutation` | ✅ 53 / 53 全被抓到 |
 | `npm run test:e2e` | ✅ 171 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 111 全綠（含 R34–R64 報名與身分授權） |
 | `npm run test:mutation:rules` | ✅ 12 / 12 全被抓到 |
-| `npm run test:fn` | ✅ 35 全綠（F01–F14 結果管線、FR01–FR08 報名投影） |
-| `npm run test:mutation:fn` | ✅ 14 / 14 全被抓到 |
+| `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
+| `npm run test:mutation:fn` | ✅ 16 / 16 全被抓到 |
 
 ### 這一輪審查抓到並修掉的三個缺陷
 
@@ -240,11 +240,12 @@ curl -sI https://cup-demo.toosterx.com/js/config.js | grep -i cache-control
 
 > 逐步操作手冊在 **`docs/11-上線前設定步驟.md`**（含每一項的驗證方法）。
 
-1. **Blaze 升級** ×2 專案（`feda-cup-demo`、`feda-cup-2026`）——帳單相關不代勞
-2. **兩組 LIFF Channel**：⚠️ 必須建在 **FC-Football 所屬的同一個 LINE Provider** 底下。
-   換 Provider 就會拿到不同的 userId，等球隊開始報名才發現就要整個重做（docs/10 §8.5）
-3. **報名截止日** → 寫進 `config/registration.closesAt`
-4. **Cloudflare zone 的 Browser Cache TTL** 改成 Respect Existing Headers（見上一節）
+1. ~~Blaze 升級~~ ✅　~~兩組 LIFF Channel~~ ✅　~~報名截止日~~ ✅（demo）
+2. ⚠️ **授權 `signBlob` 給 Functions 的執行身分**（docs/11 §1.5）——
+   `createCustomToken()` 需要它，而預設的 `roles/editor` **不含** signBlob。
+   沒授權的話部署會成功、探索會成功，**只有真的有人用 LINE 登入時才會炸**
+3. **Cloudflare zone 的 Browser Cache TTL** 改成 Respect Existing Headers
+4. **Functions 映像檔清理政策**
 
 ### 下一個里程碑
 
@@ -432,12 +433,12 @@ Function 負責讀寫與填 `serverTimestamp`，引擎只負責算。
 ### 測試
 
 ```bash
-npm run test:unit                  # 337 個案例（引擎 T01–T32 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
-npm run test:mutation              # 51 條變異，證明測試有鑑別力
+npm run test:unit                  # 345 個案例（引擎 T01–T32 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
+npm run test:mutation              # 53 條變異，證明測試有鑑別力
 npm run test:rules                 # 111 個案例，自動起 Emulator
 npm run test:mutation:rules        # 12 條權限規則變異
 npm run test:fn                    # 35 個 Function 整合測試（F01–F14 結果管線、FR01–FR08 報名）
-npm run test:mutation:fn           # 14 條 Function 變異
+npm run test:mutation:fn           # 16 條 Function 變異
 npm run test:e2e                   # 171 個 Playwright 案例（× mobile / desktop / 320px）
 npm run test:e2e:offline           # 只跑離線三態那幾條
 ```

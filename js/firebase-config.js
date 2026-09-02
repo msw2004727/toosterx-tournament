@@ -54,6 +54,22 @@ export const FIREBASE_CONFIG = IS_PROD ? PROD : DEMO;
 export const FUNCTIONS_REGION = 'asia-east1';
 
 /**
+ * LIFF（LINE 登入）。
+ *
+ * LIFF ID 與 Channel ID 都是**公開值**——會出現在前端的網址列與 SDK 呼叫裡，
+ * 放在這裡沒有安全問題。Channel secret 是另一回事，只放 Secret Manager（R-SEC-001）。
+ *
+ * ⚠️ 兩個 Channel 都建在 FC-Football 所屬的**同一個 LINE Provider** 底下。
+ *    LINE 的 userId 是每個 Provider 一組發的，換 Provider 同一個人會拿到
+ *    完全不同的 userId，而我們整個身分設計建立在「飛達盃的 uid 等於
+ *    FC-Football 的 uid」上面（docs/10 §8.5）。這一步做錯要整個重來。
+ */
+const LIFF_PROD = { liffId: '2011382367-7GvTaaXv', channelId: '2011382367' };
+const LIFF_DEMO = { liffId: '2011382448-5wfKxpsM', channelId: '2011382448' };
+
+export const LIFF = IS_PROD ? LIFF_PROD : LIFF_DEMO;
+
+/**
  * Demo 專屬功能開關。
  * ⚠️ 正式版必須永遠是 false —— 這些功能不是「用 flag 關掉」，
  *    而是靠 IS_DEMO 讓相關模組整段不載入（見 app.js 的動態 import）。
