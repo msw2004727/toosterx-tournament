@@ -446,7 +446,7 @@ service cloud.firestore {
                            && onlyChanged(['result', 'failReason', 'note',
                                            'method', 'scannedBy', 'scannedAt', 'syncedAt'])
                            && request.resource.data.scannedBy == uid() );
-        allow delete: if isCheckin();
+        allow delete: if false;
       }
 
       match /venues/{venueId} {
@@ -584,8 +584,7 @@ service cloud.firestore {
       //    升成大總管。這條線必須由 rules 強制，不看 rolePermissions
       //    （R-RULES-002：動態權限只用在 UI 層）——FC 的 R-IAM-004 就是
       //    動態權限與 rules 不同步造成的已知漏洞，不要複製那個模式。
-      allow create: if isAdmin();
-      allow update: if isAdmin();
+      allow create: if isSuperAdmin() && staffRolesAssignable(request.resource.data);
       // 更新時允許「角色原封不動」，大總管才改得了自己的指派場地
       // （他自己的 roles 是 ['super_admin']，過不了白名單）。
       allow update: if isSuperAdmin()

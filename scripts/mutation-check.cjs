@@ -474,7 +474,7 @@ const MUTANTS = [
   {
     name: '#P33 介面提供了 rules 不放行的身分（選了才被擋，看起來像壞掉）',
     file: 'js/modules/demo/index.js',
-    from: `  { value: 'admin',   note: '賽務全權．覆核完賽、改判、審核報名' },`,
+    from: `  { value: 'admin',   note: '記錄員 ＋ 覆核完賽、改判、賽程、審核報名' },`,
     to: `  { value: 'super_admin', note: 'x' },`
   },
   {

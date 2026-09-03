@@ -17,6 +17,13 @@ jobs:
         with:
           node-version: '22'
 
+      # 變異測試會把原始碼「改回錯的」再跑一次測試。被強制中止時還原沒有機會
+      # 執行，原始碼就停在被改壞的狀態——2026-09-03 就這樣把兩個 rules 漏洞
+      # commit 並部署上去了（Admin 可以指派身分、檢錄紀錄可以刪除）。
+      # 這一條擋在最前面：看到殘留標記就中止。
+      - name: No leftover mutation
+        run: node scripts/mutation-guard.cjs
+
       - name: Version consistency (config.js / sw.js / index.html / package.json)
         run: node scripts/bump-version.js --check
 

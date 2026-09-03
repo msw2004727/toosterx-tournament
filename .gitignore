@@ -15,3 +15,4 @@ serviceAccountKey*.json
 # js/engine/ 的複本，由 scripts/sync-engine.js 產生（R-ENG-001）。
 # 唯一的真相來源是 js/engine/，這裡不進版控，免得變成第二份實作。
 functions/engine/
+.mutation-in-progress.json

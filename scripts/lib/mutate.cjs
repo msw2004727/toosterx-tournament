@@ -11,6 +11,20 @@ const fs = require('fs');
 const { execSync } = require('child_process');
 
 /**
+ * 變異進行中的標記。
+ *
+ * ⚠️ 2026-09-03：跑 test:mutation:rules 時我從外面把 emulator 的行程砍掉，
+ *    子行程收到的是攔不住的 kill，`process.on('exit')` 的還原沒有機會執行——
+ *    firestore.rules 就停在**被改壞**的狀態，而且被 commit 並部署上去了
+ *    （Admin 可以指派身分、檢錄紀錄可以刪除）。CI 有紅，但那是推上去之後的事。
+ *
+ * 所以除了訊號處理，還留一個檔案在磁碟上：裡面是每一個被動過的檔案的原始內容。
+ * `node scripts/mutation-guard.cjs` 看到它就會還原並以非零結束碼中止，
+ * 而那支被掛在每一個測試指令與 CI 的最前面。
+ */
+const LOCK = '.mutation-in-progress.json';
+
+/**
  * @param {object} o
  * @param {Array<{name:string, file:string, from:string, to:string}>} o.mutants
  * @param {string} o.testCmd  每個變異都會跑一次的指令；非零結束碼代表「抓到了」
@@ -23,9 +37,20 @@ function runMutants({ mutants, testCmd, title = '變異測試' }) {
   for (const f of new Set(mutants.map(x => x.file))) backups.set(f, read(f));
 
   // 有變異失敗時要還原所有檔案，否則會留下壞掉的原始碼
-  const restoreAll = () => { for (const [f, s] of backups) fs.writeFileSync(f, s, 'utf8'); };
+  fs.writeFileSync(LOCK, JSON.stringify(Object.fromEntries(backups), null, 0), 'utf8');
+
+  let restored = false;
+  const restoreAll = () => {
+    if (restored) return;
+    restored = true;
+    for (const [f, s] of backups) fs.writeFileSync(f, s, 'utf8');
+    try { fs.unlinkSync(LOCK); } catch { /* 已經不在就算了 */ }
+  };
   process.on('exit', restoreAll);
-  process.on('SIGINT', () => { restoreAll(); process.exit(130); });
+  // SIGKILL 攔不住，那一種靠上面的 LOCK 檔案與 mutation-guard 收尾
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) {
+    process.on(sig, () => { restoreAll(); process.exit(130); });
+  }
 
   console.log(`\n${title}：${mutants.length} 條\n`);
 
@@ -42,7 +67,7 @@ function runMutants({ mutants, testCmd, title = '變異測試' }) {
     fs.writeFileSync(m.file, orig.replace(m.from, m.to), 'utf8');
     let failed = false;
     try {
-      execSync(testCmd, { stdio: 'pipe' });
+      execSync(testCmd, { stdio: 'pipe', env: { ...process.env, FEDA_MUTATION_RUN: '1' } });
     } catch {
       failed = true;
     }
@@ -54,7 +79,7 @@ function runMutants({ mutants, testCmd, title = '變異測試' }) {
 
   // 還原後必須仍是綠的——否則代表還原本身出了問題
   try {
-    execSync(testCmd, { stdio: 'pipe' });
+    execSync(testCmd, { stdio: 'pipe', env: { ...process.env, FEDA_MUTATION_RUN: '1' } });
   } catch (e) {
     console.error('\n❌ 還原之後測試仍是紅的，原始碼可能沒有被正確還原');
     return 1;
