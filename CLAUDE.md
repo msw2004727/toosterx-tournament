@@ -170,8 +170,8 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 396 全綠（22 個 suite） |
-| `npm run test:mutation` | ✅ 66 / 66 全被抓到 |
+| `npm run test:unit` | ✅ 398 全綠（22 個 suite） |
+| `npm run test:mutation` | ✅ 68 / 68 全被抓到 |
 | `npm run test:e2e` | ✅ 300 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 112 全綠（含 R34–R64 報名與身分授權） |
 | `npm run test:mutation:rules` | ✅ 12 / 12 全被抓到 |
@@ -322,6 +322,30 @@ scripts/make-icons.mjs  產生 img/*.png（只用 Node 內建 zlib，不裝套�
 等同 defer）還沒載。攔截寫在 `index.html` 的 inline script 裡，存進
 `window.__fedaInstall`。搬進模組的話按鈕在多數情況下**永遠不會出現**，
 而且不會有任何錯誤。
+
+### `/img/*` 為什麼不能長快取（2026-09-03 實地發生）
+
+Cloudflare Pages 對**找不到的路徑回 200 ＋ SPA fallback 的 index.html**，
+不是 404。`_headers` 原本給 `/img/*` 七天快取，於是：
+
+```
+manifest 指到 /img/icon-192.png，但 img/ 是空的
+  → 有人打了一次，邊緣把 index.html 存成這個路徑的答案，TTL 七天
+  → 隔天圖檔補上去、原站回正確的 PNG
+  → 自訂網域仍然回 text/html（Age 93586、cf-cache-status: HIT）
+  → Chrome 拿到 HTML 當圖示，判定 manifest 無效，安裝選項照樣不出現
+```
+
+兩層修法，缺一不可：
+
+1. **結構**：`/img/*` 改成 `max-age=0, must-revalidate, no-cache`，
+   讓「404 被當成成功答案存起來」這件事最多只影響一次請求。CI 有守。
+2. **眼前這一筆**：圖示網址帶 `?v=`（`manifest.json`、`index.html`、`sw.js`
+   三處，由 `scripts/bump-version.js` 一起改）。換查詢字串就是換快取鍵，
+   推版當下立刻繞開已經被毒化的那一筆，不用等 TTL 也不用進後台清快取。
+
+> `sw.js` 的版號從 `CACHE_NAME` 推出來，不要再寫第四個地方。
+> 預先快取的網址跟 manifest 差一個 `?v=` 就是不同的鍵，離線時照樣抓不到。
 
 ## 賽務端（M3）
 

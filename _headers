@@ -46,6 +46,23 @@
 /manifest.json
   Cache-Control: public, max-age=0, must-revalidate, no-cache
 
-# 圖片可以放心長快取：檔名不變就代表內容不變
+# ⚠️ 圖片**不能**長快取，原因不是圖片會變，是「檔案不存在時會發生什麼事」：
+#
+#    Cloudflare Pages 對找不到的路徑會回 **200 + SPA fallback 的 index.html**，
+#    不是 404。這條規則於是把那份 HTML 當成 /img/xxx.png 的正確答案，
+#    存進邊緣快取七天。
+#
+#    2026-09-03 實地發生：manifest 指到 /img/icon-192.png 但 img/ 是空的，
+#    有人（或瀏覽器）先打了一次，邊緣就記住了 index.html。
+#    隔天圖檔補上去、原站回的是正確的 PNG，
+#    **自訂網域仍然回 text/html 整整一週**——
+#    Chrome 拿到 HTML 當圖示，判定 manifest 無效，安裝選項照樣不出現。
+#
+#      feda-cup-demo.pages.dev        → image/png       ✅ 原站是對的
+#      cup-demo.toosterx.com          → text/html       ❌ Age: 93586，HIT
+#
+#    改成每次回源確認就沒有這個問題。代價幾乎是零：四個圖示合計 14KB，
+#    只在安裝與加到主畫面時才抓，而且有 ETag，沒改就是 304。
+#    真正需要長快取的大圖（球員照）走 Firebase Storage，不在這裡。
 /img/*
-  Cache-Control: public, max-age=604800
+  Cache-Control: public, max-age=0, must-revalidate, no-cache

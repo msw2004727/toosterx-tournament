@@ -370,6 +370,18 @@ const MUTANTS = [
     to: ``
   },
   {
+    name: '#P37 圖示網址不帶版號（被毒化的邊緣快取繞不開，安裝選項照樣不出現）',
+    file: 'manifest.json',
+    from: `"/img/icon-192.png?v=`,
+    to: `"/img/icon-192.png#v=`
+  },
+  {
+    name: '#P38 sw.js 預先快取的圖示網址與 manifest 不同鍵（離線抓不到）',
+    file: 'sw.js',
+    from: `.map(n => \`/img/\${n}.png?v=\${CACHE_NAME.replace('feda-cup-', '')}\`)`,
+    to: `.map(n => \`/img/\${n}.png\`)`
+  },
+  {
     name: '#P34 super_admin 的階層與 FC 不同（對接時同一個人變成兩種身分）',
     file: 'js/config.js',
     from: `  super_admin: { level: 5, label: '總管',     fc: true },`,

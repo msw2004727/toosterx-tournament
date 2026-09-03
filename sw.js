@@ -18,10 +18,12 @@ const APP_SHELL = [
   '/manifest.json',
   // PWA 圖示。裝到主畫面之後第一次離線開啟時，圖示與 manifest 都要拿得到，
   // 不然 iOS 會退回一張網頁截圖當圖示。由 scripts/make-icons.mjs 產生。
-  '/img/icon-192.png',
-  '/img/icon-512.png',
-  '/img/icon-maskable.png',
-  '/img/apple-touch-icon.png'
+  //
+  // ⚠️ 網址一定要跟 manifest.json 與 index.html 上的**完全一樣**（含 ?v=），
+  //    否則預先快取的是另一個鍵，離線時照樣抓不到。
+  //    版號從 CACHE_NAME 推，才不會有第三個地方要跟著改。
+  ...['icon-192', 'icon-512', 'icon-maskable', 'apple-touch-icon']
+    .map(n => `/img/${n}.png?v=${CACHE_NAME.replace('feda-cup-', '')}`)
 ];
 
 self.addEventListener('install', e => {

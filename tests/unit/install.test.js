@@ -14,9 +14,13 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { CACHE_VERSION } from '../../js/config.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = p => fs.readFileSync(join(ROOT, p), 'utf8');
+
+/** manifest 的 src 帶 ?v= 版號（見 scripts/bump-version.js），要先剝掉才是檔案路徑 */
+const iconPath = src => join(ROOT, src.split('?')[0].replace(/^\//, ''));
 
 // ── 環境替身 ─────────────────────────────────────────────────
 // Node 的 globalThis.navigator 是唯讀的 getter，直接指派會靜靜失敗，
@@ -125,15 +129,12 @@ describe('T33-3 manifest 與圖示檔', () => {
   test('⭐ 每一個圖示檔都真的存在', () => {
     // 2026-09-03：manifest 指到三個檔，img/ 是空的。Chrome 不給安裝選項、
     // 也不印任何錯誤，整整一天沒有人發現 PWA 其實裝不了。
-    for (const ic of manifest.icons) {
-      const p = join(ROOT, ic.src.replace(/^\//, ''));
-      expect(fs.existsSync(p)).toBe(true);
-    }
+    for (const ic of manifest.icons) expect(fs.existsSync(iconPath(ic.src))).toBe(true);
   });
 
   test('⭐ 圖示的實際尺寸與 manifest 宣告的一致', () => {
     for (const ic of manifest.icons) {
-      const buf = fs.readFileSync(join(ROOT, ic.src.replace(/^\//, '')));
+      const buf = fs.readFileSync(iconPath(ic.src));
       // PNG：8 bytes 簽章 + 4 長度 + 4 'IHDR'，寬高各 4 bytes big-endian
       expect(buf.subarray(12, 16).toString('latin1')).toBe('IHDR');
       const w = buf.readUInt32BE(16);
@@ -153,11 +154,30 @@ describe('T33-3 manifest 與圖示檔', () => {
     expect(manifest.icons.some(i => (i.purpose || '').includes('maskable'))).toBe(true);
   });
 
+  test('⭐ 圖示網址帶版號，而且與 CACHE_VERSION 一致', () => {
+    // Cloudflare Pages 對不存在的路徑回 200 + SPA fallback 的 index.html，
+    // 邊緣把那份 HTML 存成 /img/icon-192.png 的答案就會卡很久
+    // （2026-09-03 實地發生，Age 已 26 小時、Cache-Control 是七天）。
+    // 換查詢字串就是換快取鍵，推版當下立刻繞開。
+    for (const ic of manifest.icons) {
+      expect(ic.src).toContain(`?v=${CACHE_VERSION}`);
+    }
+    const apple = read('index.html').match(/rel="apple-touch-icon"\s+href="([^"]+)"/)[1];
+    expect(apple).toContain(`?v=${CACHE_VERSION}`);
+  });
+
+  test('⭐ sw.js 預先快取的圖示網址與 manifest 完全一致', () => {
+    // 差一個 ?v= 就是不同的快取鍵，離線時照樣抓不到。
+    const sw = read('sw.js');
+    expect(sw).toMatch(/CACHE_NAME\.replace\('feda-cup-', ''\)/);
+    expect(sw).toMatch(/\/img\/\$\{n\}\.png\?v=/);
+  });
+
   test('iOS 不看 manifest，要有 apple-touch-icon', () => {
     const html = read('index.html');
     const m = html.match(/rel="apple-touch-icon"\s+href="([^"]+)"/);
     expect(m).not.toBeNull();
-    expect(fs.existsSync(join(ROOT, m[1].replace(/^\//, '')))).toBe(true);
+    expect(fs.existsSync(iconPath(m[1]))).toBe(true);
   });
 });
 

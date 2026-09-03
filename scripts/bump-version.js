@@ -8,6 +8,11 @@
  *   3. index.html     window.__APP_VERSION__
  *   4. index.html     asset query 版號（?v=）
  *   5. package.json   version（純粹避免 npm 顯示舊版造成誤判）
+ *   6. manifest.json  圖示網址的 ?v=
+ *
+ * 為什麼連圖示都要帶版號：Cloudflare Pages 對不存在的路徑回 200 + index.html，
+ * 邊緣一旦把那份 HTML 存成 /img/icon-192.png 的答案就會卡很久
+ * （2026-09-03 實地發生）。換一個查詢字串就是換一個快取鍵，立刻繞開。
  *
  * 用法：
  *   node scripts/bump-version.js          遞增
@@ -15,7 +20,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const FILES = { config: 'js/config.js', sw: 'sw.js', html: 'index.html', pkg: 'package.json' };
+const FILES = { config: 'js/config.js', sw: 'sw.js', html: 'index.html', pkg: 'package.json', manifest: 'manifest.json' };
 const read  = f => readFileSync(f, 'utf8');
 const write = (f, s) => writeFileSync(f, s, 'utf8');
 
@@ -33,7 +38,10 @@ const currentOf = {
 function check() {
   const v = Object.entries(currentOf).map(([k, fn]) => [k, fn()]);
   const set = new Set(v.map(([, x]) => x));
-  const queryVersions = new Set([...read(FILES.html).matchAll(/\?v=([0-9.a-z]+)/g)].map(m => m[1]));
+  const queryVersions = new Set([
+    ...read(FILES.html).matchAll(/\?v=([0-9.a-z]+)/g),
+    ...read(FILES.manifest).matchAll(/\?v=([0-9.a-z]+)/g)
+  ].map(m => m[1]));
   if (set.size !== 1 || queryVersions.size !== 1 || !set.has([...queryVersions][0])) {
     console.error('❌ 版號不一致：', Object.fromEntries(v), '｜asset query:', [...queryVersions]);
     process.exit(1);
@@ -62,5 +70,6 @@ write(FILES.html,   read(FILES.html)
   .replace(/__APP_VERSION__\s*=\s*'[^']+'/, `__APP_VERSION__ = '${ver}'`)
   .replace(/\?v=[0-9.a-z]+/g, `?v=${ver}`));
 write(FILES.pkg,    read(FILES.pkg).replace(/("version":\s*")[^"]+(")/, `$1${ver}$2`));
+write(FILES.manifest, read(FILES.manifest).replace(/\?v=[0-9.a-z]+/g, `?v=${ver}`));
 
 console.log(`✅ ${cur} → ${ver}`);
