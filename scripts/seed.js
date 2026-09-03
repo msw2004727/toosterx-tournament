@@ -107,16 +107,33 @@ async function main() {
     console.log(`   已刪除 ${removed} 筆\n`);
   }
 
+  // ⚠️ 有些文件是「主辦在後台調過的營運設定」，不是種子資料。
+  //    整批覆蓋會把它們打回預設值，而且不會有任何提示——
+  //    2026-09-03 就發生過：重灌種子把開放中的報名關掉了，
+  //    畫面上看起來只是「報名尚未開放」，沒有人會聯想到剛剛跑過 seed。
+  //    這些路徑只在**還不存在**時才寫。
+  const PRESERVE = ['config/registration', 'config/env', 'config/featureFlags'];
+  const skipped = [];
+  for (const path of PRESERVE) {
+    if ((await db.doc(path).get()).exists) skipped.push(path);
+  }
+  const toWrite = docs.filter(d => !skipped.includes(d.path));
+  if (skipped.length) {
+    console.log('ℹ️  已存在，保留不覆蓋（主辦可能在後台調過）：');
+    for (const p of skipped) console.log(`     ${p}`);
+    console.log('   要重設請先刪掉那份文件，或用專門的腳本（如 set-registration.mjs）。');
+  }
+
   console.log(`🚀 寫入 ${PROJECT} …`);
   let written = 0;
-  for (let i = 0; i < docs.length; i += 400) {
+  for (let i = 0; i < toWrite.length; i += 400) {
     const batch = db.batch();
-    for (const d of docs.slice(i, i + 400)) {
+    for (const d of toWrite.slice(i, i + 400)) {
       batch.set(db.doc(d.path), withTimestamps(d.data, FieldValue), { merge: false });
     }
     await batch.commit();
-    written += Math.min(400, docs.length - i);
-    process.stdout.write(`\r   ${written} / ${docs.length}`);
+    written += Math.min(400, toWrite.length - i);
+    process.stdout.write(`\r   ${written} / ${toWrite.length}`);
   }
   console.log('\n✅ 完成\n');
 }
