@@ -106,7 +106,7 @@ async function pick(App) {
  * 而且角色白名單裡沒有 admin。正式專案沒有那份設定文件，這條路整個是關的。
  */
 async function signInAs(role) {
-  const { auth, db, sdk } = await import('../../core/firebase.js');
+  const { auth, db, sdk, reloadIdentity } = await import('../../core/firebase.js');
   const { signInAnonymously, doc, setDoc, serverTimestamp } = sdk();
 
   const cred = await signInAnonymously(auth());
@@ -129,6 +129,13 @@ async function signInAs(role) {
     selfServe: true,                               // rules 靠這個欄位辨識自助身分
     createdAt: serverTimestamp()
   });
+
+  // ⚠️ 這一行是整個切換身分會不會生效的關鍵。
+  //    signInAnonymously() 在**寫入 staff 文件之前**就觸發了 onAuthStateChanged，
+  //    那時候文件還不存在，currentStaff 會停在 null——切了身分卻一個權限都沒有。
+  //    畫面看起來只是「這個角色沒有功能」，不像壞掉，所以 2026-09-03 回報時
+  //    講的是「切換身分沒有依身分改變內容」。
+  await reloadIdentity();
 }
 
 function explain(err) {

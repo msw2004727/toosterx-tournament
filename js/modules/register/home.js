@@ -122,6 +122,12 @@ export async function registerHome({ scope, view }) {
       el('h2', { class: 'reg__cardHead' }, iconText('table', '參賽組別')),
       el('ul', { class: 'reg__divs' }, state.divisions.map(d => el('li', { class: 'reg__div' }, [
         el('strong', { text: d.name || d.divisionId }),
+        // ⚠️ 規章上的正式名稱一定要一起顯示。報名表印的是「學童中年級」，
+        //    畫面只寫「U10兒童組」的話，家長會問「我到底要報哪一組」——
+        //    那是報名期間最常見的詢問。名字不同時才顯示，避免重複。
+        d.officialName && d.officialName !== d.name
+          ? el('span', { class: 'reg__divOfficial', text: `規章：${d.officialName}` })
+          : null,
         el('span', { class: 'reg__divMeta', text: metaOf(d) })
       ])))
     ]);

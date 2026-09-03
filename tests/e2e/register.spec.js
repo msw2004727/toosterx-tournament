@@ -32,13 +32,13 @@ const base = ({ open = true, teamOver = {}, members = {} } = {}) => ({
   //    （M5 整合時就是這樣，四個欄位路徑全錯但 E2E 全綠）。
   //    eligibility.bornOnOrAfter 決定這一組走不走「教練直接管理名單」。
   [`events/${EVENT}/divisions/u10`]: {
-    divisionId: 'u10', name: '學童中年級', shortName: '中年級', order: 3,
+    divisionId: 'u10', name: 'U10兒童組', shortName: 'U10', officialName: '學童中年級', order: 3,
     playersOnField: 5, matchDurationMin: 25, periods: 1, ballSize: 4,
     eligibility: { bornOnOrAfter: '2016-09-01', note: '就讀各公、私立小學' },
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: false }
   },
   [`events/${EVENT}/divisions/adult-open`]: {
-    divisionId: 'adult-open', name: '男子公開組', shortName: '公開', order: 6,
+    divisionId: 'adult-open', name: '成人公開組', shortName: '公開', officialName: '男子公開組', order: 6,
     playersOnField: 9, matchDurationMin: 30, periods: 1, ballSize: 5,
     eligibility: { bornOnOrAfter: null, note: '在學學生之社會人士、機關及公司員工均可自由組隊參加' },
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: true }
@@ -142,6 +142,17 @@ test('⭐ 流程說明分成學童組與成人組兩條路 @register @youth', as
   await expect(card).toContainText('把邀請碼給隊友');
   // 檢錄要講在報名頁上，不是等到比賽當天才知道要帶證件
   await expect(card).toContainText('帶證件');
+});
+
+test('⭐ 組別同時顯示 U 制與規章名稱 @register', async ({ page }) => {
+  // 報名表印的是「學童中年級」，畫面只寫「U10兒童組」的話，
+  // 家長會問「我到底要報哪一組」——那是報名期間最常見的詢問。
+  await stub(page, base(), { uid: CAP, displayName: '隊長' });
+  await go(page, '/#/register');
+
+  const row = page.locator('.reg__div', { hasText: 'U10兒童組' });
+  await expect(row).toContainText('U10兒童組');
+  await expect(row).toContainText('學童中年級');
 });
 
 test('⭐ 邀請碼排在建立球隊之前 @register', async ({ page }) => {

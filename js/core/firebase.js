@@ -68,12 +68,7 @@ export async function initFirebase() {
 
   authMod.onAuthStateChanged(ctx.auth, async user => {
     currentUser = user || null;
-    currentStaff = user ? await loadStaff(user.uid) : null;
-    // 有身分的人才需要權限矩陣；一般使用者與訪客不必多打一次讀取
-    if (currentStaff?.roles?.length) await loadPermissionMatrix();
-    for (const fn of authListeners) {
-      try { fn(currentUser, currentStaff); } catch (e) { console.error('[firebase] auth listener', e); }
-    }
+    await reloadIdentity();
   });
 
   watchConnectivity();
@@ -161,6 +156,26 @@ export function assignedToVenue(venueId) {
   if (isAdmin()) return true;
   const ids = currentStaff?.assignment?.venueIds || [];
   return ids.length === 0 || ids.includes(venueId);
+}
+
+/**
+ * 重新讀取身分（staff 文件 ＋ 權限矩陣）並通知所有訂閱者。
+ *
+ * ⚠️ 這支要 export，因為**有一種情況是登入之後才寫 staff 文件**：
+ *    demo 的「切換身分」先 signInAnonymously()，再把 staff 文件寫進去。
+ *    onAuthStateChanged 在第一步就觸發了，那時文件還不存在，
+ *    currentStaff 會停在 null——切了身分卻什麼權限都沒有，
+ *    畫面看起來只是「這個角色沒有功能」，不像壞掉（2026-09-03 回報）。
+ */
+export async function reloadIdentity() {
+  currentStaff = currentUser ? await loadStaff(currentUser.uid) : null;
+  // 有身分的人才需要權限矩陣；一般使用者與訪客不必多打一次讀取
+  if (currentStaff?.roles?.length) await loadPermissionMatrix();
+  else permMatrix = {};
+  for (const fn of authListeners) {
+    try { fn(currentUser, currentStaff); } catch (e) { console.error('[firebase] auth listener', e); }
+  }
+  return currentStaff;
 }
 
 async function loadStaff(uid) {

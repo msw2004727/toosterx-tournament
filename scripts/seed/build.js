@@ -575,6 +575,7 @@ export function buildSeed({ seed = 20261009 } = {}) {
     //    所以下面補了一條自檢：formats.js 有、這裡沒有的欄位一律丟錯。
     add(`${E}/divisions/${div.divisionId}`, {
       divisionId: div.divisionId, name: div.name, shortName: div.shortName,
+      officialName: div.officialName,
       date: div.date, teamCount: div.teamCount, playersOnField: div.playersOnField,
       matchDurationMin: div.matchDurationMin,
       periods: div.periods, ballSize: div.ballSize,

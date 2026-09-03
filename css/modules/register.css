@@ -87,6 +87,8 @@
 }
 .reg__div strong{font-size:var(--fs-sm);color:var(--text-primary)}
 .reg__divMeta{font-size:var(--fs-xs);color:var(--text-muted)}
+/* 規章上的正式名稱。灰一階，讓 U 制的主標籤仍然是視覺重心 */
+.reg__divOfficial{font-size:var(--fs-xs);color:var(--text-secondary)}
 
 /* ── 表單 ───────────────────────────────────────────────── */
 .reg__field{display:flex;flex-direction:column;gap:var(--sp-1)}

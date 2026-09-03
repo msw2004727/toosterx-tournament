@@ -12,18 +12,26 @@
  *    程式不會抱怨，只會在比賽當天算出一個跟規章推導不一樣的名次。
  */
 
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { DIVISIONS, RANKING_RULES, REGISTRATION_LIMITS } from '../../js/engine/formats.js';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const read = p => fs.readFileSync(join(ROOT, p), 'utf8');
 import { DEFAULT_WALKOVER } from '../../js/engine/tally.js';
 
 /** 規章第十一、十二、十五、十七、十八條 */
 const REG = {
+  // `official` 是規章上的正式名稱；`display` 是畫面上的主標籤
+  // （學童三組用 U 制，主辦 2026-09-03 指定——規章原文沒有這種寫法）。
   divisions: {
-    u6:           { name: '學童幼稚園', bornOnOrAfter: '2020-09-01', onField: 5, minutes: 25, ball: 4 },
-    u8:           { name: '學童低年級', bornOnOrAfter: '2018-09-01', onField: 5, minutes: 25, ball: 4 },
-    u10:          { name: '學童中年級', bornOnOrAfter: '2016-09-01', onField: 5, minutes: 25, ball: 4 },
-    women:        { name: '女子公開組', bornOnOrAfter: null,         onField: 5, minutes: 25, ball: 5 },
-    'adult-fun':  { name: '男子興趣組', bornOnOrAfter: null,         onField: 9, minutes: 30, ball: 5 },
-    'adult-open': { name: '男子公開組', bornOnOrAfter: null,         onField: 9, minutes: 30, ball: 5 }
+    u6:           { official: '學童幼稚園', display: 'U6兒童組',  short: 'U6',  bornOnOrAfter: '2020-09-01', onField: 5, minutes: 25, ball: 4 },
+    u8:           { official: '學童低年級', display: 'U8兒童組',  short: 'U8',  bornOnOrAfter: '2018-09-01', onField: 5, minutes: 25, ball: 4 },
+    u10:          { official: '學童中年級', display: 'U10兒童組', short: 'U10', bornOnOrAfter: '2016-09-01', onField: 5, minutes: 25, ball: 4 },
+    women:        { official: '女子公開組', display: '女子組',     bornOnOrAfter: null,       onField: 5, minutes: 25, ball: 5 },
+    'adult-fun':  { official: '男子興趣組', display: '成人興趣組', bornOnOrAfter: null,       onField: 9, minutes: 30, ball: 5 },
+    'adult-open': { official: '男子公開組', display: '成人公開組', bornOnOrAfter: null,       onField: 9, minutes: 30, ball: 5 }
   },
   points: { win: 3, draw: 1, loss: 0 },
   /** 第十九條：積分 → 對戰關係 → 正負球數 → 進球數多 → 被進球數少 → 抽籤 */
@@ -40,10 +48,30 @@ describe('T37-1 組別（規章第十一、十五、十七、十八條）', () =
     expect(Object.keys(byId).sort()).toEqual(Object.keys(REG.divisions).sort());
   });
 
-  test('⭐ 名稱用規章上的名字（家長要跟報名表對得起來）', () => {
+  test('⭐ 規章上的正式名稱一定要留著（家長拿報名表要對得起來）', () => {
+    // 只顯示 U10 的話，家長拿著寫「學童中年級」的報名表會對不上，
+    // 而「我是不是報錯組」是報名期間最常見的詢問。
     for (const [id, reg] of Object.entries(REG.divisions)) {
-      expect(byId[id].name).toBe(reg.name);
+      expect(byId[id].officialName).toBe(reg.official);
     }
+  });
+
+  test('⭐ 學童三組的畫面主標籤用 U 制（主辦 2026-09-03 指定）', () => {
+    for (const [id, reg] of Object.entries(REG.divisions)) {
+      expect(byId[id].name).toBe(reg.display);
+    }
+    // 學童三組的縮寫就是 U 制本身（夠短，晶片上不用再縮）；
+    // 成人三組的縮寫另有其名（女子／興趣／公開），不在這一條的範圍。
+    for (const id of ['u6', 'u8', 'u10']) {
+      expect(byId[id].shortName).toBe(REG.divisions[id].short);
+    }
+  });
+
+  test('U 制不是規章原文——規章裡沒有這種寫法', () => {
+    // 這一條是留給下一個人的：不要以為 name 就是規章上的名字。
+    const md = read('docs/FEDA-CUP-2026-競賽規章.md');
+    expect(md).not.toMatch(/U\s?(6|8|10|12)/);
+    expect(md).toContain('學童中年級');
   });
 
   test('⭐ 上場人數：學童三組與女子公開 5 人、男子兩組 9 人', () => {

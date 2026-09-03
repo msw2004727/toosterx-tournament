@@ -311,49 +311,60 @@ const RANKING_RULES = { RR_FEDA_2026, RR_FEDA_DEFAULT, RR_FEDA_YOUTH, RR_FIFA_20
  * ⭐ 名稱、參賽資格、上場人數、比賽時間、用球一律**照競賽規章第十一～十八條**，
  *    不是我們挑的。改這裡等於改規章，先確認主辦有發佈修訂版。
  *
- * `divisionId` 沿用 u6/u8/u10（matchId 前綴、種子資料、既有測試都在用），
- * 對外顯示一律走 `name` / `shortName`——那兩個才是規章上的名字。
+ * `divisionId` 沿用 u6/u8/u10（matchId 前綴、種子資料、既有測試都在用）。
+ *
+ * ⚠️ **`name` 與 `officialName` 是兩件事，兩個都要有。**
+ *    ・`name`：畫面上的主標籤。學童三組是「U6兒童組／U8兒童組／U10兒童組」
+ *      （主辦 2026-09-03 指定）——家長習慣 U 制的講法。
+ *    ・`shortName`：窄機的分頁與晶片用，學童三組只留 U6／U8／U10。
+ *    ・`officialName`：**規章上的正式名稱**（學童幼稚園／低年級／中年級）。
+ *      規章與報名表上寫的是這個；只顯示 U10 的話，家長拿著報名表會對不上，
+ *      而「我是不是報錯組」是報名期間最常見的詢問。
+ *    所以報名頁與組別頁要把兩個一起顯示：`U10（學童中年級）`。
+ *
+ * 📌 規章本身**沒有**出現 U6/U8/U10 這種寫法（PDF 與 docs/ 的轉錄本都查過），
+ *    U 制是主辦指定的顯示慣例，不是規章原文。
  *
  * `eligibility.bornOnOrAfter`：規章寫「2020年09月01日**以後**出生」，
  * 中文法規文字的「以後」含當日，所以是 >=。
  */
 const DIVISIONS = [
-  { divisionId: 'u6',         name: '學童幼稚園',  shortName: '幼稚園', date: '2026-10-09',
+  { divisionId: 'u6',         name: 'U6兒童組',  shortName: 'U6', officialName: '學童幼稚園', date: '2026-10-09',
     teamCount: 6, playersOnField: 5, matchDurationMin: 25, periods: 1, ballSize: 4,
     eligibility: { bornOnOrAfter: '2020-09-01', note: '就讀各公、私立小學' },
     formatId: 'F6_TWO_GROUPS_MIRROR', rankingRuleId: 'RR_FEDA_2026',
     colorToken: 'div-u6',    order: 1, code: 'U6',
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: false } },
 
-  { divisionId: 'u8',         name: '學童低年級',  shortName: '低年級', date: '2026-10-09',
+  { divisionId: 'u8',         name: 'U8兒童組',  shortName: 'U8', officialName: '學童低年級', date: '2026-10-09',
     teamCount: 6, playersOnField: 5, matchDurationMin: 25, periods: 1, ballSize: 4,
     eligibility: { bornOnOrAfter: '2018-09-01', note: '就讀各公、私立小學' },
     formatId: 'F6_TWO_GROUPS_MIRROR', rankingRuleId: 'RR_FEDA_2026',
     colorToken: 'div-u8',    order: 2, code: 'U8',
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: false } },
 
-  { divisionId: 'u10',        name: '學童中年級',  shortName: '中年級', date: '2026-10-09',
+  { divisionId: 'u10',        name: 'U10兒童組', shortName: 'U10', officialName: '學童中年級', date: '2026-10-09',
     teamCount: 6, playersOnField: 5, matchDurationMin: 25, periods: 1, ballSize: 4,
     eligibility: { bornOnOrAfter: '2016-09-01', note: '就讀各公、私立小學' },
     formatId: 'F6_TWO_GROUPS_MIRROR', rankingRuleId: 'RR_FEDA_2026',
     colorToken: 'div-u10',   order: 3, code: 'U10',
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: false } },
 
-  { divisionId: 'women',      name: '女子公開組',  shortName: '女子',  date: '2026-10-09',
+  { divisionId: 'women',      name: '女子組',      shortName: '女子',  officialName: '女子公開組', date: '2026-10-09',
     teamCount: 4, playersOnField: 5, matchDurationMin: 25, periods: 1, ballSize: 5,
     eligibility: { bornOnOrAfter: null, note: '在學學生之社會人士、機關及公司員工均可自由組隊參加' },
     formatId: 'F4_RR_FINAL', rankingRuleId: 'RR_FEDA_2026',
     colorToken: 'div-women', order: 4, code: 'WM',
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: true } },
 
-  { divisionId: 'adult-fun',  name: '男子興趣組',  shortName: '興趣',  date: '2026-10-10',
+  { divisionId: 'adult-fun',  name: '成人興趣組',  shortName: '興趣',  officialName: '男子興趣組', date: '2026-10-10',
     teamCount: 8, playersOnField: 9, matchDurationMin: 30, periods: 1, ballSize: 5,
     eligibility: { bornOnOrAfter: null, note: '非職業甲乙組球員，自評球齡低於二年或以興趣為主' },
     formatId: 'F8_GROUP_CROSS', rankingRuleId: 'RR_FEDA_2026',
     colorToken: 'div-fun',   order: 5, code: 'AF',
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: true } },
 
-  { divisionId: 'adult-open', name: '男子公開組',  shortName: '公開',  date: '2026-10-11',
+  { divisionId: 'adult-open', name: '成人公開組',  shortName: '公開',  officialName: '男子公開組', date: '2026-10-11',
     teamCount: 8, playersOnField: 9, matchDurationMin: 30, periods: 1, ballSize: 5,
     eligibility: { bornOnOrAfter: null, note: '在學學生之社會人士、機關及公司員工均可自由組隊參加' },
     formatId: 'F8_GROUP_CROSS', rankingRuleId: 'RR_FEDA_2026',

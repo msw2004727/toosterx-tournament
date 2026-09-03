@@ -661,6 +661,24 @@ const MUTANTS = [
     onlyFollowed: p.get('follow') === '1'
   };`
   },
+  {
+    name: '#H14 組別丟掉規章正式名稱（家長拿報名表對不上「學童中年級」）',
+    file: 'js/engine/formats.js',
+    from: `officialName: '學童中年級',`,
+    to: ``
+  },
+  {
+    name: '#H15 組別主標籤改回規章名（主辦指定畫面上要用 U 制）',
+    file: 'js/engine/formats.js',
+    from: `name: 'U10兒童組', shortName: 'U10',`,
+    to: `name: '學童中年級', shortName: '中年級',`
+  },
+  {
+    name: '#H16 種子漏搬 officialName（規章名稱進不了資料庫，畫面讀不到）',
+    file: 'scripts/seed/build.js',
+    from: `      officialName: div.officialName,`,
+    to: ``
+  },
 ];
 
 process.exit(runMutants({
