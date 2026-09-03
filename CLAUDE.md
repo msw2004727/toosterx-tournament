@@ -152,7 +152,10 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       `onTeamWritten` 建隊數、重複申請退件。FR01–FR08 ＋ 4 條變異
 - [x] M4-b①  LINE 登入：`js/core/liff.js`、`#/login`、`#/my`。
       LIFF ID 已接（正式 2011382367 / demo 2011382448，同一個 Provider）
-- [ ] M4-b②  報名流程畫面（建隊／邀請碼加入／隊長審核／大總管授權）
+- [x] M4-b②  報名流程畫面：`#/register`、`#/register/new`、`#/join/:code`、
+      `#/team/:id/manage`。17 個 E2E × 3 種視窗
+- [ ] M4-c   大總管授權介面（指派 admin/scorer/referee/booth）
+- [ ] M4-d   「我的球員」（需要 members 的 collectionGroup 索引與規則）
 - [ ] M6 檢錄＋Challenge　[ ] M7 彩排 → 上線
 
 ## 現在的狀態（2026-09-02，Claude Code 接手後已全數實跑）
@@ -164,7 +167,7 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 |---|---|
 | `npm run test:unit` | ✅ 345 全綠（18 個 suite） |
 | `npm run test:mutation` | ✅ 53 / 53 全被抓到 |
-| `npm run test:e2e` | ✅ 213 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:e2e` | ✅ 264 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 111 全綠（含 R34–R64 報名與身分授權） |
 | `npm run test:mutation:rules` | ✅ 12 / 12 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
@@ -326,6 +329,51 @@ js/modules/account/
 `#/my` 會把 uid 顯示出來而且可以複製：那是跨專案對帳唯一的鍵
 （飛達盃的 uid 必須等於 FC-Football 的 uid，docs/10 §8.5），出問題第一個要對它。
 
+## 報名端（M4-b②）
+
+```
+js/modules/register/
+├── index.js      路由（/register、/register/new、/join/:code、/team/:id/manage）
+├── data.js       Firestore 存取 ＋ 把錯誤碼翻成人話
+├── bits.js       表單欄位、狀態徽章、日期格式
+├── home.js       報名說明（免登入可看）
+├── new-team.js   建立球隊
+├── join.js       用邀請碼加入
+└── manage.js     隊長端：審核、送出／撤回、公告
+```
+
+四頁對應 docs/10 §3 的流程：建隊 → 給邀請碼 → 隊友申請 → 隊長逐筆同意 →
+送出報名（凍結）→ 主辦審核。
+
+### 三條寫在畫面上的規矩
+
+1. **報名關著就不要留一顆按下去會失敗的按鈕。** 開放條件是 AND
+   （`open === true` **且**在起訖之間），前端與 rules 用同一套判斷，
+   而且**讀不到設定一律當關閉**——不然畫面說「開放中」卻在送出時被擋。
+2. **送出的申請一定是 `pending`。** 知道邀請碼只能「申請」，隊長同意才是閘門
+   （§3.3）。rules 也只放行 pending（R56），前端擋一次只是為了給好的訊息。
+3. **凍結要先講，不要讓人填完才被擋。** 球隊已送審時，加入頁直接說明並收掉表單。
+
+`data.explain()` 把 `permission-denied` 翻成「可能是報名已截止，或名單已送審凍結」
+——對報名的家長來說，「權限不足」四個字毫無幫助。
+
+### ⚠️ 頁面模組的順序陷阱（已經踩過四次）
+
+頁面模組的共同結構是「先啟動監聽 → 再宣告 helper → render()」。
+但 **`onSnapshot` 的第一筆快照可能同步送達**（替身 SDK 會，本機快取命中時也很早），
+於是 `render()` 在 helper 還沒宣告時就被呼叫：
+
+```
+ReferenceError: Cannot access 'isCaptain' before initialization
+```
+
+整頁空白，而且**單元測試看不到**（那是 DOM 層的執行順序）。
+
+> **規矩：`render()` 會用到的東西一律寫成具名函式**（會被提升），
+> 不要用 `const foo = () => …`。已經在 `home.js`（M5）、`schedule.js`、
+> `division.js`、`match.js`、`register/home.js`、`register/manage.js` 上各中一次。
+> E2E 抓得到——每一頁都要有一條「頁面畫得出來」的案例。
+
 ## 公開端（M5）
 
 ```
@@ -485,7 +533,7 @@ npm run test:rules                 # 111 個案例，自動起 Emulator
 npm run test:mutation:rules        # 12 條權限規則變異
 npm run test:fn                    # 35 個 Function 整合測試（F01–F14 結果管線、FR01–FR08 報名）
 npm run test:mutation:fn           # 16 條 Function 變異
-npm run test:e2e                   # 213 個 Playwright 案例（× mobile / desktop / 320px）
+npm run test:e2e                   # 264 個 Playwright 案例（× mobile / desktop / 320px）
 npm run test:e2e:offline           # 只跑離線三態那幾條
 ```
 

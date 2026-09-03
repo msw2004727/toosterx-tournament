@@ -1,0 +1,149 @@
+/* 報名端｜規格：docs/10 §3、§4、docs/08 §1
+   ------------------------------------------------------------------
+   R-UI-005：這裡**沒有** @media (prefers-color-scheme)。深淺兩套色一律
+             由 css/tokens.css 的 [data-theme] 提供。
+   R-UI-006：最小驗證寬度 320px。表單欄位一律單欄，不做兩欄並排——
+             320px 上兩欄的輸入框會窄到看不見自己打了什麼。
+
+   命名一律 reg- 前綴。 */
+
+.reg{
+  max-width:var(--page-max);margin:0 auto;
+  padding:var(--sp-4) var(--sp-3) var(--sp-8);
+  display:flex;flex-direction:column;gap:var(--sp-4);
+}
+
+/* ── 頁首 ───────────────────────────────────────────────── */
+.reg__head{display:flex;align-items:center;gap:var(--sp-2);min-width:0}
+.reg__back{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  min-width:var(--tap);min-height:var(--tap);color:var(--text-primary);
+}
+.reg__headText{display:flex;flex-direction:column;min-width:0}
+.reg__headText strong{
+  font-size:var(--fs-lg);color:var(--text-primary);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.reg__headSub{font-size:var(--fs-xs);color:var(--text-secondary)}
+
+.reg__hero{text-align:center;padding:var(--sp-4) 0 0}
+.reg__title{font-size:var(--fs-xl);color:var(--text-primary)}
+.reg__sub{margin-top:var(--sp-1);font-size:var(--fs-sm);color:var(--text-secondary)}
+
+/* ── 卡片與提示 ─────────────────────────────────────────── */
+.reg__card, .reg__box{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3);
+}
+.reg__box--warn{
+  background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn-text);
+}
+.reg__box--warn .reg__note{color:var(--warn-text);opacity:.9}
+
+.reg__cardHead{
+  font-size:var(--fs-md);color:var(--text-primary);
+  display:flex;align-items:center;gap:var(--sp-2);
+}
+.reg__note{font-size:var(--fs-sm);color:var(--text-secondary);line-height:1.6}
+.reg__fine{font-size:var(--fs-xs);color:var(--text-muted);line-height:1.6}
+.reg__open{
+  font-size:var(--fs-md);color:var(--success);
+  display:flex;align-items:center;gap:var(--sp-2);
+}
+
+.reg__statusRow{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2)}
+.reg__btnRow{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+.reg__btnRow > .btn{flex:1 1 auto;min-width:0}
+
+.reg__badge{
+  flex:none;font-size:var(--fs-xs);padding:2px var(--sp-2);border-radius:999px;
+  background:var(--bg-input);color:var(--text-secondary);
+}
+.reg__badge--approved{background:var(--ok-bg);color:var(--success)}
+.reg__badge--submitted{background:var(--info-bg);color:var(--info)}
+.reg__badge--rejected{background:var(--danger-bg);color:var(--danger)}
+
+/* ── 流程說明 ───────────────────────────────────────────── */
+.reg__steps{display:flex;flex-direction:column;gap:var(--sp-3)}
+.reg__step{display:flex;gap:var(--sp-3);align-items:flex-start}
+.reg__stepNo{
+  flex:none;width:28px;height:28px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--accent-bg);color:var(--accent);font-size:var(--fs-sm);
+}
+.reg__stepText{display:flex;flex-direction:column;gap:2px;min-width:0}
+.reg__stepText strong{font-size:var(--fs-sm);color:var(--text-primary)}
+.reg__stepText span{font-size:var(--fs-xs);color:var(--text-secondary);line-height:1.6}
+
+.reg__divs{display:flex;flex-direction:column;gap:var(--sp-2)}
+.reg__div{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp-2);
+  padding:var(--sp-2) var(--sp-3);background:var(--bg-elevated);border-radius:var(--r-sm);
+}
+.reg__div strong{font-size:var(--fs-sm);color:var(--text-primary)}
+.reg__divMeta{font-size:var(--fs-xs);color:var(--text-muted)}
+
+/* ── 表單 ───────────────────────────────────────────────── */
+.reg__field{display:flex;flex-direction:column;gap:var(--sp-1)}
+.reg__label{
+  display:flex;align-items:center;gap:var(--sp-2);
+  font-size:var(--fs-sm);color:var(--text-primary);
+}
+.reg__req{
+  font-size:var(--fs-xs);color:var(--danger);
+  background:var(--danger-bg);padding:0 6px;border-radius:999px;
+}
+.reg__hint{font-size:var(--fs-xs);color:var(--text-muted);line-height:1.6}
+
+/* 輸入框最小高度用 --tap：手指點得到，而且 iOS 上字級 ≥16px 才不會自動放大頁面 */
+.reg__input, .reg__textarea, .reg__codeInput{
+  width:100%;min-height:var(--tap);
+  padding:var(--sp-2) var(--sp-3);
+  font-size:16px;font-family:inherit;
+  color:var(--text-primary);background:var(--bg-input);
+  border:1px solid var(--border);border-radius:var(--r-sm);
+}
+.reg__textarea{min-height:calc(var(--tap) * 2);resize:vertical;line-height:1.6}
+.reg__input:focus, .reg__textarea:focus, .reg__codeInput:focus{
+  outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);
+}
+
+.reg__codeRow{display:flex;gap:var(--sp-2);align-items:stretch}
+.reg__codeInput{
+  flex:1 1 auto;min-width:0;
+  font-family:var(--font-num);letter-spacing:.16em;text-transform:uppercase;
+}
+.reg__codeRow .btn{flex:none}
+
+/* ── 邀請碼 ─────────────────────────────────────────────── */
+.reg__code{
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);
+  background:var(--bg-elevated);border-radius:var(--r-sm);padding:var(--sp-3);
+}
+.reg__codeLabel{font-size:var(--fs-xs);color:var(--text-muted);flex:none}
+.reg__codeValue{
+  font-family:var(--font-num);font-size:var(--fs-lg);letter-spacing:.2em;
+  color:var(--text-primary);user-select:all;
+}
+
+/* ── 名單 ───────────────────────────────────────────────── */
+.reg__list{display:flex;flex-direction:column;gap:var(--sp-2)}
+.reg__member{
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);
+  padding:var(--sp-3);background:var(--bg-elevated);
+  border:1px solid var(--border);border-radius:var(--r-sm);
+}
+.reg__memberInfo{display:flex;flex-direction:column;gap:2px;flex:1 1 140px;min-width:0}
+.reg__memberName{
+  font-size:var(--fs-sm);color:var(--text-primary);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.reg__memberMeta{font-size:var(--fs-xs);color:var(--text-muted)}
+.reg__member .reg__btnRow{flex:0 0 auto}
+
+@media (max-width:359px){
+  .reg{padding-left:var(--sp-2);padding-right:var(--sp-2)}
+  .reg__codeValue{font-size:var(--fs-md);letter-spacing:.12em}
+  /* 窄機把成員的動作鈕換到下一行，才不會把姓名擠成兩個字 */
+  .reg__member .reg__btnRow{flex:1 1 100%}
+}
