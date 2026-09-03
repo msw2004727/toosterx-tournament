@@ -186,7 +186,7 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 | `npm run test:unit` | ✅ 507 全綠（26 個 suite） |
 | `npm run test:mutation` | ✅ 101 / 101 全被抓到 |
 | `npm run test:mutation:e2e` | ✅ 3 / 3 全被抓到（畫面層時序） |
-| `npm run test:e2e` | ✅ 432 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:e2e` | ✅ 429 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 148 全綠（含 R34–R72 報名、R73–R82 檢錄、R83–R92 階層） |
 | `npm run test:mutation:rules` | ✅ 27 / 27 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
