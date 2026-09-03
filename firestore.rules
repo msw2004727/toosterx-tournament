@@ -89,7 +89,13 @@ service cloud.firestore {
         && d.get('active', false) == true
         && d.roles is list
         && d.roles.size() > 0
-        && d.roles.hasOnly(['scorer', 'referee', 'booth']);
+        // ⚠️ **不含 super_admin**，而且永遠不會加進來：
+        //    大總管是唯一能指派身分的人（R-RULES-003），自助拿得到就等於
+        //    「任何人登入一次就能發身分給任何人」。
+        //    admin 在 demo 上是必要的——覆核完賽、退回報名這些流程要測得到，
+        //    而這一整段本來就只在 config/env.allowSelfServeStaff 為真的專案生效，
+        //    正式專案沒有那份文件。
+        && d.roles.hasOnly(['scorer', 'referee', 'booth', 'admin']);
     }
 
     // ── 欄位控制 ─────────────────────────────────────────────

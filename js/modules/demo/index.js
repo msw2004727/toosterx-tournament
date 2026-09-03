@@ -9,16 +9,28 @@
  * 3. 一鍵重置種子資料（M5 接上 Function 後開放）
  */
 
-import { EVENT_ID } from '../../config.js';
+import { EVENT_ID, roleLabel } from '../../config.js';
 // ⚠️ 這個模組自己有一個 export function mount(App)，
 //    直接匯入 ui 的 mount 會被蓋掉（而且是無聲的遞迴），所以改名。
 import { toast, el, sheet, mount as setChildren } from '../../core/ui.js';
 
-const ROLES = [
-  { value: 'scorer',     label: '記錄員／賽務', sub: 'scorer',     note: 'A 場．可記分與完賽送出' },
-  { value: 'referee',    label: '裁判',        sub: 'referee',    note: 'A 場．同賽務，另可簽核' },
-  { value: 'booth',      label: '挑戰攤位',     sub: 'booth',      note: '挑戰區成績登錄（M5）' }
-];
+/**
+ * 可以自助切換的身分。
+ *
+ * ⚠️ **沒有大總管（super_admin），而且不會加。**
+ *    大總管是唯一能指派身分的人（R-RULES-003），自助拿得到就等於
+ *    「任何人登入一次就能發身分給任何人」。firestore.rules 的
+ *    validSelfServe() 白名單也把它排除在外——兩邊一致。
+ *    要測大總管的功能，請用真的 LINE 帳號登入（staff 文件由種子或 Console 建立）。
+ */
+export const ROLES = [
+  { value: 'admin',   note: '賽務全權．覆核完賽、改判、審核報名' },
+  { value: 'scorer',  note: 'A 場．可記分與完賽送出' },
+  { value: 'referee', note: 'A 場．同賽務，另可簽核' },
+  { value: 'booth',   note: '挑戰區成績登錄（M6）' }
+// 標籤一律從 js/config.js 的角色字典取，不要在這裡再寫一份——
+// 那一份與 FC-Football 對齊，兩邊分岔會讓同一個角色在兩個系統裡叫不同名字。
+].map(r => ({ ...r, label: roleLabel(r.value), sub: r.value }));
 
 export function mount(App) {
   banner(App);
@@ -48,18 +60,31 @@ function banner(App) {
 }
 
 async function pick(App) {
+  // 切換身分會用匿名帳號登入，等於**把目前的 LINE 帳號登出**。
+  // 大總管是綁在 LINE uid 上的，切過去就看不到自己的球隊與總管權限了——
+  // 這件事要講在按下去之前，不是之後。
+  const { user } = await import('../../core/firebase.js');
+  const wasLine = !!user() && user().isAnonymous !== true;
+
   const role = await sheet({
-    title: '以哪個身分試用？（僅 Demo）',
+    title: wasLine
+      ? '以哪個身分試用？（會登出你的 LINE 帳號）'
+      : '以哪個身分試用？（僅 Demo）',
     columns: 1,
-    options: ROLES
+    options: wasLine
+      ? [...ROLES, { value: '__back', label: '留在我的 LINE 身分', sub: 'line', note: '不切換．回到「我的」' }]
+      : ROLES
   });
   if (!role) return;
+
+  if (role === '__back') { App.navigate?.('/my'); return; }
 
   const close = toast('登入中…', 'success');
   try {
     await signInAs(role);
     close();
     toast(`已切換為「${ROLES.find(r => r.value === role).label}」`, 'success');
+    if (wasLine) toast('已登出 LINE 帳號。要換回來請到「我的」重新用 LINE 登入。', 'warn');
     App.navigate?.('/staff');
   } catch (err) {
     close();

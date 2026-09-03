@@ -9,7 +9,8 @@
 
 import { IS_DEMO, ENV } from './js/firebase-config.js';
 import { EVENT } from './js/config.js';
-import { themeSwitch } from './js/core/theme.js';
+import { mountAppBar } from './js/core/appbar.js';
+import { initInstall } from './js/core/install.js';
 
 const App = {
   env: ENV,
@@ -25,7 +26,8 @@ async function boot() {
   // inline script 設好，這裡接手三態偏好、系統變化與跨分頁同步。
   const { initTheme } = await import('./js/core/theme.js');
   initTheme();
-  mountAppHeader();
+  initInstall();
+  mountAppBar();
 
   const { initFirebase } = await import('./js/core/firebase.js');
   const { initRouter, route, navigate } = await import('./js/core/router.js');
@@ -105,33 +107,6 @@ function watchForNewVersion() {
   if (navigator.serviceWorker.controller) sessionStorage.setItem('sw-claimed', '1');
 }
 
-/**
- * 全站頁首只放主題切換。
- * 賽務端有自己的頁首（.staff__head），所以進到 /staff 之後這一列會收起來，
- * 由 staffHome 自己那顆切換接手——否則畫面上會同時出現兩個。
- */
-function mountAppHeader() {
-  const host = document.getElementById('app-header');
-  if (!host) return;
-  // themeSwitch() 會向 theme.js 註冊一個訂閱者。直接 replaceChildren() 把它
-  // 拔掉的話，那個閉包要等到下一次主題變動才會自己退訂，每進一次 /staff 就多留一個。
-  let current = null;
-  const drop = () => { current?.destroy?.(); current = null; host.replaceChildren(); };
-  const sync = () => {
-    const inStaff = location.hash.startsWith('#/staff');
-    if (inStaff) { if (current) drop(); return; }
-    if (host.firstElementChild) return;      // 已經有了就不要重建，切換會閃
-    const bar = document.createElement('div');
-    bar.className = 'apphead';
-    const spacer = document.createElement('div');
-    spacer.className = 'apphead__spacer';
-    current = themeSwitch();
-    bar.append(spacer, current);
-    host.replaceChildren(bar);
-  };
-  sync();
-  window.addEventListener('hashchange', sync);
-}
 
 
 boot().catch(err => {

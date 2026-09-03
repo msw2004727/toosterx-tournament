@@ -85,6 +85,9 @@ git push                 # 驗證過才上正式站
 | R-REL-015 | `js/` 與 `css/` 一律 `max-age=0, must-revalidate`（見 `_headers`）。Cloudflare Pages 預設 4 小時，會造成「新 HTML 配舊模組」的混版；動態 import 的網址帶不了版號，這是唯一的解 |
 | R-REL-016 | 動態 `import()` 一律經過 `router.lazy()`，並在網址加 `?v=CACHE_VERSION`：重試要換 query 才有效（瀏覽器會記住失敗的模組網址） |
 | R-DEMO-001 | Demo 專屬程式碼只放 `js/modules/demo/`，正式版**不 import**（不是用旗標關掉） |
+| R-PWA-001 | `img/*.png` 由 `scripts/make-icons.mjs` 產生並**進版控**，CI 有 `--check`。manifest 指到不存在的圖示時 Chrome 不給安裝選項，而且**一個字都不印** |
+| R-NAV-001 | 公開端與報名端每一頁都要回得去首頁與「我的」（`js/core/appbar.js`）。少了它，建完隊的家長會以為球隊不見了 |
+| R-ROLE-001 | 角色代碼、階層、標籤與 FC-Football 對齊，權威在 `js/config.js` 的 `ROLE_INFO`。任何地方都不得再寫第二份角色標籤表 |
 
 ## 不可協商的產品行為
 
@@ -153,8 +156,10 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 - [x] M4-b①  LINE 登入：`js/core/liff.js`、`#/login`、`#/my`。
       LIFF ID 已接（正式 2011382367 / demo 2011382448，同一個 Provider）
 - [x] M4-b②  報名流程畫面：`#/register`、`#/register/new`、`#/join/:code`、
-      `#/team/:id/manage`。17 個 E2E × 3 種視窗
-- [ ] M4-c   大總管授權介面（指派 admin/scorer/referee/booth）
+      `#/team/:id/manage`。18 個 E2E × 3 種視窗
+- [x] M4-b③  全站頁首（首頁／我的／安裝／主題）＋ PWA 可安裝 ＋ 角色字典與 FC 對齊
+- [ ] M4-c   總管授權介面（指派 admin/scorer/referee/booth）
+      ・目前走 `scripts/grant-super-admin.mjs`（Admin SDK，不經 rules）
 - [ ] M4-d   「我的球員」（需要 members 的 collectionGroup 索引與規則）
 - [ ] M6 檢錄＋Challenge　[ ] M7 彩排 → 上線
 
@@ -165,10 +170,10 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 345 全綠（18 個 suite） |
-| `npm run test:mutation` | ✅ 53 / 53 全被抓到 |
-| `npm run test:e2e` | ✅ 264 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 111 全綠（含 R34–R64 報名與身分授權） |
+| `npm run test:unit` | ✅ 396 全綠（22 個 suite） |
+| `npm run test:mutation` | ✅ 66 / 66 全被抓到 |
+| `npm run test:e2e` | ✅ 300 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:rules` | ✅ 112 全綠（含 R34–R64 報名與身分授權） |
 | `npm run test:mutation:rules` | ✅ 12 / 12 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
 | `npm run test:mutation:fn` | ✅ 16 / 16 全被抓到 |
@@ -237,6 +242,86 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 M4 報名與球隊管理，規格在 `docs/10-報名與球隊管理.md`（已定案，經三輪討論）。
 後端要等 Blaze 與 LIFF，但前端畫面可以先做。
+
+## 角色與身分（與 FC-Football 對齊）
+
+兩個專案共用同一批 LINE 使用者（uid 完全相同，docs/10 §8.5 已實機驗證），
+未來要把身分資料對接。權威字典在 `js/config.js` 的 `ROLE_INFO`，
+`tests/unit/roles-fc-parity.test.js` 會盯著它不要漂移。
+
+| 代碼 | level | 標籤 | FC 也有 |
+|---|---|---|---|
+| `super_admin` | 5 | 總管 | ✅ |
+| `admin` | 4 | 管理員 | ✅ |
+| `referee` | 2.6 | 裁判 | ✗ 賽事專用 |
+| `scorer` | 2.4 | 記錄員 | ✗ 賽事專用 |
+| `booth` | 2.2 | 挑戰攤位 | ✗ 賽事專用 |
+| `venue_owner` | 3 | 場主 | ✅（這裡用不到，保留以便看懂 FC 的資料）|
+| `captain` | 2 | 領隊 | ✅ |
+| `coach` | 1 | 教練 | ✅（同上）|
+| `user` | 0 | 一般用戶 | ✅ |
+
+### 兩邊刻意不同的三件事
+
+1. **形狀**：FC 是 `user.role` 單一字串＋數值階層；這裡是 `staff/{uid}.roles`
+   **陣列**。賽事現場一個人真的會同時是記錄員與裁判，而且權限是
+   「角色 × 指派範圍（場地／組別）」的交集，壓不成一條線（R-RULES-002）。
+   **`level` 只用來排序與顯示，不用來判權限**——不可以寫 `level >= 4`。
+2. **多三個賽務角色**，level 用小數插在領隊(2)與管理員(4)之間，
+   不撞到 FC 既有的整數。
+3. **少用 coach／venue_owner**，但字典裡保留：對接時要看得懂 FC 傳來的值，
+   不能因為沒用到就當成無效。`topRole()` 遇到完全不認識的角色會**丟掉**
+   而不是猜——猜錯的方向是「給了不該給的權限」。
+
+### 總管（super_admin）只能由 Admin SDK 建立
+
+`firestore.rules` 有兩份白名單，**兩份都不含 `super_admin`**：
+
+| 函式 | 管的事 |
+|---|---|
+| `staffRolesAssignable()` | 總管能指派出什麼身分 |
+| `validSelfServe()` | demo 上能自己拿什麼身分（正式專案整段是關的）|
+
+任何一份放行 `super_admin`，就等於「登入一次就能發身分給任何人」。
+所以第一位（與每一位）總管只能走這支腳本或 Console：
+
+```bash
+node scripts/grant-super-admin.mjs --project feda-cup-demo --uid U... --name 小麥
+node scripts/grant-super-admin.mjs --project feda-cup-demo --list
+```
+
+> ⚠️ 兩條同名的 `hasOnly([...])` 曾經讓變異測試逃掉一次：
+> `staffRolesAssignable()` 與 `validSelfServe()` 的那一行字面完全相同，
+> 測試若用整檔搜第一個 hasOnly，改壞其中一個不會紅。
+> 這是本專案第四次遇到「兩道一模一樣的守衛互相遮蔽」。
+
+## 全站頁首與 PWA（M4-b③）
+
+```
+js/core/appbar.js   首頁／我的／安裝／主題，公開端與報名端常駐（#/staff 收起）
+js/core/install.js  三種安裝環境的判定與教學
+scripts/make-icons.mjs  產生 img/*.png（只用 Node 內建 zlib，不裝套件）
+```
+
+**為什麼要有頁首**：2026-09-03 的回報是「建立球隊成功後退出瀏覽器再回來
+就無法找到自己的球隊」。球隊一直都在 `#/my`，但公開端每一頁都只有內容，
+畫面上沒有任何一條路通往那裡——看起來像資料不見了，不像少了一個連結。
+
+**安裝在三種環境是三件事，只有一種有 API**：
+
+| 環境 | `beforeinstallprompt` | 做法 |
+|---|---|---|
+| Android／桌面 Chrome | 有 | 叫原生安裝對話框 |
+| iOS Safari | 沒有，永遠不會有 | 教「分享 → 加入主畫面」|
+| LINE／FB 內建瀏覽器 | 沒有，而且根本裝不了 | 教改用外部瀏覽器開 |
+
+第三種對這個專案特別重要：報名的家長是從 LINE 點連結進來的。
+**沒接到事件就不畫按鈕**——按了沒反應是最難回報的故障。
+
+⚠️ `beforeinstallprompt` 在首次繪製前後就派發，那時 `app.js`（type=module，
+等同 defer）還沒載。攔截寫在 `index.html` 的 inline script 裡，存進
+`window.__fedaInstall`。搬進模組的話按鈕在多數情況下**永遠不會出現**，
+而且不會有任何錯誤。
 
 ## 賽務端（M3）
 

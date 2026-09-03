@@ -106,6 +106,28 @@ test('開放中有建隊入口，也有邀請碼入口 @register', async ({ page
   await expect(page.getByLabel('邀請碼')).toBeVisible();
 });
 
+test('⭐ 邀請碼排在建立球隊之前 @register', async ({ page }) => {
+  // 一支球隊只有一個隊長，卻會有十幾個隊友掃碼進來。
+  // 多數人來這一頁是要「加入」，不是「建隊」——把建隊放最上面，
+  // 隊友要一路捲到底才找得到自己該用的那一格（2026-09-03 實地回報）。
+  await stub(page, base(), { uid: CAP, displayName: '隊長' });
+  await go(page, '/#/register');
+
+  // 先等畫好——evaluate 不會等，少了這一行會在渲染完成前就去數順序
+  await expect(page.getByLabel('邀請碼')).toBeVisible();
+  const order = await page.evaluate(() => {
+    const nodes = [...document.querySelectorAll('.reg > *')];
+    const at = pred => nodes.findIndex(pred);
+    return {
+      join: at(n => n.querySelector('.reg__codeInput')),
+      create: at(n => [...n.querySelectorAll('button')].some(b => /我要建立球隊/.test(b.textContent)))
+    };
+  });
+  expect(order.join).toBeGreaterThan(-1);
+  expect(order.create).toBeGreaterThan(-1);
+  expect(order.join).toBeLessThan(order.create);
+});
+
 test('⭐ 沒登入時建隊會先帶去登入，而不是讓人填完才擋 @register', async ({ page }) => {
   await stub(page, base(), null);
   await go(page, '/#/register');

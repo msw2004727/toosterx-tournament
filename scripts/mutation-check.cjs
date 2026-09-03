@@ -338,6 +338,93 @@ const MUTANTS = [
     to: `  if (false) throw new Error('這個 token 不是發給本應用程式的');`
   },
   {
+    name: '#P25 已安裝了還是畫「安裝」鈕（按下去什麼都不會發生）',
+    file: 'js/core/install.js',
+    from: `  if (b.installed || isStandalone()) return { installed: true, canInstall: false, mode: null };`,
+    to: `  if (b.installed) return { installed: true, canInstall: false, mode: null };`
+  },
+  {
+    name: '#P26 iPad 只看 UA（iPadOS 13+ 偽裝成 Mac，會被判成裝不了）',
+    file: 'js/core/install.js',
+    from: `  return navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1;`,
+    to: `  return false;`
+  },
+  {
+    name: '#P27 原生安裝事件用完不丟掉（第二次按會丟 InvalidStateError）',
+    file: 'js/core/install.js',
+    from: `  b.deferred = null;
+  emit();
+  try {`,
+    to: `  try {`
+  },
+  {
+    name: '#P28 index.html 不攔 beforeinstallprompt（安裝鈕永遠不出現）',
+    file: 'index.html',
+    from: `  window.addEventListener('beforeinstallprompt', function (e) {`,
+    to: `  window.addEventListener('__disabled_beforeinstallprompt', function (e) {`
+  },
+  {
+    name: '#P29 頁首拿掉「我的」（建完隊就再也找不到自己的球隊）',
+    file: 'js/core/appbar.js',
+    from: `  { href: '#/my', iconName: 'person', label: '我的', isCurrent: atMy }`,
+    to: ``
+  },
+  {
+    name: '#P34 super_admin 的階層與 FC 不同（對接時同一個人變成兩種身分）',
+    file: 'js/config.js',
+    from: `  super_admin: { level: 5, label: '總管',     fc: true },`,
+    to: `  super_admin: { level: 9, label: '大總管',   fc: true },`
+  },
+  {
+    name: '#P35 賽務角色的 level 撞到 FC 的整數（兩邊排序衝突）',
+    file: 'js/config.js',
+    from: `  scorer:      { level: 2.4, label: '記錄員',   fc: false },`,
+    to: `  scorer:      { level: 3, label: '記錄員',   fc: false },`
+  },
+  {
+    name: '#P36 topRole 把不認得的角色當成最高（對接時給出不該給的權限）',
+    file: 'js/config.js',
+    from: `  [...roles].filter(r => ROLE_INFO[r]).sort((a, b) => ROLE_INFO[b].level - ROLE_INFO[a].level)[0] ?? null;`,
+    to: `  [...roles].sort((a, b) => (ROLE_INFO[b]?.level ?? 99) - (ROLE_INFO[a]?.level ?? 99))[0] ?? null;`
+  },
+  {
+    name: '#P32 自助身分白名單放行 super_admin（登入一次就能發身分給任何人）',
+    file: 'firestore.rules',
+    // ⚠️ 帶上前一行才定位得到：staffRolesAssignable() 有一模一樣的一行，
+    //    只寫 hasOnly 那一行會打到它（第一版就是這樣，變異逃掉了）。
+    from: `        && d.roles.size() > 0
+        // ⚠️ **不含 super_admin**`,
+    to: `        && d.roles.size() > 0
+        && d.roles.hasOnly(['scorer', 'referee', 'booth', 'admin', 'super_admin'])
+        // ⚠️ **不含 super_admin**`
+  },
+  {
+    name: '#P32b 大總管可指派的角色包含 super_admin（大總管不再唯一）',
+    file: 'firestore.rules',
+    from: `      return d.roles is list && d.roles.size() > 0
+          && d.roles.hasOnly(['scorer', 'referee', 'booth', 'admin']);`,
+    to: `      return d.roles is list && d.roles.size() > 0
+          && d.roles.hasOnly(['scorer', 'referee', 'booth', 'admin', 'super_admin']);`
+  },
+  {
+    name: '#P33 介面提供了 rules 不放行的身分（選了才被擋，看起來像壞掉）',
+    file: 'js/modules/demo/index.js',
+    from: `  { value: 'admin',   note: '賽務全權．覆核完賽、改判、審核報名' },`,
+    to: `  { value: 'super_admin', note: 'x' },`
+  },
+  {
+    name: '#P30 用 startsWith 判「我的」（#/mystats 也會反白）',
+    file: 'js/core/appbar.js',
+    from: `export const atMy = (hash = location.hash) => hash === '#/my' || hash.startsWith('#/my?');`,
+    to: `export const atMy = (hash = location.hash) => hash.startsWith('#/my');`
+  },
+  {
+    name: '#P31 賽務端也畫全站頁首（畫面上兩個主題切換）',
+    file: 'js/core/appbar.js',
+    from: `export const HIDDEN_PREFIXES = ['#/staff'];`,
+    to: `export const HIDDEN_PREFIXES = [];`
+  },
+  {
     name: '#P24 LINE 登入不檢查簽發者（任何人自己簽一個 token 都能用）',
     file: 'functions/line.js',
     from: `  if (payload.iss !== LINE_ISSUER) throw new Error(\`簽發者不是 LINE（iss=\${payload.iss}）\`);`,

@@ -49,8 +49,16 @@ describe('Demo 站行為（config/env.allowSelfServeStaff = true）', () => {
     await assertSucceeds(setDoc(doc(authed(env, 'u-new'), 'staff', 'u-new'), selfDoc('u-new')));
   });
 
-  test('⭐ 不能給自己 admin 或 super_admin', async () => {
-    for (const role of ['admin', 'super_admin']) {
+  test('自助身分可以是 admin（僅 demo；正式專案沒有 config/env 這份文件）', async () => {
+    await assertSucceeds(setDoc(doc(authed(env, 'u-fresh'), 'staff', 'u-fresh'),
+      selfDoc('u-fresh', { roles: ['admin'] })));
+  });
+
+  test('⭐ 不能給自己 super_admin', async () => {
+    // admin 在 demo 上是刻意開放的（要測覆核完賽、審核報名），
+    // 但 super_admin 永遠不行——他是唯一能指派身分的人（R-RULES-003），
+    // 自助拿得到就等於「任何人登入一次就能發身分給任何人」。
+    for (const role of ['super_admin']) {
       await assertFails(setDoc(doc(authed(env, 'u-new'), 'staff', 'u-new'), selfDoc('u-new', { roles: [role] })));
       await assertFails(setDoc(doc(authed(env, 'u-new'), 'staff', 'u-new'), selfDoc('u-new', { roles: ['scorer', role] })));
     }
@@ -74,8 +82,13 @@ describe('Demo 站行為（config/env.allowSelfServeStaff = true）', () => {
     await assertSucceeds(updateDoc(doc(authed(env, 'u-new'), 'staff', 'u-new'), {
       ...selfDoc('u-new', { roles: ['referee'] })
     }));
-    await assertFails(updateDoc(doc(authed(env, 'u-new'), 'staff', 'u-new'), {
+    // admin 在 demo 上是白名單內的（要測覆核完賽、審核報名）
+    await assertSucceeds(updateDoc(doc(authed(env, 'u-new'), 'staff', 'u-new'), {
       ...selfDoc('u-new', { roles: ['admin'] })
+    }));
+    // super_admin 永遠不行
+    await assertFails(updateDoc(doc(authed(env, 'u-new'), 'staff', 'u-new'), {
+      ...selfDoc('u-new', { roles: ['super_admin'] })
     }));
   });
 

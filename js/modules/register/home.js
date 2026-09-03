@@ -36,7 +36,9 @@ export async function registerHome({ scope, view }) {
   render();
 
   function render() {
-    mount(root, hero(), statusCard(), stepsCard(), divisionsCard(), joinCard());
+    // 「我有邀請碼」放在建立球隊**之前**：一支球隊只有一個隊長，
+    // 但會有十幾個隊友掃碼進來——多數人來這一頁是要加入，不是建隊。
+    mount(root, hero(), joinCard(), statusCard(), stepsCard(), divisionsCard());
   }
 
   function hero() {

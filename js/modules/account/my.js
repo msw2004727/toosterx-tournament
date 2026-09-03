@@ -19,13 +19,8 @@ import { navigate } from '../../core/router.js';
 import { user, staff, onAuth, signOutStaff, db, sdk } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { logoutLine } from '../../core/liff.js';
-import { EVENT_ID } from '../../config.js';
+import { EVENT_ID, roleLabel } from '../../config.js';
 import { needLogin } from './login.js';
-
-const ROLE_LABEL = {
-  super_admin: '大總管', admin: '管理員', scorer: '記錄員',
-  referee: '裁判', booth: '挑戰攤位'
-};
 
 const TEAM_STATUS = {
   draft: '草稿', submitted: '待主辦審核', approved: '已通過',
@@ -118,7 +113,7 @@ export async function myPage({ scope, view }) {
           el('strong', { text: name }),
           el('span', {
             class: 'acct__roles',
-            text: roles.length ? roles.map(r => ROLE_LABEL[r] || r).join('、') : '一般使用者'
+            text: roles.length ? roles.map(roleLabel).join('、') : '一般使用者'
           })
         ])
       ]),

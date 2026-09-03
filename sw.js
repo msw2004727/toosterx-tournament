@@ -4,7 +4,7 @@
  * ⚠️ R-REL-013：HTML 一律 network-first，禁止 cache-first。
  * ⚠️ R-REL-014：新資源必須由 scripts/bump-version.js 納管。
  */
-const CACHE_NAME = 'feda-cup-0.20260903';
+const CACHE_NAME = 'feda-cup-0.20260903a';
 
 const APP_SHELL = [
   '/css/tokens.css',
@@ -15,7 +15,13 @@ const APP_SHELL = [
   '/css/modules/account.css',
   '/css/modules/register.css',
   '/app.js',
-  '/manifest.json'
+  '/manifest.json',
+  // PWA 圖示。裝到主畫面之後第一次離線開啟時，圖示與 manifest 都要拿得到，
+  // 不然 iOS 會退回一張網頁截圖當圖示。由 scripts/make-icons.mjs 產生。
+  '/img/icon-192.png',
+  '/img/icon-512.png',
+  '/img/icon-maskable.png',
+  '/img/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', e => {

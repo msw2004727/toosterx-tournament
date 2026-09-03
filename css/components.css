@@ -244,12 +244,51 @@
 
 /* ── 全站頁首（主題切換掛在這）──────────────────────── */
 #app-header:empty{display:none}
+/* ── 全站頁首（js/core/appbar.js）──────────────────────
+   常駐一列，永遠有「首頁」與「我的」兩個去處。
+   R-UI-006：320px 上四個項目排得下——文字在窄機收起來，只留圖示。 */
 .apphead{
-  display:flex;align-items:center;gap:var(--sp-2);
+  display:flex;align-items:center;gap:var(--sp-1);
   padding:var(--sp-2) var(--sp-3);
   padding-top:calc(var(--sp-2) + env(safe-area-inset-top));
+  background:var(--bg-root);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:60;
 }
 .apphead__spacer{flex:1}
+
+.apphead__link,.apphead__install{
+  display:inline-flex;align-items:center;gap:var(--sp-1);
+  min-height:var(--tap);padding:0 var(--sp-2);
+  border-radius:var(--r-sm);border:0;background:none;
+  color:var(--text-secondary);font-size:var(--fs-sm);font-family:inherit;
+  text-decoration:none;cursor:pointer;flex:none;
+}
+.apphead__link:hover,.apphead__install:hover{background:var(--bg-elevated);color:var(--text-primary)}
+.apphead__link.is-current{color:var(--accent);background:var(--accent-bg)}
+.apphead__link:focus-visible,.apphead__install:focus-visible{
+  outline:2px solid var(--accent);outline-offset:1px;
+}
+.apphead__install{color:var(--accent)}
+.apphead__install[hidden]{display:none}
+.apphead__linkText{white-space:nowrap}
+
+/* 320px 上只留圖示：四個項目＋主題切換排不下三個中文標籤 */
+@media (max-width:359px){
+  .apphead{gap:0;padding-left:var(--sp-2);padding-right:var(--sp-2)}
+  .apphead__linkText{
+    position:absolute;width:1px;height:1px;overflow:hidden;
+    clip-path:inset(50%);white-space:nowrap;
+  }
+  .apphead__link,.apphead__install{padding:0 var(--sp-1)}
+}
+
+/* 安裝教學（iOS／LINE 內建瀏覽器） */
+.install__note{margin:0 0 var(--sp-3);line-height:1.7}
+.install__steps{
+  margin:0;padding-left:1.4em;display:flex;flex-direction:column;gap:var(--sp-2);
+  color:var(--text-primary);line-height:1.6;
+}
 
 /* ── 版面寬度：手機優先，桌機置中不拉寬 ─────────────── */
 #app-view{max-width:var(--page-max);margin:0 auto;width:100%}

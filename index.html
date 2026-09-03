@@ -27,15 +27,39 @@
   } catch (e) { /* 出錯就維持 CSS 的淺色預設，不能因此擋住整頁 */ }
 })();
 </script>
+<script>
+/* 攔截安裝提示｜必須是同步 inline，而且要早。
+   Chrome 的 beforeinstallprompt 在首次繪製前後就派發，那時候 app.js
+   （type=module，等同 defer）連載都還沒載。錯過這一次就再也收不到，
+   「安裝」按鈕會永遠不出現——而且完全不會報錯。
+   ⚠️ 這裡的 window.__fedaInstall 形狀必須跟 js/core/install.js 一致，
+      tests/unit/install.test.js 有一條案例會讀這個檔案對照。 */
+(function () {
+  window.__fedaInstall = { deferred: null, installed: false };
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    window.__fedaInstall.deferred = e;
+  });
+  window.addEventListener('appinstalled', function () {
+    window.__fedaInstall.installed = true;
+    window.__fedaInstall.deferred = null;
+  });
+})();
+</script>
 <link rel="manifest" href="/manifest.json">
-<link rel="stylesheet" href="/css/tokens.css?v=0.20260903">
-<link rel="stylesheet" href="/css/base.css?v=0.20260903">
-<link rel="stylesheet" href="/css/components.css?v=0.20260903">
-<link rel="stylesheet" href="/css/modules/staff.css?v=0.20260903">
-<link rel="stylesheet" href="/css/modules/public.css?v=0.20260903">
-<link rel="stylesheet" href="/css/modules/account.css?v=0.20260903">
-<link rel="stylesheet" href="/css/modules/register.css?v=0.20260903">
-<script>window.__APP_VERSION__ = '0.20260903';</script>
+<!-- iOS 不看 manifest 的 icons，只認這一個標籤 -->
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="飛達盃">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="/css/tokens.css?v=0.20260903a">
+<link rel="stylesheet" href="/css/base.css?v=0.20260903a">
+<link rel="stylesheet" href="/css/components.css?v=0.20260903a">
+<link rel="stylesheet" href="/css/modules/staff.css?v=0.20260903a">
+<link rel="stylesheet" href="/css/modules/public.css?v=0.20260903a">
+<link rel="stylesheet" href="/css/modules/account.css?v=0.20260903a">
+<link rel="stylesheet" href="/css/modules/register.css?v=0.20260903a">
+<script>window.__APP_VERSION__ = '0.20260903a';</script>
 </head>
 <body>
   <div id="demo-banner" hidden></div>
@@ -43,6 +67,6 @@
   <main id="app-view" aria-live="polite"></main>
   <nav id="app-nav" aria-label="主要導覽"></nav>
   <div id="toast-root" aria-live="assertive"></div>
-  <script type="module" src="/app.js?v=0.20260903"></script>
+  <script type="module" src="/app.js?v=0.20260903a"></script>
 </body>
 </html>

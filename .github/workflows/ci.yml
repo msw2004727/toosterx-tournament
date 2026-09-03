@@ -20,6 +20,12 @@ jobs:
       - name: Version consistency (config.js / sw.js / index.html / package.json)
         run: node scripts/bump-version.js --check
 
+      # img/*.png 是產物但**有進版控**（PWA 圖示要能被瀏覽器直接抓）。
+      # 這一條保證檔案內容與 scripts/make-icons.mjs 沒有分岔——
+      # 改了產生器卻忘了重跑，安裝後的圖示就會跟設計不一樣，而且沒有人會發現。
+      - name: PWA icons match generator
+        run: node scripts/make-icons.mjs --check
+
       # 這一條原本寫成 grep -rlIz -P 的 NUL 樣式，看起來很對，實測**永遠不會命中**：
       #   -I 把含 NUL 的檔案當成二進位直接跳過，
       #   -z 又把 NUL 當成行分隔符（分隔符不屬於行內容，樣式沒東西可匹配）。
