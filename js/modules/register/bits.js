@@ -41,6 +41,36 @@ export function ymdLabel(v) {
   return time === '00:00' ? date : `${date} ${time}`;
 }
 
+/**
+ * 截止時間的說法。
+ *
+ * ⚠️ 午夜截止要講成**前一天**。`closesAt = 2026-09-14 00:00` 在系統裡
+ *    是「9/13 那天結束」，但直接印「9/14（週一）」，家長會以為 9/14
+ *    整天都還能報，然後在 9/14 早上發現送不出去。
+ *    競賽規章的原文就是「9 月 13 日晚上 12 點截止」。
+ */
+export function deadlineLabel(v) {
+  const ms = v?.toMillis ? v.toMillis()
+    : typeof v === 'number' ? v
+    : typeof v === 'string' ? Date.parse(v.length === 10 ? `${v}T00:00:00+08:00` : v)
+    : NaN;
+  if (Number.isNaN(ms)) return '';
+
+  const hhmmTpe = new Intl.DateTimeFormat('zh-TW', {
+    timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false
+  }).format(new Date(ms));
+
+  // 正好午夜 → 退一分鐘，讓它落在前一天的 23:59
+  const shown = hhmmTpe === '00:00' ? new Date(ms - 60_000) : new Date(ms);
+  const date = new Intl.DateTimeFormat('zh-TW', {
+    timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', weekday: 'short'
+  }).format(shown);
+  const time = new Intl.DateTimeFormat('zh-TW', {
+    timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false
+  }).format(shown);
+  return hhmmTpe === '00:00' ? `${date} 24:00（當天結束）` : `${date} ${time}`;
+}
+
 export function statusBadge(status, dict = TEAM_STATUS) {
   return el('span', {
     class: `reg__badge reg__badge--${status || 'draft'}`,

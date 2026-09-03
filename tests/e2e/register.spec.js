@@ -114,6 +114,22 @@ test('開放中有建隊入口，也有邀請碼入口 @register', async ({ page
   await expect(page.getByLabel('邀請碼')).toBeVisible();
 });
 
+test('⭐ 午夜截止顯示成前一天（不然家長以為當天還能報）@register', async ({ page }) => {
+  // 規章原文是「9 月 13 日晚上 12 點截止」，系統存的是 9/14 00:00。
+  // 直接印「9/14（週一）」，家長會在 9/14 早上才發現送不出去。
+  const s = base();
+  s['config/registration'] = {
+    open: true, opensAt: Date.now() - DAY,
+    closesAt: Date.parse('2026-09-14T00:00:00+08:00'), maxTeamsPerAccount: 3
+  };
+  await stub(page, s, { uid: CAP, displayName: '隊長' });
+  await go(page, '/#/register');
+
+  await expect(page.locator('.reg')).toContainText('9/13');
+  await expect(page.locator('.reg')).toContainText('當天結束');
+  await expect(page.locator('.reg')).not.toContainText('9/14');
+});
+
 test('⭐ 流程說明分成學童組與成人組兩條路 @register @youth', async ({ page }) => {
   // 講成一條的話，有一半的人會照著做卻做不到——學童組根本沒有邀請碼。
   await stub(page, base(), { uid: CAP, displayName: '隊長' });

@@ -14,7 +14,7 @@ import { user, onAuth } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { EVENT } from '../../config.js';
 import * as data from './data.js';
-import { ymdLabel } from './bits.js';
+import { ymdLabel, deadlineLabel } from './bits.js';
 
 export async function registerHome({ scope, view }) {
   const root = el('div', { class: 'reg' });
@@ -57,7 +57,7 @@ export async function registerHome({ scope, view }) {
       return el('div', { class: 'reg__box reg__box--warn' }, [
         el('strong', { text: reason }),
         closesAt
-          ? el('p', { class: 'reg__note', text: `報名截止時間：${ymdLabel(closesAt)}` })
+          ? el('p', { class: 'reg__note', text: `報名截止時間：${deadlineLabel(closesAt)}` })
           : null,
         el('p', { class: 'reg__note', text: '如果你已經報名過，登入後在「我的」看得到自己的球隊。' }),
         el('button', {
@@ -68,7 +68,7 @@ export async function registerHome({ scope, view }) {
 
     return el('div', { class: 'reg__box' }, [
       el('p', { class: 'reg__open' }, iconText('check', '報名開放中')),
-      closesAt ? el('p', { class: 'reg__note', text: `截止時間：${ymdLabel(closesAt)}` }) : null,
+      closesAt ? el('p', { class: 'reg__note', text: `截止時間：${deadlineLabel(closesAt)}` }) : null,
       el('button', {
         class: 'btn btn--xl btn--primary', type: 'button',
         onClick: () => navigate(user() ? '/register/new' : '/login?next=' + encodeURIComponent('/register/new'))
