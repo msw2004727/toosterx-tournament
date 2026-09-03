@@ -36,8 +36,28 @@ function runMutants({ mutants, testCmd, title = '變異測試' }) {
   const backups = new Map();
   for (const f of new Set(mutants.map(x => x.file))) backups.set(f, read(f));
 
+  // ⚠️ CRLF 會讓**多行**的變異樣式全部對不上，而單行的照樣對得上——
+  //    看起來像「腳本過期了」，其實是環境問題（2026-09-03 在 Windows 上
+  //    被 core.autocrlf=true 咬過：27 條有 18 條變成「找不到要變異的程式碼」）。
+  //    .gitattributes 已經把行尾釘成 LF，這裡再擋一次，因為錯誤訊息差很多。
+  const CRLF = String.fromCharCode(13, 10);
+  const crlf = [...backups].filter(([, s]) => s.includes(CRLF)).map(([f]) => f);
+  if (crlf.length) {
+    console.error('\n❌ 這些檔案是 CRLF 行尾，多行的變異樣式會全部對不上：');
+    for (const f of crlf) console.error(`   ・${f}`);
+    console.error('\n   .gitattributes 已把行尾釘成 LF。請重新取出檔案：');
+    console.error('     git rm --cached -r . && git reset --hard\n');
+    return 1;
+  }
+
   // 有變異失敗時要還原所有檔案，否則會留下壞掉的原始碼
-  fs.writeFileSync(LOCK, JSON.stringify(Object.fromEntries(backups), null, 0), 'utf8');
+  // 記下 pid：守衛靠它分辨「變異還在跑」與「上一次被砍掉留下的殘骸」。
+  // 沒有這個的話，在另一個視窗跑 npm test 會把正在進行的那一次還原掉。
+  fs.writeFileSync(LOCK, JSON.stringify({
+    pid: process.pid,
+    startedAt: new Date().toISOString(),
+    files: Object.fromEntries(backups)
+  }), 'utf8');
 
   let restored = false;
   const restoreAll = () => {

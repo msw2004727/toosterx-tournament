@@ -142,10 +142,10 @@ const MUTANTS = [
   {
     name: 'RU#19 檢錄併進 isScorer（每個檢錄志工都能改比分）',
     file: F,
-    from: `    function isScorer()     { return myRoles().hasAny(['admin', 'super_admin',
-                                                        'scorer', 'referee']); }`,
-    to: `    function isScorer()     { return myRoles().hasAny(['admin', 'super_admin',
-                                                        'scorer', 'referee', 'checkin']); }`
+    from: `    function isScorer()     { return myRoles().hasAny(['scorer', 'admin', 'super_admin']); }
+    function isReferee()`,
+    to: `    function isScorer()     { return myRoles().hasAny(['checkin', 'scorer', 'admin', 'super_admin']); }
+    function isReferee()`
   },
   {
     name: 'RU#20 檢錄不檢查 scannedBy 是自己（可冒名記檢錄）',

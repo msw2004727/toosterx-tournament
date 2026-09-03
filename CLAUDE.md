@@ -75,7 +75,9 @@ git push                 # 驗證過才上正式站
 | R-ENG-004 | 引擎不呼叫 `Date.now()` 或任何隨機來源。時間戳由呼叫端填，同分排不出來就標 `hasUnresolvedTie`，絕不隨機 |
 | R-ENG-005 | 缺資料時一律 fail-closed（回 `null`／`ready:false` 並附原因），不可「沒資料就當作通過」 |
 | R-TEST-001 | 修好一個缺陷就要在 `scripts/mutation-check.cjs` 加一條變異，證明測試真的抓得到。全綠但沒有鑑別力的測試比沒有測試更危險 |
+| R-TEST-002 | 變異測試被強制中止會把原始碼留在**被改壞**的狀態。`scripts/mutation-guard.cjs` 掛在每個測試指令與 CI 最前面，看到 `.mutation-in-progress.json` 就還原並中止。**不要繞過它** |
 | R-SRC-001 | 原始碼不得含 NUL 位元組（git 會當成二進位檔，看不到 diff）。CI 有檢查 |
+| R-SRC-002 | 行尾一律 LF，由 `.gitattributes` 釘死。Windows 的 `core.autocrlf=true` 會讓 checkout 變成 CRLF，而變異測試用逐字多行比對——**單行的照樣對得上、多行的全部對不上**，看起來像腳本過期 |
 | R-UI-001 | 換節點一律用 `mount(node, ...)`，禁用 `node.replaceChildren(...)`——後者會把 `null` 印成字串 "null" |
 | R-UI-002 | 送出後**不可** `await` Firestore 的 Promise 再更新 UI。離線時它永遠不會 resolve，畫面會卡住 |
 | R-UI-003 | 所有 `onSnapshot` 一律經 `store.hold(scope, unsub)` 註冊，換頁自動回收 |
@@ -252,6 +254,53 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 M4 報名與球隊管理，規格在 `docs/10-報名與球隊管理.md`（已定案，經三輪討論）。
 後端要等 Blaze 與 LIFF，但前端畫面可以先做。
+
+## 變異測試的殘留（R-TEST-002，2026-09-03 出過事）
+
+變異測試會把原始碼「改回錯的」再跑一次。正常結束會還原，但**被 SIGKILL
+砍掉時還原沒有機會執行**——`process.on('exit')` 與 SIGINT 都攔不住。
+
+那一天為了釋放 8080 埠，我從外面砍掉 emulator 的行程，`firestore.rules`
+就停在變異狀態，而且被 commit 並部署到 demo：
+
+| 殘留的變異 | 後果 |
+|---|---|
+| `staff` 的 create/update 從 `isSuperAdmin()` 變成 `isAdmin()` | **管理員可以指派身分，包含把自己升成總管** |
+| `checkins` 的 `allow delete` 從 `false` 變成 `isCheckin()` | **檢錄紀錄可以被刪除**，誰放行了誰查不到 |
+
+CI 有紅，但 CI 是**推上去之後**才跑的。
+
+### 三層防護
+
+1. `mutate.cjs` 多攔 SIGTERM／SIGHUP／SIGBREAK，`restoreAll` 冪等。
+2. 磁碟上留 `.mutation-in-progress.json`（含 pid、時間、每個檔案的原始內容）。
+   正常結束刪掉；被砍掉就留著。
+3. `scripts/mutation-guard.cjs` 掛在 `test:unit` / `test:rules:unit` /
+   `test:e2e` 與 CI 第一步：
+   ・**pid 還活著** → 只警告「變異正在跑」，**不動檔案**
+   　（動了會把進行中的那一次弄壞）
+   ・**pid 已死** → 自動還原並以非零結束碼中止
+   ・沒有標記 → 靜默通過
+
+> ⚠️ 變異執行器呼叫測試時帶 `FEDA_MUTATION_RUN=1` 讓守衛放行。
+> **不放行的話每一條變異都會因為守衛失敗而看起來「被抓到」**，
+> 整個變異測試就變成一盞永遠是綠的燈——正是 R-TEST-001 在講的那種。
+
+三種情境都實測過（pid 存活不插手／pid 已死自動還原且逐位元組相同／無殘留靜默通過）。
+
+### 同一天的第二個坑：CRLF（R-SRC-002）
+
+修完上面那件事之後跑 `git checkout firestore.rules`，27 條變異突然有 18 條
+變成「找不到要變異的程式碼」。看起來像腳本過期，其實是**行尾**：
+
+全域 `core.autocrlf=true` 讓 Windows 的 checkout 產生 CRLF。
+`git status` 看起來乾淨（git 比對時會正規化），但檔案在磁碟上真的變了。
+變異用的是逐字多行比對——**單行的樣式照樣對得上，多行的全部對不上**，
+所以症狀是「部分變異失效」而不是「全部失效」，更難聯想到環境。
+CI 跑 Linux，永遠不會重現。
+
+修法兩層：`.gitattributes` 的 `* text=auto eol=lf` 釘死行尾；
+`mutate.cjs` 在開跑前檢查目標檔案有沒有 CRLF，有就直接說明白並中止。
 
 ## 競賽規章（權威文件）
 

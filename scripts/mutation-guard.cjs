@@ -10,7 +10,7 @@
  * 結果是「Admin 可以指派身分」與「檢錄紀錄可以刪除」兩個真的漏洞上線。
  * 那一次是 CI 紅燈才發現的——而 CI 是推上去之後才跑。
  *
- * 這支掛在每一個測試指令的最前面（package.json 的 pretest:*），
+ * 這支掛在每一個測試指令的最前面（package.json）與 CI 的第一步，
  * 看到殘留就自動還原並中止，讓人不可能在被改壞的樹上跑測試或提交。
  *
  *   node scripts/mutation-guard.cjs
@@ -27,15 +27,34 @@ if (process.env.FEDA_MUTATION_RUN === '1') process.exit(0);
 
 if (!fs.existsSync(LOCK)) process.exit(0);
 
-let backups;
+let lock;
 try {
-  backups = JSON.parse(fs.readFileSync(LOCK, 'utf8'));
+  lock = JSON.parse(fs.readFileSync(LOCK, 'utf8'));
 } catch (e) {
   console.error(`\n❌ ${LOCK} 讀不出來（${e.message}）。`);
   console.error('   這代表上一次變異測試被中斷，而且原始檔案的備份也壞了。');
   console.error('   請用 `git status` 檢查有沒有非預期的改動，必要時 git checkout 還原。\n');
   process.exit(1);
 }
+
+/** 訊號 0 只探測不真的送。EPERM 代表行程在，只是不屬於我。 */
+function isAlive(pid) {
+  if (!pid) return false;
+  try { process.kill(pid, 0); return true; }
+  catch (e) { return e.code === 'EPERM'; }
+}
+
+// 變異**還在跑**：不要還原，那會把進行中的那一次弄壞。
+// 只提醒使用者等它結束——變異測試會反覆改寫原始碼，
+// 這時候跑任何測試，量到的都不是你以為的那份程式碼。
+if (isAlive(lock.pid)) {
+  console.error(`\n⏳ 變異測試正在執行中（pid ${lock.pid}，從 ${lock.startedAt} 開始）。`);
+  console.error('   它會反覆改寫原始碼，這時候跑測試量到的不是你以為的那一份。');
+  console.error('   請等它結束再試。\n');
+  process.exit(1);
+}
+
+const backups = lock.files || {};
 
 console.error('\n❌ 偵測到上一次變異測試沒有正常結束（可能是被強制中止）。');
 console.error('   以下檔案可能停在「被改壞」的狀態，現在自動還原：\n');
