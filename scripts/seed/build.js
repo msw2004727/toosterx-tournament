@@ -561,16 +561,33 @@ export function buildSeed({ seed = 20261009 } = {}) {
     const divTeams = teams.filter(t => t.divisionId === div.divisionId);
     const { stages, groups, matches, groupAssign } = buildDivisionSchedule(div, divTeams);
 
+    // ⚠️ 這裡是**逐欄搬**，不是 `{...div}`。逐欄搬的代價是「新增欄位要記得加」，
+    //    而 2026-09-03 就漏了三個（periods / ballSize / eligibility）——
+    //    前端讀不到 eligibility，整個學童組會退回成人流程，而且不會報錯。
+    //    所以下面補了一條自檢：formats.js 有、這裡沒有的欄位一律丟錯。
     add(`${E}/divisions/${div.divisionId}`, {
       divisionId: div.divisionId, name: div.name, shortName: div.shortName,
       date: div.date, teamCount: div.teamCount, playersOnField: div.playersOnField,
       matchDurationMin: div.matchDurationMin,
+      periods: div.periods, ballSize: div.ballSize,
+      eligibility: div.eligibility,
       formatId: div.formatId, rankingRuleId: div.rankingRuleId,
       colorToken: div.colorToken, order: div.order, code: div.code,
       display: div.display,
       status: 'scheduled', finalRankingPublished: false, finalRanking: null,
       seedData: true
     });
+
+    // 自檢：formats.js 的每一個欄位都要被搬過去
+    const written = docs[docs.length - 1].data;
+    const missing = Object.keys(div).filter(k => !(k in written));
+    if (missing.length) {
+      throw new Error(
+        `種子漏搬了組別欄位：${missing.join('、')}（${div.divisionId}）。` +
+        '請在 scripts/seed/build.js 的 divisions 區塊補上——' +
+        '前端讀不到的欄位不會報錯，只會安靜地不生效。'
+      );
+    }
 
     for (const st of stages) add(`${E}/divisions/${div.divisionId}/stages/${st.stageId}`, st);
     for (const g of groups) {

@@ -80,15 +80,26 @@ export async function registerHome({ scope, view }) {
   }
 
   // ── 流程說明 ────────────────────────────────────────────
+  //
+  // 兩種組別是兩條路，講成一條會有一半的人照著做卻做不到：
+  //   ・學童三組：教練自己建名單（小球員沒有 LINE 帳號）
+  //   ・成人三組：邀請碼 ＋ 隊長逐筆同意
   function stepsCard() {
-    const steps = [
+    const adult = [
       ['建立球隊', '填隊名與參賽組別，系統會給你一組邀請碼。'],
-      ['把邀請碼給隊友', '隊友（或家長）用邀請碼加入，填自己的資料。'],
+      ['把邀請碼給隊友', '隊友用邀請碼加入，填自己的資料。'],
       ['你逐筆同意', '每一筆申請都要你按同意才算數。'],
       ['送出報名', '送出之後名單會凍結，等主辦審核。要改就先撤回。']
     ];
-    return el('section', { class: 'reg__card' }, [
-      el('h2', { class: 'reg__cardHead' }, iconText('list', '報名怎麼進行')),
+    const youth = [
+      ['建立球隊', '填隊名，選學童幼稚園／低年級／中年級。'],
+      ['自己新增小球員', '填暱稱、身分證後四碼、出生年月日（民國年）。不需要小朋友或家長登入。'],
+      ['送出報名', '送出之後名單會凍結，等主辦審核。要改就先撤回。'],
+      ['當天檢錄', '賽前 30 分鐘，由你帶證件（健保卡或戶口名簿）與大會名單核對。']
+    ];
+
+    const list = (title, steps) => el('div', { class: 'reg__flow' }, [
+      el('h3', { class: 'reg__flowHead', text: title }),
       el('ol', { class: 'reg__steps' }, steps.map(([t, d], i) => el('li', { class: 'reg__step' }, [
         el('span', { class: 'reg__stepNo num', text: String(i + 1) }),
         el('div', { class: 'reg__stepText' }, [
@@ -96,6 +107,12 @@ export async function registerHome({ scope, view }) {
           el('span', { text: d })
         ])
       ])))
+    ]);
+
+    return el('section', { class: 'reg__card' }, [
+      el('h2', { class: 'reg__cardHead' }, iconText('list', '報名怎麼進行')),
+      list('學童三組（幼稚園／低年級／中年級）', youth),
+      list('成人三組（女子公開／男子興趣／男子公開）', adult)
     ]);
   }
 

@@ -64,6 +64,11 @@
 .reg__badge--rejected{background:var(--danger-bg);color:var(--danger)}
 
 /* ── 流程說明 ───────────────────────────────────────────── */
+.reg__flow{display:flex;flex-direction:column;gap:var(--sp-2)}
+.reg__flow + .reg__flow{
+  margin-top:var(--sp-3);padding-top:var(--sp-3);border-top:1px solid var(--border);
+}
+.reg__flowHead{margin:0;font-size:var(--fs-sm);color:var(--accent)}
 .reg__steps{display:flex;flex-direction:column;gap:var(--sp-3)}
 .reg__step{display:flex;gap:var(--sp-3);align-items:flex-start}
 .reg__stepNo{

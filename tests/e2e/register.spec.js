@@ -114,6 +114,20 @@ test('開放中有建隊入口，也有邀請碼入口 @register', async ({ page
   await expect(page.getByLabel('邀請碼')).toBeVisible();
 });
 
+test('⭐ 流程說明分成學童組與成人組兩條路 @register @youth', async ({ page }) => {
+  // 講成一條的話，有一半的人會照著做卻做不到——學童組根本沒有邀請碼。
+  await stub(page, base(), { uid: CAP, displayName: '隊長' });
+  await go(page, '/#/register');
+
+  const card = page.locator('.reg__card', { hasText: '報名怎麼進行' });
+  await expect(card.locator('.reg__flow')).toHaveCount(2);
+  await expect(card).toContainText('自己新增小球員');
+  await expect(card).toContainText('出生年月日（民國年）');
+  await expect(card).toContainText('把邀請碼給隊友');
+  // 檢錄要講在報名頁上，不是等到比賽當天才知道要帶證件
+  await expect(card).toContainText('帶證件');
+});
+
 test('⭐ 邀請碼排在建立球隊之前 @register', async ({ page }) => {
   // 一支球隊只有一個隊長，卻會有十幾個隊友掃碼進來。
   // 多數人來這一頁是要「加入」，不是「建隊」——把建隊放最上面，
