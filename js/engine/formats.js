@@ -255,56 +255,131 @@ const RR_FIFA_2026 = {
   fairPlay: FAIR_PLAY
 };
 
-const RANKING_RULES = { RR_FEDA_DEFAULT, RR_FEDA_YOUTH, RR_FIFA_2026 };
+/**
+ * ⭐ 2026 飛達盃競賽規章第十九條 —— **本次賽事六個組別全部採用這一份**。
+ *
+ * 規章原文（循環賽）：
+ *   「勝 1 場得 3 分，和局各得 1 分，負 1 場 0 分，以積分多寡判定之，
+ *     如遇積分相同者判定勝負如下：
+ *       1. 對戰關係
+ *       2. 正負球數（進球數-被進球數）
+ *       3. 進球數多者
+ *       4. 被進球數少者
+ *       5. 抽籤」
+ *
+ * 與 RR_FEDA_DEFAULT 的三個差異（都會換掉名次，不是文字上的差別）：
+ *   1. 規章的「對戰關係」只有**一層**。RR_FEDA_DEFAULT 拆成
+ *      headToHeadPoints / headToHeadGoalDiff / headToHeadGoalsFor 三層，
+ *      多出來的兩層會在規章要求「看正負球數」的時候先把名次分掉。
+ *   2. 規章**沒有行為分**。RR_FEDA_DEFAULT 把 fairPlay 排在第 5 順位，
+ *      等於用一條規章沒授權的條件決定名次。
+ *   3. 規章第 5 順位是**抽籤**，不是主辦裁定。
+ *
+ * ⚠️ `drawLots` 在引擎裡是「標記 hasUnresolvedTie，等主辦實際抽完再回填」，
+ *    **不會**自己擲骰子（R-ENG-004）。規章要的是真的抽籤，
+ *    系統的角色是把該抽的那一組指出來、把結果記下來。
+ */
+const RR_FEDA_2026 = {
+  rankingRuleId: 'RR_FEDA_2026',
+  name: '飛達盃 2026 競賽規章第十九條',
+  points: { win: 3, draw: 1, loss: 0 },
+  criteria: [
+    'points',
+    'headToHeadPoints',   // 1. 對戰關係
+    'goalDiff',           // 2. 正負球數
+    'goalsFor',           // 3. 進球數多者
+    'goalsAgainstAsc',    // 4. 被進球數少者
+    'drawLots'            // 5. 抽籤（由主辦執行，引擎只標記）
+  ],
+  fairPlay: FAIR_PLAY     // 仍然計算，但**不列入 criteria**：射手榜／風度獎要用
+};
+
+/**
+ * RR_FEDA_DEFAULT 與 RR_FEDA_YOUTH 是規章定案前的版本，**本次賽事不使用**。
+ * 保留的原因：docs/02 §6 有對照說明，而且未來辦第二場時主辦可能選別的規則
+ * （這個系統是設定檔驅動的，換規則不該要改程式）。
+ */
+const RANKING_RULES = { RR_FEDA_2026, RR_FEDA_DEFAULT, RR_FEDA_YOUTH, RR_FIFA_2026 };
 
 // ══════════════════════════════════════════════════════════════════
 //  本次活動的組別設定（seed 用）
 // ══════════════════════════════════════════════════════════════════
 
+/**
+ * 本次活動的六個組別。
+ *
+ * ⭐ 名稱、參賽資格、上場人數、比賽時間、用球一律**照競賽規章第十一～十八條**，
+ *    不是我們挑的。改這裡等於改規章，先確認主辦有發佈修訂版。
+ *
+ * `divisionId` 沿用 u6/u8/u10（matchId 前綴、種子資料、既有測試都在用），
+ * 對外顯示一律走 `name` / `shortName`——那兩個才是規章上的名字。
+ *
+ * `eligibility.bornOnOrAfter`：規章寫「2020年09月01日**以後**出生」，
+ * 中文法規文字的「以後」含當日，所以是 >=。
+ */
 const DIVISIONS = [
-  { divisionId: 'u6',         name: 'U6',        shortName: 'U6',   date: '2026-10-09',
-    teamCount: 6, playersOnField: 5, matchDurationMin: 20,
-    formatId: 'F6_TWO_GROUPS_MIRROR', rankingRuleId: 'RR_FEDA_YOUTH',
+  { divisionId: 'u6',         name: '學童幼稚園',  shortName: '幼稚園', date: '2026-10-09',
+    teamCount: 6, playersOnField: 5, matchDurationMin: 25, periods: 1, ballSize: 4,
+    eligibility: { bornOnOrAfter: '2020-09-01', note: '就讀各公、私立小學' },
+    formatId: 'F6_TWO_GROUPS_MIRROR', rankingRuleId: 'RR_FEDA_2026',
     colorToken: 'div-u6',    order: 1, code: 'U6',
-    display: { mercyRule: { enabled: true, cap: 7 }, scorerBoard: false } },
+    display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: false } },
 
-  { divisionId: 'u8',         name: 'U8',        shortName: 'U8',   date: '2026-10-09',
-    teamCount: 6, playersOnField: 5, matchDurationMin: 20,
-    formatId: 'F6_TWO_GROUPS_MIRROR', rankingRuleId: 'RR_FEDA_YOUTH',
+  { divisionId: 'u8',         name: '學童低年級',  shortName: '低年級', date: '2026-10-09',
+    teamCount: 6, playersOnField: 5, matchDurationMin: 25, periods: 1, ballSize: 4,
+    eligibility: { bornOnOrAfter: '2018-09-01', note: '就讀各公、私立小學' },
+    formatId: 'F6_TWO_GROUPS_MIRROR', rankingRuleId: 'RR_FEDA_2026',
     colorToken: 'div-u8',    order: 2, code: 'U8',
-    display: { mercyRule: { enabled: true, cap: 7 }, scorerBoard: false } },
+    display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: false } },
 
-  { divisionId: 'u10',        name: 'U10',       shortName: 'U10',  date: '2026-10-09',
-    teamCount: 6, playersOnField: 5, matchDurationMin: 20,
-    formatId: 'F6_TWO_GROUPS_MIRROR', rankingRuleId: 'RR_FEDA_YOUTH',
+  { divisionId: 'u10',        name: '學童中年級',  shortName: '中年級', date: '2026-10-09',
+    teamCount: 6, playersOnField: 5, matchDurationMin: 25, periods: 1, ballSize: 4,
+    eligibility: { bornOnOrAfter: '2016-09-01', note: '就讀各公、私立小學' },
+    formatId: 'F6_TWO_GROUPS_MIRROR', rankingRuleId: 'RR_FEDA_2026',
     colorToken: 'div-u10',   order: 3, code: 'U10',
-    display: { mercyRule: { enabled: true, cap: 7 }, scorerBoard: false } },
+    display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: false } },
 
-  { divisionId: 'women',      name: '女子組',     shortName: '女子',  date: '2026-10-09',
-    teamCount: 4, playersOnField: 5, matchDurationMin: 20,
-    formatId: 'F4_RR_FINAL', rankingRuleId: 'RR_FEDA_DEFAULT',
+  { divisionId: 'women',      name: '女子公開組',  shortName: '女子',  date: '2026-10-09',
+    teamCount: 4, playersOnField: 5, matchDurationMin: 25, periods: 1, ballSize: 5,
+    eligibility: { bornOnOrAfter: null, note: '在學學生之社會人士、機關及公司員工均可自由組隊參加' },
+    formatId: 'F4_RR_FINAL', rankingRuleId: 'RR_FEDA_2026',
     colorToken: 'div-women', order: 4, code: 'WM',
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: true } },
 
-  { divisionId: 'adult-fun',  name: '成人興趣組',  shortName: '興趣',  date: '2026-10-10',
-    teamCount: 8, playersOnField: 9, matchDurationMin: 30,
-    formatId: 'F8_GROUP_CROSS', rankingRuleId: 'RR_FEDA_DEFAULT',
+  { divisionId: 'adult-fun',  name: '男子興趣組',  shortName: '興趣',  date: '2026-10-10',
+    teamCount: 8, playersOnField: 9, matchDurationMin: 30, periods: 1, ballSize: 5,
+    eligibility: { bornOnOrAfter: null, note: '非職業甲乙組球員，自評球齡低於二年或以興趣為主' },
+    formatId: 'F8_GROUP_CROSS', rankingRuleId: 'RR_FEDA_2026',
     colorToken: 'div-fun',   order: 5, code: 'AF',
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: true } },
 
-  { divisionId: 'adult-open', name: '成人公開組',  shortName: '公開',  date: '2026-10-11',
-    teamCount: 8, playersOnField: 9, matchDurationMin: 30,
-    formatId: 'F8_GROUP_CROSS', rankingRuleId: 'RR_FEDA_DEFAULT',
+  { divisionId: 'adult-open', name: '男子公開組',  shortName: '公開',  date: '2026-10-11',
+    teamCount: 8, playersOnField: 9, matchDurationMin: 30, periods: 1, ballSize: 5,
+    eligibility: { bornOnOrAfter: null, note: '在學學生之社會人士、機關及公司員工均可自由組隊參加' },
+    formatId: 'F8_GROUP_CROSS', rankingRuleId: 'RR_FEDA_2026',
     colorToken: 'div-open',  order: 6, code: 'AO',
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: true } }
 ];
 
+/**
+ * 報名限制（競賽規章第十二條）。
+ * 寫在這裡是為了讓 seed 與前端有同一份依據；執行時的權威是
+ * Firestore 的 config/registration（主辦可在後台改）。
+ */
+const REGISTRATION_LIMITS = {
+  maxPlayers: 15,          // 「球員最多 15 人」
+  maxStaff: 3,             // 「隊職員 3 人（領隊、教練、管理各 1 人）」
+  staffRoles: ['leader', 'coach', 'manager'],
+  onePlayerOneTeam: true,  // 「每人限報乙隊」
+  fee: { youth: 5000, adult: 6000 }   // 學童三組 / 女子與男子兩組
+};
+
 /** 階段代碼（用於 matchId：{組別碼}-{階段碼}-{小組}-{序}） */
 const STAGE_CODE = { group: 'G', placement: 'P', final: 'F' };
 
-export { FORMATS, RANKING_RULES, DIVISIONS, FAIR_PLAY, STAGE_CODE };
+export { FORMATS, RANKING_RULES, DIVISIONS, FAIR_PLAY, STAGE_CODE, REGISTRATION_LIMITS };
 
 // CommonJS 相容（供 functions/ 以 require 使用）
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { FORMATS, RANKING_RULES, DIVISIONS, FAIR_PLAY, STAGE_CODE };
+  module.exports = { FORMATS, RANKING_RULES, DIVISIONS, FAIR_PLAY, STAGE_CODE, REGISTRATION_LIMITS };
 }

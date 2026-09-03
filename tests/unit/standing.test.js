@@ -15,21 +15,24 @@ const build = (teamIds, matches, over = {}) => buildStanding({
   teamIds, matches, rule: RULE, ...over
 });
 
-describe('T09 棄賽判 3:0', () => {
+describe('T09 棄賽判 0:2（競賽規章第十八條第 6 款）', () => {
   const matches = [
     mk('m1', 'A', 'B', 0, 0, { status: 'walkover', walkoverSide: 'away', result: { winner: 'home', method: 'walkover' } }),
     mk('m2', 'A', 'C', 1, 1),
     mk('m3', 'B', 'C', 2, 0)
   ];
 
-  test('棄賽方記 0:3，對手記 3:0 並得 3 分', () => {
+  test('⭐ 棄賽方記 0:2，對手記 2:0 並得 3 分', () => {
+    // 規章原文：「球隊逾時 5 分鐘不出場以棄權論 0:2」。
+    // 足球界常見的是 3:0，一開始就是照那個寫的——同分時比正負球數
+    // 會差一球，足以換掉一個名次。
     const rows = computeRows(['A', 'B', 'C'], matches, RULE);
     const by = Object.fromEntries(rows.map(r => [r.teamId, r]));
     expect(by.A.win).toBe(1);
     expect(by.A.points).toBe(4);                 // 棄賽勝 3 ＋ 對 C 和局 1
     expect(by.B.loss).toBe(1);
-    expect(by.A.goalsFor).toBe(3 + 1);
-    expect(by.B.goalsAgainst).toBe(3 + 0);
+    expect(by.A.goalsFor).toBe(2 + 1);
+    expect(by.B.goalsAgainst).toBe(2 + 0);
   });
 
   test('countInGoalStats=false 時不計入得失球，但仍計積分', () => {
@@ -125,8 +128,8 @@ describe('T10 整隊退賽 voidAll：其他隊之間的成績不受影響', () =
     expect(by.A.goalsFor).toBe(1 + 5 + 2);
   });
 
-  test('⭐ keepAsWalkover 的未賽場次判 3:0 給對手（§5.2 對這個選項的實質定義）', () => {
-    // B 對 C 還沒打，C 退賽 → B 應該拿到 3 分與 3:0
+  test('⭐ keepAsWalkover 的未賽場次判 0:2 給對手（§5.2 對這個選項的實質定義）', () => {
+    // B 對 C 還沒打，C 退賽 → B 應該拿到 3 分與 2:0（規章的棄權比分）
     const partial = [
       mk('m1', 'A', 'B', 1, 0),
       mk('m2', 'A', 'C', 5, 0),
@@ -138,11 +141,11 @@ describe('T10 整隊退賽 voidAll：其他隊之間的成績不受影響', () =
     const by = Object.fromEntries(rows.map(r => [r.teamId, r]));
     expect(by.B.played).toBe(2);
     expect(by.B.points).toBe(3);
-    expect(by.B.goalsFor).toBe(0 + 3);
+    expect(by.B.goalsFor).toBe(0 + 2);
     expect(by.C.loss).toBe(2);
   });
 
-  test('voidAll 時未賽場次不會被判 3:0（整場作廢才是預設）', () => {
+  test('voidAll 時未賽場次不會被判 0:2（整場作廢才是預設）', () => {
     const partial = [
       mk('m1', 'A', 'B', 1, 0),
       mk('m3', 'B', 'C', 0, 0, { status: 'scheduled' })

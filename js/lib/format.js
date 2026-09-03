@@ -93,12 +93,14 @@ export function clockText(totalSec) {
  * @param {number} matchDurationMin 全場分鐘數（不含延長）
  * @returns {string} 例：12'、30+2'、45'
  */
-export function displayMinute(elapsedSec, period, matchDurationMin = 30) {
+export function displayMinute(elapsedSec, period, matchDurationMin = 30, periods = 2) {
   const half = Math.round(matchDurationMin / 2);
   const base = { h1: 0, ht: half, h2: half, et1: matchDurationMin, et2: matchDurationMin + 5 };
   if (!(period in base)) return '';
 
-  const limit = period === 'h1' ? half
+  // periods === 1（規章第十八條「不分上、下半場」）時，h1 就是整場：
+  // 25 分鐘的比賽照半場算會在第 13 分鐘就顯示 13+1'，看起來像快結束了。
+  const limit = period === 'h1' ? (periods === 1 ? matchDurationMin : half)
               : period === 'h2' ? matchDurationMin
               : period === 'et1' ? matchDurationMin + 5
               : matchDurationMin + 10;
@@ -113,6 +115,18 @@ export const PERIOD_LABEL = {
   pre: '未開賽', h1: '上半場', ht: '中場', h2: '下半場',
   et1: '延長上半', et2: '延長下半', pk: 'PK 大戰', ft: '完賽'
 };
+
+/**
+ * 依組別設定解析期別名稱。
+ *
+ * 規章第十八條第 2 款六個組別全部「不分上、下半場」，這時候 `h1` 不是
+ * 「上半場」而是整場比賽。叫它上半場的後果不只是用詞——賽務會找「下半場」，
+ * 找不到就會以為系統壞了，或是誤按「完賽」。
+ */
+export function periodLabel(period, periods = 2) {
+  if (periods === 1 && period === 'h1') return '比賽';
+  return PERIOD_LABEL[period] ?? period;
+}
 
 /** 場次狀態中文（用「完賽」不用「結束」） */
 export const STATUS_LABEL = {

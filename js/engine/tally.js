@@ -16,9 +16,18 @@ export const COMPLETED_STATUSES = ['finished', 'confirmed', 'walkover'];
 
 export const DEFAULT_POINTS = { win: 3, draw: 1, loss: 0 };
 
-/** 棄賽判定（§5.2）。scoreFor/scoreAgainst 只在 countInGoalStats 為真時計入得失球。 */
+/**
+ * 棄賽判定（§5.2）。scoreFor/scoreAgainst 只在 countInGoalStats 為真時計入得失球。
+ *
+ * ⚠️ **0:2 是競賽規章第十八條第 6 款寫死的數字**，不是我們挑的：
+ *    「球隊逾時 5 分鐘不出場以棄權論 0:2」。
+ *    原本是足球界常見的 3:0，跟規章不符——同分時比正負球數會差一球，
+ *    足以換掉一個名次。
+ *    規章同一款還說「即停止本賽事出賽資格，已賽成績不予計算」，
+ *    那一段是退賽（withdrawnTeamIds / withdrawalPolicy），不在這裡處理。
+ */
 export const DEFAULT_WALKOVER = {
-  scoreFor: 3,
+  scoreFor: 2,
   scoreAgainst: 0,
   awardPoints: 3,
   penaltyPoints: 0,

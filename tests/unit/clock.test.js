@@ -157,6 +157,29 @@ describe('顯示分鐘（不可寫死 45/90）', () => {
 });
 
 describe('補時判斷', () => {
+  test('⭐ periods:1 時 h1 直接走到 ft，沒有中場與下半場', () => {
+    // 競賽規章第十八條第 2 款：「不分上、下半場」。六個組別都是這樣。
+    // 少了這個分支，賽務台會畫「結束上半場」，賽務按下去比賽就卡在中場——
+    // 而且畫面上沒有任何一顆按鈕走得出來。
+    expect(nextPeriod('h1', { periods: 1 })).toBe('ft');
+    expect(nextPeriod('h1', { periods: 1, tied: true, drawRule: 'penalty' })).toBe('ft');
+    expect(nextPeriod('h1', { periods: 1, tied: true, drawRule: 'goldenGoal' })).toBe('et1');
+  });
+
+  test('沒指定 periods 時維持原本的上下半場流程', () => {
+    expect(nextPeriod('h1')).toBe('ht');
+    expect(nextPeriod('h1', { periods: 2 })).toBe('ht');
+  });
+
+  test('⭐ periods:1 時 h1 的正規長度是整場，不是一半', () => {
+    // 25 分鐘的比賽若照半場算，第 13 分鐘就會顯示補時，
+    // 而賽務看到補時通常就準備吹哨了。
+    expect(periodLimitSec('h1', 25, 5, 1)).toBe(25 * 60);
+    expect(periodLimitSec('h1', 30, 5, 1)).toBe(30 * 60);
+    // 兩個半場的情況不受影響
+    expect(periodLimitSec('h1', 30, 5, 2)).toBe(15 * 60);
+  });
+
   test('各期別的正規長度依 matchDurationMin 推算', () => {
     expect(periodLimitSec('h1', 30)).toBe(900);
     expect(periodLimitSec('h2', 20)).toBe(600);

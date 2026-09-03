@@ -13,7 +13,7 @@
 
 import { el, toast, confirmDialog, sheet, buzz, emptyState, mount } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
-import { clockText, displayMinute, PERIOD_LABEL, STATUS_LABEL, hhmm } from '../../lib/format.js';
+import { clockText, displayMinute, periodLabel, STATUS_LABEL, hhmm } from '../../lib/format.js';
 import {
   elapsedSec, startClock, pauseClock, resetClock, nextPeriod,
   statusForPeriod, isPlayingPeriod, startTicker, now, isInAddedTime
@@ -153,7 +153,7 @@ export async function liveConsole({ params, scope, view }) {
     const canPlay = isPlayingPeriod(period);
 
     return el('div', { class: 'clockbox' }, [
-      el('div', { class: 'clockbox__period', text: PERIOD_LABEL[period] || period }),
+      el('div', { class: 'clockbox__period', text: periodLabel(period, state.division?.periods ?? 2) }),
       el('div', { class: 'clockbox__time num', id: 'match-clock', text: '00:00' }),
       el('div', { class: 'clockbox__minute', id: 'match-minute' }),
       readOnly ? null : el('div', { class: 'clockbox__btns' }, [
@@ -169,7 +169,7 @@ export async function liveConsole({ params, scope, view }) {
                 }, running ? iconText('pause', '暫停') : iconText('play', '繼續')),
         canPlay ? el('button', {
           class: 'btn btn--lg btn--ghost', type: 'button', onClick: () => endPeriod()
-        }, iconText('stop', `結束${PERIOD_LABEL[period]}`)) : null
+        }, iconText('stop', `結束${periodLabel(period, state.division?.periods ?? 2)}`)) : null
       ].filter(Boolean))
     ].filter(Boolean));
   }
@@ -184,9 +184,10 @@ export async function liveConsole({ params, scope, view }) {
     if (t) t.textContent = clockText(sec);
     if (mi) {
       const dur = state.division?.matchDurationMin ?? 30;
-      const txt = displayMinute(sec, m.period, dur);
+      const per = state.division?.periods ?? 2;
+      const txt = displayMinute(sec, m.period, dur, per);
       mi.textContent = txt;
-      mi.classList.toggle('is-added', isInAddedTime(m.clock, m.period, dur));
+      mi.classList.toggle('is-added', isInAddedTime(m.clock, m.period, dur, per));
     }
 
     // 撤回倒數：只換數字。歸零的那一秒重畫整列，把按鈕換成說明文字。
@@ -240,10 +241,11 @@ export async function liveConsole({ params, scope, view }) {
       return wrap;
     }
     const dur = state.division?.matchDurationMin ?? 30;
+    const per = state.division?.periods ?? 2;
     wrap.append(el('ul', { class: 'tl__list' }, rows.map(e => el('li', {
       class: `tl__item ${e.voided ? 'is-voided' : ''} tl__item--${e.side}`
     }, [
-      el('span', { class: 'tl__min num', text: displayMinute(e.clockSec ?? 0, e.periodId, dur) }),
+      el('span', { class: 'tl__min num', text: displayMinute(e.clockSec ?? 0, e.periodId, dur, per) }),
       // 黃牌與紅牌要一眼分得出來——裁判在陽光下掃時間軸，靠的是顏色不是文字
       el('span', { class: 'tl__icon' }, icon(EVENT_ICON[e.type] || 'note', {
         cls: e.type === 'card'
@@ -501,9 +503,9 @@ export async function liveConsole({ params, scope, view }) {
     const m = state.match;
     const clock = startClock(resetClock(m.clock), now());
     patchMatch(matchId, { period, status: statusForPeriod(period), clock },
-      `${PERIOD_LABEL[period]} 開始`, { kind: 'period' });
+      `${periodLabel(period, state.division?.periods ?? 2)} 開始`, { kind: 'period' });
     addTimelineEvent(matchId, buildPeriodEvent({ ...ctxFor('home'), period, clockSec: 0, ending: false }),
-      `${PERIOD_LABEL[period]} 開始`);
+      `${periodLabel(period, state.division?.periods ?? 2)} 開始`);
   }
 
   function pause() {
@@ -520,17 +522,18 @@ export async function liveConsole({ params, scope, view }) {
     const sec = elapsedSec(m.clock, now());
     const tied = (m.score?.home ?? 0) === (m.score?.away ?? 0);
     const drawRule = state.division?.drawRule ?? 'penalty';
-    const next = nextPeriod(period, { tied, drawRule });
+    const periods = state.division?.periods ?? 2;
+    const next = nextPeriod(period, { tied, drawRule, periods });
 
     const ok = await confirmDialog({
-      title: `結束${PERIOD_LABEL[period]}？`,
+      title: `結束${periodLabel(period, periods)}？`,
       body: `目前 ${clockText(sec)}，比分 ${m.score?.home ?? 0}:${m.score?.away ?? 0}。`,
       confirmText: '結束本節'
     });
     if (!ok) return;
 
     addTimelineEvent(matchId, buildPeriodEvent({ ...ctxFor('home'), period, clockSec: sec, ending: true }),
-      `${PERIOD_LABEL[period]} 結束`);
+      `${periodLabel(period, periods)} 結束`);
 
     if (next === 'ft') {
       // 走完賽流程，不直接寫 ft——完賽要跳確認畫面
@@ -541,7 +544,7 @@ export async function liveConsole({ params, scope, view }) {
     const patch = { period: next, status: statusForPeriod(next), clock: resetClock(m.clock) };
     // 上半場結束時把半場比分固定下來
     if (period === 'h1') patch.htScore = { home: m.score?.home ?? 0, away: m.score?.away ?? 0 };
-    patchMatch(matchId, patch, `進入${PERIOD_LABEL[next]}`, { kind: 'period' });
+    patchMatch(matchId, patch, `進入${periodLabel(next, periods)}`, { kind: 'period' });
   }
 
   // ── 修正事件 ───────────────────────────────────────────

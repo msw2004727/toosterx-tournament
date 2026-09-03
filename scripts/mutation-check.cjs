@@ -370,6 +370,77 @@ const MUTANTS = [
     to: ``
   },
   {
+    name: '#R1 學童組比賽時間改回 20 分（規章是 25 分，時鐘會少跑 5 分鐘）',
+    file: 'js/engine/formats.js',
+    from: `    teamCount: 6, playersOnField: 5, matchDurationMin: 25, periods: 1, ballSize: 4,
+    eligibility: { bornOnOrAfter: '2020-09-01', note: '就讀各公、私立小學' },`,
+    to: `    teamCount: 6, playersOnField: 5, matchDurationMin: 20, periods: 1, ballSize: 4,
+    eligibility: { bornOnOrAfter: '2020-09-01', note: '就讀各公、私立小學' },`
+  },
+  {
+    name: '#R2 拿掉學童組的出生日期門檻（超齡球員報得進來，系統一句話都不會說）',
+    file: 'js/engine/formats.js',
+    from: `    eligibility: { bornOnOrAfter: '2016-09-01', note: '就讀各公、私立小學' },`,
+    to: `    eligibility: { bornOnOrAfter: null, note: '就讀各公、私立小學' },`
+  },
+  {
+    name: '#R3 同分判定插回行為分（規章第十九條沒有這一條）',
+    file: 'js/engine/formats.js',
+    from: `    'goalsAgainstAsc',    // 4. 被進球數少者
+    'drawLots'            // 5. 抽籤（由主辦執行，引擎只標記）`,
+    to: `    'goalsAgainstAsc',
+    'fairPlay',
+    'drawLots'`
+  },
+  {
+    name: '#R4 棄權比分改回 3:0（規章第十八條第 6 款是 0:2）',
+    file: 'js/engine/tally.js',
+    from: `  scoreFor: 2,
+  scoreAgainst: 0,`,
+    to: `  scoreFor: 3,
+  scoreAgainst: 0,`
+  },
+  {
+    name: '#R5 組別改回分上下半場（規章明訂不分上、下半場）',
+    file: 'js/engine/formats.js',
+    from: `    teamCount: 8, playersOnField: 9, matchDurationMin: 30, periods: 1, ballSize: 5,
+    eligibility: { bornOnOrAfter: null, note: '在學學生之社會人士、機關及公司員工均可自由組隊參加' },
+    formatId: 'F8_GROUP_CROSS', rankingRuleId: 'RR_FEDA_2026',
+    colorToken: 'div-open',`,
+    to: `    teamCount: 8, playersOnField: 9, matchDurationMin: 30, periods: 2, ballSize: 5,
+    eligibility: { bornOnOrAfter: null, note: '在學學生之社會人士、機關及公司員工均可自由組隊參加' },
+    formatId: 'F8_GROUP_CROSS', rankingRuleId: 'RR_FEDA_2026',
+    colorToken: 'div-open',`
+  },
+  {
+    name: '#R6 單一時段的 h1 照半場算補時（25 分的比賽第 13 分鐘就顯示補時）',
+    file: 'js/core/clock.js',
+    from: `  if (period === 'h1' && periods === 1) return matchDurationMin * 60;`,
+    to: ``
+  },
+  {
+    name: '#R7 單一時段時 h1 仍走到中場（比賽卡在中場，沒有按鈕走得出來）',
+    file: 'js/core/clock.js',
+    from: `  if (periods === 1 && period === 'h1') {
+    return tied && drawRule === 'goldenGoal' ? 'et1' : 'ft';
+  }`,
+    to: ``
+  },
+  {
+    name: '#R8 把仁慈規則加回兒童組（規章沒有這一條，公開端會顯示假比分）',
+    file: 'js/engine/formats.js',
+    from: `    colorToken: 'div-u6',    order: 1, code: 'U6',
+    display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: false } },`,
+    to: `    colorToken: 'div-u6',    order: 1, code: 'U6',
+    display: { mercyRule: { enabled: true, cap: 7 }, scorerBoard: false } },`
+  },
+  {
+    name: '#R9 球員人數上限改掉（規章是最多 15 人）',
+    file: 'js/engine/formats.js',
+    from: `  maxPlayers: 15,          // 「球員最多 15 人」`,
+    to: `  maxPlayers: 20,`
+  },
+  {
     name: '#P37 圖示網址不帶版號（被毒化的邊緣快取繞不開，安裝選項照樣不出現）',
     file: 'manifest.json',
     from: `"/img/icon-192.png?v=`,

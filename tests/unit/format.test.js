@@ -3,7 +3,7 @@
  */
 import {
   toMillis, hhmm, dateLabel, dateLabelFromYmd, dateTimeLabel,
-  clockText, scoreText, playerLabel, maskName, agoText, PERIOD_LABEL, STATUS_LABEL
+  clockText, scoreText, playerLabel, maskName, agoText, PERIOD_LABEL, periodLabel, STATUS_LABEL
 } from '../../js/lib/format.js';
 import { escapeHTML, html, raw } from '../../js/core/ui.js';
 
@@ -154,5 +154,26 @@ describe('HTML 逸出（R-CODE-002）', () => {
 
   test('raw() 才會原樣輸出（只能用在自己產生的標記上）', () => {
     expect(html`<b>${raw('<i>ok</i>')}</b>`).toBe('<b><i>ok</i></b>');
+  });
+});
+
+describe('T38 期別名稱依組別設定解析', () => {
+  test('⭐ 不分上下半場時 h1 叫「比賽」不叫「上半場」', () => {
+    // 規章第十八條第 2 款：六個組別全部「不分上、下半場」。
+    // 叫它上半場的話賽務會去找下半場，找不到就以為系統壞了，
+    // 或者乾脆按下「完賽」——那是不可逆的。
+    expect(periodLabel('h1', 1)).toBe('比賽');
+    expect(periodLabel('h1', 2)).toBe('上半場');
+    expect(periodLabel('h1')).toBe('上半場');
+  });
+
+  test('其他期別不受影響', () => {
+    expect(periodLabel('ft', 1)).toBe('完賽');
+    expect(periodLabel('pk', 1)).toBe('PK 大戰');
+    expect(periodLabel('pre', 1)).toBe('未開賽');
+  });
+
+  test('不認得的期別原樣回傳，不會顯示 undefined', () => {
+    expect(periodLabel('wat', 1)).toBe('wat');
   });
 });

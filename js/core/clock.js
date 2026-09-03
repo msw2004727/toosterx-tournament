@@ -98,10 +98,26 @@ export const PERIOD_FLOW = {
   ft:  []
 };
 
-/** 這個期別按「結束本節」之後會走到哪裡 */
-export function nextPeriod(period, { tied = false, drawRule = 'penalty' } = {}) {
+/**
+ * 這個期別按「結束本節」之後會走到哪裡。
+ *
+ * ⚠️ `periods: 1`（不分上下半場）是競賽規章第十八條第 2 款的規定：
+ *    「每場比賽 25 分鐘（不分上、下半場）」。六個組別都是這樣。
+ *    這時候 h1 直接走到 ft，中場與下半場**整個不存在**——
+ *    不是把它們藏起來，是流程上沒有這兩個狀態。
+ *    賽務台如果還畫「結束上半場」，賽務會按下去，然後比賽卡在中場。
+ *
+ * @param {object} [opts]
+ * @param {boolean} [opts.tied]
+ * @param {string}  [opts.drawRule]
+ * @param {number}  [opts.periods] 1 = 不分上下半場；2（預設）= 有中場
+ */
+export function nextPeriod(period, { tied = false, drawRule = 'penalty', periods = 2 } = {}) {
   const options = PERIOD_FLOW[period] || [];
   if (!options.length) return null;
+  if (periods === 1 && period === 'h1') {
+    return tied && drawRule === 'goldenGoal' ? 'et1' : 'ft';
+  }
   if (period === 'h2') return tied && drawRule === 'goldenGoal' ? 'et1' : 'ft';
   if (period === 'et2') return tied && drawRule === 'penalty' ? 'pk' : 'ft';
   return options[0];
@@ -121,8 +137,15 @@ export function statusForPeriod(period) {
   return 'live';
 }
 
-/** 該期別的正規長度（秒），供「補時」判斷 */
-export function periodLimitSec(period, matchDurationMin = 30, etHalfMin = 5) {
+/**
+ * 該期別的正規長度（秒），供「補時」判斷。
+ *
+ * `periods === 1` 時 h1 就是**整場**，不是半場。少了這個參數的話
+ * 25 分鐘的比賽會在第 13 分鐘就開始顯示補時（25/2），
+ * 而賽務看到補時通常就準備吹哨了。
+ */
+export function periodLimitSec(period, matchDurationMin = 30, etHalfMin = 5, periods = 2) {
+  if (period === 'h1' && periods === 1) return matchDurationMin * 60;
   const half = Math.round(matchDurationMin / 2);
   if (period === 'h1' || period === 'h2') return half * 60;
   if (period === 'et1' || period === 'et2') return etHalfMin * 60;
@@ -130,8 +153,8 @@ export function periodLimitSec(period, matchDurationMin = 30, etHalfMin = 5) {
 }
 
 /** 是否已經超過正規時間（進入補時） */
-export function isInAddedTime(clock, period, matchDurationMin) {
-  const limit = periodLimitSec(period, matchDurationMin);
+export function isInAddedTime(clock, period, matchDurationMin, periods = 2) {
+  const limit = periodLimitSec(period, matchDurationMin, 5, periods);
   return limit > 0 && elapsedSec(clock) > limit;
 }
 
