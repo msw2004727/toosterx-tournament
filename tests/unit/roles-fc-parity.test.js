@@ -65,7 +65,7 @@ describe('T36-1 共用角色必須逐字相同', () => {
 });
 
 describe('T36-2 這裡多出來的賽務角色', () => {
-  const extras = ['scorer', 'referee', 'booth'];
+  const extras = ['scorer', 'referee', 'checkin', 'booth'];
 
   test('賽務角色不可以標成 fc:true（FC 沒有這些）', () => {
     for (const k of extras) expect(ROLE_INFO[k].fc).toBe(false);

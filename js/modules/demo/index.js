@@ -27,6 +27,7 @@ export const ROLES = [
   { value: 'admin',   note: '賽務全權．覆核完賽、改判、審核報名' },
   { value: 'scorer',  note: 'A 場．可記分與完賽送出' },
   { value: 'referee', note: 'A 場．同賽務，另可簽核' },
+  { value: 'checkin', note: '賽前 30 分鐘核對名單與證件、勾選出賽' },
   { value: 'booth',   note: '挑戰區成績登錄（M6）' }
 // 標籤一律從 js/config.js 的角色字典取，不要在這裡再寫一份——
 // 那一份與 FC-Football 對齊，兩邊分岔會讓同一個角色在兩個系統裡叫不同名字。

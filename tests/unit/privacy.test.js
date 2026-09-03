@@ -127,3 +127,46 @@ describe('T33-4 公開投影（docs/01b §1.6.1）', () => {
     expect(rosterProjection({ ...member, role: undefined, kind: 'coach' }, { asOf }).role).toBe('coach');
   });
 });
+
+describe('T40 暱稱名單（學童組由教練建立）', () => {
+  const ASOF = '2026-10-09';
+
+  test('⭐ nameKind:nickname 不再遮一次', () => {
+    // 那一格填的本來就是暱稱不是真名，系統從頭到尾沒存過孩子的全名。
+    // 遮成「小豆＊」遮不到任何個資，只會讓家長以為名字被打錯。
+    const m = { name: '小豆子', nameKind: 'nickname', birthDate: '2017-03-05' };
+    expect(publicDisplayName(m, ASOF)).toBe('小豆子');
+  });
+
+  test('⭐ 沒有 nameKind 的還是照年齡遮（家長自己填的那條路）', () => {
+    // applyMember() 不會寫 nameKind，所以家長填的真名仍然受保護。
+    // 這個例外只對 addMemberByCoach() 寫進來的那幾筆生效。
+    const m = { name: '王小明', birthDate: '2017-03-05' };
+    expect(publicDisplayName(m, ASOF)).toBe('王小＊');
+  });
+
+  test('⭐ nameKind 是別的值也照樣遮（白名單，不是黑名單）', () => {
+    for (const k of ['legal', '', null, undefined, 'nick', 'NICKNAME']) {
+      const m = { name: '王小明', nameKind: k, birthDate: '2017-03-05' };
+      expect(publicDisplayName(m, ASOF)).toBe('王小＊');
+    }
+  });
+
+  test('成年人不受影響（本來就不遮）', () => {
+    expect(publicDisplayName({ name: '王大明', birthDate: '1990-01-01' }, ASOF)).toBe('王大明');
+  });
+
+  test('公開投影帶著暱稱出去，私密欄位一個都沒有', () => {
+    const out = rosterProjection({
+      memberId: 'm-1', name: '小豆子', nameKind: 'nickname',
+      birthDate: '2017-03-05', idLast4: '1234', guardianUid: 'u-cap',
+      jerseyNo: 9, kind: 'player', status: 'approved'
+    }, { teamId: 't-1', divisionId: 'u10', asOf: ASOF });
+
+    expect(out.displayName).toBe('小豆子');
+    expect(out.birthDate).toBeUndefined();
+    expect(out.idLast4).toBeUndefined();
+    expect(out.nameKind).toBeUndefined();
+    expect(extraRosterFields(out)).toEqual([]);
+  });
+});

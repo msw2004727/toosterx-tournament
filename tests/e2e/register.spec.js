@@ -27,12 +27,20 @@ const base = ({ open = true, teamOver = {}, members = {} } = {}) => ({
   'config/registration': {
     open, opensAt: Date.now() - DAY, closesAt: Date.now() + DAY, maxTeamsPerAccount: 3
   },
+  // ⚠️ 這裡的欄位必須跟 js/engine/formats.js 的真實 schema 一致。
+  //    替身資料寫錯 schema 比沒有測試更危險——它會主動證明錯的東西是對的
+  //    （M5 整合時就是這樣，四個欄位路徑全錯但 E2E 全綠）。
+  //    eligibility.bornOnOrAfter 決定這一組走不走「教練直接管理名單」。
   [`events/${EVENT}/divisions/u10`]: {
-    divisionId: 'u10', name: 'U10 兒童組', order: 3, playersOnField: 5, matchDurationMin: 20,
-    display: { mercyRule: { enabled: true, cap: 7 }, scorerBoard: false }
+    divisionId: 'u10', name: '學童中年級', shortName: '中年級', order: 3,
+    playersOnField: 5, matchDurationMin: 25, periods: 1, ballSize: 4,
+    eligibility: { bornOnOrAfter: '2016-09-01', note: '就讀各公、私立小學' },
+    display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: false }
   },
   [`events/${EVENT}/divisions/adult-open`]: {
-    divisionId: 'adult-open', name: '成人公開組', order: 6, playersOnField: 9, matchDurationMin: 30,
+    divisionId: 'adult-open', name: '男子公開組', shortName: '公開', order: 6,
+    playersOnField: 9, matchDurationMin: 30, periods: 1, ballSize: 5,
+    eligibility: { bornOnOrAfter: null, note: '在學學生之社會人士、機關及公司員工均可自由組隊參加' },
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: true }
   },
   [`events/${EVENT}/teams/${TEAM}`]: {
@@ -221,7 +229,10 @@ test('⭐ 不是隊長就不能管理名單 @register', async ({ page }) => {
 });
 
 test('⭐ 隊長同意申請之後才進名單（驗收 A02）@register', async ({ page }) => {
-  await stub(page, base({ members: member('m-1') }), { uid: CAP, displayName: '隊長' });
+  // 邀請碼＋逐筆同意是**成人組**的流程。學童三組改由教練直接建名單，
+  // 這一頁不會有「待你同意」（見下方「學童組」那一節）。
+  await stub(page, base({ teamOver: { divisionId: 'adult-open' }, members: member('m-1') }),
+    { uid: CAP, displayName: '隊長' });
   await go(page, `/#/team/${TEAM}/manage`);
 
   await expect(page.locator('.reg')).toContainText('待你同意（1）');
@@ -234,7 +245,7 @@ test('⭐ 隊長同意申請之後才進名單（驗收 A02）@register', async 
 });
 
 test('⭐ 名單凍結後不能再決定申請（驗收 A04）@register', async ({ page }) => {
-  await stub(page, base({ teamOver: { status: 'submitted' }, members: member('m-1') }),
+  await stub(page, base({ teamOver: { divisionId: 'adult-open', status: 'submitted' }, members: member('m-1') }),
     { uid: CAP, displayName: '隊長' });
   await go(page, `/#/team/${TEAM}/manage`);
 
@@ -267,10 +278,166 @@ test('⭐ 送出報名之後狀態變成待審核，而且可以撤回 @register
 });
 
 test('隊長看得到邀請碼與可複製的連結 @register', async ({ page }) => {
-  await stub(page, base(), { uid: CAP, displayName: '隊長' });
+  await stub(page, base({ teamOver: { divisionId: 'adult-open' } }), { uid: CAP, displayName: '隊長' });
   await go(page, `/#/team/${TEAM}/manage`);
   await expect(page.locator('.reg__codeValue')).toHaveText(CODE);
   await expect(page.getByRole('button', { name: /複製邀請連結/ })).toBeVisible();
+});
+
+/* ══════════════════════════════════════════════════════════════
+   學童組：教練直接管理名單（主辦 2026-09-03 指定）
+   ══════════════════════════════════════════════════════════════ */
+
+/** 名單裡第一筆 member 文件（沒有就 null） */
+async function firstMember(page) {
+  const d = await dump(page);
+  const hit = Object.entries(d).find(([k]) => k.includes('/members/'));
+  return hit ? hit[1] : null;
+}
+
+/** 填一位小球員並送出 */
+async function fillPlayer(page, { name = '小豆子', y = '106', m = '3', d = '5', id4 = '1234', no = '9' } = {}) {
+  await page.getByRole('button', { name: /新增一位球員/ }).click();
+  await page.locator('#m-name').fill(name);
+  await page.locator('#m-birth').fill(y);
+  await page.locator('#m-birth-m').fill(m);
+  await page.locator('#m-birth-d').fill(d);
+  if (id4) await page.locator('#m-id4').fill(id4);
+  if (no) await page.locator('#m-no').fill(no);
+  await page.getByRole('button', { name: /加入名單/ }).click();
+}
+
+test('⭐ 學童組不發邀請碼，改由教練直接新增 @register @youth', async ({ page }) => {
+  // 小球員沒有 LINE 帳號，家長也不見得會操作。留一組沒有人用得到的
+  // 邀請碼，只會讓教練一直等隊友來申請。
+  await stub(page, base(), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+
+  await expect(page.getByRole('button', { name: /新增一位球員/ })).toBeVisible();
+  await expect(page.locator('.reg')).not.toContainText('邀請隊友');
+  await expect(page.locator('.reg')).not.toContainText('待你同意');
+});
+
+test('⭐ 成人組維持邀請碼流程 @register @youth', async ({ page }) => {
+  await stub(page, base({ teamOver: { divisionId: 'adult-open' } }), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+
+  await expect(page.locator('.reg')).toContainText('邀請隊友');
+  await expect(page.getByRole('button', { name: /新增一位球員/ })).toHaveCount(0);
+});
+
+test('⭐ 新增的小球員直接進名單，而且民國年被轉成西元 @register @youth', async ({ page }) => {
+  await stub(page, base(), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+
+  await fillPlayer(page, { y: '106', m: '3', d: '5' });
+
+  await expect.poll(async () => (await firstMember(page))?.birthDate ?? null,
+    { timeout: 10_000 }).toBe('2017-03-05');   // 民國 106 = 西元 2017，差 1911 年
+
+  const row = await firstMember(page);
+  expect(row.name).toBe('小豆子');
+  expect(row.idLast4).toBe('1234');
+  expect(row.nameKind).toBe('nickname');
+  // 隊長本來就是那個閘門，不必再自己同意一次
+  expect(row.status).toBe('approved');
+  expect(row.source).toBe('coach');
+  // 帶了 guardianUid 的話那位家長就能改這一筆（rules R68）
+  expect(row.guardianUid).toBeNull();
+});
+
+test('⭐ 超齡的孩子當場被擋，而且說得出門檻是哪一天 @register @youth', async ({ page }) => {
+  // 規章第十八條第 3 款：冒名頂替停止**整隊**資格。
+  // 超齡多半不是故意的，在報名當下擋掉比在比賽當天被檢錄員抓到好得多。
+  await stub(page, base(), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+
+  // 學童中年級限 2016-09-01（民國 105/9/1）以後出生
+  await fillPlayer(page, { y: '105', m: '8', d: '31' });
+
+  await expect(page.locator('.reg__hint--err')).toContainText('民國 105 年 9 月 1 日');
+  expect(await firstMember(page)).toBeNull();
+});
+
+test('門檻當天出生可以報（規章的「以後」含當日）@register @youth', async ({ page }) => {
+  await stub(page, base(), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+
+  await fillPlayer(page, { y: '105', m: '9', d: '1' });
+
+  await expect.poll(async () => (await firstMember(page))?.birthDate ?? null,
+    { timeout: 10_000 }).toBe('2016-09-01');
+});
+
+test('⭐ 身分證後四碼沒填就不能送（檢錄唯一能核對的東西）@register @youth', async ({ page }) => {
+  await stub(page, base(), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+
+  await fillPlayer(page, { id4: '', no: '' });
+
+  await expect(page.locator('.reg__hint--err')).toContainText('後四碼');
+  expect(await firstMember(page)).toBeNull();
+});
+
+test('名單上用民國年與後四碼顯示（檢錄拿證件對的就是這兩個）@register @youth', async ({ page }) => {
+  await stub(page, base({
+    members: member('m-1', {
+      status: 'approved', source: 'coach', name: '小豆子', nameKind: 'nickname',
+      birthDate: '2017-03-05', idLast4: '1234', guardianUid: null
+    })
+  }), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+
+  const row = page.locator('.reg__member').first();
+  await expect(row).toContainText('106/03/05');
+  await expect(row).toContainText('末四碼 1234');
+});
+
+test('⭐ 教練改得動自己填的，改不動家長送來的 @register @youth', async ({ page }) => {
+  await stub(page, base({
+    members: {
+      ...member('m-coach', {
+        status: 'approved', source: 'coach', name: '小豆子', nameKind: 'nickname', guardianUid: null
+      }),
+      ...member('m-parent', { status: 'approved', source: 'guardian', name: '王小明' })
+    }
+  }), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+
+  // 兩筆都在名單上，但只有教練自己填的那筆有「修改」
+  await expect(page.locator('.reg__member')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /^修改$/ })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /^移除$/ })).toHaveCount(2);
+});
+
+test('⭐ 名單凍結後不能再增減 @register @youth', async ({ page }) => {
+  await stub(page, base({ teamOver: { status: 'submitted' } }), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+
+  await expect(page.locator('.reg')).toContainText('名單已經送審凍結');
+  await expect(page.getByRole('button', { name: /新增一位球員/ })).toHaveCount(0);
+});
+
+test('名單上看得到規章的人數上限 @register @youth', async ({ page }) => {
+  await stub(page, base(), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+  await expect(page.locator('.reg')).toContainText('球員 0 / 15');
+  await expect(page.locator('.reg')).toContainText('隊職員 0 / 3');
+});
+
+test('隊職員不必填生日與後四碼（他們不上場）@register @youth', async ({ page }) => {
+  await stub(page, base(), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+
+  await page.getByRole('button', { name: /新增一位球員/ }).click();
+  await page.locator('#m-kind').selectOption('coach');
+  await page.locator('#m-name').fill('林教練');
+  await expect(page.locator('#m-birth')).toHaveCount(0);
+  await expect(page.locator('#m-id4')).toHaveCount(0);
+  await page.getByRole('button', { name: /加入名單/ }).click();
+
+  await expect.poll(async () => (await firstMember(page))?.kind ?? null,
+    { timeout: 10_000 }).toBe('coach');
 });
 
 test('⭐ 320px 不出現橫向捲軸（邀請碼與名單列最容易撐破）@register @narrow', async ({ page }) => {

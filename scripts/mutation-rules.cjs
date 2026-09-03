@@ -22,8 +22,8 @@ const MUTANTS = [
   {
     name: 'RU#2 角色白名單含 super_admin（介面就能造出第二個大總管）',
     file: F,
-    from: `          && d.roles.hasOnly(['scorer', 'referee', 'booth', 'admin']);`,
-    to: `          && d.roles.hasOnly(['scorer', 'referee', 'booth', 'admin', 'super_admin']);`
+    from: `          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin']);`,
+    to: `          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin', 'super_admin']);`
   },
   {
     name: 'RU#3 報名設定讀不到就當開著（fail-open）',
@@ -65,9 +65,9 @@ const MUTANTS = [
   {
     name: 'RU#8 加入申請不強制 pending（申請人自己核准自己）',
     file: F,
-    from: `                        && request.resource.data.status == 'pending'
-                        && regOpen()`,
-    to: `                        && regOpen()`
+    from: `                             ( request.resource.data.get('guardianUid', '') == uid()
+                               && request.resource.data.status == 'pending' )`,
+    to: `                             ( request.resource.data.get('guardianUid', '') == uid() )`
   },
   {
     name: 'RU#9 名單可以刪除（移除應該是改 status，不是刪文件）',
@@ -79,7 +79,7 @@ const MUTANTS = [
   {
     name: 'RU#10 名單開放給所有登入者讀（生日與身分證後四碼在這份文件上）',
     file: F,
-    from: `          allow read: if isScorer()
+    from: `          allow read: if isCheckin()
                       || isCaptainOf(teamId)
                       || (isAuth() && resource.data.get('guardianUid', '') == uid());`,
     to: `          allow read: if isAuth();`
@@ -97,7 +97,100 @@ const MUTANTS = [
             || (from == 'submitted' && to in ['submitted', 'draft'])`,
     to: `        return (from == 'draft'     && to in ['draft', 'submitted'])
             || (from == 'submitted' && to in ['submitted', 'draft', 'approved'])`
-  }
+  },
+  {
+    name: 'RU#13 教練直接新增不檢查是不是隊長（任何人都能塞人進別人的名單）',
+    file: F,
+    from: `                             || ( isCaptainOf(teamId) && coachAddedMemberOk() )`,
+    to: `                             || ( isAuth() && coachAddedMemberOk() )`
+  },
+  {
+    name: 'RU#14 教練新增的那筆不檢查 addedBy（可冒他人名義新增）',
+    file: F,
+    from: `            && request.resource.data.get('addedBy', '') == uid()`,
+    to: ``
+  },
+  {
+    name: 'RU#15 教練新增的那筆允許帶 guardianUid（那位家長就能改這筆）',
+    file: F,
+    from: `            && request.resource.data.get('guardianUid', null) == null;`,
+    to: `            ;`
+  },
+  {
+    name: 'RU#16 隊長改得動家長填的內容（不再只能同意／婉拒）',
+    file: F,
+    from: `        return resource.data.get('source', '') == 'coach'
+            && !rosterFrozen(tid)`,
+    to: `        return !rosterFrozen(tid)`
+  },
+  {
+    name: 'RU#17 編輯順手改得動 status（removed 的人可以被放回名單）',
+    file: F,
+    from: `            && unchanged('status')
+            && onlyChanged(['name', 'birthDate', 'idLast4', 'jerseyNo',`,
+    to: `            && onlyChanged(['status', 'name', 'birthDate', 'idLast4', 'jerseyNo',`
+  },
+  {
+    name: 'RU#18 名單凍結後隊長還能編輯自己填的那幾筆',
+    file: F,
+    from: `      function coachMemberEditOk(tid) {
+        return resource.data.get('source', '') == 'coach'
+            && !rosterFrozen(tid)`,
+    to: `      function coachMemberEditOk(tid) {
+        return resource.data.get('source', '') == 'coach'`
+  },
+  {
+    name: 'RU#19 檢錄併進 isScorer（每個檢錄志工都能改比分）',
+    file: F,
+    from: `    function isScorer()     { return myRoles().hasAny(['admin', 'super_admin',
+                                                        'scorer', 'referee']); }`,
+    to: `    function isScorer()     { return myRoles().hasAny(['admin', 'super_admin',
+                                                        'scorer', 'referee', 'checkin']); }`
+  },
+  {
+    name: 'RU#20 檢錄不檢查 scannedBy 是自己（可冒名記檢錄）',
+    file: F,
+    from: `        allow create: if isCheckin()
+                      && request.resource.data.scannedBy == uid()`,
+    to: `        allow create: if isCheckin()`
+  },
+  {
+    name: 'RU#21 檢錄文件 id 可以自訂（同場同人會出現兩筆結果不同的紀錄）',
+    file: F,
+    from: `                      && checkinId == request.resource.data.matchId + '__'
+                                      + request.resource.data.memberId;`,
+    to: `                      ;`
+  },
+  {
+    name: 'RU#22 檢錄紀錄可以刪除（誰放行了誰查不到）',
+    file: F,
+    from: `        allow update: if isAdmin()
+                      || ( isCheckin()
+                           && onlyChanged(['result', 'failReason', 'note',
+                                           'method', 'scannedBy', 'scannedAt', 'syncedAt'])
+                           && request.resource.data.scannedBy == uid() );
+        allow delete: if false;
+      }
+
+      match /venues/{venueId} {`,
+    to: `        allow update: if isAdmin()
+                      || ( isCheckin()
+                           && onlyChanged(['result', 'failReason', 'note',
+                                           'method', 'scannedBy', 'scannedAt', 'syncedAt'])
+                           && request.resource.data.scannedBy == uid() );
+        allow delete: if isCheckin();
+      }
+
+      match /venues/{venueId} {`
+  },
+  {
+    name: 'RU#23 檢錄修改的欄位白名單放行 memberId（等於偽造另一筆）',
+    file: F,
+    from: `                           && onlyChanged(['result', 'failReason', 'note',
+                                           'method', 'scannedBy', 'scannedAt', 'syncedAt'])`,
+    to: `                           && onlyChanged(['result', 'failReason', 'note', 'memberId', 'matchId',
+                                           'method', 'scannedBy', 'scannedAt', 'syncedAt'])`
+  },
 ];
 
 process.exit(runMutants({

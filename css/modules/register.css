@@ -108,6 +108,17 @@
   outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);
 }
 
+/* 民國年生日：三格數字。窄機也要一列排得下，所以每格用 flex 而不是固定寬 */
+.reg__form{display:flex;flex-direction:column;gap:var(--sp-3)}
+.reg__rocRow{display:flex;gap:var(--sp-2);align-items:center}
+.reg__rocPart{display:flex;align-items:center;gap:4px;flex:1 1 0;min-width:0}
+.reg__rocInput{
+  flex:1 1 auto;min-width:0;text-align:center;
+  font-family:var(--font-num);letter-spacing:.04em;
+}
+.reg__rocUnit{flex:none;font-size:var(--fs-sm);color:var(--text-secondary)}
+.reg__hint--err{color:var(--danger)}
+
 .reg__codeRow{display:flex;gap:var(--sp-2);align-items:stretch}
 .reg__codeInput{
   flex:1 1 auto;min-width:0;

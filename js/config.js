@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20260903a';
+export const CACHE_VERSION = '0.20260903b';
 
 /** 本次活動。未來要辦第二場時，這裡改成從路由或設定讀取。 */
 export const EVENT_ID = 'feda-cup-2026';
@@ -53,7 +53,7 @@ export const PERIODS = ['pre', 'h1', 'ht', 'h2', 'et1', 'et2', 'pk', 'ft'];
  *    「角色 × 指派範圍（場地／組別）」的交集，壓不成一條線
  *    （R-RULES-002）。level 在這裡只用來排序與顯示，**不用來判權限**。
  *
- * 2. **多出三個賽務角色**：scorer／referee／booth。
+ * 2. **多出四個賽務角色**：scorer／referee／checkin／booth。
  *    FC 沒有這些（它不辦賽事）。level 插在 captain(2) 與 admin(4) 之間，
  *    對接時 FC 端看到會落在「比領隊高、比管理員低」，語意是對的。
  *
@@ -72,6 +72,7 @@ export const ROLE_INFO = {
   // ── 賽事營運專用（FC 沒有）──
   scorer:      { level: 2.4, label: '記錄員',   fc: false },
   referee:     { level: 2.6, label: '裁判',     fc: false },
+  checkin:     { level: 2.3, label: '檢錄員',   fc: false },
   booth:       { level: 2.2, label: '挑戰攤位', fc: false }
 };
 

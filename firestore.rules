@@ -38,6 +38,12 @@ service cloud.firestore {
     function isScorer()     { return myRoles().hasAny(['admin', 'super_admin',
                                                         'scorer', 'referee']); }
     function isBooth()      { return myRoles().hasAny(['admin', 'super_admin', 'booth']); }
+    // 檢錄員（2026-09-03 新增）。現場檢錄多半交給志工，權限給最小的那一份：
+    // 只寫得了 checkins，記分、完賽、改判一律不行。
+    // ⚠️ 不要寫成 isScorer() || myRoles().hasAny(['checkin'])——那是 R-RULES-001
+    //    禁止的巢狀鏈。一律從 myRoles() 攤平列出來。
+    function isCheckin()    { return myRoles().hasAny(['admin', 'super_admin',
+                                                        'scorer', 'referee', 'checkin']); }
 
     // ── 指派範圍 ─────────────────────────────────────────────
     // 只有非 admin 才會走到 myAssignment()，此時 staff 文件必定存在
@@ -72,7 +78,7 @@ service cloud.firestore {
     // 走的是 Admin SDK，不經過 rules。
     function staffRolesAssignable(d) {
       return d.roles is list && d.roles.size() > 0
-          && d.roles.hasOnly(['scorer', 'referee', 'booth', 'admin']);
+          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin']);
     }
 
     // ── Demo 自助身分（見下方 match /staff/{u} 的說明）─────────
@@ -95,7 +101,7 @@ service cloud.firestore {
         //    admin 在 demo 上是必要的——覆核完賽、退回報名這些流程要測得到，
         //    而這一整段本來就只在 config/env.allowSelfServeStaff 為真的專案生效，
         //    正式專案沒有那份文件。
-        && d.roles.hasOnly(['scorer', 'referee', 'booth', 'admin']);
+        && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin']);
     }
 
     // ── 欄位控制 ─────────────────────────────────────────────
@@ -180,6 +186,32 @@ service cloud.firestore {
             || from == to;
       }
 
+      // 隊長（球隊負責人）直接新增名單。學童三組走這條，不走邀請碼：
+      // 小球員沒有 LINE 帳號，家長也不見得會操作（主辦 2026-09-03 指定）。
+      //
+      // 這條路**不限組別**——隊長本來就能核准任何一筆申請，直接新增
+      // 不會多給他任何權限，只是少繞一圈。哪一組要用邀請碼、哪一組
+      // 由教練自己填，是介面的事，不是權限邊界。
+      //
+      // `source == 'coach'` 不只是標記：下面的 coachMemberEditOk() 靠它
+      // 判斷「這筆是不是隊長自己填的」。家長送的那幾筆隊長只能同意或
+      // 婉拒，不能改人家填的內容。
+      function coachAddedMemberOk() {
+        return request.resource.data.get('source', '') == 'coach'
+            && request.resource.data.get('addedBy', '') == uid()
+            && request.resource.data.status == 'approved'
+            && request.resource.data.get('guardianUid', null) == null;
+      }
+
+      // 隊長改自己填的那幾筆。改別人（家長）填的一律擋掉。
+      function coachMemberEditOk(tid) {
+        return resource.data.get('source', '') == 'coach'
+            && !rosterFrozen(tid)
+            && unchanged('status')
+            && onlyChanged(['name', 'birthDate', 'idLast4', 'jerseyNo',
+                            'position', 'kind', 'role', 'note', 'updatedAt']);
+      }
+
       // 家長／本人：申請還沒被決定之前可以修正自己填的資料，
       // 但**不能自己把 status 改成 approved**——那就等於不用隊長同意了。
       function guardianMemberPatchOk() {
@@ -261,7 +293,12 @@ service cloud.firestore {
 
         // 完整名單（生日、身分證後四碼）：賽務以上、該隊隊長、以及自己報的那一筆
         match /members/{memberId} {
-          allow read: if isScorer()
+          // ⚠️ 檢錄員讀得到這裡，因為**生日與身分證後四碼只存在這一份文件上**。
+          //    公開的 roster 投影一個都沒有（ROSTER_FIELDS 白名單），
+          //    而檢錄當天要拿證件跟這兩格核對。
+          //    isCheckin() 已含 scorer／referee／admin，不要再串 isScorer()
+          //    ——那是 R-RULES-001 禁止的巢狀鏈。
+          allow read: if isCheckin()
                       || isCaptainOf(teamId)
                       || (isAuth() && resource.data.get('guardianUid', '') == uid());
 
@@ -272,13 +309,19 @@ service cloud.firestore {
           //    rules 查不到「有沒有另一筆 guardianUid 相同且 pending 的文件」。
           //    那一條由 Function 與介面把關；rules 守的是真正的權限邊界。
           allow create: if isAuth()
-                        && request.resource.data.guardianUid == uid()
-                        && request.resource.data.status == 'pending'
                         && regOpen()
-                        && !rosterFrozen(teamId);
+                        && !rosterFrozen(teamId)
+                        && (
+                             // (A) 家長／本人用邀請碼申請 → 一定是 pending
+                             ( request.resource.data.get('guardianUid', '') == uid()
+                               && request.resource.data.status == 'pending' )
+                             // (B) 隊長直接新增（學童組的流程）→ 直接進名單
+                             || ( isCaptainOf(teamId) && coachAddedMemberOk() )
+                           );
 
           allow update: if isAdmin()
                         || ( isCaptainOf(teamId) && captainMemberPatchOk(teamId) )
+                        || ( isCaptainOf(teamId) && coachMemberEditOk(teamId) )
                         || ( isAuth()
                              && resource.data.get('guardianUid', '') == uid()
                              && resource.data.status == 'pending'
@@ -381,12 +424,18 @@ service cloud.firestore {
 
       // ── 檢錄：doc id = matchId__memberId，天然防重複 ──
       match /checkins/{checkinId} {
-        allow read:   if isScorer() || isAdmin();
-        allow create: if isScorer()
+        allow read:   if isCheckin();
+        allow create: if isCheckin()
                       && request.resource.data.scannedBy == uid()
                       && checkinId == request.resource.data.matchId + '__'
                                       + request.resource.data.memberId;
-        allow update: if isAdmin();
+        // 勾錯了要改得回來（學童組是用眼睛核對證件，不是掃碼）。
+        // 只放行結果與備註，matchId／memberId 換掉就等於偽造另一筆。
+        allow update: if isAdmin()
+                      || ( isCheckin()
+                           && onlyChanged(['result', 'failReason', 'note',
+                                           'method', 'scannedBy', 'scannedAt', 'syncedAt'])
+                           && request.resource.data.scannedBy == uid() );
         allow delete: if false;
       }
 

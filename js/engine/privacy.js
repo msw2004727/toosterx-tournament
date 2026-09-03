@@ -77,10 +77,21 @@ function parseYmd(v) {
  * ⚠️ 判斷依據是**年齡**，不是組別。把 divisionId 寫死（`if (id === 'u10')`）
  *    在兩件事上會錯：兒童組偶爾有超齡的隨隊職員，而成人組也可能有
  *    未滿 13 歲的球員（規程沒有禁止）。年齡才是規格說的那條線。
+ *
+ * **例外：`nameKind === 'nickname'` 不遮。**
+ * 學童三組由教練直接建立名單，那一格填的本來就是暱稱不是真名
+ * （主辦 2026-09-03 指定，系統從頭到尾沒有存過那個孩子的全名）。
+ * 再遮一次會把「小豆子」變成「小豆＊」——遮不到任何個資，
+ * 只會讓家長以為系統把孩子的名字打錯了，然後打電話問主辦。
+ *
+ * ⚠️ 這個例外靠的是**寫入端**：`addMemberByCoach()` 才會寫 nameKind:'nickname'，
+ *    而它同時強制 source:'coach'。家長自己填的那條路（applyMember）
+ *    不會帶這個欄位，所以仍然照年齡遮。
  */
 export function publicDisplayName(member, asOf, threshold = MASK_AGE) {
-  const name = member?.displayName ?? member?.name ?? '';
-  return isMinor(member?.birthDate, asOf, threshold) ? maskName(name) : String(name);
+  const name = String(member?.displayName ?? member?.name ?? '');
+  if (member?.nameKind === 'nickname') return name;
+  return isMinor(member?.birthDate, asOf, threshold) ? maskName(name) : name;
 }
 
 /**

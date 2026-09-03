@@ -190,3 +190,110 @@
 @media (min-width:840px){
   .live,.staff,.sheetpage{max-width:720px;margin:0 auto}
 }
+
+/* ══════════════════════════════════════════════════════════════
+   檢錄台（js/modules/staff/checkin.js）
+   ------------------------------------------------------------------
+   規章第十八條第 3 款：賽前 30 分鐘檢錄，冒名頂替停止整隊資格。
+   學童組是用眼睛核對證件，不掃碼——所以「生日」與「末四碼」
+   必須是這一頁最好讀的兩格：等寬字、固定位置、對比夠。
+   R-UI-006：320px 也要一列排得下號碼、姓名、兩格核對值。
+   ══════════════════════════════════════════════════════════════ */
+.chk{
+  max-width:var(--page-max);margin:0 auto;width:100%;
+  padding:var(--sp-3) var(--sp-3) calc(var(--sp-8) + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;gap:var(--sp-3);
+}
+
+.chk__head{display:flex;align-items:center;gap:var(--sp-2);min-width:0}
+.chk__back{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  min-width:var(--tap);min-height:var(--tap);color:var(--text-primary);
+}
+.chk__headText{display:flex;flex-direction:column;min-width:0}
+.chk__headText strong{font-size:var(--fs-lg);color:var(--text-primary)}
+.chk__headSub{
+  font-size:var(--fs-xs);color:var(--text-secondary);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
+.chk__tabs{display:flex;gap:var(--sp-2)}
+.chk__tab{
+  flex:1 1 0;min-width:0;min-height:var(--tap);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:var(--sp-2);border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--bg-card);color:var(--text-secondary);font-family:inherit;
+}
+.chk__tab.is-on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+.chk__tabName{
+  font-size:var(--fs-sm);max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.chk__tabCount{font-family:var(--font-num);font-size:var(--fs-xs)}
+
+.chk__guide{
+  display:flex;align-items:flex-start;gap:var(--sp-2);
+  font-size:var(--fs-sm);line-height:1.6;
+  background:var(--info-bg);color:var(--info);
+  padding:var(--sp-3);border-radius:var(--r-sm);
+}
+
+.chk__list{display:flex;flex-direction:column;gap:var(--sp-2);margin:0;padding:0;list-style:none}
+.chk__row{
+  display:flex;align-items:center;gap:var(--sp-2);
+  padding:var(--sp-2) var(--sp-3);
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-sm);
+}
+.chk__row.is-present{border-color:var(--success);background:var(--ok-bg)}
+.chk__row.is-failed{border-color:var(--danger);background:var(--danger-bg)}
+
+/* 整列都可以點：現場戴手套或手忙時，只戳得到勾選框會很痛苦 */
+.chk__pick{
+  display:flex;align-items:center;gap:var(--sp-3);
+  flex:1 1 auto;min-width:0;min-height:var(--tap);cursor:pointer;
+}
+.chk__box{width:24px;height:24px;flex:none;accent-color:var(--success)}
+.chk__no{
+  flex:none;min-width:2.2em;text-align:center;
+  font-family:var(--font-num);font-size:var(--fs-lg);color:var(--text-primary);
+}
+.chk__info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.chk__name{
+  font-size:var(--fs-md);color:var(--text-primary);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.chk__verify{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px var(--sp-2)}
+.chk__vLabel{font-size:var(--fs-xs);color:var(--text-muted)}
+.chk__vValue{
+  font-family:var(--font-num);font-size:var(--fs-sm);
+  color:var(--text-primary);letter-spacing:.06em;
+}
+
+.chk__footer{
+  position:sticky;bottom:0;
+  display:flex;flex-direction:column;gap:var(--sp-2);
+  padding:var(--sp-3) 0 calc(var(--sp-2) + env(safe-area-inset-bottom));
+  background:var(--bg-root);border-top:1px solid var(--border);
+}
+.chk__tally{font-size:var(--fs-sm);color:var(--text-secondary)}
+.chk__tally strong{font-size:var(--fs-lg);color:var(--text-primary)}
+.chk__warn{font-size:var(--fs-sm);color:var(--warn-text)}
+
+.chk__empty{
+  padding:var(--sp-6) var(--sp-3);text-align:center;
+  font-size:var(--fs-sm);color:var(--text-secondary);line-height:1.7;
+}
+.chk__deny{
+  display:flex;flex-direction:column;gap:var(--sp-3);align-items:flex-start;
+  padding:var(--sp-4);background:var(--warn-bg);color:var(--warn-text);
+  border:1px solid var(--warn-border);border-radius:var(--r-md);
+}
+
+@media (max-width:359px){
+  .chk{padding-left:var(--sp-2);padding-right:var(--sp-2)}
+  .chk__pick{gap:var(--sp-2)}
+  .chk__no{min-width:1.8em;font-size:var(--fs-md)}
+  /* 窄機把「有問題」換到下一行，否則姓名會被擠成兩個字 */
+  .chk__row{flex-wrap:wrap}
+  .chk__row > .btn{flex:1 1 100%}
+}

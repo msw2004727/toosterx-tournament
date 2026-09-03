@@ -10,7 +10,7 @@
  */
 
 import { berger, snakeSeed, groupLabel } from '../../js/engine/berger.js';
-import { FORMATS, RANKING_RULES, DIVISIONS, STAGE_CODE } from '../../js/engine/formats.js';
+import { FORMATS, RANKING_RULES, DIVISIONS, STAGE_CODE, REGISTRATION_LIMITS } from '../../js/engine/formats.js';
 import { rosterProjection } from '../../js/engine/privacy.js';
 
 const EVENT_ID = 'feda-cup-2026';
@@ -61,6 +61,30 @@ const STAFF_ROLES_9 = [['coach', '總教練'], ['manager', '領隊'], ['medic', 
 
 // 兒童組驗齡基準（2026/1/1）
 const BIRTH_YEAR = { u6: 2020, u8: 2018, u10: 2016, women: 1998, 'adult-fun': 1995, 'adult-open': 1996 };
+
+/**
+ * 學童組的生日必須**符合競賽規章第十一條的門檻**。
+ *
+ * 第一版是 `${birthYear}-0${1+(p%9)}-...`，對 u10 會產出 2016-01 ~ 2016-09，
+ * 而門檻是 2016-09-01——種子資料裡每一個中年級球員都是超齡的。
+ * 種子資料違反規章比沒有種子更糟：它會讓人以為資格檢查沒有生效。
+ *
+ * 這裡從門檻當天往後推，散在門檻之後的兩年內。
+ */
+function youthBirthDate(division, i) {
+  const from = division?.eligibility?.bornOnOrAfter;
+  if (!from) return null;
+  const [y, m, d] = from.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  t.setUTCDate(t.getUTCDate() + (i * 37) % 700);      // 門檻後 0–700 天
+  return t.toISOString().slice(0, 10);
+}
+
+/** 學童組公開端只顯示暱稱（R-PRIV-002），種子資料也照這個走 */
+const NICKNAMES = [
+  '小豆子', '阿光', '小虎', '球球', '小飛', '阿寶', '小杰', '毛毛',
+  '小樹', '阿丘', '小恩', '波波', '小魚', '阿凱', '小葉', '咪咪'
+];
 
 // ─── 場地 ─────────────────────────────────────────────────────────
 const VENUES = [
@@ -227,17 +251,22 @@ function buildTeams(rng) {
         const jerseyNo = p + 1;
         const pos = positions[p % positions.length];
         const birthYear = BIRTH_YEAR[div.divisionId] - (isYouth ? 0 : (p % 12));
+        // 學童組：教練直接建名單，只填暱稱＋後四碼＋生日，不收真名（R-PRIV-002）
+        const youthBirth = youthBirthDate(div, teamSeq * 7 + p);
         members.push({
           _teamId: teamId,
           memberId, teamId, eventId: EVENT_ID, divisionId: div.divisionId,
-          role: 'player',
-          name: `${pick(rng, SURNAMES)}${given}`,
+          role: 'player', kind: 'player',
+          name: isYouth ? NICKNAMES[(teamSeq * 5 + p) % NICKNAMES.length] : `${pick(rng, SURNAMES)}${given}`,
+          nameKind: isYouth ? 'nickname' : 'legal',
+          status: 'approved',
+          source: isYouth ? 'coach' : 'guardian',
           jerseyNo, position: pos,
           isCaptain: p === 6 % playerCount,
           isGoalkeeper: pos === 'GK',
           photoUrl: null,
           birthYear,
-          birthDate: `${birthYear}-0${1 + (p % 9)}-1${p % 9}`,
+          birthDate: isYouth ? youthBirth : `${birthYear}-0${1 + (p % 9)}-1${p % 9}`,
           idLast4: String(1000 + ((teamSeq * 17 + p * 13) % 9000)),
           guardianConsent: isYouth,
           guardianName: isYouth ? `${pick(rng, SURNAMES)}${pick(rng, GIVEN)}` : null,
@@ -253,8 +282,11 @@ function buildTeams(rng) {
         members.push({
           _teamId: teamId,
           memberId, teamId, eventId: EVENT_ID, divisionId: div.divisionId,
-          role,
+          role, kind: role,
           name: `${pick(rng, SURNAMES)}${label}`,
+          nameKind: 'legal',
+          status: 'approved',
+          source: isYouth ? 'coach' : 'guardian',
           jerseyNo: null, position: null,
           isCaptain: false, isGoalkeeper: false,
           photoUrl: null,
@@ -450,13 +482,19 @@ export function buildSeed({ seed = 20261009 } = {}) {
   // ⚠️ closesAt 尚未定案（docs/10 §9 待補 #1），先留 null＝不設截止。
   //    firestore.rules 讀不到這份文件時一律視為關閉（fail-closed），
   //    所以少了它報名不會意外開著，只會打不開。
+  // 上限照競賽規章第十二條。日期由 scripts/set-registration.mjs 設定
+  // （closesAt 必須是 Timestamp，在 Console 用字串填會讓報名安靜地打不開）。
   add('config/registration', {
     open: false,
     opensAt: null,
     closesAt: null,
     maxTeamsPerAccount: 3,
-    minMembers: null, maxMembers: null,
-    note: '報名截止日待主辦決定後填入 closesAt，並把 open 改成 true。'
+    minMembers: null,
+    maxMembers: REGISTRATION_LIMITS.maxPlayers,
+    maxStaff: REGISTRATION_LIMITS.maxStaff,
+    onePlayerOneTeam: REGISTRATION_LIMITS.onePlayerOneTeam,
+    fee: REGISTRATION_LIMITS.fee,
+    note: '人數與費用照競賽規章第十二條。報名日期用 scripts/set-registration.mjs 設定。'
   });
 
   for (const [role, v] of Object.entries(ROLE_PERMISSIONS)) add(`rolePermissions/${role}`, v);

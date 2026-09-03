@@ -170,8 +170,12 @@ export async function staffHome({ scope, view }) {
     return el('div', { class: 'toolbar' }, [
       el('button', {
         class: 'btn btn--lg', type: 'button',
-        onClick: () => toast('QR 檢錄在 M5 開放。目前可先用「出場名單」手動確認。', 'warn')
-      }, [...iconText('qr', '檢錄掃碼')]),
+        onClick: () => {
+          const m = pickCurrent(matches);
+          if (!m) return toast('目前沒有可管理的場次。', 'warn');
+          navigate(`/staff/checkin/${encodeURIComponent(m.matchId)}`);
+        }
+      }, [...iconText('list', '檢錄')]),
       el('button', {
         class: 'btn btn--lg', type: 'button',
         onClick: () => {

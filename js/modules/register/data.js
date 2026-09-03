@@ -50,6 +50,17 @@ export function registrationState(cfg, nowMs = Date.now()) {
 
 const toMs = v => (v?.toMillis ? v.toMillis() : typeof v === 'number' ? v : null);
 
+/** 單一組別設定。讀不到回 null——上層一律 fail-closed。 */
+export async function getDivision(divisionId) {
+  const { doc, getDoc } = sdk();
+  try {
+    const snap = await getDoc(doc(db(), 'events', EVENT_ID, 'divisions', String(divisionId || '')));
+    return snap.exists() ? { divisionId: snap.id, ...snap.data() } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getDivisions() {
   const { getDocs, query, orderBy, collection } = sdk();
   const snap = await getDocs(query(
@@ -160,6 +171,61 @@ export async function applyMember(teamId, { name, birthDate, idLast4, jerseyNo, 
     createdAt: serverTimestamp(), updatedAt: serverTimestamp()
   });
   return memberId;
+}
+
+/**
+ * 教練（球隊負責人）直接新增一位成員。
+ *
+ * 學童三組走這條，不走邀請碼（主辦 2026-09-03 指定）：小球員沒有 LINE
+ * 帳號，家長也不見得會操作。填的是**暱稱**、身分證後四碼、出生年月日，
+ * 檢錄當天由教練帶證件與大會名單核對。
+ *
+ * 與 applyMember() 的三個差別，每一個 firestore.rules 都在看（R65–R72）：
+ *   ・`status` 直接是 approved——隊長本來就是那個閘門，不必再自己同意一次
+ *   ・`source: 'coach'`＋`addedBy`——rules 靠它判斷「這筆是隊長自己填的」，
+ *     家長送來的那幾筆隊長只能同意或婉拒，不能改內容
+ *   ・**不寫 guardianUid**。寫了的話那位家長就能用「本人」的身分改這一筆
+ *
+ * @param {string} teamId
+ * @param {object} m { name, birthDate(西元 ISO), idLast4, jerseyNo, position, kind }
+ */
+export async function addMemberByCoach(teamId, { name, birthDate, idLast4, jerseyNo, position, kind }) {
+  const { doc, setDoc, serverTimestamp } = sdk();
+  const memberId = `m-${makeInviteCode().toLowerCase()}`;
+  await setDoc(doc(db(), 'events', EVENT_ID, 'teams', teamId, 'members', memberId), {
+    memberId,
+    guardianUid: null, addedBy: uid(), isSelf: false,
+    name,
+    // 暱稱不是真名，公開投影不必再遮一次（見 js/engine/privacy.js）
+    nameKind: 'nickname',
+    birthDate: birthDate || null,
+    idLast4: idLast4 || null,
+    jerseyNo: typeof jerseyNo === 'number' ? jerseyNo : null,
+    position: position || null,
+    kind: kind || 'player', role: kind || 'player',
+    status: 'approved',
+    appliedAt: serverTimestamp(), decidedAt: serverTimestamp(), decidedBy: uid(),
+    note: '',
+    // 由球隊負責人代填並負責，不是家長本人按的同意（docs/10 §1.3）
+    consent: { given: true, at: serverTimestamp(), byUid: uid(), by: 'teamLead' },
+    source: 'coach',
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+  });
+  return memberId;
+}
+
+/** 教練改自己填的那一筆。rules 只放行 source === 'coach' 的文件（R69）。 */
+export async function editMemberByCoach(teamId, memberId, { name, birthDate, idLast4, jerseyNo, position, kind }) {
+  const { doc, updateDoc, serverTimestamp } = sdk();
+  await updateDoc(doc(db(), 'events', EVENT_ID, 'teams', teamId, 'members', memberId), {
+    name,
+    birthDate: birthDate || null,
+    idLast4: idLast4 || null,
+    jerseyNo: typeof jerseyNo === 'number' ? jerseyNo : null,
+    position: position || null,
+    kind: kind || 'player', role: kind || 'player',
+    updatedAt: serverTimestamp()
+  });
 }
 
 export async function decideMember(teamId, memberId, status) {

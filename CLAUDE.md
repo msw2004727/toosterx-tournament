@@ -88,6 +88,9 @@ git push                 # 驗證過才上正式站
 | R-PWA-001 | `img/*.png` 由 `scripts/make-icons.mjs` 產生並**進版控**，CI 有 `--check`。manifest 指到不存在的圖示時 Chrome 不給安裝選項，而且**一個字都不印** |
 | R-NAV-001 | 公開端與報名端每一頁都要回得去首頁與「我的」（`js/core/appbar.js`）。少了它，建完隊的家長會以為球隊不見了 |
 | R-ROLE-001 | 角色代碼、階層、標籤與 FC-Football 對齊，權威在 `js/config.js` 的 `ROLE_INFO`。任何地方都不得再寫第二份角色標籤表 |
+| R-REG-001 | 組別的名稱、參賽資格、上場人數、比賽時間、用球、同分判定、棄權比分一律**照競賽規章**，權威在 `js/engine/formats.js`，`tests/unit/regulation-parity.test.js` 盯著。改這裡等於改規章 |
+| R-REG-002 | 民國年**只存在於畫面上**。資料庫與引擎一律西元 ISO `YYYY-MM-DD`，轉換走 `js/lib/roc.js`。兩種紀年混在同一個欄位差 1911 年，而且不會報錯 |
+| R-PRIV-002 | 未成年名單只存**暱稱＋身分證後四碼＋生日**，不存真名。檢錄靠後四碼與生日跟證件核對。`nameKind:'nickname'` 的顯示名不再遮蔽（遮暱稱遮不到個資，只會讓家長以為名字被打錯）|
 
 ## 不可協商的產品行為
 
@@ -161,7 +164,8 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 - [ ] M4-c   總管授權介面（指派 admin/scorer/referee/booth）
       ・目前走 `scripts/grant-super-admin.mjs`（Admin SDK，不經 rules）
 - [ ] M4-d   「我的球員」（需要 members 的 collectionGroup 索引與規則）
-- [ ] M6 檢錄＋Challenge　[ ] M7 彩排 → 上線
+- [x] M4-b④  依競賽規章校正設定＋未成年組教練管理名單＋檢錄台
+- [ ] M6 Challenge 挑戰系統　[ ] M7 彩排 → 上線
 
 ## 現在的狀態（2026-09-02，Claude Code 接手後已全數實跑）
 
@@ -170,11 +174,11 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 398 全綠（22 個 suite） |
-| `npm run test:mutation` | ✅ 68 / 68 全被抓到 |
-| `npm run test:e2e` | ✅ 300 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 112 全綠（含 R34–R64 報名與身分授權） |
-| `npm run test:mutation:rules` | ✅ 12 / 12 全被抓到 |
+| `npm run test:unit` | ✅ 474 全綠（25 個 suite） |
+| `npm run test:mutation` | ✅ 91 / 91 全被抓到 |
+| `npm run test:e2e` | ✅ 366 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:rules` | ✅ 137 全綠（含 R34–R72 報名、R73–R82 檢錄） |
+| `npm run test:mutation:rules` | ✅ 23 / 23 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
 | `npm run test:mutation:fn` | ✅ 16 / 16 全被抓到 |
 
@@ -242,6 +246,109 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 M4 報名與球隊管理，規格在 `docs/10-報名與球隊管理.md`（已定案，經三輪討論）。
 後端要等 Blaze 與 LIFF，但前端畫面可以先做。
+
+## 競賽規章（權威文件）
+
+主辦 2026-09-03 提供《FEDA CUP 2026｜飛達盃-競賽規章》。
+**設定檔的數字一律以規章為準**，`tests/unit/regulation-parity.test.js`
+把規章的值抄成常數盯著，設定一改就撞紅。
+
+| 條 | 內容 | 對應 |
+|---|---|---|
+| 十一 | 六個組別與參賽資格（學童三組 2020/2018/2016-09-01 以後出生）| `DIVISIONS[].eligibility` |
+| 十二 | 球員最多 15、隊職員 3（領隊/教練/管理各 1）、每人限報乙隊 | `REGISTRATION_LIMITS` |
+| 十五 | 上場人數：學童三組＋女子公開 5 人、男子兩組 9 人 | `playersOnField` |
+| 十七 | 用球：學童 4 號、其餘 5 號 | `ballSize` |
+| 十八-2 | 比賽時間 25／30 分鐘，**不分上、下半場** | `matchDurationMin`、`periods:1` |
+| 十八-3 | 賽前 30 分鐘檢錄，冒名頂替停止整隊資格 | 檢錄台 |
+| 十八-6 | 逾時 5 分鐘不出場**棄權論 0:2** | `DEFAULT_WALKOVER` |
+| 十八-8 | 當日 2 次（不同場）黃牌**不需停賽**、紅牌下一場可回復 | 引擎刻意**沒有**停賽邏輯 |
+| 十九 | 同分：對戰關係 → 正負球數 → 進球數 → 被進球數少 → 抽籤 | `RR_FEDA_2026` |
+
+### 三個容易誤判成缺陷的地方
+
+1. **引擎沒有累計停賽邏輯是對的。** 第十八條第 8 款明文「不需停賽一場」。
+2. **仁慈規則（比分封頂）已關閉。** 規章沒有這一條，是先前自己加的。
+   公開端顯示 7:0、實際 12:0，對家長來說是系統在騙他。
+3. **`drawLots` 不會擲骰子。** 規章第 5 順位是抽籤，但抽籤由主辦執行；
+   引擎只標記 `hasUnresolvedTie` 等人回填（R-ENG-004）。
+
+### 規章有、系統還沒有的
+
+每人限報乙隊的跨隊檢查、球員人數上限的伺服器端強制、
+申訴（賽後 30 分鐘＋保證金 2000）、眼鏡切結書、退費機制。
+
+## 未成年組報名與檢錄（M4-b④）
+
+主辦 2026-09-03 指定：學童三組**不走邀請碼、不掃碼檢錄**。
+
+```
+建立球隊 → 選學童組別 → 教練直接新增小球員（暱稱／後四碼／民國年生日）
+  → 送出報名（凍結）→ 當天教練帶證件到檢錄處
+  → 檢錄員核對「生日＋後四碼」→ 勾選確認出賽
+```
+
+**為什麼不走邀請碼**：小球員沒有 LINE 帳號，家長也不見得會操作。
+留一組沒有人用得到的邀請碼，只會讓教練一直等隊友來申請。
+
+**為什麼只存暱稱**：主辦決定不收未成年真名。系統從頭到尾沒有存過
+那個孩子的全名，檢錄能核對的就是「身分證後四碼＋出生年月日」——
+所以那兩格在學童組是**必填**，而且在檢錄台上要印得夠大。
+
+### 判斷「哪一組走教練模式」
+
+`isYouthDivision(division)` 看的是 **`eligibility.bornOnOrAfter != null`**，
+不是 divisionId。`if (divisionId === 'u10')` 在辦第二場時就會錯
+（專案本質是設定檔驅動）。變異 #R13 專門守這件事——
+只測現有六個組別抓不到寫死代碼，要測「代碼沒見過但有年齡門檻」的組別。
+
+### 民國年（R-REG-002）
+
+```
+js/lib/roc.js       rocToIso / isoToRoc / rocLabel / rocShort
+js/modules/register/bits.js  rocDateInput()：三格數字，對外回西元 ISO
+```
+
+不用 `<input type="date">`：原生選擇器是西元，家長手上的證件是民國年，
+每填一次要心算一次；三格數字鍵盤照著證件抄最快也最不會錯位。
+
+⚠️ `toInt()` 用嚴格正規表示式而不是 `Number()`。`Number('')` 是 0、
+`Number('0x69')` 是 105、`Number('1e2')` 是 100——民國年的範圍檢查（1–200）
+會把 0 接住，所以「空字串」那條測試在改用 `Number()` 之後照樣是綠的
+（變異 #R15 就是這樣逃掉的）。
+
+### 權限邊界
+
+| 誰 | 能做什麼 |
+|---|---|
+| 隊長（教練）| 新增／編輯／移除**自己填的**那幾筆（`source: 'coach'`）|
+| 隊長 | 家長送來的只能同意／婉拒，**改不動內容** |
+| 檢錄員 `checkin` | 寫 checkins、讀 members（生日與後四碼在那裡）|
+| 檢錄員 | **改不動比分、不能完賽、不能改判** |
+
+`source: 'coach'` 不只是標記——`coachMemberEditOk()` 靠它判斷這筆是不是
+隊長自己填的。R65–R72 共 10 條 rules 測試守著。
+
+## 檢錄台（js/modules/staff/checkin.js）
+
+```
+checkin.js          畫面（#/staff/checkin/:matchId）
+checkin-actions.js  純邏輯：建立紀錄、進度統計、開賽人數
+checkin-data.js     Firestore 存取（寫入一律經 sync.track）
+```
+
+三件不可協商：
+
+1. **勾選不 await Firestore 的 Promise**（R-UI-002）。離線時它永遠 pending，
+   檢錄員勾第一個人畫面就卡住。先更新本機狀態、立刻重畫，
+   真正的狀態交給 `sync.js` 的三態燈。
+2. **取消勾選是把 `result` 設成 null，不是刪文件。** rules 也不放行 delete——
+   「誰在幾點確認了誰出賽，後來又取消」整段都要留痕。
+3. **進度分母只算球員。** 把領隊教練算進去，「2 / 5」會讓檢錄員
+   一直找那三個不存在的小孩。
+
+⚠️ 檢錄讀的是 **`members`**（私密）不是公開的 `roster`：生日與身分證
+後四碼只存在 members 上，`ROSTER_FIELDS` 白名單刻意沒有它們。
 
 ## 角色與身分（與 FC-Football 對齊）
 

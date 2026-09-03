@@ -478,16 +478,16 @@ const MUTANTS = [
     from: `        && d.roles.size() > 0
         // ⚠️ **不含 super_admin**`,
     to: `        && d.roles.size() > 0
-        && d.roles.hasOnly(['scorer', 'referee', 'booth', 'admin', 'super_admin'])
+        && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin', 'super_admin'])
         // ⚠️ **不含 super_admin**`
   },
   {
     name: '#P32b 大總管可指派的角色包含 super_admin（大總管不再唯一）',
     file: 'firestore.rules',
     from: `      return d.roles is list && d.roles.size() > 0
-          && d.roles.hasOnly(['scorer', 'referee', 'booth', 'admin']);`,
+          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin']);`,
     to: `      return d.roles is list && d.roles.size() > 0
-          && d.roles.hasOnly(['scorer', 'referee', 'booth', 'admin', 'super_admin']);`
+          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin', 'super_admin']);`
   },
   {
     name: '#P33 介面提供了 rules 不放行的身分（選了才被擋，看起來像壞掉）',
@@ -512,7 +512,103 @@ const MUTANTS = [
     file: 'functions/line.js',
     from: `  if (payload.iss !== LINE_ISSUER) throw new Error(\`簽發者不是 LINE（iss=\${payload.iss}）\`);`,
     to: `  if (false) throw new Error('x');`
-  }
+  },
+  {
+    name: '#R10 年齡門檻用 > 而不是 >=（門檻當天出生的孩子被踢出組別）',
+    file: 'js/engine/eligibility.js',
+    from: `  if (before(b, l)) {`,
+    to: `  if (before(b, l) || (b.y === l.y && b.m === l.m && b.d === l.d)) {`
+  },
+  {
+    name: '#R11 沒填生日就放行（fail-open，超齡的孩子直接混進學童組）',
+    file: 'js/engine/eligibility.js',
+    from: `  if (!b) {
+    return { ok: false, code: 'BIRTHDATE_MISSING', message: '請填出生年月日（民國年）' };
+  }`,
+    to: `  if (!b) return OK;`
+  },
+  {
+    name: '#R12 學童組的身分證後四碼改成選填（檢錄當天沒有東西可核對）',
+    file: 'js/engine/eligibility.js',
+    from: `      const last4 = String(member?.idLast4 ?? '').trim();
+      if (!/^\\d{4}$/.test(last4)) errors.idLast4 = '請填身分證後四碼（4 個數字）';`,
+    to: ``
+  },
+  {
+    name: '#R13 「走不走教練模式」寫死 divisionId（辦第二場就會錯）',
+    file: 'js/engine/eligibility.js',
+    from: `export const isYouthDivision = division => division?.eligibility?.bornOnOrAfter != null;`,
+    to: `export const isYouthDivision = division => ['u6', 'u8', 'u10', 'youth'].includes(division?.divisionId);`
+  },
+  {
+    name: '#R14 球員與隊職員共用同一個人數上限',
+    file: 'js/engine/eligibility.js',
+    from: `  if (adding === 'player' && players >= limits.maxPlayers) {`,
+    to: `  if (list.length >= limits.maxPlayers) {`
+  },
+  {
+    name: '#R15 民國年轉換用 Number()（空字串變成民國 0 年）',
+    file: 'js/lib/roc.js',
+    from: `  const s = String(v ?? '').trim();
+  if (!/^\\d+$/.test(s)) return null;
+  return Number(s);`,
+    to: `  const n = Number(v);
+  return Number.isFinite(n) ? n : null;`
+  },
+  {
+    name: '#R16 民國年偏移寫成 1912（每個人的生日都差一年）',
+    file: 'js/lib/roc.js',
+    from: `export const ROC_OFFSET = 1911;`,
+    to: `export const ROC_OFFSET = 1912;`
+  },
+  {
+    name: '#R17 民國年不檢查日子是否存在（2/30 會被拼成一個假日期）',
+    file: 'js/lib/roc.js',
+    from: `  const probe = new Date(Date.UTC(ad, mo - 1, day));
+  if (probe.getUTCFullYear() !== ad || probe.getUTCMonth() !== mo - 1 || probe.getUTCDate() !== day) return null;`,
+    to: ``
+  },
+  {
+    name: '#R18 檢錄進度把隊職員算進分母（檢錄員會一直找不存在的人）',
+    file: 'js/modules/staff/checkin-actions.js',
+    from: `  const players = list.filter(isPlayer);`,
+    to: `  const players = list;`
+  },
+  {
+    name: '#R19 檢錄接受任意 result 值（存進奇怪的狀態）',
+    file: 'js/modules/staff/checkin-actions.js',
+    from: `    result: CHECKIN_RESULTS.includes(result) ? result : null,`,
+    to: `    result: result ?? null,`
+  },
+  {
+    name: '#R20 檢錄自己填時間戳（離線重放時時間就錯了，R-ENG-004）',
+    file: 'js/modules/staff/checkin-actions.js',
+    from: `    scannedBy: uid,`,
+    to: `    scannedBy: uid,
+    scannedAt: Date.now(),`
+  },
+  {
+    name: '#R21 開賽人數讀不到門檻就放行（人數不足默默開賽）',
+    file: 'js/modules/staff/checkin-actions.js',
+    from: `  if (typeof requiredMin !== 'number' || !Number.isFinite(requiredMin)) {
+    return { ready: false, reason: '讀不到開賽人數門檻，請找主辦確認' };
+  }`,
+    to: `  if (typeof requiredMin !== 'number' || !Number.isFinite(requiredMin)) {
+    return { ready: true, reason: '' };
+  }`
+  },
+  {
+    name: '#R22 暱稱也照年齡遮（小豆子 → 小豆＊，家長以為名字被打錯）',
+    file: 'js/engine/privacy.js',
+    from: `  if (member?.nameKind === 'nickname') return name;`,
+    to: ``
+  },
+  {
+    name: '#R23 用寬鬆比較判 nameKind（黑名單而不是白名單）',
+    file: 'js/engine/privacy.js',
+    from: `  if (member?.nameKind === 'nickname') return name;`,
+    to: `  if (member?.nameKind) return name;`
+  },
 ];
 
 process.exit(runMutants({

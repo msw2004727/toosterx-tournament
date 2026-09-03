@@ -50,6 +50,11 @@ export function registerStaffRoutes() {
   route('/staff/sheet/:matchId', page('../staff/sheet.js', m => m.matchSheetPage),
     { title: '出場名單', guard: requireStaff });
 
+  // 檢錄（規章第十八條第 3 款：賽前 30 分鐘）。守衛只擋到「有沒有登入」，
+  // 「是不是檢錄員」由頁面自己顯示原因——擋在路由層只會得到一個空白頁。
+  route('/staff/checkin/:matchId', page('../staff/checkin.js', m => m.checkinPage),
+    { title: '檢錄', guard: requireStaff });
+
   route('/staff/login', ({ view }) => {
     view.replaceChildren(loginView());
   }, { title: '工作人員登入' });

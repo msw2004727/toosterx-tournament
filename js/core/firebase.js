@@ -103,6 +103,13 @@ export function hasRole(...roles) {
 
 /** 賽務以上（可記分） */
 export const canScore = () => hasRole('scorer', 'referee', 'admin', 'super_admin');
+/**
+ * 可以做檢錄。
+ * 現場檢錄多半交給志工，所以 checkin 是一個**只能檢錄**的角色——
+ * 記分、完賽、改判一律不行。賽務與裁判本來就做得了檢錄，一併列上。
+ * 與 firestore.rules 的 isCheckin() 是同一份清單。
+ */
+export const canCheckin = () => hasRole('checkin', 'scorer', 'referee', 'admin', 'super_admin');
 // 覆核／稽核閱讀權原本屬於 venue_lead，2026-08-29 起併回 admin
 export const isLead   = () => hasRole('admin', 'super_admin');
 export const isAdmin  = () => hasRole('admin', 'super_admin');

@@ -60,6 +60,16 @@ async function seedMember(over = {}) {
   await asAdminSdk(env, db => setDoc(memberRef(db, over.memberId || 'm-1'), newMemberDoc(over)));
 }
 
+/** 教練（隊長）自己新增的小球員：沒有 guardianUid、直接 approved、source 是 coach */
+const coachMemberDoc = (over = {}) => ({
+  memberId: 'm-c1', guardianUid: null, addedBy: CAP, isSelf: false,
+  name: '小豆子', nameKind: 'nickname',
+  birthDate: '2017-03-05', idLast4: '1234',
+  jerseyNo: 9, kind: 'player', role: 'player', status: 'approved',
+  source: 'coach',
+  ...over
+});
+
 // ══════════════════════════════════════════════════════════════
 describe('R34–R39 身分授權（docs/10 §5.1）', () => {
   const staffRef = (db, u) => doc(db, 'staff', u);
@@ -319,5 +329,93 @@ describe('R55–R64 名單與加入申請（docs/10 §3.3／§4）', () => {
     await seedTeam({ status: 'submitted' });
     await assertFails(setDoc(memberRef(authed(env, PARENT), 'm-9'),
       newMemberDoc({ memberId: 'm-9' })));
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+describe('R65–R72 教練直接管理名單（學童組，主辦 2026-09-03 指定）', () => {
+  test('R65 ⭐ 隊長可以直接新增已核准的成員', async () => {
+    // 學童三組不走邀請碼：小球員沒有 LINE 帳號，家長也不見得會操作。
+    await seedTeam();
+    await assertSucceeds(setDoc(memberRef(authed(env, CAP), 'm-c1'), coachMemberDoc()));
+  });
+
+  test('R66 ⭐ 不是隊長就不能直接新增已核准的成員', async () => {
+    // 少了這一條，任何登入者知道 teamId 就能把人塞進別人的名單。
+    //
+    // ⚠️ addedBy **一定要填成送出者自己**，否則擋住這一筆的是
+    //    coachAddedMemberOk() 的 addedBy 檢查，不是 isCaptainOf——
+    //    兩道守衛互相遮蔽，把 isCaptainOf 整條拿掉測試照樣全綠（變異 RU#13）。
+    await seedTeam();
+    await assertFails(setDoc(memberRef(authed(env, PARENT), 'm-c1'),
+      coachMemberDoc({ addedBy: PARENT })));
+    await assertFails(setDoc(memberRef(authed(env, 'u-random'), 'm-c1'),
+      coachMemberDoc({ addedBy: 'u-random' })));
+  });
+
+  test('R67 ⭐ 直接新增的那筆必須標成 coach 且 addedBy 是自己', async () => {
+    // source 不只是標記：R69 靠它判斷「這筆是不是隊長自己填的」。
+    // 冒充成 coach 就能改到家長填的資料。
+    await seedTeam();
+    await assertFails(setDoc(memberRef(authed(env, CAP), 'm-c1'),
+      coachMemberDoc({ source: 'guardian' })));
+    await assertFails(setDoc(memberRef(authed(env, CAP), 'm-c1'),
+      coachMemberDoc({ addedBy: PARENT })));
+  });
+
+  test('R68 ⭐ 直接新增的那筆不可以帶 guardianUid', async () => {
+    // 帶了的話那位家長就能用「本人」的身分改這筆資料（guardianMemberPatchOk）
+    await seedTeam();
+    await assertFails(setDoc(memberRef(authed(env, CAP), 'm-c1'),
+      coachMemberDoc({ guardianUid: PARENT })));
+  });
+
+  test('R69 ⭐ 隊長改得動自己填的那幾筆', async () => {
+    await seedTeam();
+    await seedMember(coachMemberDoc());
+    await assertSucceeds(updateDoc(memberRef(authed(env, CAP), 'm-c1'), {
+      name: '小豆', birthDate: '2017-04-01', idLast4: '5678', jerseyNo: 10
+    }));
+  });
+
+  test('R69b ⭐ 但改不動家長填的那幾筆的內容', async () => {
+    // 隊長對家長送來的申請只能「同意」或「婉拒」，不能改人家填的資料
+    await seedTeam();
+    await seedMember();                                     // source: 'guardian'
+    await assertFails(updateDoc(memberRef(authed(env, CAP), 'm-1'), {
+      name: '被改掉的名字', idLast4: '9999'
+    }));
+  });
+
+  test('R70 ⭐ 隊長不能藉由編輯把 status 改掉', async () => {
+    // 編輯與狀態轉換是兩條不同的路。混在一起的話「改個背號」
+    // 就能順手把 removed 的人放回名單。
+    await seedTeam();
+    await seedMember(coachMemberDoc());
+    await assertFails(updateDoc(memberRef(authed(env, CAP), 'm-c1'), {
+      name: '小豆', status: 'pending'
+    }));
+  });
+
+  test('R70b 移除仍然走狀態轉換（approved → removed）', async () => {
+    await seedTeam();
+    await seedMember(coachMemberDoc());
+    await assertSucceeds(updateDoc(memberRef(authed(env, CAP), 'm-c1'), {
+      status: 'removed', decidedBy: CAP
+    }));
+  });
+
+  test('R71 ⭐ 名單凍結後隊長不能再新增或編輯', async () => {
+    await seedTeam({ status: 'submitted' });
+    await assertFails(setDoc(memberRef(authed(env, CAP), 'm-c2'), coachMemberDoc({ memberId: 'm-c2' })));
+
+    await asAdminSdk(env, db => setDoc(memberRef(db, 'm-c1'), coachMemberDoc()));
+    await assertFails(updateDoc(memberRef(authed(env, CAP), 'm-c1'), { name: '改不動' }));
+  });
+
+  test('R72 ⭐ 報名截止後隊長也不能再新增', async () => {
+    await openRegistration({ closesAt: Timestamp.fromMillis(Date.now() - 60_000) });
+    await seedTeam();
+    await assertFails(setDoc(memberRef(authed(env, CAP), 'm-c1'), coachMemberDoc()));
   });
 });
