@@ -115,6 +115,18 @@ test('⭐ 挑戰攤位只看得到挑戰區，看不到檢錄 @demo', async ({ p
   await expect(hub(page)).not.toContainText('檢錄');
 });
 
+test('⭐ 切換之後身分卡有名字，不是「沒有名稱」@demo', async ({ page }) => {
+  // 匿名的 demo 帳號沒有 users/{uid} 名錄，但 staff 文件上有名字。
+  // 少了那一層退回，身分卡會顯示「（沒有名稱）」——看起來像壞掉。
+  await stub(page);
+  await go(page);
+  await switchTo(page, '裁判');
+
+  const card = page.locator('.acct__card').first();
+  await expect(card).not.toContainText('沒有名稱');
+  await expect(card).toContainText('Demo 裁判');
+});
+
 test('切換身分的選單標出階層與 level @demo', async ({ page }) => {
   await stub(page);
   await go(page);

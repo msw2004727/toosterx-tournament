@@ -108,7 +108,11 @@ export async function myPage({ scope, view }) {
     const u = user();
     const s = staff();
     const roles = s?.active === true ? (s.roles || []) : [];
-    const name = state.profile?.displayName || u.displayName || '（沒有名稱）';
+    // 名稱的來源依序：users 名錄（LINE 登入的權威）→ Firebase user →
+    // staff 文件上的名字。最後這一段是給 demo 的匿名切換身分用的——
+    // 那條路沒有 users 文件，少了它身分卡會顯示「（沒有名稱）」，
+    // 看起來像壞掉，其實只是沒有名錄。
+    const name = state.profile?.displayName || u.displayName || s?.name || '（沒有名稱）';
     const photo = state.profile?.pictureUrl || u.photoURL || null;
 
     return el('section', { class: 'acct__card' }, [

@@ -144,6 +144,9 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      # 有些缺陷是畫面層的時序（切換身分沒重載權限、功能區沒依權限過濾），
+      # 純函式測不到。這一支只跑目標 spec 的單一寬度，每條約 5 秒。
+      - run: npm run test:mutation:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

@@ -116,6 +116,7 @@ npm run test:rules        R01–R31（見 docs/07 §2.4）
 npm run test:fn           結果管線 F01–F14（Emulator，見 docs/07 §3.1）
 npm run test:e2e          Playwright
 npm run test:mutation     引擎與前端的變異測試
+npm run test:mutation:e2e 畫面層時序的變異測試（只跑目標 spec，約 20 秒）
 npm run test:mutation:fn  結果管線的變異測試
 ```
 
@@ -182,9 +183,10 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 505 全綠（26 個 suite） |
-| `npm run test:mutation` | ✅ 98 / 98 全被抓到 |
-| `npm run test:e2e` | ✅ 408 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:unit` | ✅ 507 全綠（26 個 suite） |
+| `npm run test:mutation` | ✅ 101 / 101 全被抓到 |
+| `npm run test:mutation:e2e` | ✅ 3 / 3 全被抓到（畫面層時序） |
+| `npm run test:e2e` | ✅ 432 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 148 全綠（含 R34–R72 報名、R73–R82 檢錄、R83–R92 階層） |
 | `npm run test:mutation:rules` | ✅ 27 / 27 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
@@ -332,6 +334,23 @@ CI 跑 Linux，永遠不會重現。
 
 每人限報乙隊的跨隊檢查、球員人數上限的伺服器端強制、
 申訴（賽後 30 分鐘＋保證金 2000）、眼鏡切結書、退費機制。
+
+### 組別的兩個名字（R-REG-001）
+
+| divisionId | `name`（畫面）| `shortName` | `officialName`（規章）|
+|---|---|---|---|
+| u6 | U6兒童組 | U6 | 學童幼稚園 |
+| u8 | U8兒童組 | U8 | 學童低年級 |
+| u10 | U10兒童組 | U10 | 學童中年級 |
+| women | 女子組 | 女子 | 女子公開組 |
+| adult-fun | 成人興趣組 | 興趣 | 男子興趣組 |
+| adult-open | 成人公開組 | 公開 | 男子公開組 |
+
+📌 **規章原文沒有 U6/U8/U10 這種寫法**（官方 PDF 與 `docs/` 的轉錄本都查過）。
+U 制是主辦 2026-09-03 指定的顯示慣例。
+
+報名頁的組別列**兩個一起顯示**：只寫 U 制的話，家長拿著印「學童中年級」的
+報名表會對不上，而「我到底要報哪一組」是報名期間最常見的詢問。
 
 ## 未成年組報名與檢錄（M4-b④）
 
