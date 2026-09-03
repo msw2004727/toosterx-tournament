@@ -96,7 +96,9 @@ describe('T36-3 字典的衍生工具', () => {
   });
 
   test('topRole 取一組身分裡最高的那個', () => {
-    expect(topRole(['scorer', 'referee'])).toBe('referee');
+    // 主辦 2026-09-03 指定的順序：挑戰攤位 < 檢錄員 < 裁判 < 記錄員
+    expect(topRole(['referee', 'scorer'])).toBe('scorer');
+    expect(topRole(['booth', 'checkin'])).toBe('checkin');
     expect(topRole(['scorer', 'admin'])).toBe('admin');
     expect(topRole(['admin', 'super_admin'])).toBe('super_admin');
   });
@@ -117,8 +119,8 @@ describe('T36-3 字典的衍生工具', () => {
 
 describe('T36-4 刻意分歧的地方要留紀錄', () => {
   test('⭐ 這裡是 roles 陣列，不是 FC 的單一 role 字串', () => {
-    // 賽事現場一個人真的會同時是記錄員與裁判，而且權限是
-    // 「角色 × 指派範圍」的交集，壓不成 FC 那條線（R-RULES-002）。
+    // 現場一個人真的會同時是記錄員與裁判，而且賽務角色還有「指派場地」
+    // 這個維度，壓不成 FC 的單一字串。
     // 這一條沒有斷言可寫，用文件本身當證據：config.js 必須寫明這件事，
     // 免得下一個人以為是漏抄。
     // fileURLToPath：Windows 上 new URL().pathname 會是 /D:/…，
@@ -126,7 +128,7 @@ describe('T36-4 刻意分歧的地方要留紀錄', () => {
     const src = fs.readFileSync(fileURLToPath(new URL('../../js/config.js', import.meta.url)), 'utf8');
     expect(src).toContain('FC-Football');
     expect(src).toContain('staff/{uid}.roles');
-    expect(src).toMatch(/level 在這裡只用來排序與顯示/);
+    expect(src).toMatch(/只用來排序與顯示/);
   });
 
   test('FC 有、這裡用不到的角色仍保留在字典裡（對接時要看得懂）', () => {

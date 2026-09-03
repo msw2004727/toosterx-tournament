@@ -15,7 +15,6 @@ import { icon, iconText } from '../../core/icons.js';
 import { STATUS_LABEL, hhmm, displayMinute, scoreText } from '../../lib/format.js';
 import { elapsedSec, now } from '../../core/clock.js';
 import { isLiveMatch, isPlaceholder, sideLabel } from './selectors.js';
-import * as follows from './follows.js';
 
 /* ── 狀態徽章（docs/03 §3.2）────────────────────────────── */
 
@@ -50,9 +49,8 @@ export function statusBadge(m, matchDurationMin = 30) {
  * @param {object} o.match
  * @param {Function} o.onOpen  點擊時進 LIVE 頁
  * @param {object} [o.division] 用來取 matchDurationMin 與仁慈規則
- * @param {boolean} [o.showFollow] 是否顯示關注星號
  */
-export function matchRow({ match: m, onOpen, division, showFollow = true }) {
+export function matchRow({ match: m, onOpen, division }) {
   const dur = division?.matchDurationMin ?? 30;
   // ⚠️ 是 display.mercyRule，不是 division.mercyRule。
   // 寫錯路徑不會噴錯，只會讓仁慈規則永遠不生效——兒童組的 12:0 就這樣照實印出來。
@@ -90,39 +88,7 @@ export function matchRow({ match: m, onOpen, division, showFollow = true }) {
     class: `prow ${isPlaceholder(m) ? 'is-placeholder' : ''}`,
     // 每秒只換分鐘數而不重畫整列，靠這個 id 找回對應的節點
     dataset: { matchId: m?.matchId ?? '' }
-  }, [
-    body,
-    showFollow && m?.matchId
-      ? followStar('matches', m.matchId, `關注 ${sideLabel(m, 'home')} 對 ${sideLabel(m, 'away')}`)
-      : null
-  ].filter(Boolean));
-}
-
-/* ── 關注星號（docs/03 §12.1）───────────────────────────── */
-
-/**
- * 關注按鈕。
- *
- * 規格畫的是 ★，但 js/core/icons.js 目前沒有星星，而那個檔案不在這次的
- * 可修改範圍內。與其自己在模組裡塞一段 inline SVG（那等於繞過 R-UI-004
- * 的單一圖示來源），不如用文字——「關注／已關注」本來就比一顆星更清楚，
- * 螢幕閱讀器也念得出來。要改回 ★ 只需要在 icons.js 加一個 star（見交付說明）。
- */
-export function followStar(kind, id, label) {
-  const btn = el('button', {
-    class: 'fstar', type: 'button', 'aria-label': label || '關注',
-    onClick: () => { follows.toggleAndSave(kind, id); paint(); }
-  });
-  function paint() {
-    const on = follows.has(follows.read(), kind, id);
-    btn.classList.toggle('is-on', on);
-    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-    btn.title = on ? '取消關注' : '加入關注';
-    if (on) mount(btn, ...iconText('check', '已關注'));
-    else mount(btn, el('span', { text: '關注' }));
-  }
-  paint();
-  return btn;
+  }, [body]);
 }
 
 /* ── 時段標題與空狀態 ───────────────────────────────────── */

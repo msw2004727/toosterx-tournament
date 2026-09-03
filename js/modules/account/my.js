@@ -1,12 +1,19 @@
 /**
- * 我的 `#/my`
+ * 我的（專屬首頁）`#/my`
  * ------------------------------------------------------------------
- * 規格：docs/10 §1.3、§1.4
+ * 規格：docs/10 §1.3、§1.4；主辦 2026-09-03 指定的資訊架構
  *
- * 登入之後的落點。三件事：
+ * 登入之後的落點，**每一種身分都是同一條路由**，內容依權限而變
+ * （層級越高看得到的功能越多）。四件事：
  *   ① 你是誰（LINE 名稱、uid、身分）
- *   ② 你帶的球隊
- *   ③ 你報名的球員（M4-b 第二階段，需要 members 的 collectionGroup 查詢）
+ *   ② 你能做什麼（依 can() 展開的功能區）
+ *   ③ 我的球隊
+ *   ④ 登出
+ *
+ * 為什麼不做成 `#/staff-home`、`#/admin-home` 好幾條路由：
+ * 一個人可能同時是隊長與記錄員，分成幾條路由就要決定「他登入後該去哪一條」，
+ * 而且每加一個層級就多一個入口要維護。同一條路由、內容依權限展開，
+ * 新增一個功能只要在 js/config.js 的 FEATURES 加一行。
  *
  * uid 刻意顯示出來而且可以複製：那是跨專案對帳唯一的鍵
  * （飛達盃的 uid 必須等於 FC-Football 的 uid，docs/10 §8.5），
@@ -16,10 +23,10 @@
 import { el, mount, toast, skeleton } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
-import { user, staff, onAuth, signOutStaff, db, sdk } from '../../core/firebase.js';
+import { user, staff, onAuth, signOutStaff, db, sdk, can, myRoles } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { logoutLine } from '../../core/liff.js';
-import { EVENT_ID, roleLabel } from '../../config.js';
+import { EVENT_ID, roleLabel, topRole, FEATURES } from '../../config.js';
 import { needLogin } from './login.js';
 
 const TEAM_STATUS = {
@@ -93,7 +100,7 @@ export async function myPage({ scope, view }) {
 
   function render() {
     if (!user()) { mount(root, needLogin('/my')); return; }
-    mount(root, identityCard(), teamsCard(), playersCard(), signOutRow());
+    mount(root, identityCard(), featuresCard(), teamsCard(), playersCard(), signOutRow());
   }
 
   // ── 你是誰 ──────────────────────────────────────────────
@@ -113,7 +120,9 @@ export async function myPage({ scope, view }) {
           el('strong', { text: name }),
           el('span', {
             class: 'acct__roles',
-            text: roles.length ? roles.map(roleLabel).join('、') : '一般使用者'
+            // 顯示最高身分即可。繼承來的那幾個列出來只會讓人以為
+            // 自己被指派了一堆職務（記錄員會看到「挑戰攤位、檢錄員、裁判、記錄員」）。
+            text: roles.length ? roleLabel(topRole(roles)) : '一般使用者'
           })
         ])
       ]),
@@ -130,11 +139,51 @@ export async function myPage({ scope, view }) {
     ]);
   }
 
-  // ── 我帶的球隊 ──────────────────────────────────────────
+  // ── 你能做什麼（依權限展開）──────────────────────────────
+  //
+  // 這一區就是主辦要的「層級越高權限越大功能越多」。
+  // 判斷一律走 can()，不要在這裡再列一次角色——角色與權限的對應
+  // 只有 js/config.js 一份（R-ROLE-001）。
+  function featuresCard() {
+    const mine = FEATURES.filter(f => can(f.code));
+    if (!mine.length) return null;      // 一般使用者不畫這一區
+
+    const ready = mine.filter(f => f.route);
+    const soon = mine.filter(f => !f.route);
+
+    return el('section', { class: 'acct__card' }, [
+      el('h2', { class: 'acct__cardHead' }, iconText('list', `我的功能（${mine.length}）`)),
+      ready.length
+        ? el('div', { class: 'acct__grid' }, ready.map(f => el('button', {
+            class: 'acct__tile', type: 'button',
+            onClick: () => navigate(f.route)
+          }, [
+            el('span', { class: 'acct__tileIcon' }, icon(f.icon)),
+            el('strong', { class: 'acct__tileLabel', text: f.label }),
+            el('span', { class: 'acct__tileHint', text: f.hint })
+          ])))
+        : null,
+      // 還沒做的功能畫成說明列而不是按鈕：按了沒反應是最難回報的故障，
+      // 但完全不顯示又會讓人以為自己的身分沒生效。
+      soon.length
+        ? el('div', { class: 'acct__soon' }, [
+            el('p', { class: 'acct__note', text: '你的身分還包含這些功能，介面規劃中：' }),
+            el('ul', { class: 'acct__soonList' }, soon.map(f =>
+              el('li', {}, [
+                el('span', { class: 'acct__soonIcon' }, icon(f.icon)),
+                el('span', { text: f.label }),
+                el('span', { class: 'acct__soonBadge', text: '規劃中' })
+              ])))
+          ])
+        : null
+    ].filter(Boolean));
+  }
+
+  // ── 我的球隊 ────────────────────────────────────────────
   function teamsCard() {
     const rows = state.teams;
     return el('section', { class: 'acct__card' }, [
-      el('h2', { class: 'acct__cardHead' }, iconText('team', '我帶的球隊')),
+      el('h2', { class: 'acct__cardHead' }, iconText('team', '我的球隊')),
       state.loading && rows === null
         ? skeleton(2)
         : !rows?.length

@@ -27,7 +27,6 @@ async function boot() {
   const { initTheme } = await import('./js/core/theme.js');
   initTheme();
   initInstall();
-  mountAppBar();
 
   const { initFirebase } = await import('./js/core/firebase.js');
   const { initRouter, route, navigate } = await import('./js/core/router.js');
@@ -35,6 +34,12 @@ async function boot() {
 
   initSync();
   await initFirebase();
+
+  // 頁首要等 firebase 模組載好才掛：右上角那一格依登入狀態顯示
+  // 「登入」或「我的」。appbar 自己不 import firebase（見那個檔的說明），
+  // 所以由這裡把兩支函式傳進去。
+  const { user, onAuth } = await import('./js/core/firebase.js');
+  mountAppBar({ isSignedIn: () => !!user(), onAuthChange: onAuth });
 
   Object.assign(App, { navigate });
 

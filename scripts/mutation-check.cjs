@@ -211,12 +211,6 @@ const MUTANTS = [
     to: `    .filter(() => true)`
   },
   {
-    name: '#P3 關注的球隊不置頂',
-    file: 'js/modules/public/selectors.js',
-    from: `    .sort((a, b) => (followed(b) ? 1 : 0) - (followed(a) ? 1 : 0))`,
-    to: ``
-  },
-  {
     name: '#P4 晉級區用陣列位置判斷，不是用 rank',
     file: 'js/modules/public/selectors.js',
     from: `      qualified: qualifyCount > 0 && Number.isFinite(r?.rank) && r.rank <= qualifyCount,`,
@@ -275,18 +269,6 @@ const MUTANTS = [
     file: 'js/modules/public/selectors.js',
     from: `    const key = ms == null ? 'unknown' : String(Math.floor(ms / size) * size);`,
     to: `    const key = ms == null ? 'unknown-' + (m?.matchId ?? '') : String(Math.floor(ms / size) * size);`
-  },
-  {
-    name: '#P13 關注清單沒有上限（被當成書籤存到爆）',
-    file: 'js/modules/public/follows.js',
-    from: `.slice(0, 200);`,
-    to: `;`
-  },
-  {
-    name: '#P14 篩選的「我的關注」沒寫進網址（分享出去就掉了）',
-    file: 'js/modules/public/selectors.js',
-    from: `  if (f.onlyFollowed) p.set('follow', '1');`,
-    to: ``
   },
   {
     name: '#P15 名單沒有經過 publicMember（第二道隱私防線被拿掉）',
@@ -366,7 +348,7 @@ const MUTANTS = [
   {
     name: '#P29 頁首拿掉「我的」（建完隊就再也找不到自己的球隊）',
     file: 'js/core/appbar.js',
-    from: `  { href: '#/my', iconName: 'person', label: '我的', isCurrent: atMy }`,
+    from: `  { key: 'me',   href: '#/my', iconName: 'person', label: '我的', isCurrent: atMy }`,
     to: ``
   },
   {
@@ -461,8 +443,8 @@ const MUTANTS = [
   {
     name: '#P35 賽務角色的 level 撞到 FC 的整數（兩邊排序衝突）',
     file: 'js/config.js',
-    from: `  scorer:      { level: 2.4, label: '記錄員',   fc: false },`,
-    to: `  scorer:      { level: 3, label: '記錄員',   fc: false },`
+    from: `  scorer:      { level: 2.4, label: '記錄員',   fc: false }`,
+    to: `  scorer:      { level: 3, label: '記錄員',   fc: false }`
   },
   {
     name: '#P36 topRole 把不認得的角色當成最高（對接時給出不該給的權限）',
@@ -502,10 +484,10 @@ const MUTANTS = [
     to: `export const atMy = (hash = location.hash) => hash.startsWith('#/my');`
   },
   {
-    name: '#P31 賽務端也畫全站頁首（畫面上兩個主題切換）',
-    file: 'js/core/appbar.js',
-    from: `export const HIDDEN_PREFIXES = ['#/staff'];`,
-    to: `export const HIDDEN_PREFIXES = [];`
+    name: '#P31 賽務首頁自己又畫一顆主題切換（頁首已經有了，畫面上會有兩個）',
+    file: 'js/modules/staff/home.js',
+    from: `      indicator.node`,
+    to: `      indicator.node, themeSwitch()`
   },
   {
     name: '#P24 LINE 登入不檢查簽發者（任何人自己簽一個 token 都能用）',
@@ -608,6 +590,76 @@ const MUTANTS = [
     file: 'js/engine/privacy.js',
     from: `  if (member?.nameKind === 'nickname') return name;`,
     to: `  if (member?.nameKind) return name;`
+  },
+  {
+    name: '#H1 繼承鏈用 level 比大小（FC 的「場主」自動變成記錄員）',
+    file: 'js/config.js',
+    from: `  return top < 0 ? extras : [...STAFF_CHAIN.slice(0, top + 1), ...extras];`,
+    to: `  const lv = Math.max(-1, ...list.map(r => ROLE_INFO[r]?.level ?? -1));
+  const byLevel = STAFF_CHAIN.filter(r => ROLE_INFO[r].level <= lv);
+  return byLevel.length ? [...byLevel, ...extras] : extras;`
+  },
+  {
+    name: '#H2 繼承只回自己，不含更低階（每個人都要指派一堆身分）',
+    file: 'js/config.js',
+    from: `  return top < 0 ? extras : [...STAFF_CHAIN.slice(0, top + 1), ...extras];`,
+    to: `  return top < 0 ? extras : [STAFF_CHAIN[top], ...extras];`
+  },
+  {
+    name: '#H3 裁判排在記錄員之上（主辦指定的順序反了）',
+    file: 'js/config.js',
+    from: `export const STAFF_CHAIN = ['booth', 'checkin', 'referee', 'scorer', 'admin', 'super_admin'];`,
+    to: `export const STAFF_CHAIN = ['booth', 'checkin', 'scorer', 'referee', 'admin', 'super_admin'];`
+  },
+  {
+    name: '#H4 覆核完賽下放給記錄員（記分的人自己覆核自己）',
+    file: 'js/config.js',
+    from: `  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'admin', destructive: true },`,
+    to: `  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'scorer', destructive: true },`
+  },
+  {
+    name: '#H5 權限矩陣的「關」優先於「開」（多一個身分反而變弱）',
+    file: 'js/config.js',
+    from: `    if (sawTrue) on = true;
+    else if (sawFalse) on = false;`,
+    to: `    if (sawFalse) on = false;
+    else if (sawTrue) on = true;`
+  },
+  {
+    name: '#H6 總管也受權限開關影響（可以把自己鎖在門外）',
+    file: 'js/config.js',
+    from: `  if (mine.includes('super_admin')) return new Set(PERMISSIONS.map(p => p.code));`,
+    to: ``
+  },
+  {
+    name: '#H7 讀不到權限矩陣就全部關閉（賽務的按鈕全部消失）',
+    file: 'js/config.js',
+    from: `    let on = mine.includes(p.minRole);`,
+    to: `    let on = mine.includes(p.minRole) && Object.keys(matrix || {}).length > 0;`
+  },
+  {
+    name: '#H11 頁首未登入也顯示「我的」（看不出來自己還沒登入）',
+    file: 'js/core/appbar.js',
+    from: `export const GUEST_ME = { href: '#/login', iconName: 'person', label: '登入' };`,
+    to: `export const GUEST_ME = { href: '#/my', iconName: 'person', label: '我的' };`
+  },
+  {
+    name: '#H12 主題標籤改用 display:none（螢幕閱讀器也讀不到）',
+    file: 'css/components.css',
+    from: `.theme-switch__label{
+  position:absolute;width:1px;height:1px;overflow:hidden;
+  clip-path:inset(50%);white-space:nowrap;
+}`,
+    to: `.theme-switch__label{display:none}`
+  },
+  {
+    name: '#H13 關注篩選被加回來（沒有入口卻留一個永遠是空的篩選器）',
+    file: 'js/modules/public/selectors.js',
+    from: `    venueId: p.get('venue') || null
+  };`,
+    to: `    venueId: p.get('venue') || null,
+    onlyFollowed: p.get('follow') === '1'
+  };`
   },
 ];
 

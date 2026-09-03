@@ -10,7 +10,6 @@
 
 import { el, emptyState, toast, mount } from '../../core/ui.js';
 import { iconText } from '../../core/icons.js';
-import { themeSwitch } from '../../core/theme.js';
 import { hhmm, dateLabelFromYmd, STATUS_LABEL } from '../../lib/format.js';
 import { staff, user, isPersistenceDegraded } from '../../core/firebase.js';
 import { navigate } from '../../core/router.js';
@@ -103,7 +102,6 @@ export async function staffHome({ scope, view }) {
         el('strong', { text: line.join('　·　') }),
         el('span', { class: 'staff__date', text: `${dateLabelFromYmd(date)}　${EVENT.venueName}` })
       ]),
-      themeSwitch(),
       indicator.node
     ]);
   }

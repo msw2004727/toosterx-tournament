@@ -13,7 +13,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { normalize, toggle, has, FOLLOW_KEY } from '../../js/modules/public/follows.js';
 
 // ⚠️ 一定要 fileURLToPath，不能用 new URL(...).pathname：
 //    Windows 上 pathname 會是 '/D:/repo/'，fs 解成 'D:\D:\repo' 直接 ENOENT，
@@ -147,39 +146,6 @@ describe('T33-5 動態載入照 R-REL-016', () => {
 
   test('公開端沒有 guard（完全免登入）', () => {
     expect(code['index.js']).not.toContain('guard');
-  });
-});
-
-describe('T33-6 關注（localStorage）', () => {
-  test('壞掉的資料一律當作空，不要傳染到畫面', () => {
-    expect(normalize(null)).toEqual({ teams: [], matches: [], players: [] });
-    expect(normalize('鬼畫符')).toEqual({ teams: [], matches: [], players: [] });
-    expect(normalize({ teams: 'not-an-array' }).teams).toEqual([]);
-    expect(normalize({ teams: [1, null, 't1', 't1', ''] }).teams).toEqual(['t1']);
-  });
-
-  test('toggle 開關並保留其他種類', () => {
-    let s = normalize({ matches: ['m9'] });
-    s = toggle(s, 'teams', 't1');
-    expect(has(s, 'teams', 't1')).toBe(true);
-    expect(has(s, 'matches', 'm9')).toBe(true);
-    s = toggle(s, 'teams', 't1');
-    expect(has(s, 'teams', 't1')).toBe(false);
-  });
-
-  test('不合法的 kind 或空 id 不會弄壞狀態', () => {
-    const s = normalize({ teams: ['t1'] });
-    expect(toggle(s, 'nope', 'x')).toEqual(s);
-    expect(toggle(s, 'teams', '')).toEqual(s);
-  });
-
-  test('⭐ 有上限，不會被當成書籤存到爆', () => {
-    const many = Array.from({ length: 500 }, (_, i) => `t${i}`);
-    expect(normalize({ teams: many }).teams).toHaveLength(200);
-  });
-
-  test('key 名稱固定（換掉會讓所有人的關注消失）', () => {
-    expect(FOLLOW_KEY).toBe('feda.follows');
   });
 });
 

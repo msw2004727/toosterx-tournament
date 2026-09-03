@@ -108,6 +108,10 @@ test('⭐ 手動選了淺色之後，系統轉深色也不會被蓋掉，而且�
 
 test('⭐ 深色下文字與背景不可以是同一個顏色（token 沒定義就會這樣）@theme', async ({ page }) => {
   await gotoApp(page, '/#/staff');
+  // ⚠️ 一定要等賽務頁真的畫出來。主題切換現在在**全站頁首**裡，
+  //    頁首比頁面內容早出現——點得到它不再代表頁面載好了
+  //    （改動前那顆在 .staff__head 裡，所以有隱含的等待）。
+  await expect(page.locator('.card').first()).toBeVisible();
   await page.locator('.theme-switch__opt[data-pref="dark"]').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 

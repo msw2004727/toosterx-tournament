@@ -92,19 +92,17 @@ export function groupBySlot(matches, hhmmOf, slotMin = 30) {
  * @param {number} o.nowMs      呼叫端給（引擎不碰 Date.now）
  * @param {number} [o.upcoming] 接下來取幾場，預設 5
  * @param {number} [o.recent]   剛結束取幾場，預設 5
- * @param {string[]} [o.followTeamIds] 關注的球隊，會被置頂（docs/03 §12.1）
+ *
+ * 2026-09-03 拿掉「關注的球隊置頂」：關注按鈕整個移除了（主辦指定），
+ * 留著排序等於一段永遠不會被觸發的程式碼。
  */
-export function splitHomeSections({ matches, nowMs, upcoming = 5, recent = 5, followTeamIds = [] }) {
+export function splitHomeSections({ matches, nowMs, upcoming = 5, recent = 5 }) {
   const all = sortByKickoff(matches);
-  const follows = new Set(followTeamIds || []);
-  const followed = m => follows.has(m?.home?.teamId) || follows.has(m?.away?.teamId);
 
   const live = all.filter(isLiveMatch);
 
   const next = all
     .filter(m => UPCOMING_STATUSES.includes(m?.status))
-    // 關注的球隊置頂，其餘維持時間順序
-    .sort((a, b) => (followed(b) ? 1 : 0) - (followed(a) ? 1 : 0))
     .slice(0, upcoming);
 
   const done = all
@@ -128,17 +126,13 @@ export function splitHomeSections({ matches, nowMs, upcoming = 5, recent = 5, fo
 
 /**
  * 篩選條件 → 場次清單。條件全部是「空值＝不限」。
- * @param {object} f { date, divisionId, venueId, onlyFollowed }
+ * @param {object} f { date, divisionId, venueId }
  */
-export function filterMatches(matches, f = {}, followTeamIds = []) {
-  const follows = new Set(followTeamIds || []);
+export function filterMatches(matches, f = {}) {
   return (matches || []).filter(m => {
     if (f.date && m?.date !== f.date) return false;
     if (f.divisionId && m?.divisionId !== f.divisionId) return false;
     if (f.venueId && m?.venueId !== f.venueId) return false;
-    if (f.onlyFollowed) {
-      if (!follows.has(m?.home?.teamId) && !follows.has(m?.away?.teamId)) return false;
-    }
     return true;
   });
 }
@@ -149,7 +143,6 @@ export function filterToQuery(f = {}) {
   if (f.date) p.set('date', f.date);
   if (f.divisionId) p.set('division', f.divisionId);
   if (f.venueId) p.set('venue', f.venueId);
-  if (f.onlyFollowed) p.set('follow', '1');
   return p.toString();
 }
 
@@ -158,8 +151,7 @@ export function queryToFilter(query) {
   return {
     date: p.get('date') || null,
     divisionId: p.get('division') || null,
-    venueId: p.get('venue') || null,
-    onlyFollowed: p.get('follow') === '1'
+    venueId: p.get('venue') || null
   };
 }
 

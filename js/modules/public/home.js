@@ -17,7 +17,6 @@ import { startTicker, now } from '../../core/clock.js';
 import { dateLabelFromYmd, hhmm } from '../../lib/format.js';
 import { EVENT } from '../../config.js';
 import * as data from './data.js';
-import * as follows from './follows.js';
 import { splitHomeSections, isLiveMatch, hiddenScorerDivisions } from './selectors.js';
 import { matchRow, sectionCard, empty, pageHead, statusBadge } from './bits.js';
 
@@ -115,8 +114,7 @@ export async function publicHome({ scope, view, query }) {
     }
     return splitHomeSections({
       matches: state.matches,
-      nowMs: now(),
-      followTeamIds: follows.followedTeamIds()
+      nowMs: now()
     });
   }
 
@@ -137,13 +135,13 @@ export async function publicHome({ scope, view, query }) {
         el('ul', { class: 'plist plist--live' }, live.map(m =>
           // 首頁不放關注：這一頁最擠，而且這裡的主要動作是「點進去看比分」。
           // 關注放在賽程頁與比賽頁，那裡有空間也比較是「整理自己清單」的情境。
-          matchRow({ match: m, onOpen: open, division: divisionOf(m.divisionId), showFollow: false })))
+          matchRow({ match: m, onOpen: open, division: divisionOf(m.divisionId) })))
       ) : null,
 
       sectionCard('接下來', 'clock',
         next.length
           ? el('ul', { class: 'plist' }, next.map(m =>
-              matchRow({ match: m, onOpen: open, division: divisionOf(m.divisionId), showFollow: false })))
+              matchRow({ match: m, onOpen: open, division: divisionOf(m.divisionId) })))
           : empty('這個日期沒有待進行的場次', '換一個日期看看，或看完整賽程。'),
         el('button', {
           class: 'btn btn--ghost btn--sm', type: 'button',
@@ -153,7 +151,7 @@ export async function publicHome({ scope, view, query }) {
 
       done.length ? sectionCard('剛結束', 'check',
         el('ul', { class: 'plist' }, done.map(m =>
-          matchRow({ match: m, onOpen: open, division: divisionOf(m.divisionId), showFollow: false })))
+          matchRow({ match: m, onOpen: open, division: divisionOf(m.divisionId) })))
       ) : null,
 
       state.divisions.length ? sectionCard('各組即時排名', 'table',

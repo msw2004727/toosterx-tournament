@@ -88,6 +88,10 @@ git push                 # 驗證過才上正式站
 | R-PWA-001 | `img/*.png` 由 `scripts/make-icons.mjs` 產生並**進版控**，CI 有 `--check`。manifest 指到不存在的圖示時 Chrome 不給安裝選項，而且**一個字都不印** |
 | R-NAV-001 | 公開端與報名端每一頁都要回得去首頁與「我的」（`js/core/appbar.js`）。少了它，建完隊的家長會以為球隊不見了 |
 | R-ROLE-001 | 角色代碼、階層、標籤與 FC-Football 對齊，權威在 `js/config.js` 的 `ROLE_INFO`。任何地方都不得再寫第二份角色標籤表 |
+| R-ROLE-002 | 賽務角色**向上包含**，繼承鏈明列在 `STAFF_CHAIN`，**不得用 `level` 比大小**（FC 的 `venue_owner` level 3 夾在記錄員與管理員之間）|
+| R-PERM-001 | 前端權限判斷一律 `can('權限碼')`，不得在頁面裡再列一次角色。權限碼字典在 `js/config.js` 的 `PERMISSIONS` |
+| R-PERM-002 | `destructive: true` 的權限**同時寫在 `firestore.rules`**；其餘的開關只控畫面，不可以拿來保護資料 |
+| R-NAV-002 | 頂部導覽在每一頁、每一種身分下都一樣：首頁／安裝／登入或我的／三個主題圖示。「首頁」永遠是公開首頁 |
 | R-REG-001 | 組別的名稱、參賽資格、上場人數、比賽時間、用球、同分判定、棄權比分一律**照競賽規章**，權威在 `js/engine/formats.js`，`tests/unit/regulation-parity.test.js` 盯著。改這裡等於改規章 |
 | R-REG-002 | 民國年**只存在於畫面上**。資料庫與引擎一律西元 ISO `YYYY-MM-DD`，轉換走 `js/lib/roc.js`。兩種紀年混在同一個欄位差 1911 年，而且不會報錯 |
 | R-PRIV-002 | 未成年名單只存**暱稱＋身分證後四碼＋生日**，不存真名。檢錄靠後四碼與生日跟證件核對。`nameKind:'nickname'` 的顯示名不再遮蔽（遮暱稱遮不到個資，只會讓家長以為名字被打錯）|
@@ -165,6 +169,8 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       ・目前走 `scripts/grant-super-admin.mjs`（Admin SDK，不經 rules）
 - [ ] M4-d   「我的球員」（需要 members 的 collectionGroup 索引與規則）
 - [x] M4-b④  依競賽規章校正設定＋未成年組教練管理名單＋檢錄台
+- [x] M4-b⑤  資訊架構重整：角色階層（向上包含）＋權限矩陣＋專屬首頁＋
+      常駐頁首（登入／我的）＋主題只留圖示＋移除關注功能
 - [ ] M6 Challenge 挑戰系統　[ ] M7 彩排 → 上線
 
 ## 現在的狀態（2026-09-02，Claude Code 接手後已全數實跑）
@@ -174,11 +180,11 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 474 全綠（25 個 suite） |
-| `npm run test:mutation` | ✅ 91 / 91 全被抓到 |
-| `npm run test:e2e` | ✅ 366 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 137 全綠（含 R34–R72 報名、R73–R82 檢錄） |
-| `npm run test:mutation:rules` | ✅ 23 / 23 全被抓到 |
+| `npm run test:unit` | ✅ 505 全綠（26 個 suite） |
+| `npm run test:mutation` | ✅ 98 / 98 全被抓到 |
+| `npm run test:e2e` | ✅ 408 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:rules` | ✅ 148 全綠（含 R34–R72 報名、R73–R82 檢錄、R83–R92 階層） |
+| `npm run test:mutation:rules` | ✅ 27 / 27 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
 | `npm run test:mutation:fn` | ✅ 16 / 16 全被抓到 |
 
@@ -349,6 +355,115 @@ checkin-data.js     Firestore 存取（寫入一律經 sync.track）
 
 ⚠️ 檢錄讀的是 **`members`**（私密）不是公開的 `roster`：生日與身分證
 後四碼只存在 members 上，`ROSTER_FIELDS` 白名單刻意沒有它們。
+
+## 資訊架構（主辦 2026-09-03 指定）
+
+### 全站只有兩個入口
+
+```
+#/     公開首頁   訪客也看得到：賽程、比分、積分榜、球隊
+#/my   專屬首頁   登入後的落點，內容依身分展開
+```
+
+頂部導覽**在每一頁、每一種身分下都長一樣**：
+
+```
+[首頁]                         [安裝] [登入／我的] [▣ ☀ ☾]
+```
+
+・**「首頁」永遠是公開首頁。** 總管也看得到家長看到的畫面——
+　現場有人回報「我看到的不是這樣」時核對得起來。
+・**右邊那一格依登入狀態變**：未登入是「登入」（→ `#/login`），
+　登入後是「我的」（→ `#/my`）。位置與圖示不變，只換文字與去處。
+・**主題只留圖示**（任何寬度）。文字標籤仍在 DOM 裡給螢幕閱讀器，
+　但用 `clip-path` 藏起來——`display:none` 連讀都讀不到。
+・這一列在 `#/staff` 底下**也顯示**，所以賽務首頁自己那顆主題切換已拿掉。
+
+**為什麼不做 `#/staff-home`、`#/admin-home` 好幾條專屬路由**：
+一個人可能同時是隊長與記錄員，分成幾條就要決定「他登入後該去哪一條」，
+而且每加一個層級就多一個入口要維護。同一條路由、內容依權限展開，
+新增一個功能只要在 `js/config.js` 的 `FEATURES` 加一行。
+
+## 角色階層與權限（R-ROLE-002）
+
+### 向上包含
+
+```
+挑戰攤位 booth 2.1
+  └ 檢錄員 checkin 2.2
+      └ 裁判 referee 2.3
+          └ 記錄員 scorer 2.4
+              └ 管理員 admin 4
+                  └ 總管 super_admin 5
+```
+
+權威在 `js/config.js` 的 `STAFF_CHAIN`。`impliedRoles(['scorer'])` 會展開成
+`['booth','checkin','referee','scorer']`，所以指派一個記錄員就夠了，
+不必再另外指派檢錄員。
+
+> ⚠️ **鏈是明列的，不是比 `level` 大小。**
+> FC 的 `venue_owner` 是 level 3，數值正好夾在記錄員(2.4)與管理員(4)之間。
+> 用 `level >=` 判斷的話，一個從 FC 同步過來的「場主」會自動拿到記錄員的
+> 全部權限——那個人可能只是租場地的老闆。`level` 只用來排序與顯示。
+
+### 每個角色實際能做的事
+
+| | 挑戰攤位 | 檢錄員 | 裁判 | 記錄員 | 管理員 | 總管 |
+|---|---|---|---|---|---|---|
+| 挑戰成績 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 檢錄勾選、看球員個資 | | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 出場名單 | | | ✅ | ✅ | ✅ | ✅ |
+| 比分／時鐘／完賽／自撤回 | | | | ✅ | ✅ | ✅ |
+| 覆核、改判、賽程、報名審核 | | | | | ✅ | ✅ |
+| 身分授權、權限開關、報名開關 | | | | | | ✅ |
+
+**覆核完賽刻意不在記錄員身上**：覆核的意義是「第二雙眼睛」，
+記分的人自己覆核自己等於沒有覆核。
+
+**裁判在系統裡的職能是名單與檢錄**，不是記分。時鐘與比分在 rules 裡是
+`matches` 文件上的一道整體閘（`isScorer()`），拆成兩支會讓那條規則長一倍。
+場上的哨音本來就不需要系統。
+
+### 權限開關
+
+`js/config.js` 的 `PERMISSIONS` 是每一個「獨立功能」一條，
+`minRole` 是預設歸屬。總管可以在 `config/rolePermissions/{role}` 逐條覆寫：
+
+```js
+{ role: 'scorer', perms: { 'match.finish': false } }   // 關掉記錄員的送出完賽
+{ role: 'referee', perms: { 'match.score.write': true } }  // 把記分下放給裁判
+```
+
+四條規矩：
+
+1. **開優先於關。** 一個人身兼兩個角色、其中一個被關掉某項時，不該讓他比
+   單一角色更弱——反過來設計會讓「多給一個身分」變成一種懲罰。
+2. **總管不受開關影響。**「調整權限開關」本身也是一條權限，關掉就再也打不開了。
+3. **讀不到矩陣走預設，不是全部關閉。** 設定讀取失敗的當下把賽務按鈕
+   全部收掉，現場會以為系統壞了。
+4. **`destructive: true` 的那幾條同時寫在 `firestore.rules` 裡**
+   （主辦決定：破壞性操作進規則，其餘只控畫面）。
+   非 destructive 的條目**只控制畫面**——不要用它們來保護資料。
+
+> ⚠️ `config/rolePermissions` 的初始值由 `scripts/seed` 從 `PERMISSIONS`
+> **推導**，不要手寫第二份。手寫的那一份 2026-09-03 已經跟程式碼分岔過
+> （裁判有覆核權、沒有 checkin 這個角色），而分岔不會有任何錯誤訊息。
+
+### 前端一律走 `can()`
+
+```js
+import { can } from './js/core/firebase.js';
+if (can('match.finish')) { /* 畫送出完賽的按鈕 */ }
+```
+
+不要在頁面裡再列一次角色清單。角色與權限的對應只有 `js/config.js` 一份。
+
+## 已移除：關注（follow）
+
+2026-09-03 拿掉。關注按鈕是這個功能唯一的入口，按鈕移除之後首頁置頂與
+賽程的「我的關注」篩選就沒有東西可以填了——留一個永遠是空的篩選器
+比沒有更糟。`js/modules/public/follows.js` 已刪除，`onlyFollowed`
+與 `followTeamIds` 也從 selectors 移除。「我的球隊」取代了它的用途。
 
 ## 角色與身分（與 FC-Football 對齊）
 

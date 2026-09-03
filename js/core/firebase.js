@@ -11,7 +11,7 @@
  */
 
 import { FIREBASE_CONFIG, FUNCTIONS_REGION, ENV } from '../firebase-config.js';
-import { EVENT_ID } from '../config.js';
+import { impliedRoles, effectivePerms, EVENT_ID } from '../config.js';
 import { setOnline } from './sync.js';
 import { setServerOffset } from './clock.js';
 import { put, get as cacheGet } from './store.js';
@@ -69,6 +69,8 @@ export async function initFirebase() {
   authMod.onAuthStateChanged(ctx.auth, async user => {
     currentUser = user || null;
     currentStaff = user ? await loadStaff(user.uid) : null;
+    // 有身分的人才需要權限矩陣；一般使用者與訪客不必多打一次讀取
+    if (currentStaff?.roles?.length) await loadPermissionMatrix();
     for (const fn of authListeners) {
       try { fn(currentUser, currentStaff); } catch (e) { console.error('[firebase] auth listener', e); }
     }
@@ -95,24 +97,64 @@ export function onAuth(fn) {
 export const user = () => currentUser;
 export const staff = () => currentStaff;
 
-/** 目前使用者是否具備某個角色 */
+/**
+ * 目前使用者是否具備某個角色（**含繼承**）。
+ * 挑戰攤位 < 檢錄員 < 裁判 < 記錄員 < 管理員 < 總管（主辦 2026-09-03 指定），
+ * 所以 hasRole('checkin') 對一位記錄員會回 true。
+ */
 export function hasRole(...roles) {
-  const mine = currentStaff?.roles || [];
+  const mine = impliedRoles(currentStaff?.roles || []);
   return roles.some(r => mine.includes(r));
 }
 
-/** 賽務以上（可記分） */
-export const canScore = () => hasRole('scorer', 'referee', 'admin', 'super_admin');
+/** 目前使用者展開後的全部身分（含繼承）。UI 顯示與除錯用。 */
+export const myRoles = () => impliedRoles(currentStaff?.roles || []);
+
 /**
- * 可以做檢錄。
- * 現場檢錄多半交給志工，所以 checkin 是一個**只能檢錄**的角色——
- * 記分、完賽、改判一律不行。賽務與裁判本來就做得了檢錄，一併列上。
- * 與 firestore.rules 的 isCheckin() 是同一份清單。
+ * 權限開關矩陣（`config/rolePermissions`）。
+ * 登入時載入一次；總管改過之後由授權介面自己重載。
+ * 讀不到就是空物件——**空物件代表「全部走預設」**，不是「全部關閉」：
+ * 讀不到設定就把賽務的按鈕全部收掉，現場會以為系統壞了。
+ * 真正的防線是 rules，不是這份矩陣（R-RULES-002）。
  */
-export const canCheckin = () => hasRole('checkin', 'scorer', 'referee', 'admin', 'super_admin');
-// 覆核／稽核閱讀權原本屬於 venue_lead，2026-08-29 起併回 admin
-export const isLead   = () => hasRole('admin', 'super_admin');
-export const isAdmin  = () => hasRole('admin', 'super_admin');
+let permMatrix = {};
+export const permissionMatrix = () => permMatrix;
+
+export async function loadPermissionMatrix() {
+  try {
+    const { collection, getDocs } = ctx.sdk;
+    const snap = await getDocs(collection(ctx.db, 'rolePermissions'));
+    permMatrix = Object.fromEntries(snap.docs.map(d => [d.id, d.data()]));
+  } catch (e) {
+    console.warn('[firebase] 讀取權限矩陣失敗，改走預設', e);
+    permMatrix = {};
+  }
+  return permMatrix;
+}
+
+/**
+ * ⭐ 前端統一的權限判斷入口。
+ *
+ * ⚠️ 這是**畫面層**的判斷，不是安全邊界。破壞性操作（改比分、完賽、
+ *    改判、發身分）真正擋得住的是 firestore.rules；這裡回 true 不代表
+ *    寫得進去，回 false 也只是把按鈕收起來。
+ *    畫一顆按了會失敗的按鈕比沒有按鈕更糟，所以兩邊要一致。
+ *
+ * @param {string} code js/config.js 的 PERMISSIONS 代碼
+ */
+export function can(code) {
+  return effectivePerms(currentStaff?.roles || [], permMatrix).has(code);
+}
+
+/** 目前使用者的全部權限碼（授權介面與除錯用） */
+export const myPerms = () => effectivePerms(currentStaff?.roles || [], permMatrix);
+
+// ── 常用捷徑（都走 can()，不要再自己列角色清單）──────────────
+export const canScore   = () => can('match.score.write');
+export const canCheckin = () => can('checkin.write');
+export const canConfirm = () => can('match.confirm');
+export const isLead   = () => hasRole('admin');
+export const isAdmin  = () => hasRole('admin');
 
 /** 是否被指派到這個場地（admin 不受限，未指派場地者視為全場地） */
 export function assignedToVenue(venueId) {

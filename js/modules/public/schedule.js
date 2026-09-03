@@ -14,7 +14,6 @@ import { startTicker, now } from '../../core/clock.js';
 import { dateLabelFromYmd, hhmm } from '../../lib/format.js';
 import { EVENT } from '../../config.js';
 import * as data from './data.js';
-import * as follows from './follows.js';
 import { filterMatches, filterToQuery, queryToFilter, groupBySlot } from './selectors.js';
 import { matchRow, slotHeading, empty, pageHead, statusBadge } from './bits.js';
 
@@ -27,7 +26,6 @@ export async function publicSchedule({ scope, view, query }) {
     date: q.date || firstDate(),
     divisionId: q.divisionId,
     venueId: q.venueId,
-    onlyFollowed: q.onlyFollowed,
     matches: [],
     divisions: [],
     venues: [],
@@ -72,7 +70,7 @@ export async function publicSchedule({ scope, view, query }) {
   function open(m) { navigate(`/match/${encodeURIComponent(m.matchId)}`); }
 
   function render() {
-    const rows = filterMatches(state.matches, state, follows.followedTeamIds());
+    const rows = filterMatches(state.matches, state);
     const groups = groupBySlot(rows, ms => hhmm(ms));
 
     mount(root,
@@ -85,11 +83,7 @@ export async function publicSchedule({ scope, view, query }) {
         : state.loading
           ? skeleton(5)
           : rows.length === 0
-            ? empty(
-                state.onlyFollowed ? '關注的球隊今天沒有場次' : '這個條件下沒有場次',
-                state.onlyFollowed
-                  ? '在任一場次右側點星號就能加入關注。'
-                  : '換個日期或組別看看。')
+            ? empty('這個條件下沒有場次', '換個日期或組別看看。')
             : el('div', { class: 'psched' }, groups.flatMap(g => [
                 slotHeading(g.label),
                 el('ul', { class: 'plist' }, g.matches.map(m =>
@@ -124,11 +118,6 @@ export async function publicSchedule({ scope, view, query }) {
       sel('全部場地', state.venueId,
         state.venues.map(v => ({ value: v.venueId, label: v.name || v.venueId })),
         v => { state.venueId = v; }),
-      el('button', {
-        class: `chip ${state.onlyFollowed ? 'is-on' : ''}`, type: 'button',
-        'aria-pressed': state.onlyFollowed ? 'true' : 'false',
-        onClick: () => { state.onlyFollowed = !state.onlyFollowed; syncUrl(); render(); }
-      }, '我的關注')
     ]);
   }
 

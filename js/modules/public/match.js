@@ -20,7 +20,7 @@ import {
 import * as data from './data.js';
 import { sideLabel, isLiveMatch, isDoneMatch, embedUrl, publicMember, sortRoster } from './selectors.js';
 import {
-  pageHead, empty, videoFacade, stopAllVideos, followStar, shareButton, statusText
+  pageHead, empty, videoFacade, stopAllVideos, shareButton, statusText
 } from './bits.js';
 import { EVENT_ICON } from '../staff/live-actions.js';
 
@@ -109,7 +109,6 @@ export async function publicMatch({ params, scope, view, query }) {
       tabBar(),
       tabBody(),
       el('div', { class: 'pmatch__actions' }, [
-        followStar('matches', matchId, '關注這場'),
         shareButton(shareText(m), location.href)
       ])
     );

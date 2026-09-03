@@ -9,7 +9,7 @@
  * 3. 一鍵重置種子資料（M5 接上 Function 後開放）
  */
 
-import { EVENT_ID, roleLabel } from '../../config.js';
+import { EVENT_ID, roleLabel, ROLE_INFO } from '../../config.js';
 // ⚠️ 這個模組自己有一個 export function mount(App)，
 //    直接匯入 ui 的 mount 會被蓋掉（而且是無聲的遞迴），所以改名。
 import { toast, el, sheet, mount as setChildren } from '../../core/ui.js';
@@ -23,15 +23,17 @@ import { toast, el, sheet, mount as setChildren } from '../../core/ui.js';
  *    validSelfServe() 白名單也把它排除在外——兩邊一致。
  *    要測大總管的功能，請用真的 LINE 帳號登入（staff 文件由種子或 Console 建立）。
  */
+// 由高到低排，切換清單一眼看得出階層（向上包含，R-ROLE-002）。
+// 說明文字直接寫出「多了什麼」，才看得出來層級之間的差別。
 export const ROLES = [
-  { value: 'admin',   note: '賽務全權．覆核完賽、改判、審核報名' },
-  { value: 'scorer',  note: 'A 場．可記分與完賽送出' },
-  { value: 'referee', note: 'A 場．同賽務，另可簽核' },
-  { value: 'checkin', note: '賽前 30 分鐘核對名單與證件、勾選出賽' },
+  { value: 'admin',   note: '記錄員 ＋ 覆核完賽、改判、賽程、審核報名' },
+  { value: 'scorer',  note: '裁判 ＋ 記分、時鐘、完賽送出（A 場）' },
+  { value: 'referee', note: '檢錄員 ＋ 出場名單' },
+  { value: 'checkin', note: '挑戰攤位 ＋ 檢錄勾選、看球員個資' },
   { value: 'booth',   note: '挑戰區成績登錄（M6）' }
 // 標籤一律從 js/config.js 的角色字典取，不要在這裡再寫一份——
 // 那一份與 FC-Football 對齊，兩邊分岔會讓同一個角色在兩個系統裡叫不同名字。
-].map(r => ({ ...r, label: roleLabel(r.value), sub: r.value }));
+].map(r => ({ ...r, label: roleLabel(r.value), sub: `${r.value}　level ${ROLE_INFO[r.value].level}` }));
 
 export function mount(App) {
   banner(App);
@@ -84,9 +86,11 @@ async function pick(App) {
   try {
     await signInAs(role);
     close();
+    // 導到專屬首頁而不是賽務首頁：那裡才看得到「這個身分能做什麼」，
+    // 也才驗得出「層級越高功能越多」。
     toast(`已切換為「${ROLES.find(r => r.value === role).label}」`, 'success');
     if (wasLine) toast('已登出 LINE 帳號。要換回來請到「我的」重新用 LINE 登入。', 'warn');
-    App.navigate?.('/staff');
+    App.navigate?.('/my');
   } catch (err) {
     close();
     console.error('[demo] 切換身分失敗', err);

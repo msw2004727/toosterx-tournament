@@ -103,21 +103,6 @@
 .pbadge__text{white-space:nowrap;font-variant-numeric:tabular-nums}
 
 /* ── 關注 ───────────────────────────────────────────────── */
-.fstar{
-  display:inline-flex;align-items:center;justify-content:center;gap:4px;
-  flex:none;align-self:center;white-space:nowrap;
-  min-height:var(--tap);padding:0 6px;margin-left:2px;border-radius:var(--r-full);
-  font-size:var(--fs-xs);font-weight:700;color:var(--text-muted);
-  border:1px solid var(--border);
-}
-.fstar.is-on{color:var(--accent);background:var(--accent-bg)}
-
-/* ── 時段標題 ───────────────────────────────────────────── */
-.psched{margin:0 var(--sp-3)}
-.pslot{
-  margin:var(--sp-4) 0 var(--sp-1);font-size:var(--fs-sm);font-weight:700;
-  color:var(--text-muted);font-variant-numeric:tabular-nums;
-}
 
 /* ── 首頁小卡 ───────────────────────────────────────────── */
 .pchips{display:flex;flex-wrap:wrap;gap:var(--sp-2)}

@@ -106,3 +106,40 @@
   .acct{padding-left:var(--sp-2);padding-right:var(--sp-2)}
   .acct__avatar{width:44px;height:44px}
 }
+
+/* ── 專屬首頁的功能區（主辦 2026-09-03）────────────────────
+   層級越高格子越多。窄機兩欄，320px 也排得下。 */
+.acct__grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2);
+}
+.acct__tile{
+  display:flex;flex-direction:column;align-items:flex-start;gap:2px;
+  min-height:var(--tap);padding:var(--sp-3);
+  background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--r-sm);
+  color:var(--text-primary);font-family:inherit;text-align:left;cursor:pointer;
+}
+.acct__tile:hover{border-color:var(--accent);background:var(--accent-bg)}
+.acct__tile:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.acct__tileIcon{color:var(--accent);display:inline-flex}
+.acct__tileLabel{font-size:var(--fs-md)}
+.acct__tileHint{font-size:var(--fs-xs);color:var(--text-secondary);line-height:1.5}
+
+.acct__soon{margin-top:var(--sp-3);padding-top:var(--sp-3);border-top:1px solid var(--border)}
+.acct__soonList{
+  margin:var(--sp-2) 0 0;padding:0;list-style:none;
+  display:flex;flex-direction:column;gap:var(--sp-2);
+}
+.acct__soonList li{
+  display:flex;align-items:center;gap:var(--sp-2);
+  font-size:var(--fs-sm);color:var(--text-secondary);
+}
+.acct__soonIcon{display:inline-flex;color:var(--text-muted)}
+.acct__soonBadge{
+  margin-left:auto;flex:none;
+  font-size:var(--fs-xs);color:var(--text-muted);
+  background:var(--bg-input);padding:2px var(--sp-2);border-radius:999px;
+}
+
+@media (max-width:359px){
+  .acct__grid{grid-template-columns:1fr}
+}

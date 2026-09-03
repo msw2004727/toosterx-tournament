@@ -14,7 +14,7 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { NAV_LINKS, HIDDEN_PREFIXES, atHome, atMy, isHidden } from '../../js/core/appbar.js';
+import { NAV_LINKS, GUEST_ME, meLink, atHome, atMy } from '../../js/core/appbar.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = p => fs.readFileSync(join(ROOT, p), 'utf8');
@@ -73,20 +73,38 @@ describe('T34-2 目前位置的判定', () => {
   });
 });
 
-describe('T34-3 賽務端不畫這一列', () => {
-  test('⭐ #/staff 底下收起來（否則會有兩個主題切換）', () => {
-    expect(isHidden('#/staff')).toBe(true);
-    expect(isHidden('#/staff/live/m-001')).toBe(true);
+describe('T34-3 未登入顯示「登入」，登入後顯示「我的」', () => {
+  test('⭐ 未登入時右邊那一格是登入，而且指向登入頁', () => {
+    // 主辦 2026-09-03 指定。原本永遠顯示「我的」，未登入的人點下去
+    // 只會看到「請先登入」——多繞一步，而且看不出來自己還沒登入。
+    const me = meLink(false);
+    expect(me.label).toBe('登入');
+    expect(me.href).toBe('#/login');
   });
 
-  test('公開端與報名端都要畫', () => {
-    for (const h of ['#/', '#/my', '#/register', '#/team/t-1/manage', '#/schedule']) {
-      expect(isHidden(h)).toBe(false);
-    }
+  test('⭐ 登入後那一格變成「我的」，指向專屬首頁', () => {
+    const me = meLink(true);
+    expect(me.label).toBe('我的');
+    expect(me.href).toBe('#/my');
   });
 
-  test('收起來的清單只有賽務端', () => {
-    expect(HIDDEN_PREFIXES).toEqual(['#/staff']);
+  test('兩種狀態都用同一個圖示（位置不變，只有文字與去處變）', () => {
+    expect(meLink(true).iconName).toBe(meLink(false).iconName);
+    expect(GUEST_ME.iconName).toBe('person');
+  });
+});
+
+describe('T34-3b 這一列在每一頁都要顯示', () => {
+  test('⭐ 賽務端也要有（主辦 2026-09-03：不管什麼層級頂部都一樣）', () => {
+    // 改動前 #/staff 底下整列是收起來的。既然要常駐，賽務首頁自己
+    // 那顆主題切換就必須拿掉，否則畫面上會有兩個。
+    const src = read('js/modules/staff/home.js');
+    expect(src).not.toContain('themeSwitch');
+  });
+
+  test('appbar 沒有「哪些路由不畫」的清單', () => {
+    const src = read('js/core/appbar.js');
+    expect(src).not.toMatch(/HIDDEN_PREFIXES/);
   });
 });
 
@@ -98,6 +116,17 @@ describe('T34-4 樣式與版面', () => {
     // 會把主題切換擠出畫面外。R-UI-006。
     const narrow = css.slice(css.indexOf('@media (max-width:359px)'));
     expect(narrow).toContain('.apphead__linkText');
+  });
+
+  test('⭐ 主題切換任何寬度都只有圖示，沒有文字', () => {
+    // 主辦 2026-09-03：文字標籤在窄螢幕會斷行，把整條頁首撐成兩列。
+    // 標籤仍留在 DOM（title／aria-label），只是視覺上藏起來——
+    // 用 display:none 的話螢幕閱讀器也讀不到了。
+    const block = css.slice(css.indexOf('.theme-switch__label{'), css.indexOf('.theme-switch__label{') + 200);
+    expect(block).toContain('clip-path');
+    expect(block).not.toContain('display:none');
+    // 不可以只在窄螢幕才藏
+    expect(css).not.toMatch(/@media[^{]*\{\s*\.theme-switch__label\{display:none\}/);
   });
 
   test('文字是用 clip-path 藏起來而不是 display:none（螢幕閱讀器還要讀得到）', () => {

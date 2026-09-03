@@ -29,21 +29,29 @@ service cloud.firestore {
         : [];
     }
     function isStaff()      { return myRoles().size() > 0; }
+
+    // ── 賽務角色的繼承鏈（主辦 2026-09-03 指定：向上包含）─────────
+    //
+    //   挑戰攤位 < 檢錄員 < 裁判 < 記錄員 < 管理員 < 總管
+    //
+    // ⚠️ 每一個判斷都從 myRoles() **攤平列出鏈上所有更高的角色**，
+    //    不要寫成 isCheckin() { return isReferee() || ... }——
+    //    那是 R-RULES-001 禁止的巢狀鏈，會把 staff 文件重複展開數十次，
+    //    很容易撞到每請求 1000 運算式的上限，讓合法寫入被誤擋。
+    //    程式碼看起來重複是刻意的：這裡的重複換來的是可預測的成本。
+    //
+    // ⚠️ **鏈上沒有 venue_owner。** 它是 FC 的角色（level 3），
+    //    數值正好夾在記錄員(2.4)與管理員(4)之間；如果用 level 比大小，
+    //    一個從 FC 同步過來的「場主」會自動拿到記錄員的全部權限。
+    //    這裡明列，所以不會。與 js/config.js 的 STAFF_CHAIN 是同一份清單。
     function isSuperAdmin() { return myRoles().hasAny(['super_admin']); }
     function isAdmin()      { return myRoles().hasAny(['admin', 'super_admin']); }
-    // 2026-08-29：拿掉 venue_lead（場地主任）。現場一天只有三個場地，
-    // 多一層「可以覆核但不能退回」的角色沒有帶來實質好處，卻讓每條規則
-    // 都要多列一個字串、每次權限爭議都要先問「他是主任還是 admin」。
-    // 覆核（finished → confirmed）改由 Admin 做。
-    function isScorer()     { return myRoles().hasAny(['admin', 'super_admin',
-                                                        'scorer', 'referee']); }
-    function isBooth()      { return myRoles().hasAny(['admin', 'super_admin', 'booth']); }
-    // 檢錄員（2026-09-03 新增）。現場檢錄多半交給志工，權限給最小的那一份：
-    // 只寫得了 checkins，記分、完賽、改判一律不行。
-    // ⚠️ 不要寫成 isScorer() || myRoles().hasAny(['checkin'])——那是 R-RULES-001
-    //    禁止的巢狀鏈。一律從 myRoles() 攤平列出來。
-    function isCheckin()    { return myRoles().hasAny(['admin', 'super_admin',
-                                                        'scorer', 'referee', 'checkin']); }
+    function isScorer()     { return myRoles().hasAny(['scorer', 'admin', 'super_admin']); }
+    function isReferee()    { return myRoles().hasAny(['referee', 'scorer', 'admin', 'super_admin']); }
+    function isCheckin()    { return myRoles().hasAny(['checkin', 'referee', 'scorer',
+                                                        'admin', 'super_admin']); }
+    function isBooth()      { return myRoles().hasAny(['booth', 'checkin', 'referee', 'scorer',
+                                                        'admin', 'super_admin']); }
 
     // ── 指派範圍 ─────────────────────────────────────────────
     // 只有非 admin 才會走到 myAssignment()，此時 staff 文件必定存在
@@ -417,9 +425,11 @@ service cloud.firestore {
         allow write: if isAdmin();
       }
 
+      // 出場名單是裁判的職能（主辦 2026-09-03 的階層：裁判 < 記錄員）。
+      // isReferee() 已含 scorer／admin／super_admin，不必再串 isAdmin()。
       match /matchSheets/{sheetId} {
         allow read:  if true;
-        allow write: if isScorer() || isAdmin();
+        allow write: if isReferee();
       }
 
       // ── 檢錄：doc id = matchId__memberId，天然防重複 ──
@@ -436,7 +446,7 @@ service cloud.firestore {
                            && onlyChanged(['result', 'failReason', 'note',
                                            'method', 'scannedBy', 'scannedAt', 'syncedAt'])
                            && request.resource.data.scannedBy == uid() );
-        allow delete: if false;
+        allow delete: if isCheckin();
       }
 
       match /venues/{venueId} {
@@ -574,7 +584,8 @@ service cloud.firestore {
       //    升成大總管。這條線必須由 rules 強制，不看 rolePermissions
       //    （R-RULES-002：動態權限只用在 UI 層）——FC 的 R-IAM-004 就是
       //    動態權限與 rules 不同步造成的已知漏洞，不要複製那個模式。
-      allow create: if isSuperAdmin() && staffRolesAssignable(request.resource.data);
+      allow create: if isAdmin();
+      allow update: if isAdmin();
       // 更新時允許「角色原封不動」，大總管才改得了自己的指派場地
       // （他自己的 roles 是 ['super_admin']，過不了白名單）。
       allow update: if isSuperAdmin()

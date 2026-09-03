@@ -18,7 +18,7 @@ import * as data from './data.js';
 import {
   publicMember, sortRoster, sortByKickoff, isDoneMatch, sideLabel
 } from './selectors.js';
-import { pageHead, empty, matchRow, sectionCard, followStar, shareButton } from './bits.js';
+import { pageHead, empty, matchRow, sectionCard, shareButton } from './bits.js';
 
 const TABS = [
   { key: 'roster', label: '名單', icon: 'team' },
@@ -78,7 +78,6 @@ export async function publicTeam({ params, view, query }) {
       }),
       recordCard(),
       el('div', { class: 'pmatch__actions' }, [
-        followStar('teams', teamId, `關注 ${t.name || teamId}`),
         shareButton(`${t.name || teamId}｜FEDA CUP 2026`, location.href)
       ]),
       tabBar(),

@@ -92,15 +92,44 @@ test.beforeEach(({ page }) => {
    常駐導覽
    ══════════════════════════════════════════════════════════════ */
 
-test('⭐ 每一頁都回得去首頁與「我的」@appbar', async ({ page }) => {
-  await stub(page);
-  for (const hash of ['/#/', '/#/schedule', '/#/stats', '/#/register', '/#/login']) {
+test('⭐ 每一頁都回得去首頁，右邊那一格永遠在 @appbar', async ({ page }) => {
+  // 主辦 2026-09-03：不管什麼身分、在哪一頁，頂部都是
+  // 「首頁 … 安裝 登入／我的 三個主題圖示」。
+  await stub(page, { user: { uid: UID } });
+  for (const hash of ['/#/', '/#/schedule', '/#/stats', '/#/register', '/#/staff']) {
     await go(page, hash);
     const bar = page.locator('.apphead');
     await expect(bar).toBeVisible();
     await expect(bar.locator('a[href="#/"]')).toHaveCount(1);
     await expect(bar.locator('a[href="#/my"]')).toHaveCount(1);
+    // 主題切換每一頁都只有一組（賽務端自己那顆已經拿掉）
+    await expect(page.locator('.theme-switch')).toHaveCount(1);
   }
+});
+
+test('⭐ 未登入時右邊顯示「登入」，登入後變成「我的」@appbar', async ({ page, context }) => {
+  await stub(page);
+  await go(page, '/#/');
+  await expect(page.locator('.apphead a[href="#/login"]')).toContainText('登入');
+  await expect(page.locator('.apphead a[href="#/my"]')).toHaveCount(0);
+
+  const signedIn = await context.newPage();
+  await stub(signedIn, { user: { uid: UID } });
+  await go(signedIn, '/#/');
+  await expect(signedIn.locator('.apphead a[href="#/my"]')).toContainText('我的');
+  await expect(signedIn.locator('.apphead a[href="#/login"]')).toHaveCount(0);
+  await signedIn.close();
+});
+
+test('⭐ 主題切換只有圖示，沒有文字（窄機不會斷行）@appbar @narrow', async ({ page }) => {
+  await stub(page);
+  await go(page, '/#/');
+  // 標籤仍在 DOM 裡給螢幕閱讀器用，但視覺上寬度為 0
+  const w = await page.locator('.theme-switch__label').first().evaluate(el => el.getBoundingClientRect().width);
+  expect(w).toBeLessThan(2);
+  // 頁首不可以被撐成兩列
+  const rows = await page.locator('.apphead').evaluate(el => el.getBoundingClientRect().height);
+  expect(rows).toBeLessThan(80);
 });
 
 test('⭐ 建完隊、關掉瀏覽器再開，還是找得到自己的球隊 @appbar', async ({ page, context }) => {
@@ -123,7 +152,7 @@ test('⭐ 建完隊、關掉瀏覽器再開，還是找得到自己的球隊 @ap
 });
 
 test('目前所在的頁面會標示出來 @appbar', async ({ page }) => {
-  await stub(page);
+  await stub(page, { user: { uid: UID } });
   await go(page, '/#/');
   await expect(page.locator('.apphead a[href="#/"]')).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('.apphead a[href="#/my"]')).not.toHaveAttribute('aria-current', 'page');
@@ -133,18 +162,17 @@ test('目前所在的頁面會標示出來 @appbar', async ({ page }) => {
   await expect(page.locator('.apphead a[href="#/"]')).not.toHaveAttribute('aria-current', 'page');
 });
 
-test('⭐ 賽務端不畫這一列（否則畫面上兩個主題切換）@appbar', async ({ page }) => {
+test('⭐ 賽務端也要有這一列，而且只有一組主題切換 @appbar', async ({ page }) => {
+  // 改動前 #/staff 底下整列是收起來的（主辦 2026-09-03 要求常駐）。
+  // 既然常駐，賽務首頁自己那顆主題切換就必須拿掉。
   await stub(page, { user: { uid: 'u-staff' } });
   await go(page, '/#/staff');
-  await expect(page.locator('.apphead')).toHaveCount(0);
-
-  // 離開賽務端要回來
-  await go(page, '/#/');
   await expect(page.locator('.apphead')).toBeVisible();
+  await expect(page.locator('.theme-switch')).toHaveCount(1);
 });
 
 test('⭐ 換頁不會累積出第二列頁首 @appbar', async ({ page }) => {
-  await stub(page);
+  await stub(page, { user: { uid: UID } });
   await go(page, '/#/');
   for (const h of ['/#/schedule', '/#/staff', '/#/', '/#/stats', '/#/']) {
     await page.goto(h);

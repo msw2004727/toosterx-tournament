@@ -11,6 +11,7 @@
 
 import { berger, snakeSeed, groupLabel } from '../../js/engine/berger.js';
 import { FORMATS, RANKING_RULES, DIVISIONS, STAGE_CODE, REGISTRATION_LIMITS } from '../../js/engine/formats.js';
+import { STAFF_CHAIN, defaultPermsOf } from '../../js/config.js';
 import { rosterProjection } from '../../js/engine/privacy.js';
 
 const EVENT_ID = 'feda-cup-2026';
@@ -152,18 +153,25 @@ const DEFAULT_ATTEMPT_POLICY = { maxAttemptsPerPlayer: 3, allowRepeat: true, ran
 // ─── 角色權限 ─────────────────────────────────────────────────────
 // 2026-08-29：拿掉 venue_lead（場地主任）。覆核改由 admin 做，
 // captain（球隊隊長）不在這張表裡——它是球隊層級的身分，見 docs/10 §2。
-const ROLE_PERMISSIONS = {
-  guest:       { perms: {} },
-  booth:       { perms: { 'challenge.attempt.write': true } },
-  scorer:      { perms: { 'match.score.write': true, 'checkin.write': true, 'matchsheet.write': true } },
-  referee:     { perms: { 'match.score.write': true, 'checkin.write': true, 'matchsheet.write': true,
-                          'match.confirm': true } },
-  admin:       { perms: { 'match.score.write': true, 'match.score.override': true, 'match.reopen': true,
-                          'checkin.write': true, 'matchsheet.write': true, 'match.confirm': true,
-                          'team.manage': true, 'schedule.manage': true, 'standing.manual': true,
-                          'export': true, 'audit.read': true } },
-  super_admin: { perms: { '*': true } }
-};
+/**
+ * 權限矩陣的初始值（`config/rolePermissions/{role}`）。
+ *
+ * ⚠️ **從 js/config.js 的 PERMISSIONS 推出來，不要在這裡手寫第二份。**
+ *    手寫的那一份 2026-09-03 已經跟程式碼分岔了（裁判有覆核權、
+ *    沒有 checkin 這個角色），而分岔不會有任何錯誤訊息：
+ *    介面依 can() 顯示按鈕，資料庫裡那份只是被讀出來覆寫，
+ *    兩邊不一樣的時候看起來只像「這個人的權限怪怪的」。
+ *
+ * 這裡寫的是**預設值展開後的樣子**，總管在授權介面上逐條調整之後
+ * 會覆寫這幾份文件。
+ */
+const ROLE_PERMISSIONS = Object.fromEntries(
+  STAFF_CHAIN.map(role => [role, {
+    role,
+    perms: Object.fromEntries(defaultPermsOf(role).map(code => [code, true])),
+    note: '由 scripts/seed 依 js/config.js 的 PERMISSIONS 產生；總管可逐條調整'
+  }])
+);
 
 /** Demo 環境用的工作人員（safety：seed 只在 demo 專案執行） */
 /** 邀請碼：6 碼英數。種子資料用可預測的算法，正式報名由 Function 產生亂碼。 */

@@ -191,6 +191,31 @@ const MUTANTS = [
     to: `                           && onlyChanged(['result', 'failReason', 'note', 'memberId', 'matchId',
                                            'method', 'scannedBy', 'scannedAt', 'syncedAt'])`
   },
+  {
+    name: 'RU#25 檢錄不含更高階（記錄員反而檢錄不了）',
+    file: F,
+    from: `    function isCheckin()    { return myRoles().hasAny(['checkin', 'referee', 'scorer',
+                                                        'admin', 'super_admin']); }`,
+    to: `    function isCheckin()    { return myRoles().hasAny(['checkin']); }`
+  },
+  {
+    name: 'RU#26 記分含裁判（裁判 < 記錄員，不該記得了分）',
+    file: F,
+    from: `    function isScorer()     { return myRoles().hasAny(['scorer', 'admin', 'super_admin']); }`,
+    to: `    function isScorer()     { return myRoles().hasAny(['referee', 'scorer', 'admin', 'super_admin']); }`
+  },
+  {
+    name: 'RU#27 出場名單只給記錄員（裁判編不了名單）',
+    file: F,
+    from: `        allow write: if isReferee();`,
+    to: `        allow write: if isScorer();`
+  },
+  {
+    name: 'RU#28 繼承鏈含 venue_owner（FC 的場主自動變成記錄員）',
+    file: F,
+    from: `    function isScorer()     { return myRoles().hasAny(['scorer', 'admin', 'super_admin']); }`,
+    to: `    function isScorer()     { return myRoles().hasAny(['venue_owner', 'scorer', 'admin', 'super_admin']); }`
+  },
 ];
 
 process.exit(runMutants({

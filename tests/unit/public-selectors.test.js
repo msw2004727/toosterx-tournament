@@ -94,11 +94,6 @@ describe('T32-2 首頁三區', () => {
     expect(s.done.map(m => m.matchId)).toEqual(['done1']);
   });
 
-  test('⭐ 關注的球隊在「接下來」置頂', () => {
-    const s = splitHomeSections({ matches: set, nowMs: now, followTeamIds: ['tX'] });
-    expect(s.next[0].matchId).toBe('next2');
-  });
-
   test('⭐ 還沒到時間的完賽場次不算「剛結束」', () => {
     // 種子資料常常整天的場次都先建好，狀態被誤設成 finished 的話
     // 首頁會出現「剛結束」一場其實還沒打的比賽
@@ -121,25 +116,28 @@ describe('T32-3 篩選與網址', () => {
     match({ matchId: 'b', divisionId: 'adult-open', venueId: 'venue-b', home: { teamId: 'tF', name: 'F' } })
   ];
 
+  test('⭐ 已經沒有「我的關注」這個篩選（2026-09-03 移除關注功能）', () => {
+    // 按鈕拿掉之後就沒有任何入口可以加入關注，留一個永遠是空的篩選器
+    // 只會讓人以為系統壞了。網址上的舊參數也不該再被解析。
+    expect(filterToQuery({ onlyFollowed: true })).toBe('');
+    expect(queryToFilter('follow=1')).not.toHaveProperty('onlyFollowed');
+    expect(filterMatches(set, { onlyFollowed: true })).toHaveLength(2);
+  });
+
   test('空值代表不限', () => {
     expect(filterMatches(set, {})).toHaveLength(2);
     expect(filterMatches(set, { divisionId: 'u10' }).map(m => m.matchId)).toEqual(['a']);
     expect(filterMatches(set, { venueId: 'venue-b' }).map(m => m.matchId)).toEqual(['b']);
   });
 
-  test('我的關注只留有關注球隊的場次', () => {
-    expect(filterMatches(set, { onlyFollowed: true }, ['tF']).map(m => m.matchId)).toEqual(['b']);
-    expect(filterMatches(set, { onlyFollowed: true }, [])).toEqual([]);
-  });
-
   test('⭐ 篩選條件 ⇄ 網址可以來回（家長會把連結貼進 LINE 群組）', () => {
-    const f = { date: '2026-10-11', divisionId: 'u10', venueId: 'venue-a', onlyFollowed: true };
+    const f = { date: '2026-10-11', divisionId: 'u10', venueId: 'venue-a' };
     expect(queryToFilter(filterToQuery(f))).toEqual(f);
   });
 
   test('沒有條件時網址是乾淨的', () => {
     expect(filterToQuery({})).toBe('');
-    expect(queryToFilter('')).toEqual({ date: null, divisionId: null, venueId: null, onlyFollowed: false });
+    expect(queryToFilter('')).toEqual({ date: null, divisionId: null, venueId: null });
   });
 });
 

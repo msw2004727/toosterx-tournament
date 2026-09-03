@@ -75,7 +75,14 @@
 }
 .theme-switch__opt.is-on{background:var(--bg-card);color:var(--accent);box-shadow:var(--shadow-1)}
 /* 窄機只留圖示，三個字擠不下 */
-@media (max-width:399px){ .theme-switch__label{display:none} .theme-switch__opt{padding:0 9px} }
+/* ⚠️ 主題切換**任何寬度都只留圖示**（主辦 2026-09-03 指定）。
+   文字標籤在窄螢幕會被斷行，把整條頁首撐成兩列。
+   標籤仍然存在於 DOM 裡（title + aria-label），螢幕閱讀器讀得到。 */
+.theme-switch__label{
+  position:absolute;width:1px;height:1px;overflow:hidden;
+  clip-path:inset(50%);white-space:nowrap;
+}
+.theme-switch__opt{padding:0 9px}
 
 /* ── 卡片與通知 ─────────────────────────────────────── */
 .card{
