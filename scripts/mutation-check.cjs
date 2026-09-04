@@ -954,6 +954,18 @@ const MUTANTS = [
     from: "    const d = describeAudit(a, lookup);",
     to: "    const d = { title: a.action ?? '', detail: [] };"
   },
+  {
+    name: '#G6 ⭐ 搜尋不含「by 誰」（畫面寫著金小麥、搜金小麥 0 筆）',
+    file: 'js/engine/audit.js',
+    from: "    const hay = [d.title, ...d.detail, actorText(a, lookup), a.actorUid, a.entityId]",
+    to: "    const hay = [d.title, ...d.detail, a.actorName, a.actorUid, a.entityId]"
+  },
+  {
+    name: '#G7 「by 誰」不查 lookup（每一列都印 uid）',
+    file: 'js/engine/audit.js',
+    from: "  return lookup.people?.[a?.actorUid] ?? a?.actorName ?? a?.actorUid ?? '（不明）';",
+    to: "  return a?.actorName ?? a?.actorUid ?? '（不明）';"
+  },
 ];
 
 process.exit(runMutants({

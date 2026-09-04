@@ -238,13 +238,23 @@ export async function getAudits(max = 200) {
  */
 export async function getAuditLookup() {
   const { collection, getDocs, query, orderBy } = sdk();
-  const [users, teams] = await Promise.all([
+  const [users, staff, teams] = await Promise.all([
     getDocs(collection(db(), 'users')).catch(() => null),
+    getDocs(collection(db(), 'staff')).catch(() => null),
     getDocs(query(collection(db(), 'events', EVENT_ID, 'teams'), orderBy('name', 'asc'))).catch(() => null)
   ]);
+  const people = {};
+  // ⚠️ staff 先鋪、users 後蓋：兩邊都有名字時以名錄（LINE 名稱）為準，
+  //    但**只有 staff 有名字的人也要查得到**——用 grant-super-admin.mjs
+  //    建立的總管、以及 demo 的自助身分都沒有 users 文件。
+  //    少了這一段，稽核頁會印出一長串 uid（2026-09-04 在真站上看到）。
+  for (const d of staff?.docs ?? []) if (d.data().name) people[d.id] = d.data().name;
+  for (const d of users?.docs ?? []) {
+    const n = d.data().displayName || d.data().name;
+    if (n) people[d.id] = n;
+  }
   return {
-    people: Object.fromEntries((users?.docs ?? []).map(d => [d.id, d.data().displayName || d.data().name || null])
-      .filter(([, v]) => v)),
+    people,
     teams: Object.fromEntries((teams?.docs ?? []).map(d => [d.id, d.data().name]).filter(([, v]) => v))
   };
 }

@@ -10,7 +10,7 @@
  */
 
 import {
-  normalizeAudit, describeAudit, filterAudits, AUDIT_FILTERS
+  normalizeAudit, describeAudit, actorText, filterAudits, AUDIT_FILTERS
 } from '../../js/engine/audit.js';
 
 /** 管理後台早期的形狀（demo 上真的有 14 筆） */
@@ -160,6 +160,29 @@ describe('T39-B 變成人話', () => {
   });
 });
 
+describe('T39-B2 「by 誰」', () => {
+  const a = normalizeAudit(oldShape());
+
+  test('⭐ 名字用 lookup 查（紀錄上的 actor.name 不能信）', () => {
+    expect(actorText(a, LOOKUP)).toBe('金小麥');
+  });
+
+  test('⭐ 查不到就退回 uid，不顯示空白', () => {
+    expect(actorText(a, {})).toBe('U-mai');
+    expect(actorText(normalizeAudit({ action: 'x' }), LOOKUP)).toBe('（不明）');
+  });
+
+  test('結果管線寫的那些顯示「系統」', () => {
+    expect(actorText(normalizeAudit({ action: 'advancement.resolve', actor: { uid: null, name: 'system' } }), LOOKUP))
+      .toBe('系統');
+  });
+
+  test('壞輸入不炸', () => {
+    expect(actorText(null)).toBe('（不明）');
+    expect(actorText(undefined, LOOKUP)).toBe('（不明）');
+  });
+});
+
 describe('T39-C 篩選與搜尋', () => {
   const rows = [
     oldShape(),
@@ -186,6 +209,14 @@ describe('T39-C 篩選與搜尋', () => {
     // 使用者搜的是他看到的字。搜 t-113 找不到「臺中晨星」等於搜尋壞了。
     expect(filterAudits(rows, { q: '臺中晨星', lookup: LOOKUP })).toHaveLength(1);
     expect(filterAudits(rows, { q: '記錄員', lookup: LOOKUP })).toHaveLength(2);
+  });
+
+  test('⭐ 搜得到畫面上那個「by 誰」', () => {
+    // 2026-09-04 在真站上實測到：每一列都寫著「by 金小麥」，
+    // 搜「金小麥」卻是 0 筆——畫面與搜尋各算了一份「by 誰」。
+    // 現在兩邊都用 actorText()。
+    expect(filterAudits(rows, { q: '金小麥', lookup: LOOKUP })).toHaveLength(3);
+    expect(filterAudits(rows, { q: '陳賽務', lookup: { people: { 'U-sc': '陳賽務' } } })).toHaveLength(1);
   });
 
   test('也搜得到 uid 與原始 id（跨系統對帳用）', () => {

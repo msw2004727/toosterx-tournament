@@ -124,6 +124,23 @@ test('⭐ 操作者的名字讀取時再查（紀錄上的 actor.name 不能信�
   await expect(page.locator('.adm__audits')).not.toContainText(UID);
 });
 
+test('⭐ 只有 staff 文件的人也查得到名字 @admin', async ({ page }) => {
+  // 用 grant-super-admin.mjs 建立的總管、以及 demo 的自助身分都沒有
+  // users 文件。少了 staff 這一路，稽核頁會印出一長串 uid（真站上看到過）。
+  await stub(page, {
+    extra: {
+      'staff/u-selfserve': { uid: 'u-selfserve', name: 'Demo 管理員', roles: ['admin'], active: true },
+      [`events/${EVENT}/audits/a-self`]: {
+        auditId: 'a-self', action: 'team.approve', entity: 'team', entityId: 't-113',
+        actor: { uid: 'u-selfserve' }, createdAt: T('2026-09-04T11:00:00+08:00')
+      }
+    }
+  });
+  await go(page);
+  await expect(item(page, 'Demo 管理員')).toHaveCount(1);
+  await expect(page.locator('.adm__audits')).not.toContainText('u-selfserve');
+});
+
 test('查不到名字時退回 uid，不顯示空白 @admin', async ({ page }) => {
   await stub(page, {
     extra: {
@@ -195,6 +212,11 @@ test('分頁與搜尋可以縮小範圍 @admin', async ({ page }) => {
   await page.getByRole('tab', { name: /全部/ }).click();
   await page.locator('.adm__search').fill('臺中晨星');
   await expect(page.locator('.adm__audit')).toHaveCount(1);
+
+  // ⭐ 搜得到畫面上那個「by 誰」。2026-09-04 在真站上實測到：
+  //    每一列都寫著「by 金小麥」，搜「金小麥」卻是 0 筆。
+  await page.locator('.adm__search').fill('金小麥');
+  await expect(page.locator('.adm__audit')).toHaveCount(3);
 
   await page.locator('.adm__search').fill('不存在的東西');
   await expect(page.locator('.adm__empty')).toContainText('沒有符合');

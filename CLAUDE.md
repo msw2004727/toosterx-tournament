@@ -188,10 +188,10 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 642 全綠（31 個 suite） |
-| `npm run test:mutation` | ✅ 146 / 146 全被抓到 |
-| `npm run test:mutation:e2e` | ✅ 11 / 11 全被抓到（畫面層時序、權限與替身語意） |
-| `npm run test:e2e` | ✅ 633 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:unit` | ✅ 647 全綠（31 個 suite） |
+| `npm run test:mutation` | ✅ 148 / 148 全被抓到 |
+| `npm run test:mutation:e2e` | ✅ 12 / 12 全被抓到（畫面層時序、權限與替身語意） |
+| `npm run test:e2e` | ✅ 636 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 169 全綠（R34–R72 報名、R73–R92 檢錄與階層、R93–R98 審核、R99–R112 授權與權限） |
 | `npm run test:mutation:rules` | ✅ 27 / 27 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
@@ -570,8 +570,14 @@ LINE 的 uid 沒辦法憑空產生，所以「指派身分」的第一步永遠�
 
 1. **`actor.name` 不能信。** 賽務端寫的是 Firebase 使用者的 displayName，
    而 custom token 登入的人那一格永遠是 null（docs/10 §8.5）。
-   名字一律讀取時再查 `users/{uid}`，查不到就退回 uid——顯示空白會讓人
-   以為紀錄壞了。
+   名字一律讀取時再查，而且**要查兩個集合**：先 `users/{uid}`（LINE 名稱），
+   查不到再 `staff/{uid}`——用 `grant-super-admin.mjs` 建立的總管與
+   demo 的自助身分**只有後者**，少了那一路稽核頁會印出一長串 uid。
+   兩邊都查不到才退回 uid，顯示空白會讓人以為紀錄壞了。
+
+   ⚠️ 「by 誰」由 `actorText()` 算，**畫面與搜尋用同一支**。第一版畫面
+   自己算一份、搜尋另外組一份，結果每一列都寫著「by 金小麥」，
+   搜「金小麥」卻是 0 筆——使用者搜的是他看到的字（變異 #G6）。
 2. **還沒同步的時間顯示「同步中」**，不要填本機時間：那會讓稽核的
    時間軸失真，而時間軸正是這一頁的用途。而且它在 desc 排序裡會落在
    **最後**（Firestore 的 null 最小），不是假裝自己最新。

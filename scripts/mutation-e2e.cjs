@@ -86,6 +86,12 @@ const MUTANTS = [
     file: 'tests/e2e/fake-firebase.js',
     from: `  if (v && typeof v.seconds === 'number') return v.seconds * 1000 + (v.nanoseconds ?? 0) / 1e6;`,
     to: ``
+  },
+  {
+    name: '#E12 ⭐ 稽核的名字只查 users（腳本建的總管與自助身分印 uid）',
+    file: 'js/modules/admin/data.js',
+    from: `  for (const d of staff?.docs ?? []) if (d.data().name) people[d.id] = d.data().name;`,
+    to: ``
   }
 ];
 

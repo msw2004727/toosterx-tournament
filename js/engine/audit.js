@@ -135,6 +135,21 @@ export function describeAudit(a, lookup = {}) {
   return { title, detail };
 }
 
+/**
+ * 「by 誰」。
+ *
+ * ⚠️ 畫面與搜尋**必須用同一支**。第一版是畫面自己算一份、搜尋另外組一份，
+ *    結果每一列都寫著「by 金小麥」，搜「金小麥」卻是 0 筆——
+ *    使用者搜的是他看到的字（2026-09-04 在真站上實測到）。
+ *
+ * 名字一律用 `lookup` 查：紀錄上的 `actor.name` 不能信（custom token
+ * 登入的人那一格永遠是 null）。查不到就退回 uid，不顯示空白。
+ */
+export function actorText(a, lookup = {}) {
+  if (a?.actorName === 'system') return '系統';
+  return lookup.people?.[a?.actorUid] ?? a?.actorName ?? a?.actorUid ?? '（不明）';
+}
+
 /** 篩選用的分組。`prefix` 是 action 的開頭。 */
 export const AUDIT_FILTERS = [
   { key: 'all', label: '全部', match: () => true },
@@ -157,7 +172,7 @@ export function filterAudits(rows, { filter = 'all', q = '', lookup = {} } = {})
     if (!f.match(a)) return false;
     if (!needle) return true;
     const d = describeAudit(a, lookup);
-    const hay = [d.title, ...d.detail, a.actorName, a.actorUid, a.entityId]
+    const hay = [d.title, ...d.detail, actorText(a, lookup), a.actorUid, a.entityId]
       .filter(Boolean).join(' ').toLowerCase();
     return hay.includes(needle);
   });

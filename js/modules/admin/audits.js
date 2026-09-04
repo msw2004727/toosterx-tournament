@@ -12,7 +12,8 @@
  *   2. **每一筆都是一句人話。** 一坨 JSON 對主辦沒有用；翻譯在
  *      `js/engine/audit.js`，不認得的動作照原樣印出來、不吞掉。
  *   3. **名字讀取時再查。** 紀錄上的 `actor.name` 不能信（custom token
- *      登入的人那一格永遠是 null），權威在 `users/{uid}`。
+ *      登入的人那一格永遠是 null）。先查 `users/{uid}`，查不到再查
+ *      `staff/{uid}`——用腳本建立的總管與 demo 自助身分只有後者。
  *   4. **還沒同步的時間顯示「同步中」**，不要填本機時間——那會讓
  *      稽核的時間軸失真，而時間軸正是這一頁的用途。
  *
@@ -24,7 +25,7 @@ import { icon } from '../../core/icons.js';
 import { can, onAuth } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { dateLabel, hhmm, toMillis } from '../../lib/format.js';
-import { normalizeAudit, describeAudit, filterAudits, AUDIT_FILTERS } from '../../engine/audit.js';
+import { normalizeAudit, describeAudit, actorText, filterAudits, AUDIT_FILTERS } from '../../engine/audit.js';
 import * as data from './data.js';
 import { adminHead, denied } from './bits.js';
 
@@ -61,10 +62,14 @@ export async function adminAuditsPage({ scope, view }) {
     });
   }
 
-  function whoText(a) {
-    if (a.actorName === 'system') return '系統';
-    return state.lookup.people?.[a.actorUid] ?? a.actorName ?? a.actorUid ?? '（不明）';
-  }
+  /**
+   * 「by 誰」由引擎算，搜尋用的也是同一支——兩份實作分岔的結果是
+   * 「畫面寫著金小麥、搜金小麥卻 0 筆」（2026-09-04 在真站上實測到）。
+   *
+   * ⚠️ 寫成具名函式而不是 `const`：render() 會用到它，而 render()
+   *    可能在宣告之前就被呼叫（CLAUDE.md 的順序陷阱，踩過五次）。
+   */
+  function whoText(a) { return actorText(a, state.lookup); }
 
   /** 「10/9（四） 15:04」。還沒同步的一律說「同步中」，不猜。 */
   function whenText(a) {
