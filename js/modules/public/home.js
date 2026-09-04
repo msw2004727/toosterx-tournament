@@ -17,7 +17,7 @@ import { startTicker, now } from '../../core/clock.js';
 import { dateLabelFromYmd, hhmm } from '../../lib/format.js';
 import { EVENT } from '../../config.js';
 import * as data from './data.js';
-import { splitHomeSections, isLiveMatch, hiddenScorerDivisions } from './selectors.js';
+import { splitHomeSections, isLiveMatch, hiddenScorerDivisions, publishedMatches } from './selectors.js';
 import { matchRow, sectionCard, empty, pageHead, statusBadge } from './bits.js';
 
 export async function publicHome({ scope, view, query }) {
@@ -104,16 +104,20 @@ export async function publicHome({ scope, view, query }) {
   render();
 
   function sections() {
-    // 看板在就用看板（Function 已經整理好），否則用當日場次自己分三區
+    // 還沒發布賽程的組別一律不出現在首頁（主辦可能正在排到一半）。
+    // ⚠️ 看板（boards/live）是 Cloud Function 產的，裡面**沒有**過濾，
+    //    所以這裡兩條路都要過一次——只濾其中一條，首頁會在看板還沒
+    //    產生時正確、產生之後又漏出來。
+    const gate = list => publishedMatches(list, state.divisions);
     if (state.board) {
       return {
-        live: state.board.liveMatches || [],
-        next: state.board.nextMatches || [],
-        done: state.board.justFinished || []
+        live: gate(state.board.liveMatches || []),
+        next: gate(state.board.nextMatches || []),
+        done: gate(state.board.justFinished || [])
       };
     }
     return splitHomeSections({
-      matches: state.matches,
+      matches: gate(state.matches),
       nowMs: now()
     });
   }

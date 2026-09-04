@@ -265,3 +265,18 @@
 .adm__timeRow{display:flex;align-items:center;gap:var(--sp-2)}
 .adm__timeRow .adm__fieldLabel{flex:none}
 .adm__time{max-width:11rem}
+
+/* ── 賽程管理 ───────────────────────────────────────────── */
+/* 分組的隊伍晶片。點一顆選取、再點另一組的一顆就對調——
+   只能對調不能單獨搬走，不然兩組隊數不等，名次賽會少一個對手。 */
+.adm__chips{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+.adm__chips .adm__chip[aria-pressed="true"]{
+  border-color:var(--accent);background:var(--accent-bg);color:var(--accent);
+}
+.adm__chips .adm__chip:disabled{opacity:1;cursor:default}
+
+/* 時間 ＋ 場地兩格並排。320px 上會自己折行——一行擠不下兩個
+   點得到的控制項（R-UI-006）。 */
+.adm__schedRow{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center}
+.adm__schedRow > *{flex:1 1 8rem;min-width:0}
+.adm__schedRow .adm__time{flex:0 1 8rem;max-width:9rem}

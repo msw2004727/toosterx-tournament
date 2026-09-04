@@ -14,7 +14,7 @@ import { startTicker, now } from '../../core/clock.js';
 import { dateLabelFromYmd, hhmm } from '../../lib/format.js';
 import { EVENT } from '../../config.js';
 import * as data from './data.js';
-import { filterMatches, filterToQuery, queryToFilter, groupBySlot } from './selectors.js';
+import { filterMatches, filterToQuery, queryToFilter, groupBySlot, publishedMatches } from './selectors.js';
 import { matchRow, slotHeading, empty, pageHead, statusBadge } from './bits.js';
 
 export async function publicSchedule({ scope, view, query }) {
@@ -70,7 +70,8 @@ export async function publicSchedule({ scope, view, query }) {
   function open(m) { navigate(`/match/${encodeURIComponent(m.matchId)}`); }
 
   function render() {
-    const rows = filterMatches(state.matches, state);
+    // 還沒發布賽程的組別不顯示——主辦可能正在排，家長照著半套跑會跑錯時間
+    const rows = filterMatches(publishedMatches(state.matches, state.divisions), state);
     const groups = groupBySlot(rows, ms => hhmm(ms));
 
     mount(root,

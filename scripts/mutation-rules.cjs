@@ -240,6 +240,46 @@ const MUTANTS = [
       allow write: if isAdmin();
     }`
   },
+
+  // ── 賽程管理（R118–R125）─────────────────────────────────
+  {
+    name: 'RU#31 ⭐ 記錄員也建得了場次（賽程可以被非管理員重排）',
+    file: F,
+    from: `        allow create, delete: if isAdmin();`,
+    to: `        allow create, delete: if isScorer();`
+  },
+  {
+    name: 'RU#32 ⭐ 記錄員也寫得動組別與階段（小組決定積分榜怎麼分堆）',
+    file: F,
+    from: `      match /divisions/{divisionId} {
+        allow read:  if true;
+        allow write: if isAdmin();
+        match /{sub=**} {
+          allow read:  if true;
+          allow write: if isAdmin();
+        }
+      }`,
+    to: `      match /divisions/{divisionId} {
+        allow read:  if true;
+        allow write: if isScorer();
+        match /{sub=**} {
+          allow read:  if true;
+          allow write: if isScorer();
+        }
+      }`
+  },
+  {
+    name: 'RU#33 ⭐ 記錄員也寫得動積分榜（可以直接改名次，不必比賽）',
+    file: F,
+    from: `      match /standings/{standingId} {
+        allow read:  if true;
+        allow write: if isAdmin();
+      }`,
+    to: `      match /standings/{standingId} {
+        allow read:  if true;
+        allow write: if isScorer();
+      }`
+  },
 ];
 
 process.exit(runMutants({

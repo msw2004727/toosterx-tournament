@@ -156,8 +156,10 @@ export async function publicTeam({ params, view, query }) {
   }
 
   function scheduleTab() {
-    if (!state.matches.length) return empty('賽程準備中', '敬請期待。');
-    return el('ul', { class: 'plist' }, state.matches.map(m => matchRow({
+    // 這一組的賽程還沒發布就當成「準備中」（同組別頁）
+    const rows = state.division?.schedulePublished === false ? [] : state.matches;
+    if (!rows.length) return empty('賽程準備中', '敬請期待。');
+    return el('ul', { class: 'plist' }, rows.map(m => matchRow({
       match: m, division: state.division,
       onOpen: x => navigate(`/match/${encodeURIComponent(x.matchId)}`)
     })));

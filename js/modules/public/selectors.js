@@ -266,6 +266,34 @@ export function hiddenScorerDivisions(divisions, featureFlags) {
     .map(d => d.divisionId));
 }
 
+/**
+ * 還沒發布賽程的組別。
+ *
+ * 主辦在 `#/admin/schedule` 排到一半時，公開端不該看到半套賽程——
+ * 家長會照著那份跑錯時間。
+ *
+ * ⚠️ **只有明確的 `false` 才隱藏。** 既有的組別文件根本沒有這個欄位
+ *    （這一版之前產生的），把「沒有欄位」當成未發布的話，
+ *    這一版一上線，原本看得到的賽程會整個消失。
+ *
+ * ⚠️ 這**不是安全邊界**：`matches` 的讀取規則是 `allow read: if true`，
+ *    未發布的場次仍然讀得到，只是畫面不顯示。真正的邊界在 rules。
+ *
+ * @returns {Set<string>} 不顯示賽程的 divisionId
+ */
+export function unpublishedDivisions(divisions) {
+  return new Set((divisions || [])
+    .filter(d => d?.schedulePublished === false && d?.divisionId)
+    .map(d => d.divisionId));
+}
+
+/** 濾掉未發布組別的場次 */
+export function publishedMatches(matches, divisions) {
+  const hidden = unpublishedDivisions(divisions);
+  if (!hidden.size) return matches ?? [];
+  return (matches ?? []).filter(m => !hidden.has(m?.divisionId));
+}
+
 /** 測試用：這份文件有沒有夾帶不該公開的欄位（上游投影壞掉的訊號） */
 export function leakedFields(doc) {
   return PRIVATE_MEMBER_FIELDS.filter(k => doc?.[k] !== undefined);

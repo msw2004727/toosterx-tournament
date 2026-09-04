@@ -207,7 +207,11 @@ describe('T37-D 整張表', () => {
 
   test('⭐ 功能還沒上線的那幾條標得出來', () => {
     const rows = groups.flatMap(g => g.rows);
-    expect(rows.find(r => r.code === 'schedule.manage').pending).toBe(true);
+    // ⚠️ 這裡挑的是「目前還沒有畫面在讀」的那一條。功能做好、接上 can()
+    //    的那一刻這條測試會紅——那正是提醒你把 pending 旗標拿掉的地方。
+    //    `schedule.manage` 就是這樣在 M4-c 第 6 項做好時紅過一次。
+    expect(rows.find(r => r.code === 'match.confirm').pending).toBe(true);
+    expect(rows.find(r => r.code === 'schedule.manage').pending).toBe(false);
     expect(rows.find(r => r.code === 'match.finish').pending).toBe(false);
   });
 });

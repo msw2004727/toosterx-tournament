@@ -56,6 +56,19 @@
   order: 6,                            // 顯示排序
   status: 'scheduled',                 // scheduled | live | finished
   finalRankingPublished: false,
+
+  // ── 賽程管理（M4-c）────────────────────────────────────────
+  // 賽程發布之前，公開端不顯示這一組的場次。
+  // ⚠️ 只有明確的 false 才隱藏——這個欄位是後來才加的，
+  //    既有的組別文件沒有它，當成「未發布」會讓原有賽程整個消失。
+  // ⚠️ 這不是安全邊界：matches 的讀取規則是 allow read: if true。
+  schedulePublished: true,
+
+  // 分組怎麼來的（規章第十四條：統一由大會代為抽籤排定）。
+  // seed 是重放的依據：同一個種子一定得到同一組分組。
+  // 手動指定分組時 method='manual'、seed=null。
+  draw: { seed: 20260904123, at: Timestamp, method: 'random' },  // random | manual
+
   createdAt, updatedAt
 }
 ```
@@ -614,7 +627,26 @@ id：`${matchId}__${memberId}`（同場次同人只會有一筆，天然防重�
 
 // config/featureFlags
 { liveTimeline: true, scorerBoard: true, photoWall: false }
+
+// config/schedule —— 排程設定（賽程管理用）
+// ⚠️ 這幾個數字**規章都沒有規定**，是營運決定，所以放在後台改得到的地方。
+//    比賽時間與用球在 config/formats（規章第十七、十八條），不在這裡。
+{
+  startTime: '08:30',        // 當天第一個時段
+  endTime: '18:00',          // 最後一場必須在這之前開賽
+  bufferMin: 10,             // 場間緩衝（場地佔用 = 比賽時間 + 緩衝）
+  minRestMin: 20,            // 同一隊兩場之間的休息下限（不足只是 warn）
+  maxGapMin: 240,            // 空等超過這個數字提醒（warn）
+  venuesByDate: { '2026-10-09': ['venue-a', 'venue-b', 'venue-c'],
+                  '2026-10-10': ['venue-a', 'venue-b'] }
+}
 ```
+
+⚠️ `config/formats` 除了規章定案的四個範本，還會有**系統產生的通用範本**
+（`GEN_{N}T_{G}G`，見 `js/engine/schedule.js` 的 `genericFormat`）：
+實際報名的隊數不是 4／6／8 時由賽程管理產生並寫回這裡。
+Cloud Functions 解晉級讀的就是這一份——只改 `division.formatId`
+而沒有把範本寫進來的話，晉級會在比賽當天才失敗。
 
 詳細內容見 `02-賽制引擎與排名規則.md`。
 

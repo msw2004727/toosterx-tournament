@@ -43,6 +43,20 @@ export async function getMembers(teamId) {
   return snap.docs.map(d => ({ memberId: d.id, ...d.data() }));
 }
 
+/**
+ * 一次性讀全部球隊。
+ *
+ * 賽程管理用這一支而不是 `watchTeams`：編排到一半被別人的快照蓋掉，
+ * 抽好的分組草稿就沒了。要看最新的資料按「再試一次」重新載入。
+ */
+export async function getTeams() {
+  const { collection, getDocs, query, orderBy } = sdk();
+  const snap = await getDocs(query(
+    collection(db(), 'events', EVENT_ID, 'teams'), orderBy('name', 'asc')
+  ));
+  return snap.docs.map(d => ({ teamId: d.id, ...d.data() }));
+}
+
 export async function getDivisions() {
   const { collection, getDocs, query, orderBy } = sdk();
   const snap = await getDocs(query(
@@ -288,6 +302,171 @@ export async function saveRegistration(patch) {
     ...patch,
     updatedAt: serverTimestamp(),
     updatedBy: uid()
+  }, { merge: true });
+}
+
+// ── 賽程管理 ─────────────────────────────────────────────────
+
+/**
+ * 排程設定（開賽時間、緩衝、休息下限、各日可用場地）。
+ *
+ * 文件不存在時回 null，讓畫面明說「還沒設定過，用的是預設值」——
+ * 悄悄套預設值的話，主辦會以為那幾個數字已經存進資料庫了。
+ */
+export async function getScheduleConfig() {
+  const { doc, getDoc } = sdk();
+  const snap = await getDoc(doc(db(), 'config', 'schedule'));
+  return snap.exists() ? snap.data() : null;
+}
+
+/** ⚠️ merge：這份文件日後可能長出別的欄位，整份覆蓋會把它們抹掉 */
+export async function saveScheduleConfig(patch) {
+  const { doc, setDoc, serverTimestamp } = sdk();
+  await setDoc(doc(db(), 'config', 'schedule'), {
+    ...patch, updatedAt: serverTimestamp(), updatedBy: uid()
+  }, { merge: true });
+}
+
+/** 賽制範本。通用範本產生後也寫回這裡，Cloud Functions 讀的是同一份。 */
+export async function getFormats() {
+  const { doc, getDoc } = sdk();
+  const snap = await getDoc(doc(db(), 'config', 'formats'));
+  return snap.exists() ? (snap.data().formats ?? {}) : {};
+}
+
+/**
+ * 新增一個賽制範本。
+ *
+ * ⚠️ 一定要 merge，而且是**巢狀**的 `formats.{id}` 路徑：
+ *    整份覆蓋會把規章定案的四個範本抹掉，而抹掉之後
+ *    Cloud Functions 的晉級解算會在比賽當天才失敗。
+ */
+export async function addFormat(format) {
+  const { doc, setDoc } = sdk();
+  await setDoc(doc(db(), 'config', 'formats'), { formats: { [format.formatId]: format } }, { merge: true });
+}
+
+/** 一個組別的全部場次。單一 where，用不到複合索引。 */
+export async function getMatchesOf(divisionId) {
+  const { collection, getDocs, query, where } = sdk();
+  const snap = await getDocs(query(
+    collection(db(), 'events', EVENT_ID, 'matches'), where('divisionId', '==', divisionId)
+  ));
+  return snap.docs.map(d => ({ matchId: d.id, ...d.data() }));
+}
+
+/**
+ * 全賽事的場次。
+ *
+ * 衝突檢查一定要看**全部**組別：兩個組別排到同一片場地的同一個時段，
+ * 只看自己那一組是看不出來的。場次總數是幾十到一百多筆，一次拉回來就好。
+ */
+export async function getAllMatches() {
+  const { collection, getDocs } = sdk();
+  const snap = await getDocs(collection(db(), 'events', EVENT_ID, 'matches'));
+  return snap.docs.map(d => ({ matchId: d.id, ...d.data() }));
+}
+
+/** 場次寫入。分批送出（Firestore 一批上限 500，這裡遠遠用不到）。 */
+export async function writeMatches(docsToWrite) {
+  const { doc, writeBatch } = sdk();
+  const CHUNK = 400;
+  for (let i = 0; i < docsToWrite.length; i += CHUNK) {
+    const batch = writeBatch(db());
+    for (const d of docsToWrite.slice(i, i + CHUNK)) {
+      batch.set(doc(db(), 'events', EVENT_ID, 'matches', d.matchId), d.data, { merge: d.merge !== false });
+    }
+    await batch.commit();
+  }
+}
+
+/**
+ * 刪除場次（重新產生時用）。
+ *
+ * ⚠️ Firestore 刪文件**不會刪子集合**，所以 `timeline` 會留下來成為孤兒，
+ *    而且 matchId 是決定性的（`{組別碼}-{階段碼}-{小組}-{序}`）——
+ *    重新產生會產出同樣的 id，舊事件就會黏回新場次上。
+ *
+ *    這件事被 `canRegenerate()` 擋住了：只要有任何一場開打就不准重產，
+ *    而沒開打的場次不會有 timeline 事件（那是賽務台在比賽中才寫的）。
+ *    **所以那個守衛不只是資料一致性的問題，也是這裡的前提。**
+ *    日後若放寬重產條件，這裡要一併處理子集合。
+ */
+export async function deleteMatches(matchIds) {
+  const { doc, writeBatch } = sdk();
+  const CHUNK = 400;
+  for (let i = 0; i < matchIds.length; i += CHUNK) {
+    const batch = writeBatch(db());
+    for (const id of matchIds.slice(i, i + CHUNK)) {
+      batch.delete(doc(db(), 'events', EVENT_ID, 'matches', id));
+    }
+    await batch.commit();
+  }
+}
+
+/** 階段與小組（積分榜與晉級解算都靠它）。 */
+export async function writeStagesAndGroups(divisionId, stages, groups) {
+  const { doc, writeBatch } = sdk();
+  const batch = writeBatch(db());
+  const base = ['events', EVENT_ID, 'divisions', divisionId, 'stages'];
+  for (const st of stages) batch.set(doc(db(), ...base, st.stageId), st, { merge: true });
+  for (const g of groups) {
+    batch.set(doc(db(), ...base, g.stageId, 'groups', g.groupId), {
+      groupId: g.groupId, name: g.name, teamIds: g.teamIds, order: g.order
+    }, { merge: true });
+  }
+  await batch.commit();
+}
+
+/**
+ * 空的積分榜。
+ *
+ * 產生賽程時就要建立：`resolveAdvancement` 找不到積分榜文件時是
+ * fail-closed（回「找不到積分榜」），晉級會永遠解不開。
+ */
+export async function writeStandings(divisionId, groups, teamsById) {
+  const { doc, writeBatch, serverTimestamp } = sdk();
+  const batch = writeBatch(db());
+  for (const g of groups) {
+    const standingId = `${divisionId}__${g.stageId}__${g.groupId}`;
+    batch.set(doc(db(), 'events', EVENT_ID, 'standings', standingId), {
+      standingId, eventId: EVENT_ID, divisionId, stageId: g.stageId, groupId: g.groupId,
+      rows: g.teamIds.map((teamId, i) => {
+        const t = teamsById[teamId] ?? {};
+        return {
+          rank: i + 1, teamId, name: t.shortName ?? t.name ?? null, abbr: t.abbr ?? null,
+          logoUrl: t.logoUrl ?? null,
+          played: 0, win: 0, draw: 0, loss: 0,
+          goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0,
+          yellow: 0, red: 0, fairPlayPoints: 0, form: [], tieBreakTrace: [],
+          locked: false, note: ''
+        };
+      }),
+      version: 0, hasUnresolvedTie: false,
+      manualOverride: { enabled: false, by: null, at: null, reason: null },
+      updatedAt: serverTimestamp()
+    });
+  }
+  await batch.commit();
+}
+
+/** 球隊的小組與種子序回填。 */
+export async function writeTeamGroups(assignments) {
+  const { doc, writeBatch, serverTimestamp } = sdk();
+  const batch = writeBatch(db());
+  for (const a of assignments) {
+    batch.set(doc(db(), 'events', EVENT_ID, 'teams', a.teamId), {
+      groupId: a.groupId, seed: a.seed, updatedAt: serverTimestamp(), updatedBy: uid()
+    }, { merge: true });
+  }
+  await batch.commit();
+}
+
+/** 組別設定（賽制、發布狀態、抽籤紀錄）。 */
+export async function updateDivision(divisionId, patch) {
+  const { doc, setDoc, serverTimestamp } = sdk();
+  await setDoc(doc(db(), 'events', EVENT_ID, 'divisions', divisionId), {
+    ...patch, updatedAt: serverTimestamp(), updatedBy: uid()
   }, { merge: true });
 }
 

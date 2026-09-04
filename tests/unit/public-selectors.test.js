@@ -16,7 +16,7 @@ import {
   viewStanding, sortStandings, sortRoster,
   publicMember, leakedFields, PUBLIC_MEMBER_FIELDS,
   embedUrl, isPlaceholder, sideLabel, isLiveMatch, isDoneMatch,
-  hiddenScorerDivisions
+  hiddenScorerDivisions, unpublishedDivisions, publishedMatches
 } from '../../js/modules/public/selectors.js';
 
 const T = (h, m = 0) => Date.parse(`2026-10-11T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+08:00`);
@@ -353,5 +353,46 @@ describe('T32-X 兒童組不公開個人射手榜（docs/03 §9.1）', () => {
   test('組別讀不到時回空集合，不要整頁擋掉', () => {
     expect(hiddenScorerDivisions(null, {}).size).toBe(0);
     expect(hiddenScorerDivisions([], {}).size).toBe(0);
+  });
+});
+
+describe('T32-9 賽程發布閘門', () => {
+  const divisions = [
+    { divisionId: 'u6', schedulePublished: true },
+    { divisionId: 'u8', schedulePublished: false },
+    { divisionId: 'women' }                           // 這一版之前建立的，沒有這個欄位
+  ];
+
+  test('只有明確的 false 算未發布', () => {
+    expect([...unpublishedDivisions(divisions)]).toEqual(['u8']);
+  });
+
+  test('⭐ 沒有這個欄位＝已發布（既有資料不能因為升級就整個消失）', () => {
+    // 反過來寫的話，這一版一上線，demo 與正式站上原本看得到的賽程
+    // 會全部從公開端不見——而且不會有任何錯誤訊息
+    expect(unpublishedDivisions(divisions).has('women')).toBe(false);
+    expect(unpublishedDivisions([{ divisionId: 'x', schedulePublished: null }]).size).toBe(0);
+    expect(unpublishedDivisions([{ divisionId: 'x', schedulePublished: undefined }]).size).toBe(0);
+  });
+
+  test('濾掉未發布組別的場次', () => {
+    const rows = [
+      match({ matchId: 'a', divisionId: 'u6' }),
+      match({ matchId: 'b', divisionId: 'u8' }),
+      match({ matchId: 'c', divisionId: 'women' })
+    ];
+    expect(publishedMatches(rows, divisions).map(m => m.matchId)).toEqual(['a', 'c']);
+  });
+
+  test('沒有任何未發布的組別時原樣回傳（不必要的複製也是成本）', () => {
+    const rows = [match({ matchId: 'a', divisionId: 'u6' })];
+    expect(publishedMatches(rows, [{ divisionId: 'u6', schedulePublished: true }])).toBe(rows);
+  });
+
+  test('組別還沒載入時全部顯示，不要整頁空白', () => {
+    const rows = [match({ matchId: 'a' })];
+    expect(publishedMatches(rows, null)).toHaveLength(1);
+    expect(publishedMatches(rows, [])).toHaveLength(1);
+    expect(publishedMatches(null, divisions)).toEqual([]);
   });
 });

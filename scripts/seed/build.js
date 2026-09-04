@@ -9,8 +9,13 @@
  * 所有隨機都走固定種子的 LCG，同樣的輸入永遠產生同樣的輸出。
  */
 
-import { berger, snakeSeed, groupLabel } from '../../js/engine/berger.js';
-import { FORMATS, RANKING_RULES, DIVISIONS, STAGE_CODE, REGISTRATION_LIMITS } from '../../js/engine/formats.js';
+import { FORMATS, RANKING_RULES, DIVISIONS, REGISTRATION_LIMITS } from '../../js/engine/formats.js';
+// ⚠️ 賽程的產生與排定只有一份實作（R-ENG-001）。管理後台的「賽程管理」
+//    走的是同一支——種子跟正式站排出來的東西不一樣的話，
+//    要到比賽當天才會發現。
+import {
+  buildGroups, buildMatches, placeMatches, taipeiMs, slotSpanMin, SCHEDULE_DEFAULTS
+} from '../../js/engine/schedule.js';
 import { STAFF_CHAIN, defaultPermsOf } from '../../js/config.js';
 import { rosterProjection } from '../../js/engine/privacy.js';
 
@@ -127,7 +132,10 @@ const VENUES_BY_DATE = {
 
 const DAY_START_HOUR = 8;
 const DAY_START_MIN = 30;
+const DAY_END = '18:00';
 const BUFFER_MIN = 10;
+/** 同一隊兩場之間的休息下限。規章沒有這一條，是我們自己給的預設值 */
+const MIN_REST_MIN = 20;
 
 // ─── Challenge 五關 ───────────────────────────────────────────────
 const CHALLENGES = [
@@ -354,140 +362,46 @@ function buildTeams(rng) {
   return { teams, members };
 }
 
-/** 依 Format 產生某組別的所有 stage / group / match（尚未排時間） */
+/**
+ * 依 Format 產生某組別的所有 stage / group / match（尚未排時間）。
+ *
+ * ⚠️ 實作在 `js/engine/schedule.js`，跟管理後台的「賽程管理」是同一支
+ *    （R-ENG-001）。差別只在分組順序的來源：種子用球隊身上的 `seed`
+ *    （可重現），管理後台用抽籤的結果（規章第十四條）。
+ */
 function buildDivisionSchedule(div, divTeams) {
   const format = FORMATS[div.formatId];
   if (!format) throw new Error(`找不到 formatId=${div.formatId}`);
-  if (format.teamCount !== divTeams.length) {
-    throw new Error(`${div.divisionId}：Format 需要 ${format.teamCount} 隊，實際 ${divTeams.length} 隊`);
-  }
-
-  const stages = [];
-  const groups = [];
-  const matches = [];
-  const groupAssign = {};   // teamId -> groupId
-
-  for (const st of format.stages) {
-    stages.push({
-      stageId: st.stageId, name: st.name, type: st.type, order: st.order,
-      groupCount: st.groupCount ?? null, legs: st.legs ?? null,
-      drawRule: st.drawRule ?? 'none',
-      status: 'pending', advancementResolved: false
-    });
-
-    if (st.type === 'roundRobin') {
-      const grouped = snakeSeed(divTeams, st.groupCount);
-      grouped.forEach((teamsInGroup, gi) => {
-        const gid = groupLabel(gi);
-        groups.push({
-          stageId: st.stageId, groupId: gid, name: `${gid}組`,
-          teamIds: teamsInGroup.map(t => t.teamId), order: gi + 1
-        });
-        teamsInGroup.forEach(t => { groupAssign[t.teamId] = gid; });
-
-        const rounds = berger(teamsInGroup.length);
-        let seq = 0;
-        rounds.forEach((round, ri) => {
-          round.forEach(([h, a]) => {
-            seq += 1;
-            const home = teamsInGroup[h];
-            const away = teamsInGroup[a];
-            matches.push({
-              matchId: `${div.code}-${STAGE_CODE[st.stageId]}-${gid}-${String(seq).padStart(2, '0')}`,
-              divisionId: div.divisionId, stageId: st.stageId, groupId: gid,
-              round: ri + 1, label: `${gid}組 第${ri + 1}輪`,
-              home: teamRef(home), away: teamRef(away),
-              teamIds: [home.teamId, away.teamId],
-              _sortKey: [st.order, ri + 1, gi, seq]
-            });
-          });
-        });
-      });
-    } else {
-      (st.slots || []).forEach((slot, si) => {
-        matches.push({
-          matchId: `${div.code}-${STAGE_CODE[st.stageId]}-${slot.matchKey}`,
-          divisionId: div.divisionId, stageId: st.stageId, groupId: null,
-          round: slot.round ?? 1, label: slot.label,
-          matchKey: slot.matchKey,
-          home: placeholderRef(slot.home),
-          away: placeholderRef(slot.away),
-          teamIds: [],
-          _sortKey: [st.order, slot.round ?? 1, 0, si + 1]
-        });
-      });
-    }
-  }
-
-  return { stages, groups, matches, groupAssign };
-}
-
-function teamRef(t) {
-  return {
-    teamId: t.teamId, name: t.shortName, abbr: t.abbr,
-    logoUrl: t.logoUrl, colorPrimary: t.colors?.primary ?? null,
-    placeholder: null, displayName: t.shortName
-  };
-}
-
-function placeholderRef(src) {
-  const label =
-    src.type === 'standing'    ? `${src.groupId}組第${src.rank}名`
-  : src.type === 'matchWinner' ? `${src.matchKey} 勝隊`
-  : src.type === 'matchLoser'  ? `${src.matchKey} 敗隊`
-  : '待定';
-  return {
-    teamId: null, name: null, abbr: null, logoUrl: null, colorPrimary: null,
-    placeholder: src, displayName: label
-  };
+  const rr = format.stages.find(s => s.type === 'roundRobin');
+  const ordered = [...divTeams].sort((a, b) => (a.seed ?? 0) - (b.seed ?? 0));
+  return buildMatches({ division: div, format, groups: buildGroups(ordered, rr?.groupCount ?? 1) });
 }
 
 /**
  * 把某一天的所有場次排進時段與場地。
- * 貪婪法：依 _sortKey 逐場放進「雙方都有空、且有場地空」的最早時段。
+ *
+ * 同一天可能有好幾個組別（10/9 就有四個），所以**一次排整天**而不是
+ * 一個組別排完再排下一個：後者會讓第一個組別吃掉全部的早上時段，
+ * 最後一個組別排到傍晚。
  */
-function scheduleDay(date, dayMatches, slotMinutesByDivision) {
-  const venues = VENUES_BY_DATE[date];
-  const busyTeam = new Map();     // teamId -> Set(slotIndex)
-  const busyVenue = new Map();    // `${venueId}:${slot}` -> true
-  const placed = [];
-
-  const sorted = [...dayMatches].sort((x, y) => {
-    for (let i = 0; i < 4; i++) {
-      const d = (x._sortKey[i] ?? 0) - (y._sortKey[i] ?? 0);
-      if (d !== 0) return d;
-    }
-    return x.matchId.localeCompare(y.matchId);
-  });
-
-  // 同一天可能有多個組別，時段長度取當日最長的一種，避免場地時間互相錯開
-  const slotMin = Math.max(...new Set(dayMatches.map(m => slotMinutesByDivision[m.divisionId])));
-
-  // 台北固定 UTC+8，直接算出 UTC 瞬間，不受執行環境時區影響
+function scheduleDay(date, dayMatches, divisionsById) {
+  const venues = VENUES_BY_DATE[date].map(id => VENUES.find(v => v.venueId === id));
   const pad = n => String(n).padStart(2, '0');
-  const dayStartMs = Date.parse(`${date}T${pad(DAY_START_HOUR)}:${pad(DAY_START_MIN)}:00+08:00`);
+  const dayStartMs = taipeiMs(date, `${pad(DAY_START_HOUR)}:${pad(DAY_START_MIN)}`);
+  const dayEndMs = taipeiMs(date, DAY_END);
 
-  for (const m of sorted) {
-    let slot = 0;
-    for (;; slot++) {
-      const teamFree = m.teamIds.every(t => !(busyTeam.get(t)?.has(slot)));
-      const venue = venues.find(v => !busyVenue.get(`${v}:${slot}`));
-      if (teamFree && venue) {
-        busyVenue.set(`${venue}:${slot}`, true);
-        m.teamIds.forEach(t => {
-          if (!busyTeam.has(t)) busyTeam.set(t, new Set());
-          busyTeam.get(t).add(slot);
-        });
-        placed.push({
-          ...m, venueId: venue, slot,
-          kickoffAt: new Date(dayStartMs + slot * slotMin * 60000)
-        });
-        break;
-      }
-      if (slot > 200) throw new Error(`排程失敗：${m.matchId}`);
-    }
+  // 時段長度取當日最長的一種，避免不同組別的場地時間互相錯開
+  const divs = [...new Set(dayMatches.map(m => m.divisionId))].map(id => divisionsById[id]);
+  const slotMin = Math.max(...divs.map(d => slotSpanMin(d.matchDurationMin, BUFFER_MIN)));
+
+  const { placed, unplaced } = placeMatches({
+    matches: dayMatches, venues, dayStartMs, dayEndMs, slotMin,
+    bufferMin: BUFFER_MIN, divisions: divs, minRestMin: MIN_REST_MIN
+  });
+  if (unplaced.length) {
+    throw new Error(`排程失敗：${date} 有 ${unplaced.length} 場排不下。${unplaced[0].reason}`);
   }
-  return placed;
+  return placed.map(m => ({ ...m, kickoffAt: new Date(m.kickoffMs) }));
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -502,6 +416,18 @@ export function buildSeed({ seed = 20261009 } = {}) {
 
   // ── 全站設定 ──
   add('config/formats',          { formats: FORMATS });
+  // 排程設定（開賽時間、緩衝、休息下限、各日可用場地）。
+  // ⚠️ 這些**規章都沒有規定**，是營運決定，所以放在後台改得到的地方。
+  //    比賽時間與用球在 formats.js（規章第十七、十八條），不在這裡。
+  add('config/schedule', {
+    ...SCHEDULE_DEFAULTS,
+    startTime: `${String(DAY_START_HOUR).padStart(2, '0')}:${String(DAY_START_MIN).padStart(2, '0')}`,
+    endTime: DAY_END,
+    bufferMin: BUFFER_MIN,
+    minRestMin: MIN_REST_MIN,
+    venuesByDate: VENUES_BY_DATE,
+    seedData: true
+  });
   add('config/rankingRules',     { rules: RANKING_RULES });
   add('config/challengeRewards', {
     rule: 'perChallengeCompleted', entriesPerCompletion: 1,
@@ -630,7 +556,7 @@ export function buildSeed({ seed = 20261009 } = {}) {
 
   // ── 賽程 ──
   const allMatches = [];
-  const slotMinutes = {};
+  const divisionsById = Object.fromEntries(DIVISIONS.map(d => [d.divisionId, d]));
   for (const div of DIVISIONS) {
     const divTeams = teams.filter(t => t.divisionId === div.divisionId);
     const { stages, groups, matches, groupAssign } = buildDivisionSchedule(div, divTeams);
@@ -650,6 +576,11 @@ export function buildSeed({ seed = 20261009 } = {}) {
       colorToken: div.colorToken, order: div.order, code: div.code,
       display: div.display,
       status: 'scheduled', finalRankingPublished: false, finalRanking: null,
+      // 種子資料是「已經發布的賽程」，不然 demo 的公開端會是空的。
+      // ⚠️ 公開端把「沒有這個欄位」當成已發布（既有資料沒有它），
+      //    只有明確的 false 才隱藏——反過來寫的話，這一版一上線，
+      //    demo 上原本看得到的賽程會整個消失。
+      schedulePublished: true,
       seedData: true
     });
 
@@ -691,7 +622,6 @@ export function buildSeed({ seed = 20261009 } = {}) {
     // 回填球隊的小組
     for (const t of teams) if (groupAssign[t.teamId]) t.groupId = groupAssign[t.teamId];
 
-    slotMinutes[div.divisionId] = div.matchDurationMin + BUFFER_MIN;
     matches.forEach(m => allMatches.push({ ...m, _date: div.date }));
   }
 
@@ -699,7 +629,7 @@ export function buildSeed({ seed = 20261009 } = {}) {
   const scheduled = [];
   for (const date of Object.keys(VENUES_BY_DATE)) {
     const dayMatches = allMatches.filter(m => m._date === date);
-    scheduled.push(...scheduleDay(date, dayMatches, slotMinutes));
+    scheduled.push(...scheduleDay(date, dayMatches, divisionsById));
   }
   scheduled.sort((a, b) => a.kickoffAt - b.kickoffAt || a.venueId.localeCompare(b.venueId));
 

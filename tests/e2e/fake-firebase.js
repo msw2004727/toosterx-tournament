@@ -250,6 +250,36 @@ export function addDoc(ref, data) {
 }
 export const deleteDoc = ref => write(ref.path, () => store.delete(ref.path));
 
+/**
+ * 批次寫入。
+ *
+ * ⚠️ `set(ref, data, { merge: true })` 一定要跟 `setDoc` 走**同一支**
+ *    深層合併。批次那一支寫成淺層的話，賽程管理的「只改開賽時間」
+ *    會把場次上的 `home` / `away` 整組刪掉——而畫面看起來完全正常。
+ *
+ * 提交前不生效（真的 Firestore 也是），提交時一次套用並只通知一次：
+ * 逐筆通知會讓監聽者看到「半批」的狀態，那是真的 Firestore 不會發生的事。
+ */
+export function writeBatch() {
+  const ops = [];
+  return {
+    set(ref, data, opts) { ops.push({ kind: 'set', path: ref.path, data, opts }); return this; },
+    update(ref, data) { ops.push({ kind: 'update', path: ref.path, data }); return this; },
+    delete(ref) { ops.push({ kind: 'delete', path: ref.path }); return this; },
+    commit() {
+      return write(`__batch(${ops.length})`, offline => {
+        for (const op of ops) {
+          if (op.kind === 'delete') { store.delete(op.path); continue; }
+          const next = resolveSentinels(op.data, offline);
+          const prev = store.get(op.path) || {};
+          if (op.kind === 'update') store.set(op.path, { ...prev, ...next });
+          else store.set(op.path, op.opts?.merge ? deepMerge(prev, next) : next);
+        }
+      }, 'batch');
+    }
+  };
+}
+
 export const serverTimestamp = () => ({ __sentinel: 'ts' });
 const resolveSentinels = (obj, offline = false) => JSON.parse(JSON.stringify(obj, (k, v) =>
   v && v.__sentinel === 'ts' ? (offline ? null : new Date().toISOString()) : v));

@@ -74,6 +74,8 @@ git push                 # 驗證過才上正式站
 | R-ENG-003 | 行為分（−3／−5）是「同一場、同一球員」的判定，彙總時分堆鍵**必須含 matchId**；卡片時序以 `clockSec` 為權威 |
 | R-ENG-004 | 引擎不呼叫 `Date.now()` 或任何隨機來源。時間戳由呼叫端填，同分排不出來就標 `hasUnresolvedTie`，絕不隨機 |
 | R-ENG-005 | 缺資料時一律 fail-closed（回 `null`／`ready:false` 並附原因），不可「沒資料就當作通過」 |
+| R-SCHED-001 | 賽程的產生與排定只有 `js/engine/schedule.js` 一份實作，種子腳本與管理後台共用。抽籤的亂數**種子由呼叫端提供**並寫進 `audits`——規章第十四條要的是抽籤，而抽籤的價值在於事後重放得出來 |
+| R-SCHED-002 | 組別只要有**任何一場**已開打（非 `scheduled`／`checkin`／`ready`／`postponed`／`cancelled`）就不得重新產生賽程。重抽一次籤，打完的那幾場會變成不同小組之間的比賽 |
 | R-TEST-001 | 修好一個缺陷就要在 `scripts/mutation-check.cjs` 加一條變異，證明測試真的抓得到。全綠但沒有鑑別力的測試比沒有測試更危險 |
 | R-TEST-002 | 變異測試被強制中止會把原始碼留在**被改壞**的狀態。`scripts/mutation-guard.cjs` 掛在每個測試指令與 CI 最前面，看到 `.mutation-in-progress.json` 就還原並中止。**不要繞過它** |
 | R-SRC-001 | 原始碼不得含 NUL 位元組（git 會當成二進位檔，看不到 diff）。CI 有檢查 |
@@ -111,7 +113,7 @@ git push                 # 驗證過才上正式站
 ## 測試
 
 ```
-npm run test:unit         賽制引擎（T01–T32，見 docs/02 §11）
+npm run test:unit         賽制引擎（T01–T45，見 docs/02 §11）
 npm run test:rules        R01–R31（見 docs/07 §2.4）
 npm run test:fn           結果管線 F01–F14（Emulator，見 docs/07 §3.1）
 npm run test:e2e          Playwright
@@ -174,7 +176,8 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       - [x] 權限開關 `#/admin/perms`（逐條開關＋留痕，總管專屬）
       - [x] 稽核紀錄 `#/admin/audits`（唯讀，兩種欄位形狀都讀得懂）
       - [x] 報名開關 `#/admin/registration`（開關／起訖／規章欄位唯讀，總管專屬）
-      - [ ] 賽程管理　[ ] 挑戰攤位（M6 子系統）
+      - [x] 賽程管理 `#/admin/schedule`（抽籤／產生／排定／檢查／發布，見下方章節）
+      - [ ] 挑戰攤位（M6 子系統）
       ・總管仍由 `scripts/grant-super-admin.mjs` 建立（Admin SDK，不經 rules）
 - [ ] M4-d   「我的球員」（需要 members 的 collectionGroup 索引與規則）
 - [x] M4-b④  依競賽規章校正設定＋未成年組教練管理名單＋檢錄台
@@ -182,23 +185,39 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       常駐頁首（登入／我的）＋主題只留圖示＋移除關注功能
 - [ ] M6 Challenge 挑戰系統　[ ] M7 彩排 → 上線
 
-## 現在的狀態（2026-09-02，Claude Code 接手後已全數實跑）
-
-M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分支 (D) 用到的三個新語法
-（`resource.data.get()`、`duration.value(3,'m')`、`== request.time`）模擬器都吃得下。
+## 現在的狀態（2026-09-04，管理後台 6/7 完成後全數實跑）
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 673 全綠（32 個 suite） |
-| `npm run test:mutation` | ✅ 156 / 156 全被抓到 |
+| `npm run test:unit` | ✅ 756 全綠（34 個 suite） |
+| `npm run test:mutation` | ✅ 172 / 172 全被抓到 |
 | `npm run test:mutation:e2e` | ✅ 12 / 12 全被抓到（畫面層時序、權限與替身語意） |
-| `npm run test:e2e` | ✅ 684 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 174 全綠（R34–R72 報名、R73–R92 檢錄與階層、R93–R98 審核、R99–R117 授權／權限／報名開關） |
-| `npm run test:mutation:rules` | ✅ 29 / 29 全被抓到 |
+| `npm run test:e2e` | ✅ 726 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:rules` | ✅ 191 全綠（R34–R72 報名、R73–R92 檢錄與階層、R93–R98 審核、R99–R117 授權／權限／報名開關、R118–R125 賽程） |
+| `npm run test:mutation:rules` | ✅ 32 / 32 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
 | `npm run test:mutation:fn` | ✅ 16 / 16 全被抓到 |
 
-### 這一輪審查抓到並修掉的三個缺陷
+### 這一輪（賽程管理）值得記下的兩件事
+
+1. **`schedule.manage` 的 `pending: true` 一拿掉，`permtoggle.test.js` 就紅了。**
+   那正是它存在的理由（見「`pending: true` 的意思被釘死成…」那一段）——
+   功能接上 `can()` 的那一刻，測試會提醒你把旗標拿掉。
+   那條測試現在改用 `match.confirm` 當「還沒上線」的例子。
+
+2. **第一版的變異 #S16 抓不到，因為它改的是一段沒有作用的程式碼。**
+   原本寫「佔用要濾掉別的日期」，但佔用是用**時間區間**判斷的，
+   別天的場次算出來的區間本來就不會重疊——濾不濾都一樣。
+   而且用 `date` 欄位濾**反而有害**：`date` 跟 `kickoffAt` 對不起來的資料，
+   會讓一個真的撞場被濾掉。所以拿掉那段，把 #S16 改成守
+   「自己這一組要濾掉」（不濾的話重排一次就整批往後擠）。
+
+   ⚠️ 改完之後它**還是抓不到**：測試給了兩片場地，被自己擋住的那一場
+   挪到另一片，時間仍然是 08:30。改成只給一片場地才有鑑別力。
+   「變異抓不到」有兩種原因——測試不夠力，或那段程式碼根本沒有作用。
+   兩種都要查清楚是哪一種，不要直接補一條測試了事。
+
+### 上一輪（M3.5 收尾）審查抓到並修掉的三個缺陷
 
 1. **`tests/unit/icons.test.js` 在 Windows 上整個 suite 崩潰**（高）
    `new URL('../../', import.meta.url).pathname` 在 Windows 是 `/D:/…`，
@@ -260,8 +279,11 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 ### 下一個里程碑
 
-M4 報名與球隊管理，規格在 `docs/10-報名與球隊管理.md`（已定案，經三輪討論）。
-後端要等 Blaze 與 LIFF，但前端畫面可以先做。
+**M4-c 剩最後一項：挑戰攤位**（M6 子系統，規格在 `docs/06-Challenge挑戰系統.md`）。
+再來是 M4-d「我的球員」（要 members 的 collectionGroup 索引與規則）與 M7 彩排上線。
+
+賽程管理做完之後，主辦在 demo 上可以走完一整條線：
+報名 → 審核 → 抽籤 → 產生賽程 → 排定時間 → 發布 → 檢錄 → 記分 → 積分榜。
 
 ## 變異測試的殘留（R-TEST-002，2026-09-03 出過事）
 
@@ -625,6 +647,98 @@ match /config/{key} {
 ```
 
 變異 RU#30 就是把那個錯版本試一次，確認 R114 抓得到。
+
+### 賽程管理（`#/admin/schedule`、`js/engine/schedule.js`）
+
+五個步驟（docs/05 §6.1）：**分組 → 產生對戰 → 排定時間 → 檢查衝突 → 發布**。
+
+```
+js/engine/schedule.js              演算法（純函式，種子與後台共用，R-ENG-001）
+js/modules/admin/schedule-actions.js  Firestore 形狀 ↔ 引擎形狀的轉換與護欄
+js/modules/admin/schedule.js       畫面
+config/schedule                    開賽時間／結束時間／緩衝／休息下限／各日場地
+```
+
+⚠️ **`scripts/seed/build.js` 的 `buildDivisionSchedule` 與 `scheduleDay` 現在是
+薄包裝**，實作在引擎裡。種子與正式站排出來的東西不一樣的話，
+要到比賽當天才會發現。
+
+#### 六件不可協商
+
+1. **抽籤要留下種子。** 規章第十四條寫的是「統一由大會代為抽籤排定」，
+   而抽籤最重要的性質是**事後查得到**。`drawOrder(items, seed)` 的 seed 由
+   呼叫端給（R-ENG-004），寫進 `audits` 與 `division.draw.seed`，任何人都能
+   重放出同一組分組。引擎自己 `Math.random()` 的話，抽完就再也證明不了
+   那一次抽了什麼（變異 #S1）。
+2. **手動調整是「兩隊對調」，不是「把一隊搬過去」。** 搬一隊會讓兩組隊數不等，
+   而 8 隊範本的交叉表引用了 A、B 組各四個名次——少一個名次的那一組，
+   `resolveAdvancement` 會永遠解不開，而且不會報錯。
+3. **已經開打就不能重新產生**（`canRegenerate`）。只要有**任何一場**是
+   live／halftime／finished／confirmed／walkover 就整組擋下來。
+   「只重產沒打的那幾場」聽起來合理，但分組是一整組一起算的：重抽一次籤，
+   已經打完的那幾場就變成不同小組之間的比賽，積分榜會靜靜算出一份
+   沒有人看得懂的結果（變異 #S13）。
+
+   ⚠️ 這個守衛還撐著第二件事：**Firestore 刪文件不會刪子集合**，
+   而 matchId 是決定性的，重產會產出同樣的 id——舊的 `timeline` 事件
+   會黏回新場次上。沒開打的場次不會有 timeline，所以現在安全。
+   日後若放寬重產條件，`data.deleteMatches()` 要一併處理子集合。
+4. **error 擋發布、warn 不擋。** 跟報名審核同一條界線：
+   ・`error`＝放行之後會產生**錯誤的結果**（沒排時間、場地重疊、同隊撞場、
+   　9 人制排進 5v5 場、名次賽排在來源之前）
+   ・`warn`＝休息不足、空等太久。**規章沒有規定休息時間**，把它升成錯誤
+   　等於系統替主辦訂了一條規章沒有的規則（變異 #S10）。
+5. **衝突檢查一律看全賽事的場次。** 只看自己這一組的話，兩個組別排到
+   同一片場地的同一個時段是看不出來的（變異 #S6、#S16）。
+6. **整體順延不動已經開打的場次。** 把一場正在進行的比賽往後推三十分鐘，
+   賽務台的時鐘就跟排定時間對不起來了（變異 #S11）。
+
+#### 隊數不是 4／6／8 的時候
+
+現成範本只有 4／6／8 隊，而實際報名可能是 5 隊或 7 隊。
+`genericFormat(n, { groupCount })` 會產生一份通用範本：
+
+| groupCount | 結構 | 名次怎麼決定 |
+|---|---|---|
+| 1（預設 n ≤ 5）| 單循環 | 直接由積分榜決定，沒有名次賽 |
+| 2（預設 n ≥ 6）| 兩組循環 ＋ 同名次對決 | A組第k名 vs B組第k名 |
+
+⚠️ **通用範本一定要寫回 `config/formats`**（`data.addFormat()`），
+不能只改 `division.formatId`——Cloud Functions 解晉級時讀的是
+`config/formats`，只改組別設定的話，晉級會在比賽當天才失敗。
+
+奇數隊時兩組差一隊，多出來的那一隊沒有名次賽，名次接在後面。
+這件事寫在 `description` 裡讓主辦在按下產生之前就看得到——
+不要讓他到現場才發現有一隊少打一場（變異 #S3 守 finalRankingMap 涵蓋 1..N）。
+
+#### `schedulePublished`：發布之前公開端看不到
+
+`divisions/{id}.schedulePublished === false` 時，公開端的首頁、賽程頁、
+組別頁與球隊頁都不顯示那一組的場次（`selectors.publishedMatches()`）。
+
+⚠️ **只有明確的 `false` 才隱藏。** 既有的組別文件根本沒有這個欄位，
+把「沒有欄位」當成未發布的話，這一版一上線，demo 與正式站上原本看得到的
+賽程會全部從公開端消失，而且不會有任何錯誤訊息（變異 #S14）。
+
+⚠️ **這不是安全邊界。** `matches` 的讀取規則是 `allow read: if true`，
+未發布的場次仍然讀得到，只是畫面不顯示。這句話寫在管理後台的畫面上——
+主辦要知道「未發布」擋不住真的想看的人。
+
+⚠️ 首頁有**兩條**路會畫出場次（`boards/live` 看板與當日場次），
+而看板是 Cloud Function 產的、裡面沒有過濾。兩條都要過閘門，
+只濾其中一條的話，首頁會在看板還沒產生時正確、產生之後又漏出來。
+
+#### `matchNo` 一旦有人開打就凍結
+
+`assignMatchNos(matches, { frozen })`：`frozen` 的意思是「已經有場次開打」。
+那時候重編號碼會讓紙本賽程表與現場廣播的「第 31 場」全部對不上，
+所以只給還沒有號碼的場次接續編下去（變異 #S12）。
+
+#### 跟 docs/05 §6.2 的差異
+
+規格畫的是「橫軸時間、縱軸場地」的拖曳時間軸。**這一版做的是清單式編輯**
+（主辦 2026-09-04 決定）：現場多半是拿手機改一兩場，觸控拖曳在 320px 上
+既難做對也難測。時間軸視圖等真的有人需要再說。
 
 ### 兩個方向相反的鎖
 
@@ -1159,26 +1273,32 @@ js/engine/
 ├── standing.js      積分榜：computeRows / buildStanding / isStaleWrite / diffRanking
 ├── ranking.js       同分排序（§6.4 遞迴）＋ 行為分
 ├── advancement.js   晉級解算 / 最終排名
-└── awards.js        射手榜 / 門將榜 / 行為分排行
+├── awards.js        射手榜 / 門將榜 / 行為分排行
+└── schedule.js      抽籤 / 分組 / 通用範本 / 對戰表 / 排時段場地 / 衝突檢查
 ```
 
 相依方向是單向的：`tally ← ranking ← standing ← advancement`。
 `timeline.js` 不相依任何人（純粹是事件流 → 比分），所以誰都可以用它。
 `ranking` 不可 import `standing`（會形成循環），需要積分計算時用 `tally`。
+`schedule.js` 只相依 `berger` 與 `formats`（都是純資料／純函式）。
 
 全部是純函式：不碰 Firestore、不呼叫 `Date.now()`、不用隨機。
 Function 負責讀寫與填 `serverTimestamp`，引擎只負責算。
 
+> ⚠️ `schedule.js` 的抽籤是**唯一一處**用到亂數的地方，而它**不自己產生亂數**：
+> `drawOrder(items, seed)` 的 seed 由呼叫端給並記錄下來（R-ENG-004）。
+> 規章第十四條要的是大會抽籤，而抽籤的價值在於事後重放得出來。
+
 ### 測試
 
 ```bash
-npm run test:unit                  # 345 個案例（引擎 T01–T32 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
-npm run test:mutation              # 53 條變異，證明測試有鑑別力
-npm run test:rules                 # 111 個案例，自動起 Emulator
-npm run test:mutation:rules        # 12 條權限規則變異
-npm run test:fn                    # 35 個 Function 整合測試（F01–F14 結果管線、FR01–FR08 報名）
+npm run test:unit                  # 756 個案例（引擎 T01–T45 ＋ 賽務端核心 ＋ 主題／圖示／撤回）
+npm run test:mutation              # 172 條變異，證明測試有鑑別力
+npm run test:rules                 # 174 個案例，自動起 Emulator
+npm run test:mutation:rules        # 29 條權限規則變異
+npm run test:fn                    # 40 個 Function 整合測試（F01–F14 結果管線、FR01–FR13 報名與登入）
 npm run test:mutation:fn           # 16 條 Function 變異
-npm run test:e2e                   # 264 個 Playwright 案例（× mobile / desktop / 320px）
+npm run test:e2e                   # 726 個 Playwright 案例（× mobile / desktop / 320px）
 npm run test:e2e:offline           # 只跑離線三態那幾條
 ```
 

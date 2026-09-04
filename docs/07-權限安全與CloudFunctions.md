@@ -465,6 +465,12 @@ function validScoreRange(eventId, cid, v) {
 | R63 | 名單讀取邊界（隊長／本人／賽務可讀，其他拒絕） | 依角色 |
 | R64 | 報名截止後或名單凍結後再送申請 | 拒絕 |
 
+> 📌 **這張表停在 R64。** 之後幾批（R65–R125）是實作時才長出來的，
+> 逐條列在 `tests/firestore-rules/` 各檔案裡，總覽在 `CLAUDE.md` 的狀態表：
+> R65–R72 學童組名單、R73–R92 檢錄與角色階層、R93–R98 報名審核、
+> R99–R117 身分授權／權限開關／報名開關、**R118–R125 賽程管理**。
+> 看到這裡沒有某個編號不代表沒做，以 `npm run test:rules` 的實際結果為準。
+
 > **⚠️ rules 表達不了的兩件事**，寫在這裡免得日後以為漏做：
 > 1. `maxTeamsPerAccount`（每帳號最多 3 隊）——rules 沒辦法 count 文件。
 >    由 Function 維護 `users/{uid}.teamCount` 並在超額時退件。屬於防洗版，不是權限邊界。

@@ -1014,6 +1014,108 @@ const MUTANTS = [
     from: "    ...(n == null ? {} : { maxTeamsPerAccount: n })",
     to: "    ...(n == null ? {} : { maxTeamsPerAccount: n }), maxMembers: null, maxStaff: null"
   },
+
+  // ── 賽程管理（M4-c 6/7）────────────────────────────────────
+  {
+    name: '#S1 ⭐ 抽籤用 Math.random（抽完就再也證明不了那一次抽了什麼）',
+    file: 'js/engine/schedule.js',
+    from: '  const rand = mulberry32(seed);',
+    to: '  const rand = () => Math.random();'
+  },
+  {
+    name: '#S2 ⭐ 分組回頭讀球隊身上的 seed（抽籤結果被舊的種子序蓋掉）',
+    file: 'js/engine/schedule.js',
+    from: '  const withSeed = orderedTeams.map((t, i) => ({ ...t, seed: i + 1 }));',
+    to: '  const withSeed = [...orderedTeams];'
+  },
+  {
+    name: '#S3 ⭐ 通用範本漏掉隊數不齊時多出來的那一隊（頒獎當天發不出獎）',
+    file: 'js/engine/schedule.js',
+    from: '  for (let j = pairs + 1; j <= biggerSize; j++) {',
+    to: '  for (let j = pairs + 1; j <= pairs; j++) {'
+  },
+  {
+    name: '#S4 ⭐ 不檢查隊數與範本相符（排出少一場或多一場的賽程）',
+    file: 'js/engine/schedule.js',
+    from: '  if (Number.isInteger(format.teamCount) && format.teamCount !== teamTotal) {',
+    to: '  if (false) {'
+  },
+  {
+    name: '#S5 ⭐ 排場地不看場地型態（9 人制排進 5v5 場）',
+    file: 'js/engine/schedule.js',
+    from: '        if (!fieldFits(spec.playersOnField, v)) continue;',
+    to: '        if (false) continue;'
+  },
+  {
+    name: '#S6 ⭐ 排程忽略別的組別已佔用的場地（兩組撞在同一片場地上）',
+    file: 'js/engine/schedule.js',
+    from: '  const busy = occupied.map(o => ({ ...o }));',
+    to: '  const busy = [];'
+  },
+  {
+    name: '#S7 ⭐ 排程不看當天結束時間（排到半夜也算成功）',
+    file: 'js/engine/schedule.js',
+    from: '      if (startMs + spec.durationMin * 60000 > dayEndMs) break;',
+    to: '      if (false) break;'
+  },
+  {
+    name: '#S8 ⭐ 沒排時間降成 warn（沒有時間的賽程照樣發布得出去）',
+    file: 'js/engine/schedule.js',
+    from: "    add('error', 'NO_SLOT',",
+    to: "    add('warn', 'NO_SLOT',"
+  },
+  {
+    name: '#S9 ⭐ 不檢查名次賽排在來源之前（那個名次到開賽時還不存在）',
+    file: 'js/engine/schedule.js',
+    from: '      if (ph.type === \'standing\') {\n        const end = stageEnd.get(`${s.m.divisionId}|${ph.stageId}`);\n        if (end != null && s.start < end) {',
+    to: '      if (ph.type === \'standing\') {\n        const end = stageEnd.get(`${s.m.divisionId}|${ph.stageId}`);\n        if (false) {'
+  },
+  {
+    name: '#S10 ⭐ 休息不足升成 error（系統替主辦訂了一條規章沒有的規則）',
+    file: 'js/engine/schedule.js',
+    from: "        add('warn', 'SHORT_REST',",
+    to: "        add('error', 'SHORT_REST',"
+  },
+  {
+    name: '#S11 ⭐ 整體順延連已開打的場次也推（時鐘跟排定時間對不起來）',
+    file: 'js/engine/schedule.js',
+    from: '    if (!MOVABLE_STATUSES.includes(m.status)) {',
+    to: '    if (false) {'
+  },
+  {
+    name: '#S12 ⭐ 有場次開打之後仍然重編場次號（紙本與廣播全部對不上）',
+    file: 'js/engine/schedule.js',
+    from: '    if (Number.isInteger(m.matchNo) && m.matchNo > 0) continue;',
+    to: '    if (false) continue;'
+  },
+  {
+    name: '#S13 ⭐ 重新產生的守衛漏掉進行中的場次（只擋完賽）',
+    file: 'js/modules/admin/schedule-actions.js',
+    from: "const STARTED = ['live', 'halftime', 'finished', 'confirmed', 'walkover'];",
+    to: "const STARTED = ['finished', 'confirmed'];"
+  },
+  {
+    name: '#S14 ⭐ 沒有 schedulePublished 欄位就當成未發布（既有賽程整個消失）',
+    file: 'js/modules/public/selectors.js',
+    from: '    .filter(d => d?.schedulePublished === false && d?.divisionId)',
+    to: '    .filter(d => !d?.schedulePublished && d?.divisionId)'
+  },
+  {
+    name: '#S15 ⭐ 還沒排時間的場次填一個假的開賽時間',
+    file: 'js/modules/admin/schedule-actions.js',
+    from: '    kickoffAt: m.kickoffMs != null ? new Date(m.kickoffMs) : null,',
+    to: '    kickoffAt: new Date(m.kickoffMs ?? Date.now()),'
+  },
+  {
+    // 第一版這裡寫的是「別天的場次把時段吃掉」，但那條變異抓不到——
+    // 別天的場次算出來的時間區間本來就不會重疊，濾不濾都一樣。
+    // 真正有鑑別力的是「自己這一組要濾掉」：不濾的話，重排一次就被
+    // 自己舊的位置擋住，整批往後擠一輪。
+    name: '#S16 ⭐ 佔用沒濾掉自己這一組（每重排一次就整批往後擠）',
+    file: 'js/modules/admin/schedule-actions.js',
+    from: '    .filter(m => m.divisionId !== division.divisionId)',
+    to: '    .filter(() => true)'
+  },
 ];
 
 process.exit(runMutants({

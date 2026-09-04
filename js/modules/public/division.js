@@ -162,7 +162,9 @@ export async function publicDivision({ params, scope, view, query }) {
 
 
   function scheduleTab() {
-    const rows = sortByKickoff(state.matches);
+    // 還沒發布就當成「準備中」——主辦排到一半的賽程給家長看，比什麼都不給更糟
+    const rows = state.division?.schedulePublished === false
+      ? [] : sortByKickoff(state.matches);
     if (!rows.length) return empty('賽程準備中', '敬請期待。');
     return el('ul', { class: 'plist' }, rows.map(m => matchRow({
       match: m, division: state.division,
