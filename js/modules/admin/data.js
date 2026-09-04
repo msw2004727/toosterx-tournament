@@ -101,3 +101,69 @@ export function explain(err, fallback = '操作沒有成功，請稍後再試。
   }
   return err?.message || fallback;
 }
+
+// ── 身分授權 ─────────────────────────────────────────────────
+
+/**
+ * 監聽全部工作人員身分。
+ *
+ * 不篩 `active`：停用的也要看得見，不然復用不了，而且
+ * 「這個人以前是記錄員」是查帳時要看的。
+ */
+export function watchStaff(scope, cb, onError) {
+  const { collection, onSnapshot } = sdk();
+  const unsub = onSnapshot(collection(db(), 'staff'),
+    snap => cb(snap.docs.map(d => ({ uid: d.id, ...d.data() }))),
+    err => onError?.(err));
+  return hold(scope, unsub, 'admin:staff');
+}
+
+/**
+ * 登入過的人（`users` 名錄）。
+ *
+ * ⚠️ 這是唯一查得到 LINE uid 的地方。uid 沒辦法憑空產生，所以
+ *    「指派身分」的第一步永遠是「請對方先用 LINE 登入一次」——
+ *    介面上一定要把這句話寫出來，不然總管會一直找那個人的名字。
+ *
+ * 一次性讀取而不是監聽：名錄只在有人第一次登入時才變，
+ * 而總管指派完就離開這一頁了。
+ */
+export async function getUsers() {
+  const { collection, getDocs } = sdk();
+  const snap = await getDocs(collection(db(), 'users'));
+  return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+}
+
+export async function getVenues() {
+  const { collection, getDocs, query, orderBy } = sdk();
+  const snap = await getDocs(query(
+    collection(db(), 'events', EVENT_ID, 'venues'), orderBy('order', 'asc')
+  ));
+  return snap.docs.map(d => ({ venueId: d.id, ...d.data() }));
+}
+
+/**
+ * 寫入一份身分。
+ *
+ * 用 `setDoc` 整份覆蓋而不是 merge：改身分時舊的 `assignment.venueIds`
+ * 一定要被換掉。merge 的話「從記錄員降成挑戰攤位」會留著原本的場地指派，
+ * 而畫面上看不出來。
+ */
+export async function saveStaff(targetUid, doc_) {
+  const { doc, setDoc, serverTimestamp } = sdk();
+  await setDoc(doc(db(), 'staff', targetUid), {
+    ...doc_,
+    updatedAt: serverTimestamp(),
+    updatedBy: uid()
+  });
+}
+
+/** 停用／復用。只動 `active`，roles 原封不動（rules 靠這點放行）。 */
+export async function setStaffActive(targetUid, patch) {
+  const { doc, updateDoc, serverTimestamp } = sdk();
+  await updateDoc(doc(db(), 'staff', targetUid), {
+    ...patch,
+    updatedAt: serverTimestamp(),
+    updatedBy: uid()
+  });
+}

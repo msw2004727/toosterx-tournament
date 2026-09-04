@@ -211,10 +211,23 @@ const DEMO_STAFF = [
   { uid: 'demo-scorer-a',name: '示範賽務A',   roles: ['scorer'],     venueIds: ['venue-a'],            challengeIds: [] },
   { uid: 'demo-scorer-b',name: '示範賽務B',   roles: ['scorer'],     venueIds: ['venue-b'],            challengeIds: [] },
   { uid: 'demo-referee', name: '示範裁判',    roles: ['referee'],    venueIds: ['venue-a', 'venue-b'], challengeIds: [] },
+  { uid: 'demo-checkin', name: '示範檢錄員',  roles: ['checkin'],    venueIds: ['venue-a'],            challengeIds: [] },
   ...CHALLENGES.map((c, i) => ({
     uid: `demo-booth-${i + 1}`, name: `示範攤位${i + 1}`, roles: ['booth'],
     venueIds: [], challengeIds: [c.challengeId]
   }))
+];
+
+/**
+ * 登入過、但還**沒有**任何身分的人。
+ *
+ * 身分授權那一頁的主要動作是「把身分指派給還沒有身分的人」。
+ * 名錄裡如果每一個人都已經是工作人員，那一頁在 demo 上就永遠示範不到
+ * 這個動作——跟報名審核需要留幾支待審的球隊是同一個理由。
+ */
+const DEMO_UNASSIGNED = [
+  { uid: 'demo-user-1', name: '待指派・王小明' },
+  { uid: 'demo-user-2', name: '待指派・李美玲' }
 ];
 
 // ══════════════════════════════════════════════════════════════════
@@ -544,6 +557,14 @@ export function buildSeed({ seed = 20261009 } = {}) {
       uid: s.uid, displayName: s.name, pictureUrl: null,
       firstSeenAt: null, lastSeenAt: null,
       roles: s.roles,          // 快取，權威在 staff/{uid}.roles
+      seedData: true
+    });
+  }
+  // 只在名錄裡、沒有 staff 文件——身分授權那一頁要有人可以指派
+  for (const u of DEMO_UNASSIGNED) {
+    add(`users/${u.uid}`, {
+      uid: u.uid, displayName: u.name, pictureUrl: null,
+      firstSeenAt: null, lastSeenAt: null,
       seedData: true
     });
   }

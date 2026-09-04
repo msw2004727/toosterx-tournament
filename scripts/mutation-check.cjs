@@ -735,6 +735,72 @@ const MUTANTS = [
     from: `  const roster = (Array.isArray(members) ? members : []).filter(m => ACTIVE.includes(m?.status));`,
     to: `  const roster = (Array.isArray(members) ? members : []);`
   },
+  {
+    name: '#B1 ⭐ 可指派身分多列一個 super_admin（介面上點兩下就有第二個大總管）',
+    file: 'js/engine/assign.js',
+    from: `export const ASSIGNABLE_ROLES = STAFF_CHAIN.slice(0, -1);`,
+    to: `export const ASSIGNABLE_ROLES = [...STAFF_CHAIN];`
+  },
+  {
+    name: '#B2 ⭐ validateAssignment 不擋 super_admin（rules 會擋，但畫面會說成功）',
+    file: 'js/engine/assign.js',
+    from: `  if (role === 'super_admin') {`,
+    to: `  if (false) {`
+  },
+  {
+    name: '#B3 ⭐ staff 文件存展開後的四個角色（看不出他到底被指派了什麼）',
+    file: 'js/engine/assign.js',
+    from: `    roles: [role],`,
+    to: `    roles: impliedRoles([role]),`
+  },
+  {
+    name: '#B4 ⭐ 停用改成刪除意圖（roles 一起清掉，查不到誰記的比分）',
+    file: 'js/engine/assign.js',
+    from: `export const buildDeactivatePatch = () => ({ active: false });`,
+    to: `export const buildDeactivatePatch = () => ({ active: false, roles: [] });`
+  },
+  {
+    name: '#B5 管理員也給指派場地（畫面顯示的限制其實不生效）',
+    file: 'js/engine/assign.js',
+    from: `export const onlyStaffScoped = role => ASSIGNABLE_ROLES.includes(role) && role !== 'admin';`,
+    to: `export const onlyStaffScoped = role => ASSIGNABLE_ROLES.includes(role);`
+  },
+  {
+    name: '#B6 空的 uid 放行（會寫出一份沒有人的身分文件）',
+    file: 'js/engine/assign.js',
+    from: `    return { ok: false, code: 'NO_UID', message: '請先選一個人。' };`,
+    to: `    return { ok: true, code: null, message: '' };`
+  },
+  {
+    name: '#B7 不存在的場地不擋（那個人什麼場次都經手不到）',
+    file: 'js/engine/assign.js',
+    from: `    const bad = ids.filter(v => !knownVenueIds.includes(v));`,
+    to: `    const bad = [];`
+  },
+  {
+    name: '#B8 ⭐ 名錄只列 users（腳本建立的大總管看不到自己）',
+    file: 'js/engine/assign.js',
+    from: `    const row = byUid.get(s.uid) ?? { uid: s.uid, name: null, venueIds: [] };`,
+    to: `    const row = byUid.get(s.uid); if (!row) continue;`
+  },
+  {
+    name: '#B9 有身分的不排前面（總管要在幾百個路人裡找工作人員）',
+    file: 'js/engine/assign.js',
+    from: `    if (a.assigned !== b.assigned) return a.assigned ? -1 : 1;`,
+    to: ``
+  },
+  {
+    name: '#B10 ⭐ 用 level 比大小判賽務身分（FC 的場主會被當成記錄員）',
+    file: 'js/engine/assign.js',
+    from: `    const chainRole = (s.roles ?? []).find(r => STAFF_CHAIN.includes(r)) ?? null;`,
+    to: `    const chainRole = (s.roles ?? []).find(r => (ROLE_INFO[r]?.level ?? -1) >= 2) ?? null;`
+  },
+  {
+    name: '#B11 ⭐ 總管那一列也給改（降下去就再也沒有人指派得了身分）',
+    file: 'js/engine/assign.js',
+    from: `export const assignableHere = row => row?.role !== 'super_admin';`,
+    to: `export const assignableHere = () => true;`
+  },
 ];
 
 process.exit(runMutants({

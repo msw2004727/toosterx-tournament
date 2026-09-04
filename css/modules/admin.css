@@ -144,3 +144,45 @@
   .adm__member{flex-wrap:wrap}
   .adm__memberMeta{flex:1 1 100%;padding-left:calc(2.2em + var(--sp-2))}
 }
+
+/* ── 身分授權 ───────────────────────────────────────────── */
+.adm__field{display:flex;flex-direction:column;gap:var(--sp-2)}
+.adm__fieldLabel{font-size:var(--fs-sm);color:var(--text-secondary)}
+.adm__search{
+  width:100%;min-height:var(--tap);padding:var(--sp-2) var(--sp-3);
+  font-size:16px;font-family:inherit;                 /* 16px：iOS 低於這個會自動放大整頁 */
+  color:var(--text-primary);background:var(--bg-input);
+  border:1px solid var(--border);border-radius:var(--r-md);
+}
+.adm__search:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+
+.adm__choices{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+
+/* 身分是單選。每一顆都寫得出「含哪些」——向上包含看不見的話，
+   總管會把四個角色各指派一次。 */
+.adm__choice{
+  flex:1 1 8.5rem;min-width:0;min-height:var(--tap);
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;
+  padding:var(--sp-2) var(--sp-3);
+  border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--bg-card);color:var(--text-secondary);
+  font-family:inherit;text-align:left;cursor:pointer;
+}
+.adm__choice.is-on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+.adm__choiceName{font-size:var(--fs-md);color:var(--text-primary)}
+.adm__choice.is-on .adm__choiceName{color:var(--accent)}
+.adm__choiceNote{font-size:var(--fs-xs);opacity:.8;line-height:1.4}
+
+.adm__chip{
+  min-height:var(--tap);padding:var(--sp-2) var(--sp-4);
+  border:1px solid var(--border);border-radius:999px;
+  background:var(--bg-card);color:var(--text-secondary);
+  font-family:inherit;font-size:var(--fs-sm);cursor:pointer;
+}
+.adm__chip.is-on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+
+/* uid 是跨專案對帳唯一的鍵，要看得到也要選得起來 */
+.adm__uid{
+  margin:0;font-family:var(--font-num);font-size:var(--fs-xs);
+  color:var(--text-muted);word-break:break-all;user-select:all;
+}

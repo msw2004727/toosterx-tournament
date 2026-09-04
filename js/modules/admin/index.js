@@ -44,4 +44,6 @@ const page = (path, fn) => {
 export function registerAdminRoutes() {
   route('/admin/teams', page('../admin/teams.js', m => m.adminTeamsPage),
     { title: '報名審核', guard: requireLogin });
+  route('/admin/staff', page('../admin/staff.js', m => m.adminStaffPage),
+    { title: '身分授權', guard: requireLogin });
 }
