@@ -170,7 +170,8 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 - [x] M4-b③  全站頁首（首頁／我的／安裝／主題）＋ PWA 可安裝 ＋ 角色字典與 FC 對齊
 - [ ] M4-c   管理後台（依主辦指定的順序逐項實作）
       - [x] 報名審核 `#/admin/teams`（名單檢核＋核准／退回＋留痕）
-      - [ ] 身分授權　[ ] 權限開關　[ ] 稽核紀錄
+      - [x] 身分授權 `#/admin/staff`（指派／場地／停用，總管專屬）
+      - [ ] 權限開關　[ ] 稽核紀錄
       - [ ] 報名開關　[ ] 賽程管理　[ ] 挑戰攤位（M6 子系統）
       ・總管仍由 `scripts/grant-super-admin.mjs` 建立（Admin SDK，不經 rules）
 - [ ] M4-d   「我的球員」（需要 members 的 collectionGroup 索引與規則）
@@ -186,11 +187,11 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 530 全綠（27 個 suite） |
-| `npm run test:mutation` | ✅ 110 / 110 全被抓到 |
+| `npm run test:unit` | ✅ 575 全綠（28 個 suite） |
+| `npm run test:mutation` | ✅ 124 / 124 全被抓到 |
 | `npm run test:mutation:e2e` | ✅ 3 / 3 全被抓到（畫面層時序） |
-| `npm run test:e2e` | ✅ 465 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 155 全綠（含 R34–R72 報名、R73–R82 檢錄、R83–R92 階層、R93–R98 審核） |
+| `npm run test:e2e` | ✅ 522 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:rules` | ✅ 165 全綠（R34–R72 報名、R73–R92 檢錄與階層、R93–R98 審核、R99–R108 授權） |
 | `npm run test:mutation:rules` | ✅ 27 / 27 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
 | `npm run test:mutation:fn` | ✅ 16 / 16 全被抓到 |
@@ -481,7 +482,8 @@ js/modules/admin/
 ├── index.js   路由（lazy() ＋ ?v=，同 staff/index.js）
 ├── data.js    Firestore 存取 ＋ 錯誤翻譯 ＋ writeAudit
 ├── bits.js    共用頁首與「沒有權限」畫面
-└── teams.js   報名審核 #/admin/teams
+├── teams.js   報名審核 #/admin/teams
+└── staff.js   身分授權 #/admin/staff
 ```
 
 新增一個功能要動三個地方，`tests/unit/perms.test.js` 會檢查前兩者對得起來：
@@ -506,6 +508,44 @@ js/modules/admin/
 規章沒寫、也不會弄錯結果的事情不要升成 error——那等於系統替主辦
 訂了一條規章沒有的規則。每一條 finding 都帶 `source`，
 背號重複標的是**「系統限制」而不是「規章」**，因為規章真的沒有那一條。
+
+### 身分授權（js/engine/assign.js）
+
+總管在 `#/admin/staff` 把賽務身分指派給人。四件不可協商：
+
+1. **指派不出總管。** `ASSIGNABLE_ROLES` 寫成 `STAFF_CHAIN.slice(0, -1)`
+   而不是另外列一份陣列——兩份清單遲早分岔，而分岔的方向如果是
+   「多列了 super_admin」，就是一個介面上點得到的提權漏洞。
+   單元測試把它跟 `firestore.rules` 的 `staffRolesAssignable()` 白名單對比。
+2. **總管自己那一列連編輯器都不畫**（`assignableHere()`）。
+   把總管改成管理員在 rules 上完全合法（admin 在白名單裡），畫面也會顯示
+   「已更新」——但可指派的清單裡沒有 super_admin，**降下去就再也升不回來**。
+   最後一位總管降級等於再也沒有人指派得了身分。
+3. **身分是單選，而且每一顆按鈕都寫著「含挑戰攤位、檢錄員、裁判」。**
+   向上包含（R-ROLE-002）看不見的話，總管會四個角色各指派一次。
+4. **停用是改 `active` 不是刪文件。** 賽後要查得到某一筆比分是誰記的。
+
+`staff.roles` **只存被指派的那一個**，不存展開後的四個：存展開的話
+「他到底被指派了什麼」就再也看不出來，而且日後調整階層要重寫所有人的資料。
+展開是讀取時算的（`impliedRoles`）。
+
+管理員以上不受場地限制（rules 的 `assignedVenue()` 對 admin 直接放行），
+所以選了管理員就把場地選擇器收掉、舊的 `venueIds` 也一併清空——
+留著會顯示一組其實不生效的限制。
+
+#### 名錄是 `users`，不是憑空查得到的
+
+LINE 的 uid 沒辦法憑空產生，所以「指派身分」的第一步永遠是
+「請對方先用 LINE 登入一次」，這句話寫在頁面上。
+
+⚠️ `onTeamWritten` 會把 `teamCount` 寫進 `users/{captainUid}`，
+所以**隊長的名錄文件本來就會存在，只是沒有 displayName**。
+種子因此補寫隊長的名字——不補的話 demo 上會出現三十幾列只有 uid 的空白項目
+（`tests/unit/perms.test.js` T42-7 盯著）。正式站不會有這個問題。
+
+⚠️ 這一頁管不到的角色（已移除的 `venue_lead`、FC 同步過來的 `captain` 等）
+要**照原樣印出來**，不可以顯示成「未指派」——看起來像沒有身分的話，
+總管永遠不會發現它還在資料庫裡。demo 上真的有兩份 `venue_lead` 的殘留。
 
 ### 兩個方向相反的鎖
 
