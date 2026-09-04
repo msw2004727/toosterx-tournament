@@ -11,6 +11,7 @@
 import { db, sdk, user } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { EVENT_ID } from '../../config.js';
+import { registrationState as engineRegistrationState } from '../../engine/registration.js';
 
 const uid = () => user()?.uid ?? null;
 const teamsCol = () => {
@@ -36,19 +37,16 @@ export async function getRegistration() {
   }
 }
 
-/** @returns {{open:boolean, reason:string, closesAt:*}} */
+/**
+ * 報名開關的判斷。
+ *
+ * ⚠️ 實作在 `js/engine/registration.js`，這裡只是轉一手。
+ *    管理後台的報名開關頁要顯示「現在到底開不開放」，用的必須是**同一份**
+ *    判斷——兩份實作分岔的方向是「主辦以為關掉了、家長還送得出來」。
+ */
 export function registrationState(cfg, nowMs = Date.now()) {
-  if (!cfg) return { open: false, reason: '報名設定還沒建立，請聯絡主辦。', closesAt: null };
-  const opensAt = toMs(cfg.opensAt);
-  const closesAt = toMs(cfg.closesAt);
-
-  if (cfg.open !== true) return { open: false, reason: '報名尚未開放。', closesAt };
-  if (opensAt != null && nowMs < opensAt) return { open: false, reason: '報名還沒開始。', closesAt };
-  if (closesAt != null && nowMs > closesAt) return { open: false, reason: '報名已經截止。', closesAt };
-  return { open: true, reason: '', closesAt };
+  return engineRegistrationState(cfg, nowMs);
 }
-
-const toMs = v => (v?.toMillis ? v.toMillis() : typeof v === 'number' ? v : null);
 
 /** 單一組別設定。讀不到回 null——上層一律 fail-closed。 */
 export async function getDivision(divisionId) {

@@ -216,6 +216,30 @@ const MUTANTS = [
     from: `    function isScorer()     { return myRoles().hasAny(['scorer', 'admin', 'super_admin']); }`,
     to: `    function isScorer()     { return myRoles().hasAny(['venue_owner', 'scorer', 'admin', 'super_admin']); }`
   },
+  {
+    name: 'RU#29 ⭐ 報名開關退回 isAdmin（管理員改得動截止日）',
+    file: F,
+    from: `      allow write: if key == 'registration' ? isSuperAdmin() : isAdmin();`,
+    to: `      allow write: if isAdmin();`
+  },
+  {
+    // Firestore 的規則跨路徑是 OR：另外寫一條收緊完全沒有作用，
+    // 而且看起來像收緊了。這條變異把人最可能寫成的那個版本試一次。
+    name: 'RU#30 ⭐ 改成「另外寫一條收緊」（OR 之下萬用字元照樣放行管理員）',
+    file: F,
+    from: `    match /config/{key} {
+      allow read:  if true;
+      allow write: if key == 'registration' ? isSuperAdmin() : isAdmin();
+    }`,
+    to: `    match /config/registration {
+      allow read:  if true;
+      allow write: if isSuperAdmin();
+    }
+    match /config/{key} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }`
+  },
 ];
 
 process.exit(runMutants({

@@ -258,3 +258,48 @@ export async function getAuditLookup() {
     teams: Object.fromEntries((teams?.docs ?? []).map(d => [d.id, d.data().name]).filter(([, v]) => v))
   };
 }
+
+// ── 報名開關 ─────────────────────────────────────────────────
+
+/**
+ * 監聽報名設定。
+ *
+ * 用監聽而不是一次性讀取：這一頁上有一個「現在到底開不開放」的判斷，
+ * 而它會隨時間變化（截止時間一到就自己翻面）。另一位總管同時在改也看得到。
+ */
+export function watchRegistration(scope, cb, onError) {
+  const { doc, onSnapshot } = sdk();
+  const unsub = onSnapshot(doc(db(), 'config', 'registration'),
+    snap => cb(snap.exists() ? snap.data() : null),
+    err => onError?.(err));
+  return hold(scope, unsub, 'admin:registration');
+}
+
+/**
+ * 寫入報名設定。
+ *
+ * ⚠️ 一定要 merge：這份文件上還有人數上限與費用（照規章第十二條），
+ *    那些不歸這一頁管。整份覆蓋會把它們一起抹掉，而抹掉之後
+ *    畫面看起來完全正常。
+ */
+export async function saveRegistration(patch) {
+  const { doc, setDoc, serverTimestamp } = sdk();
+  await setDoc(doc(db(), 'config', 'registration'), {
+    ...patch,
+    updatedAt: serverTimestamp(),
+    updatedBy: uid()
+  }, { merge: true });
+}
+
+/** 最早的比賽日與彩排日，給日期提醒用。讀不到就不提醒，不擋儲存。 */
+export async function getScheduleBounds() {
+  const { collection, getDocs, query, orderBy, limit } = sdk();
+  try {
+    const snap = await getDocs(query(
+      collection(db(), 'events', EVENT_ID, 'divisions'), orderBy('date', 'asc'), limit(1)
+    ));
+    return { firstMatchDate: snap.docs[0]?.data()?.date ?? null };
+  } catch {
+    return { firstMatchDate: null };
+  }
+}

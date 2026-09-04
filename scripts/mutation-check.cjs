@@ -966,6 +966,54 @@ const MUTANTS = [
     from: "  return lookup.people?.[a?.actorUid] ?? a?.actorName ?? a?.actorUid ?? '（不明）';",
     to: "  return a?.actorName ?? a?.actorUid ?? '（不明）';"
   },
+  {
+    name: '#H17 ⭐ 報名設定讀不到就當開著（fail-open，還沒準備好就開始收報名）',
+    file: 'js/engine/registration.js',
+    from: "  if (!cfg) return { open: false, reason: '報名設定還沒建立，請聯絡主辦。', closesAt: null, opensAt: null };",
+    to: "  if (!cfg) return { open: true, reason: '', closesAt: null, opensAt: null };"
+  },
+  {
+    name: '#H18 ⭐ 只看手動開關，不看起訖區間（主辦沒辦法提前關或延長）',
+    file: 'js/engine/registration.js',
+    from: "  if (opensAt != null && nowMs < opensAt) return { open: false, reason: '報名還沒開始。', closesAt, opensAt };",
+    to: ""
+  },
+  {
+    name: '#H19 ⭐ 過了截止還開著',
+    file: 'js/engine/registration.js',
+    from: "  if (closesAt != null && nowMs > closesAt) return { open: false, reason: '報名已經截止。', closesAt, opensAt };",
+    to: ""
+  },
+  {
+    name: '#H20 截止那一刻就關掉（rules 是 <=，兩邊差一秒就會不一致）',
+    file: 'js/engine/registration.js',
+    from: "  if (closesAt != null && nowMs > closesAt)",
+    to: "  if (closesAt != null && nowMs >= closesAt)"
+  },
+  {
+    name: '#H21 open 收 truthy 而不是 true（字串 "false" 也會變成開放）',
+    file: 'js/engine/registration.js',
+    from: "  if (cfg.open !== true) return { open: false, reason: '報名尚未開放。', closesAt, opensAt };",
+    to: "  if (!cfg.open) return { open: false, reason: '報名尚未開放。', closesAt, opensAt };"
+  },
+  {
+    name: '#H22 toMs 解析不出來回 0（1970 年，「還沒開始」變成「早就開始了」）',
+    file: 'js/engine/registration.js',
+    from: "  if (typeof v === 'string') {\n    const t = Date.parse(v);\n    return Number.isNaN(t) ? null : t;\n  }\n  return null;",
+    to: "  if (typeof v === 'string') {\n    const t = Date.parse(v);\n    return Number.isNaN(t) ? 0 : t;\n  }\n  return 0;"
+  },
+  {
+    name: '#H23 ⭐ 不提醒起訖顛倒（這樣設定之後報名永遠不會開放）',
+    file: 'js/engine/registration.js',
+    from: "  if (opensAt != null && closesAt != null && closesAt <= opensAt) {",
+    to: "  if (false) {"
+  },
+  {
+    name: '#H24 報名設定整份覆蓋（人數上限與費用被一起抹掉）',
+    file: 'js/engine/registration.js',
+    from: "    ...(n == null ? {} : { maxTeamsPerAccount: n })",
+    to: "    ...(n == null ? {} : { maxTeamsPerAccount: n }), maxMembers: null, maxStaff: null"
+  },
 ];
 
 process.exit(runMutants({

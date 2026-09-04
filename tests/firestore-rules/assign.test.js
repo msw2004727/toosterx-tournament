@@ -152,3 +152,41 @@ describe('R109–R112 權限開關（`#/admin/perms` 實際會發的請求）', 
     }));
   });
 });
+
+describe('R113–R117 報名開關（`#/admin/registration`）', () => {
+  const regRef = db => doc(db, 'config', 'registration');
+  const patch = { open: false };
+
+  beforeEach(async () => {
+    await asAdminSdk(env, db => setDoc(regRef(db), {
+      open: true, opensAt: null, closesAt: null, maxTeamsPerAccount: 3
+    }));
+  });
+
+  test('R113 ⭐ 只有總管改得動報名開關', async () => {
+    await assertSucceeds(setDoc(regRef(authed(env, 'u-super')), patch, { merge: true }));
+  });
+
+  test('R114 ⭐⭐ 管理員改不動——`config/{key}` 那條萬用字元不可以放行它', async () => {
+    // ⚠️ Firestore 的規則在多條路徑同時命中時是 **OR**，不是「以最具體的為準」。
+    //    所以「另外寫一條 match /config/registration 收緊」是**沒有用的**：
+    //    萬用字元那條照樣會放行管理員，而且看起來完全像收緊了。
+    //    這一條就是在守那個陷阱。
+    await assertFails(setDoc(regRef(authed(env, 'u-admin')), patch, { merge: true }));
+    await assertFails(updateDoc(regRef(authed(env, 'u-admin')), patch));
+  });
+
+  test('R115 記錄員與訪客更不用說', async () => {
+    await assertFails(setDoc(regRef(authed(env, 'u-scorer')), patch, { merge: true }));
+    await assertFails(setDoc(regRef(guest(env)), patch, { merge: true }));
+  });
+
+  test('R116 其他 config 仍然是管理員可寫（沒有被一起收緊）', async () => {
+    await assertSucceeds(setDoc(doc(authed(env, 'u-admin'), 'config', 'featureFlags'),
+      { scorerBoard: true }, { merge: true }));
+  });
+
+  test('R117 ⭐ 報名設定是公開可讀的（報名頁沒登入也要判斷得出開不開放）', async () => {
+    await assertSucceeds(getDoc(regRef(guest(env))));
+  });
+});

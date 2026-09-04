@@ -258,3 +258,10 @@
 .adm__auditNote{margin:0;font-size:var(--fs-xs);color:var(--text-muted);line-height:1.6}
 .adm__auditWho{margin:2px 0 0;font-size:var(--fs-xs);color:var(--text-secondary)}
 .adm__note .icon{vertical-align:-.15em;margin-right:2px}
+
+/* ── 報名開關 ───────────────────────────────────────────── */
+.adm__box--ok{background:var(--ok-bg);border-color:var(--success);color:var(--success)}
+.adm__box--ok .adm__note{color:var(--success);opacity:.9}
+.adm__timeRow{display:flex;align-items:center;gap:var(--sp-2)}
+.adm__timeRow .adm__fieldLabel{flex:none}
+.adm__time{max-width:11rem}

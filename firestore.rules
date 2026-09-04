@@ -540,9 +540,20 @@ service cloud.firestore {
       allow read: if true;
     }
 
+    // 報名開關收到**總管**，其餘設定維持管理員。
+    //
+    // `PERMISSIONS` 裡 `registration.manage` 的 minRole 是 super_admin，
+    // 而它是 destructive——destructive 的權限一定要同時寫在規則裡
+    // （R-PERM-002）。留在 isAdmin() 的話，畫面上看不到那顆開關的管理員
+    // 仍然改得動報名截止日。
+    //
+    // ⚠️ **不可以另外寫一條 `match /config/registration`。**
+    //    Firestore 的規則在多條路徑同時命中時是 **OR**，不是「以最具體的為準」——
+    //    再寫一條收緊的規則，下面這條萬用字元照樣會放行管理員，
+    //    而且看起來完全像收緊了。所以條件要寫在**同一條**裡。
     match /config/{key} {
       allow read:  if true;
-      allow write: if isAdmin();
+      allow write: if key == 'registration' ? isSuperAdmin() : isAdmin();
     }
     match /rolePermissions/{role} {
       allow read:  if true;

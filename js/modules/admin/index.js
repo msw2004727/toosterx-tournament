@@ -50,4 +50,6 @@ export function registerAdminRoutes() {
     { title: '權限開關', guard: requireLogin });
   route('/admin/audits', page('../admin/audits.js', m => m.adminAuditsPage),
     { title: '稽核紀錄', guard: requireLogin });
+  route('/admin/registration', page('../admin/registration.js', m => m.adminRegistrationPage),
+    { title: '報名開關', guard: requireLogin });
 }
