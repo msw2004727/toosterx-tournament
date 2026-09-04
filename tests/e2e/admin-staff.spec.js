@@ -147,6 +147,35 @@ test('⭐ 每一顆按鈕都寫得出「這個身分含哪些」 @admin', async 
   await expect(roleBtn(page, '挑戰攤位')).toContainText('不含其他身分');
 });
 
+test('⭐ 舊版本留下的角色要照原樣印出來，不是顯示成「未指派」 @admin', async ({ page }) => {
+  // demo 上真的有一份 venue_lead 的殘留身分（M3.5 已把這個角色移除）。
+  // 顯示成「未指派」的話總管永遠不會發現它還在資料庫裡。
+  await stub(page, {
+    extra: {
+      'users/u-old': { uid: 'u-old', displayName: '舊場地主任' },
+      'staff/u-old': {
+        uid: 'u-old', name: '舊場地主任', roles: ['venue_lead'], active: true,
+        assignment: { eventId: EVENT, venueIds: [], divisionIds: [], challengeIds: [] }
+      }
+    }
+  });
+  await go(page);
+  await expect(person(page, '舊場地主任')).toContainText('其他身分：venue_lead');
+  await expect(person(page, '舊場地主任')).not.toContainText('未指派');
+
+  // 而且展開時要講明白：指派新身分會把它換掉
+  await person(page, '舊場地主任').locator('.adm__itemHead').click();
+  await expect(page.locator('.adm__detail')).toContainText('管不到的角色');
+  await expect(page.locator('.adm__detail')).toContainText('一起換掉');
+});
+
+test('沒有名字的人顯示 uid，不是一列空白 @admin', async ({ page }) => {
+  // onTeamWritten 會建立沒有 displayName 的 users 文件
+  await stub(page, { extra: { 'users/u-noname': { uid: 'u-noname' } } });
+  await go(page);
+  await expect(page.locator('.adm__item', { hasText: 'u-noname' })).toHaveCount(1);
+});
+
 test('⭐ 沒選身分就按不動（不會寫出空的 roles）@admin', async ({ page }) => {
   await stub(page);
   await go(page);

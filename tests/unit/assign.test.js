@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
   ASSIGNABLE_ROLES, impliedBy, validateAssignment, onlyStaffScoped, assignableHere,
-  buildStaffDoc, buildDeactivatePatch, buildReactivatePatch, mergeDirectory
+  unmanagedRoles, buildStaffDoc, buildDeactivatePatch, buildReactivatePatch, mergeDirectory
 } from '../../js/engine/assign.js';
 import { STAFF_CHAIN, ROLE_INFO } from '../../js/config.js';
 
@@ -134,6 +134,30 @@ describe('T36-C2 總管那一列動不得', () => {
       expect(assignableHere({ role })).toBe(true);
     }
     expect(assignableHere(null)).toBe(true);
+  });
+});
+
+describe('T36-C3 這一頁管不到的角色', () => {
+  test('⭐ 已移除的舊角色要照原樣印出來', () => {
+    // venue_lead 在 M3.5 已從角色字典移除，但 demo 上還留著一份 staff 文件。
+    // 顯示成「未指派」的話總管永遠不會發現它還在資料庫裡。
+    expect(unmanagedRoles(['venue_lead'])).toEqual(['venue_lead']);
+  });
+
+  test('FC 同步過來的角色也算（captain／coach／venue_owner）', () => {
+    expect(unmanagedRoles(['captain', 'scorer', 'coach'])).toEqual(['captain', 'coach']);
+  });
+
+  test('賽務角色與總管都不算', () => {
+    for (const r of [...ASSIGNABLE_ROLES, 'super_admin']) {
+      expect(unmanagedRoles([r])).toEqual([]);
+    }
+  });
+
+  test('壞資料不會炸掉整頁', () => {
+    expect(unmanagedRoles()).toEqual([]);
+    expect(unmanagedRoles(null)).toEqual([]);
+    expect(unmanagedRoles('scorer')).toEqual([]);
   });
 });
 
@@ -261,6 +285,18 @@ describe('T36-F 名錄合併', () => {
   test('非繼承鏈的角色（captain 等）不會被誤認成賽務身分', () => {
     const rows = mergeDirectory(users, [{ uid: 'U1', roles: ['captain'], active: true }]);
     expect(rows[0].role).toBeNull();
+  });
+
+  test('⭐ 但原始的 roles 要留著（畫面才印得出「其他身分」）', () => {
+    // 只留 chainRole 的話，一份 venue_lead 的殘留身分會顯示成
+    // 「已授權 · 未指派」——看起來像壞掉，而且沒有人會去清它。
+    const rows = mergeDirectory(users, [{ uid: 'U1', roles: ['venue_lead'], active: true }]);
+    expect(rows[0].roles).toEqual(['venue_lead']);
+    expect(unmanagedRoles(rows[0].roles)).toEqual(['venue_lead']);
+  });
+
+  test('沒有 staff 文件的人 roles 是空陣列，不是 undefined', () => {
+    expect(mergeDirectory([{ uid: 'U9', displayName: '路人' }], [])[0].roles).toEqual([]);
   });
 
   test('缺 uid 的資料略過，不會炸掉整頁', () => {

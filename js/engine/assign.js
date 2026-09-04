@@ -88,6 +88,18 @@ export function validateAssignment({ uid, role, venueIds = [], knownVenueIds = n
 }
 
 /**
+ * staff 文件上**這一頁管不到**的角色。
+ *
+ * 兩種來源：舊版本留下的（`venue_lead` 在 M3.5 已移除）、
+ * 以及 FC-Football 同步過來的（`captain`／`coach`／`venue_owner`）。
+ *
+ * 這些角色要照原樣印出來，**不可以顯示成「未指派」**——
+ * 看起來像沒有身分的話，總管永遠不會去清掉它，而它還留在資料庫裡。
+ */
+export const unmanagedRoles = (roles = []) =>
+  (Array.isArray(roles) ? roles : []).filter(r => !STAFF_CHAIN.includes(r));
+
+/**
  * 這一列能不能在介面上改身分？
  *
  * **總管那一列不行。** rules 的白名單沒有 super_admin，所以一旦在這裡把
@@ -146,7 +158,8 @@ export const buildReactivatePatch = () => ({ active: true });
  * 名錄是唯一能查到 LINE uid 的地方（uid 沒辦法憑空產生，docs/10 §1.4），
  * 所以「指派身分」的第一步永遠是「請對方先登入一次」。
  *
- * @returns {Array<{uid, name, role:string|null, active:boolean, assigned:boolean, venueIds:string[]}>}
+ * @returns {Array<{uid, name, role:string|null, roles:string[], active:boolean,
+ *                   assigned:boolean, venueIds:string[]}>}
  */
 export function mergeDirectory(users = [], staff = []) {
   const byUid = new Map();
@@ -155,7 +168,7 @@ export function mergeDirectory(users = [], staff = []) {
     byUid.set(u.uid, {
       uid: u.uid,
       name: u.displayName || u.name || null,
-      role: null, active: false, assigned: false, venueIds: []
+      role: null, roles: [], active: false, assigned: false, venueIds: []
     });
   }
   for (const s of staff ?? []) {
@@ -167,6 +180,7 @@ export function mergeDirectory(users = [], staff = []) {
       // staff 文件上的名字比名錄新（總管可能改過），但名錄的 LINE 名稱才是本人
       name: row.name || s.name || null,
       role: chainRole,
+      roles: Array.isArray(s.roles) ? s.roles : [],
       active: s.active === true,
       assigned: true,
       venueIds: s.assignment?.venueIds ?? []

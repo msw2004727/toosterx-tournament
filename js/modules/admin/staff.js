@@ -25,7 +25,7 @@ import { hold } from '../../core/store.js';
 import { ROLE_INFO, EVENT_ID } from '../../config.js';
 import {
   ASSIGNABLE_ROLES, impliedBy, validateAssignment, onlyStaffScoped, assignableHere,
-  buildStaffDoc, buildDeactivatePatch, buildReactivatePatch, mergeDirectory
+  unmanagedRoles, buildStaffDoc, buildDeactivatePatch, buildReactivatePatch, mergeDirectory
 } from '../../engine/assign.js';
 import * as data from './data.js';
 import { adminHead, denied } from './bits.js';
@@ -85,7 +85,13 @@ export async function adminStaffPage({ scope, view }) {
 
   /** 這一列現在的身分敘述。停用的要講出來，不然看起來還有權限。 */
   function roleText(r) {
-    if (!r.role) return '未指派';
+    if (!r.role) {
+      // 有身分文件卻沒有賽務角色：舊版本留下的（venue_lead）或 FC 同步過來的。
+      // 顯示成「未指派」的話總管永遠不會發現它還在資料庫裡。
+      const other = unmanagedRoles(r.roles);
+      if (other.length) return `其他身分：${other.join('、')}`;
+      return '未指派';
+    }
     const label = ROLE_INFO[r.role]?.label ?? r.role;
     if (!r.active) return `${label}（已停用）`;
     if (r.venueIds?.length) return `${label} · ${r.venueIds.map(venueName).join('、')}`;
@@ -233,6 +239,12 @@ export async function adminStaffPage({ scope, view }) {
     }
     return el('div', { class: 'adm__detail' }, [
       el('h3', { class: 'adm__sectionHead', text: '指派身分' }),
+      unmanagedRoles(row.roles).length
+        ? el('p', {
+            class: 'adm__note',
+            text: `這個人身上還有這一頁管不到的角色：${unmanagedRoles(row.roles).join('、')}。指派新身分會把它們一起換掉。`
+          })
+        : null,
       el('div', { class: 'adm__choices', role: 'radiogroup', 'aria-label': '身分' },
         ROLE_ORDER.map(roleChoice)),
       // 總管是這一頁唯一給不出去的身分，講清楚為什麼比讓人到處找好
@@ -264,7 +276,7 @@ export async function adminStaffPage({ scope, view }) {
         onClick: () => openRow(row.uid)
       }, [
         el('span', { class: 'adm__itemMain' }, [
-          el('span', { class: 'adm__teamName', text: row.name ?? '（沒有名字）' }),
+          el('span', { class: 'adm__teamName', text: row.name || row.uid }),
           el('span', { class: 'adm__teamMeta', text: roleText(row) })
         ]),
         row.assigned

@@ -801,6 +801,25 @@ const MUTANTS = [
     from: `export const assignableHere = row => row?.role !== 'super_admin';`,
     to: `export const assignableHere = () => true;`
   },
+  {
+    name: '#B12 ⭐ 管不到的角色被當成「未指派」（殘留身分永遠沒有人清）',
+    file: 'js/engine/assign.js',
+    from: `export const unmanagedRoles = (roles = []) =>
+  (Array.isArray(roles) ? roles : []).filter(r => !STAFF_CHAIN.includes(r));`,
+    to: `export const unmanagedRoles = () => [];`
+  },
+  {
+    name: '#B13 名錄不留原始 roles（畫面印不出「其他身分」）',
+    file: 'js/engine/assign.js',
+    from: `      roles: Array.isArray(s.roles) ? s.roles : [],`,
+    to: ``
+  },
+  {
+    name: '#B14 種子不把隊長寫進名錄（授權頁出現三十幾列空白）',
+    file: 'scripts/seed/build.js',
+    from: `      uid: t.captainUid, displayName: t.captainName, pictureUrl: null,`,
+    to: `      uid: t.captainUid, displayName: null, pictureUrl: null,`
+  },
 ];
 
 process.exit(runMutants({

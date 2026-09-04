@@ -244,3 +244,35 @@ describe('T42-6 種子資料與程式碼的權限矩陣一致', () => {
     for (const d of docs) expect(Object.keys(d.data.perms)).not.toContain('*');
   });
 });
+
+describe('T42-7 使用者名錄（身分授權那一頁列的就是它）', () => {
+  test('⭐ 每一筆都有名字', async () => {
+    // `onTeamWritten` 會把 teamCount 寫進 users/{captainUid}，
+    // 所以隊長的文件本來就會存在——種子不補名字的話，
+    // 身分授權頁在 demo 上會出現三十幾列只有一串 uid 的空白項目。
+    const { buildSeed } = await import('../../scripts/seed/build.js');
+    const users = buildSeed().docs.filter(d => d.path.startsWith('users/'));
+    const nameless = users.filter(d => !d.data.displayName).map(d => d.path);
+    expect(nameless).toEqual([]);
+  });
+
+  test('⭐ 每一位隊長都在名錄裡', async () => {
+    const { buildSeed } = await import('../../scripts/seed/build.js');
+    const { docs } = buildSeed();
+    const uids = new Set(docs.filter(d => d.path.startsWith('users/')).map(d => d.data.uid));
+    const captains = docs
+      .filter(d => /\/teams\/[^/]+$/.test(d.path) && d.data.captainUid)
+      .map(d => d.data.captainUid);
+    expect(captains.length).toBeGreaterThan(0);
+    for (const c of captains) expect(uids).toContain(c);
+  });
+
+  test('留幾位「登入過但還沒有身分」的人（不然那一頁示範不到主要動作）', async () => {
+    const { buildSeed } = await import('../../scripts/seed/build.js');
+    const { docs } = buildSeed();
+    const staffUids = new Set(docs.filter(d => d.path.startsWith('staff/')).map(d => d.data.uid));
+    const unassigned = docs
+      .filter(d => d.path.startsWith('users/') && !staffUids.has(d.data.uid));
+    expect(unassigned.length).toBeGreaterThan(0);
+  });
+});

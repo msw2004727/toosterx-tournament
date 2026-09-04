@@ -569,6 +569,7 @@ export function buildSeed({ seed = 20261009 } = {}) {
     });
   }
 
+
   for (const s of DEMO_STAFF) {
     add(`staff/${s.uid}`, {
       uid: s.uid, name: s.name, lineUserId: null, roles: s.roles,
@@ -612,6 +613,20 @@ export function buildSeed({ seed = 20261009 } = {}) {
 
   // ── 球隊與名單 ──
   const { teams, members } = buildTeams(rng);
+  // 隊長也要進名錄。
+  //
+  // ⚠️ 這一段不是為了好看：`onTeamWritten` 會把 teamCount 寫進
+  //    `users/{captainUid}`，所以**這些文件本來就會存在**，只是沒有名字。
+  //    身分授權那一頁列的就是這個集合——沒有這一段，demo 上會出現
+  //    三十幾列只有一串 uid 的空白項目。正式站不會有這個問題
+  //    （每個人都是自己登入時由 lineLogin 寫進去的）。
+  for (const t of teams) {
+    add(`users/${t.captainUid}`, {
+      uid: t.captainUid, displayName: t.captainName, pictureUrl: null,
+      firstSeenAt: null, lastSeenAt: null,
+      seedData: true
+    });
+  }
 
   // ── 賽程 ──
   const allMatches = [];
