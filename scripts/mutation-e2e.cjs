@@ -44,11 +44,31 @@ const MUTANTS = [
     file: 'tests/e2e/fake-firebase.js',
     from: `    store.set(ref.path, opts?.merge ? deepMerge(store.get(ref.path) || {}, next) : next);`,
     to: `    store.set(ref.path, opts?.merge ? { ...(store.get(ref.path) || {}), ...next } : next);`
+  },
+  {
+    // 以下三條：can() **有呼叫**，但結果被忽略。靜態掃描（T42-8）看不出來，
+    // 只有真的跑一次瀏覽器、確認「關掉之後按鈕不見了」才抓得到。
+    name: '#E6 ⭐ 問了 match.finish 卻不理結果（關掉之後按鈕照樣在）',
+    file: 'js/modules/staff/live.js',
+    from: `    if (!can('match.finish')) {`,
+    to: `    if (!can('match.finish') && false) {`
+  },
+  {
+    name: '#E7 ⭐ 問了 matchsheet.write 卻永遠放行',
+    file: 'js/modules/staff/sheet.js',
+    from: `    const mayEdit = can('matchsheet.write');`,
+    to: `    const mayEdit = can('matchsheet.write') || true;`
+  },
+  {
+    name: '#E8 ⭐ 問了 member.read 卻永遠顯示個資',
+    file: 'js/modules/staff/checkin.js',
+    from: `          can('member.read')`,
+    to: `          can('member.read') || true`
   }
 ];
 
 process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js --project=chromium-mobile --reporter=dot',
+  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js --project=chromium-mobile --reporter=dot',
   title: '前端時序｜E2E 變異測試'
 }));

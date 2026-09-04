@@ -39,15 +39,23 @@ describe('T37-A 調得動與調不動', () => {
   test('⭐ 在來源那一階調得動', () => {
     expect(editableRole(P('match.finish'), 'scorer').ok).toBe(true);
     expect(editableRole(P('checkin.write'), 'checkin').ok).toBe(true);
-    expect(editableRole(P('challenge.attempt.write'), 'booth').ok).toBe(true);
+    expect(editableRole(P('matchsheet.write'), 'referee').ok).toBe(true);
+  });
+
+  test('⭐ 功能還沒上線的調不動（開關按了不會有效果）', () => {
+    // 2026-09-04：`match.finish` 沒有標 pending，賽務台卻從來沒問過 can()——
+    // 主辦關掉之後按鈕照樣在。現在 pending 由靜態掃描盯著（T42-8）。
+    const r = editableRole(P('challenge.attempt.write'), 'booth');
+    expect(r.ok).toBe(false);
+    expect(r.reason).toContain('還沒上線');
   });
 
   test('⭐ 繼承來的那一階調不動，而且說得出要去哪裡調', () => {
     // 這是這一頁最容易做錯的地方：在「記錄員」列關掉挑戰成績登錄，
     // 會被「挑戰攤位」列的 true 蓋過去——開關完全沒有作用。
-    const r = editableRole(P('challenge.attempt.write'), 'scorer');
+    const r = editableRole(P('checkin.write'), 'scorer');
     expect(r.ok).toBe(false);
-    expect(r.reason).toContain('挑戰攤位');
+    expect(r.reason).toContain('檢錄員');
   });
 
   test('⭐ 這個限制是真的：在繼承的那一階寫 false 沒有效果', () => {
@@ -190,8 +198,17 @@ describe('T37-D 整張表', () => {
   test('其他每一條都調得動（每條權限都在自己的來源那一列）', () => {
     for (const g of groups) {
       if (g.group === '總管') continue;
-      for (const r of g.rows) expect(r.editable).toBe(true);
+      for (const r of g.rows) {
+        if (r.pending) { expect(r.editable).toBe(false); continue; }   // 功能還沒上線
+        expect(r.editable).toBe(true);
+      }
     }
+  });
+
+  test('⭐ 功能還沒上線的那幾條標得出來', () => {
+    const rows = groups.flatMap(g => g.rows);
+    expect(rows.find(r => r.code === 'schedule.manage').pending).toBe(true);
+    expect(rows.find(r => r.code === 'match.finish').pending).toBe(false);
   });
 });
 

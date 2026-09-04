@@ -93,6 +93,9 @@ export async function adminPermsPage({ scope, view }) {
       el('div', { class: 'adm__permMain' }, [
         el('div', { class: 'adm__permTop' }, [
           el('span', { class: 'adm__permLabel', text: row.label }),
+          row.pending
+            ? el('span', { class: 'adm__tag' }, iconText('clock', '尚未上線'))
+            : null,
           row.destructive
             ? el('span', {
                 class: 'adm__tag',
@@ -142,10 +145,15 @@ export async function adminPermsPage({ scope, view }) {
     if (state.matrix === null) { mount(root, adminHead('權限開關'), skeleton(4)); return; }
 
     const groups = permGroups(state.matrix);
-    const offCount = groups.flatMap(g => g.rows).filter(r => !r.on).length;
+    const rows = groups.flatMap(g => g.rows);
+    const offCount = rows.filter(r => !r.on).length;
+    const pendingCount = rows.filter(r => r.pending).length;
 
     mount(root,
-      adminHead('權限開關', { sub: offCount ? `${offCount} 項已關閉` : '全部維持預設' }),
+      adminHead('權限開關', {
+        sub: [offCount ? `${offCount} 項已關閉` : '全部維持預設',
+              pendingCount ? `${pendingCount} 項功能尚未上線` : null].filter(Boolean).join('　·　')
+      }),
 
       el('div', { class: 'adm__box' }, [
         el('p', {

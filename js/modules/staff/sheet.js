@@ -11,7 +11,7 @@
 import { el, toast, confirmDialog, emptyState, mount } from '../../core/ui.js';
 import { icon } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
-import { canScore, assignedToVenue } from '../../core/firebase.js';
+import { can, assignedToVenue } from '../../core/firebase.js';
 import { watchMatch, getTeamRoster, getMatchSheet, saveMatchSheet, patchMatch } from './data.js';
 import { getDivision } from './data.js';
 import { syncIndicator } from './sync-indicator.js';
@@ -60,7 +60,12 @@ export async function matchSheetPage({ params, scope, view }) {
         : el('p', { text: '載入中…' }));
       return;
     }
-    const readOnly = !canScore() || !assignedToVenue(m.venueId);
+    // ⚠️ 這裡的權限碼是 `matchsheet.write`（裁判），**不是** `match.score.write`
+    //    （記錄員）。用後者的話裁判會看得到名單卻一個人都勾不了——
+    //    而「名單與檢錄」正是裁判在這個系統裡唯一的職能（見 CLAUDE.md 的角色矩陣）。
+    //    2026-09-04 在真站上實測到：裁判的名單頁只有 4 顆按鈕，記錄員有 25 顆。
+    const mayEdit = can('matchsheet.write');
+    const readOnly = !mayEdit || !assignedToVenue(m.venueId);
     const side = state.active;
     const needStart = state.division?.playersOnField ?? 9;
     const picked = state.picked[side];

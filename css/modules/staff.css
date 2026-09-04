@@ -297,3 +297,11 @@
   .chk__row{flex-wrap:wrap}
   .chk__row > .btn{flex:1 1 100%}
 }
+
+/* 權限被主辦關掉時的說明。不畫按鈕，但一定要說出來——
+   現場看到功能消失會以為系統壞了，然後開始重整頁面。 */
+.clockbox__note{
+  margin:var(--sp-2) 0 0;text-align:center;
+  font-size:var(--fs-sm);color:var(--text-secondary);
+}
+.chk__verify--hidden{color:var(--text-muted);font-size:var(--fs-xs)}

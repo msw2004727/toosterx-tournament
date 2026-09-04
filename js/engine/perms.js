@@ -39,8 +39,16 @@ export const ownerRole = p => p.minRole;
  *    要關就到來源那一階關。
  */
 export function editableRole(p, role) {
+  // 順序有意義：總管那三條**永遠**調不動（結構性的），所以排在最前面；
+  // 「功能還沒上線」是暫時的，日後會消失。先講永久的那個原因比較不會誤導。
   if (p.minRole === 'super_admin') {
     return { ok: false, reason: '總管不受權限開關影響（不然關掉之後就再也打不開了）。' };
+  }
+  if (p.pending === true) {
+    // 沒有任何畫面在讀這條權限碼（功能還沒做）。開關按下去不會有任何效果，
+    // 那就是一顆按了沒反應的按鈕。`js/config.js` 的 pending 旗標由
+    // `scripts/perm-usage.cjs` 靜態掃描盯著，功能一接上 can() 測試就會紅。
+    return { ok: false, reason: '這個功能還沒上線，開關現在沒有作用。' };
   }
   if (p.minRole !== role) {
     const owner = ROLE_INFO[p.minRole]?.label ?? p.minRole;
@@ -109,6 +117,7 @@ export function permGroups(matrix = {}) {
           role: ownerRole(p),
           roleLabel: ROLE_INFO[ownerRole(p)]?.label ?? ownerRole(p),
           destructive: p.destructive === true,
+          pending: p.pending === true,
           on: st.on,
           changed: st.changed,
           conflict: st.conflict,

@@ -18,7 +18,7 @@ import {
   elapsedSec, startClock, pauseClock, resetClock, nextPeriod,
   statusForPeriod, isPlayingPeriod, startTicker, now, isInAddedTime
 } from '../../core/clock.js';
-import { user, canScore, assignedToVenue } from '../../core/firebase.js';
+import { user, can, canScore, assignedToVenue } from '../../core/firebase.js';
 import { navigate } from '../../core/router.js';
 import {
   watchMatch, watchTimeline, getTeamRoster, getMatchSheet, getDivision,
@@ -156,7 +156,11 @@ export async function liveConsole({ params, scope, view }) {
       el('div', { class: 'clockbox__period', text: periodLabel(period, state.division?.periods ?? 2) }),
       el('div', { class: 'clockbox__time num', id: 'match-clock', text: '00:00' }),
       el('div', { class: 'clockbox__minute', id: 'match-minute' }),
-      readOnly ? null : el('div', { class: 'clockbox__btns' }, [
+      // ⚠️ 時鐘是獨立的一條權限（`match.period`）。主辦關掉之後不要只是
+      //    把按鈕拿掉——現場會以為系統壞了，然後開始重整頁面。
+      (readOnly || can('match.period')) ? null
+        : el('p', { class: 'clockbox__note', text: '主辦已關閉你的「控制比賽時鐘」。' }),
+      (readOnly || !can('match.period')) ? null : el('div', { class: 'clockbox__btns' }, [
         period === 'pre'
           ? el('button', { class: 'btn btn--lg btn--primary', type: 'button', onClick: () => startPeriod('h1') }, iconText('play', '開賽'))
           : period === 'ht'
@@ -272,6 +276,14 @@ export async function liveConsole({ params, scope, view }) {
     const submitted = m.status === 'finished' || m.status === 'confirmed' || m.period === 'ft';
     if (submitted) return el('div', { class: 'finishbar' }, [undoBar(m)]);
     if (readOnly) return null;
+    // 主辦可以把「送出完賽」從記錄員身上關掉（權限開關）。關掉之後
+    // **要說出來並給下一步**：比分照記，完賽找管理員。少了這句，
+    // 賽務會一直找那顆按鈕，然後在最忙的時候打電話。
+    if (!can('match.finish')) {
+      return el('div', { class: 'finishbar' }, [
+        el('p', { class: 'undobar__msg', text: '主辦已關閉你的「送出完賽」。比分照記，完賽請找管理員。' })
+      ]);
+    }
     return el('div', { class: 'finishbar' }, [
       el('button', { class: 'btn btn--xl btn--primary', type: 'button', onClick: () => flowFinish() }, iconText('check', '完賽送出'))
     ]);
@@ -290,6 +302,13 @@ export async function liveConsole({ params, scope, view }) {
       uid: user()?.uid ?? null
     });
 
+    // 主辦關掉自撤回時，連倒數都不要畫——畫了就是一個會走完卻按不到的
+    // 倒數，跟「離線不得畫限時操作」是同一條理由。
+    if (!can('match.undo')) {
+      return el('div', { class: 'undobar' }, [
+        el('p', { class: 'undobar__msg', id: 'undo-msg', text: '已送出。主辦已關閉自撤回，要修改請找管理員。' })
+      ]);
+    }
     if (!u.can) {
       return el('div', { class: 'undobar' }, [
         el('p', { class: 'undobar__msg', id: 'undo-msg', text: u.reason || '已送出，積分榜更新中…' })

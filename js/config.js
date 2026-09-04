@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20260904g';
+export const CACHE_VERSION = '0.20260904h';
 
 /** 本次活動。未來要辦第二場時，這裡改成從路由或設定讀取。 */
 export const EVENT_ID = 'feda-cup-2026';
@@ -140,9 +140,22 @@ export const topRole = (roles = []) =>
  * ⚠️ 非 destructive 的條目**只控制畫面**。不要用它們來保護資料——
  *    懂技術的人直接送請求還是寫得進去。
  */
+/**
+ * ⚠️ `pending: true` ＝ **這條權限碼目前沒有任何畫面在讀它**（功能還沒做）。
+ *
+ *    權限開關那一頁看到 pending 就不畫開關，只寫「功能尚未上線」——
+ *    否則那是一個按了不會有任何效果的切換，正是這個專案最不能容忍的故障。
+ *
+ *    `tests/unit/perms.test.js` 用 `scripts/perm-usage.cjs` 靜態掃描全部前端，
+ *    強制 `pending` 與「真的沒有人讀」兩者一致。所以功能做好、接上 `can()`
+ *    的那一刻，測試會紅，提醒你把這個旗標拿掉；反過來也一樣。
+ *
+ *    2026-09-04 就是這樣抓到的：`match.finish` 沒有 pending，賽務台卻從來
+ *    沒問過 can()——主辦把它關掉之後「完賽送出」按鈕照樣在。
+ */
 export const PERMISSIONS = [
   // ── 挑戰攤位 ──
-  { code: 'challenge.attempt.write', label: '登錄挑戰成績', group: '挑戰區', minRole: 'booth' },
+  { code: 'challenge.attempt.write', label: '登錄挑戰成績', group: '挑戰區', minRole: 'booth', pending: true },
 
   // ── 檢錄 ──
   { code: 'checkin.write',    label: '檢錄勾選出賽',   group: '檢錄', minRole: 'checkin' },
@@ -163,19 +176,19 @@ export const PERMISSIONS = [
   // ── 管理員 ──
   // ⚠️ 覆核刻意**不在**記錄員身上（主辦 2026-09-03 決定）：
   //    覆核的意義是「第二雙眼睛」，記分的人自己覆核自己等於沒有覆核。
-  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'admin', destructive: true },
-  { code: 'match.reopen',      label: '重開已鎖定的場次', group: '管理', minRole: 'admin', destructive: true },
-  { code: 'match.score.override', label: '改判比分',    group: '管理', minRole: 'admin', destructive: true },
-  { code: 'schedule.manage',   label: '編排賽程與場次', group: '管理', minRole: 'admin', destructive: true },
-  { code: 'standing.manual',   label: '人工裁定同分',   group: '管理', minRole: 'admin', destructive: true },
+  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'admin', destructive: true, pending: true },
+  { code: 'match.reopen',      label: '重開已鎖定的場次', group: '管理', minRole: 'admin', destructive: true, pending: true },
+  { code: 'match.score.override', label: '改判比分',    group: '管理', minRole: 'admin', destructive: true, pending: true },
+  { code: 'schedule.manage',   label: '編排賽程與場次', group: '管理', minRole: 'admin', destructive: true, pending: true },
+  { code: 'standing.manual',   label: '人工裁定同分',   group: '管理', minRole: 'admin', destructive: true, pending: true },
   { code: 'team.manage',       label: '審核報名與球隊', group: '管理', minRole: 'admin', destructive: true },
-  { code: 'audit.read',        label: '查看稽核紀錄',   group: '管理', minRole: 'admin' },
-  { code: 'export',            label: '匯出資料',       group: '管理', minRole: 'admin' },
+  { code: 'audit.read',        label: '查看稽核紀錄',   group: '管理', minRole: 'admin', pending: true },
+  { code: 'export',            label: '匯出資料',       group: '管理', minRole: 'admin', pending: true },
 
   // ── 總管 ──
   { code: 'staff.assign',      label: '指派身分',       group: '總管', minRole: 'super_admin', destructive: true },
   { code: 'perms.manage',      label: '調整權限開關',   group: '總管', minRole: 'super_admin', destructive: true },
-  { code: 'registration.manage', label: '開關報名與截止日', group: '總管', minRole: 'super_admin', destructive: true }
+  { code: 'registration.manage', label: '開關報名與截止日', group: '總管', minRole: 'super_admin', destructive: true, pending: true }
 ];
 
 export const PERMISSION_BY_CODE = Object.fromEntries(PERMISSIONS.map(p => [p.code, p]));

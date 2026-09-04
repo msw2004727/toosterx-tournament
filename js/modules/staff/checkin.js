@@ -24,7 +24,7 @@
 import { el, mount, toast, skeleton, confirmDialog } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
-import { user, canCheckin } from '../../core/firebase.js';
+import { user, can, canCheckin } from '../../core/firebase.js';
 import { watchMatch } from './data.js';
 import { watchCheckins, saveCheckin, getCheckinRoster } from './checkin-data.js';
 import { buildCheckin, checkinSummary, presentIds } from './checkin-actions.js';
@@ -163,13 +163,19 @@ export async function checkinPage({ params, scope, view }) {
         el('span', { class: 'chk__no num', text: m.jerseyNo != null ? String(m.jerseyNo) : '—' }),
         el('span', { class: 'chk__info' }, [
           el('strong', { class: 'chk__name', text: m.displayName || '（未填）' }),
-          // 檢錄員拿證件對的就是這兩格，所以字要夠大、位置要固定
-          el('span', { class: 'chk__verify' }, [
-            el('span', { class: 'chk__vLabel', text: '生日' }),
-            el('span', { class: 'chk__vValue num', text: m.birthRoc || '—' }),
-            el('span', { class: 'chk__vLabel', text: '末四碼' }),
-            el('span', { class: 'chk__vValue num', text: m.idLast4 || '—' })
-          ])
+          // 檢錄員拿證件對的就是這兩格，所以字要夠大、位置要固定。
+          //
+          // ⚠️ 「看球員個資」是獨立的一條權限（`member.read`）。主辦關掉之後
+          //    這兩格要收起來，但**頁面仍然可用**（照名字核對），並且說明
+          //    為什麼看不到——直接顯示空白會被當成資料沒填。
+          can('member.read')
+            ? el('span', { class: 'chk__verify' }, [
+                el('span', { class: 'chk__vLabel', text: '生日' }),
+                el('span', { class: 'chk__vValue num', text: m.birthRoc || '—' }),
+                el('span', { class: 'chk__vLabel', text: '末四碼' }),
+                el('span', { class: 'chk__vValue num', text: m.idLast4 || '—' })
+              ])
+            : el('span', { class: 'chk__verify chk__verify--hidden', text: '主辦已關閉個資顯示' })
         ])
       ]),
       el('button', {

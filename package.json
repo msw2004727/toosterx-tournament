@@ -1,6 +1,6 @@
 {
   "name": "toosterx-tournament",
-  "version": "0.20260904g",
+  "version": "0.20260904h",
   "private": true,
   "description": "ToosterX 賽事營運系統｜Tournament + Challenge",
   "type": "module",
@@ -32,6 +32,7 @@
     "test:mutation:fn": "node scripts/sync-engine.js && firebase emulators:exec --only firestore --project demo-fn-test \"node scripts/mutation-fn.cjs\"",
     "test:mutation:rules": "firebase emulators:exec --only firestore --project demo-rules-test \"node scripts/mutation-rules.cjs\"",
     "mutation:guard": "node scripts/mutation-guard.cjs",
+    "perms:usage": "node scripts/perm-usage.cjs",
     "test:mutation:e2e": "node scripts/mutation-e2e.cjs"
   },
   "devDependencies": {

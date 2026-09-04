@@ -614,8 +614,8 @@ const MUTANTS = [
   {
     name: '#H4 覆核完賽下放給記錄員（記分的人自己覆核自己）',
     file: 'js/config.js',
-    from: `  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'admin', destructive: true },`,
-    to: `  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'scorer', destructive: true },`
+    from: `  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'admin', destructive: true, pending: true },`,
+    to: `  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'scorer', destructive: true, pending: true },`
   },
   {
     name: '#H5 權限矩陣的「關」優先於「開」（多一個身分反而變弱）',
@@ -899,6 +899,30 @@ const MUTANTS = [
     file: 'js/lib/ping.js',
     from: '  if (!dateHeader) return null;',
     to: '  if (!dateHeader) return 0;'
+  },
+  {
+    name: '#C10 ⭐ 出場名單擋在記錄員的權限（裁判就編不了名單）',
+    file: 'js/modules/staff/sheet.js',
+    from: "    const mayEdit = can('matchsheet.write');",
+    to: "    const mayEdit = can('match.score.write');"
+  },
+  {
+    name: '#C11 ⭐ 賽務台不問 match.finish（關掉之後按鈕照樣在）',
+    file: 'js/modules/staff/live.js',
+    from: "    if (!can('match.finish')) {",
+    to: "    if (false) {"
+  },
+  {
+    name: '#C12 ⭐ 檢錄台不問 member.read（關掉個資顯示沒有作用）',
+    file: 'js/modules/staff/checkin.js',
+    from: "          can('member.read')",
+    to: "          true"
+  },
+  {
+    name: '#C13 ⭐ 功能還沒上線的也給調（開關按了不會有效果）',
+    file: 'js/engine/perms.js',
+    from: '  if (p.pending === true) {',
+    to: '  if (false) {'
   },
 ];
 

@@ -11,11 +11,15 @@
  * 少給一階只是按鈕不見了——兩種都要等到現場才會被發現。
  */
 
+import { createRequire } from 'node:module';
 import {
   ROLE_INFO, STAFF_CHAIN, impliedRoles, hasRoleAtLeast, topRole,
   PERMISSIONS, PERMISSION_BY_CODE, PERMISSION_GROUPS,
   defaultPermsOf, effectivePerms, FEATURES
 } from '../../js/config.js';
+import { editableRole } from '../../js/engine/perms.js';
+
+const require = createRequire(import.meta.url);
 
 const perms = (roles, matrix) => [...effectivePerms(roles, matrix)];
 
@@ -274,5 +278,37 @@ describe('T42-7 使用者名錄（身分授權那一頁列的就是它）', () =
     const unassigned = docs
       .filter(d => d.path.startsWith('users/') && !staffUids.has(d.data.uid));
     expect(unassigned.length).toBeGreaterThan(0);
+  });
+});
+
+describe('T42-8 ⭐ 權限碼與實際用法必須對得起來', () => {
+  // 2026-09-04 在真站上實測抓到：主辦把 `match.finish` 關掉之後，
+  // 賽務台的「完賽送出」按鈕**照樣在**——因為那一頁從來沒問過 can()。
+  //
+  // 一條沒有人讀的權限碼，在權限開關那一頁就是一個按了不會有效果的切換。
+  // 所以 `pending: true` 的意思被釘死成「真的沒有任何畫面在讀它」，
+  // 兩邊一分岔就撞紅：功能接上 can() 卻忘了拿掉旗標會紅，
+  // 加了一條權限卻忘了接也會紅。
+  const { usageByCode } = require('../../scripts/perm-usage.cjs');
+  const usage = usageByCode(PERMISSIONS.map(p => p.code));
+
+  test('⭐ 沒標 pending 的，一定有畫面在讀', () => {
+    const broken = PERMISSIONS
+      .filter(p => !p.pending && usage[p.code].length === 0)
+      .map(p => p.code);
+    expect(broken).toEqual([]);
+  });
+
+  test('⭐ 標了 pending 的，一定沒有畫面在讀', () => {
+    const stale = PERMISSIONS
+      .filter(p => p.pending && usage[p.code].length > 0)
+      .map(p => `${p.code}（已接上 ${usage[p.code].join(', ')}，請拿掉 pending）`);
+    expect(stale).toEqual([]);
+  });
+
+  test('pending 的那幾條在權限開關頁上不可調整', () => {
+    for (const p of PERMISSIONS.filter(x => x.pending)) {
+      expect(editableRole(p, p.minRole).ok).toBe(false);
+    }
   });
 });
