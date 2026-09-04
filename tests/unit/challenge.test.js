@@ -145,6 +145,18 @@ describe('T46-C 成績驗證', () => {
     expect(validateScore(3, { unit: '次' }).ok).toBe(false);
     expect(validateScore(3, { minValue: 0, unit: '次' }).ok).toBe(false);
     expect(validateScore(3, null).ok).toBe(false);
+
+    // ⭐ **0 分是這條守衛唯一擋得住的情況**，一定要測。
+    //    拿掉 `min == null || max == null` 之後，下一行的 `n < min || n > max`
+    //    會把 null 當成 0：3 分因為 `3 > 0` 還是被擋下來（看起來守衛沒用），
+    //    但 0 分的 `0 < 0` 與 `0 > 0` 都是 false —— 直接放行。
+    //    而 0 分是九宮格與橫樑的合法成績，這個 fail-open 真的會發生。
+    //    變異 #CH4 就是在守這件事（第一版用 3 分測，抓不到）。
+    expect(validateScore(0, { unit: '分' }).ok).toBe(false);
+    expect(validateScore(0, { minValue: 0, unit: '分' }).ok).toBe(false);
+    expect(validateScore(0, { maxValue: 15, unit: '分' }).ok).toBe(false);
+    // 有完整設定時 0 分當然要收
+    expect(validateScore(0, { minValue: 0, maxValue: 15, unit: '分' }).ok).toBe(true);
   });
 
   test('沒輸入成績時說得出原因', () => {

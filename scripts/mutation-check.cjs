@@ -1116,6 +1116,133 @@ const MUTANTS = [
     from: '    .filter(m => m.divisionId !== division.divisionId)',
     to: '    .filter(() => true)'
   },
+
+  // ── 挑戰系統引擎（M6-a）─────────────────────────────────────
+  {
+    name: '#CH1 ⭐ 成績用 Number() 取值（沒登錄變成 0 分，排在榜尾而不是不上榜）',
+    file: 'js/engine/challenge.js',
+    from: "  return typeof v === 'number' && Number.isFinite(v) ? v : null;",
+    to: '  const n = Number(v); return Number.isFinite(n) ? n : null;'
+  },
+  {
+    name: '#CH2 ⭐ 沒寫 rankingRule 時一律當 higher（時間型的最慢變第一名，驗收 C09）',
+    file: 'js/engine/challenge.js',
+    from: "  return DEFAULT_RANKING[challenge?.scoreType] ?? 'higher';",
+    to: "  return 'higher';"
+  },
+  {
+    name: '#CH3 ⭐ 平手也算「比較好」（同分會被後來的那次蓋掉）',
+    file: 'js/engine/challenge.js',
+    from: "  return ranking === 'lower' ? x < y : x > y;",
+    to: "  return ranking === 'lower' ? x <= y : x >= y;"
+  },
+  {
+    name: '#CH4 ⭐ 關卡沒有上下限就放行（手滑的 8500 km/h 永遠掛在第一名）',
+    file: 'js/engine/challenge.js',
+    from: '  if (min == null || max == null) {',
+    to: '  if (false) {'
+  },
+  {
+    name: '#CH5 ⭐ 範圍改成開區間（剛好等於上下限的成績送不出去，跟 rules 不一致）',
+    file: 'js/engine/challenge.js',
+    from: '  if (n < min || n > max) {',
+    to: '  if (n <= min || n >= max) {'
+  },
+  {
+    name: '#CH6 ⭐ 不檢查每球的分數在不在選項裡（攤位手滑輸入 9 分也收）',
+    file: 'js/engine/challenge.js',
+    from: '    if (options && !options.includes(n)) {',
+    to: '    if (false) {'
+  },
+  {
+    name: '#CH7 ⭐ 不檢查球數（只輸入三球也算完成，總分自然偏低）',
+    file: 'js/engine/challenge.js',
+    from: '  if (detail.length !== count) {',
+    to: '  if (false) {'
+  },
+  {
+    name: '#CH8 ⭐ 作廢的成績照樣計分（驗收 C07：作廢要退回次佳）',
+    file: 'js/engine/challenge.js',
+    from: "const live = list => (Array.isArray(list) ? list : []).filter(a => a && a.voided !== true);",
+    to: 'const live = list => (Array.isArray(list) ? list : []).filter(a => a);'
+  },
+  {
+    name: '#CH9 ⭐ 同成績時後來那一次勝出（§5.3 要的是較早達成）',
+    file: 'js/engine/challenge.js',
+    from: '    if (bestAttempt == null || isBetter(a.rawValue, bestAttempt.rawValue, ranking)) bestAttempt = a;',
+    to: '    if (bestAttempt == null || !isBetter(bestAttempt.rawValue, a.rawValue, ranking)) bestAttempt = a;'
+  },
+  {
+    name: '#CH10 ⭐ 還沒同步的成績排最前（插到已確定的成績前面）',
+    file: 'js/engine/challenge.js',
+    from: '    if (ta == null) return 1;\n    if (tb == null) return -1;\n    return ta - tb;\n  });\n\n  if (rankBy === \'first\')',
+    to: '    if (ta == null) return -1;\n    if (tb == null) return 1;\n    return ta - tb;\n  });\n\n  if (rankBy === \'first\')'
+  },
+  {
+    name: '#CH11 ⭐ isBest 每一筆都回傳（沒變的也寫，白白觸發下游重算）',
+    file: 'js/engine/challenge.js',
+    from: '    if ((a.isBest === true) !== should) out.push({ attemptId: a.attemptId, isBest: should });',
+    to: '    out.push({ attemptId: a.attemptId, isBest: should });'
+  },
+  {
+    // 第一版是「拿掉 diffBestFlags 的 a.voided !== true」，但那條抓不到，
+    // 因為那段程式碼**沒有作用**：pickBest 已經先濾掉作廢的，winner 永遠
+    // 不會是作廢那一筆。那個判斷是自我說明用的第二道防線，真正守著
+    // 「作廢不算成績」的是 #CH8（live 的過濾）。
+    // 改成守一個真的會被使用者看到的行為：
+    name: '#CH12 ⭐ 沒有成績時顯示「0 分」而不是破折號（玩家會以為自己考了 0 分）',
+    file: 'js/engine/challenge.js',
+    from: "  if (n == null) return '—';",
+    to: "  if (n == null) return `0${challenge?.unit ?? ''}`;"
+  },
+  {
+    name: '#CH13 ⭐ maxAttemptsPerPlayer 是 null 時當成 0（不限變成一次都不能挑戰）',
+    file: 'js/engine/challenge.js',
+    from: '  const max = Number.isInteger(raw) && raw > 0 ? raw : null;   // null = 不限',
+    to: '  const max = Number.isInteger(raw) ? raw : 0;'
+  },
+  {
+    name: '#CH14 ⭐ 排行榜不看排序方向（time 型態整張榜倒過來，驗收 C09）',
+    file: 'js/engine/challenge.js',
+    from: "    if (a.value !== b.value) return ranking === 'lower' ? a.value - b.value : b.value - a.value;",
+    to: '    if (a.value !== b.value) return b.value - a.value;'
+  },
+  {
+    name: '#CH15 ⭐ 同成績用 playerId 排（不是較早達成的排前）',
+    file: 'js/engine/challenge.js',
+    from: '    if (ta == null && tb == null) return String(a.playerId).localeCompare(String(b.playerId));\n    if (ta == null) return 1;\n    if (tb == null) return -1;\n    return ta - tb;\n  });\n\n  rows.forEach',
+    to: '    return String(a.playerId).localeCompare(String(b.playerId));\n  });\n\n  rows.forEach'
+  },
+  {
+    name: '#CH16 ⭐ totalPlayers 在截斷之後才算（自己不在前 50 時算不出真正的名次）',
+    file: 'js/engine/challenge.js',
+    from: '  return { rows: rows.slice(0, Math.max(1, topN)), totalPlayers: rows.length };',
+    to: '  const out = rows.slice(0, Math.max(1, topN));\n  return { rows: out, totalPlayers: out.length };'
+  },
+  {
+    name: '#CH17 ⭐ 讀不到抽獎設定就套一份預設（多發的抽獎券收不回來）',
+    file: 'js/engine/challenge.js',
+    from: '  if (!rewards) return zero;',
+    to: '  if (!rewards) rewards = { entriesPerCompletion: 1, bonusAllComplete: 2 };'
+  },
+  {
+    name: '#CH18 ⭐ 抽獎張數不受上限約束',
+    file: 'js/engine/challenge.js',
+    from: '  if (cap != null) entries = Math.min(entries, cap);',
+    to: '  if (false) entries = Math.min(entries, cap);'
+  },
+  {
+    name: '#CH19 ⭐ 重複完成同一關又加一次（同一關挑戰三次領三張券）',
+    file: 'js/engine/challenge.js',
+    from: '  if (cur.includes(challengeId)) return null;',
+    to: '  if (false) return null;'
+  },
+  {
+    name: '#CH20 ⭐ 手動輸入的 ID 不驗格式（打錯字會查到不存在的玩家）',
+    file: 'js/engine/challenge.js',
+    from: '  if (!/^\\d{1,6}$/.test(digits)) return null;',
+    to: '  if (false) return null;'
+  },
 ];
 
 process.exit(runMutants({
