@@ -56,9 +56,8 @@ async function stubFirebase(page) {
 
 async function gotoApp(page, hash) {
   await page.goto(hash);
-  // 測試站是 python -m http.server，單一個行程要餵三個 worker × 兩百多條測試。
-  // 10 秒在健康時綽綽有餘，但套件長大之後偶爾會有一次請求排隊排到逾時——
-  // 偶發紅燈比慢一點危險得多（久了大家會開始無視 CI），所以給寬一點。
+  // 給寬一點：偶發紅燈比慢一點危險得多（久了大家會開始無視 CI）。
+  // 靜態站由 scripts/dev-server.mjs 服務，併發數在 playwright.config.js 限制。
   await page.waitForFunction(() => !!window.__fake, null, { timeout: 30_000 });
 }
 

@@ -189,7 +189,7 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 | `npm run test:unit` | ✅ 530 全綠（27 個 suite） |
 | `npm run test:mutation` | ✅ 110 / 110 全被抓到 |
 | `npm run test:mutation:e2e` | ✅ 3 / 3 全被抓到（畫面層時序） |
-| `npm run test:e2e` | ✅ 462 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:e2e` | ✅ 465 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 155 全綠（含 R34–R72 報名、R73–R82 檢錄、R83–R92 階層、R93–R98 審核） |
 | `npm run test:mutation:rules` | ✅ 27 / 27 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
@@ -306,6 +306,25 @@ CI 跑 Linux，永遠不會重現。
 
 修法兩層：`.gitattributes` 的 `* text=auto eol=lf` 釘死行尾；
 `mutate.cjs` 在開跑前檢查目標檔案有沒有 CRLF，有就直接說明白並中止。
+
+## E2E 的靜態伺服器（2026-09-04）
+
+`playwright.config.js` 的 webServer 是 **`scripts/dev-server.mjs`**，
+不是 `python3 -m http.server`。換掉的原因是套件長到四百多條之後開始偶發紅燈：
+
+| 症狀 | 真正的原因 |
+|---|---|
+| 隨機一條在 `waitForFunction(() => !!window.__fake)` 逾時 | python 的 ThreadingHTTPServer 每連線一條執行緒，Windows 上會 `WinError 10053` |
+| 隨機一條在 `page.goto` 丟 `ERR_NO_BUFFER_SPACE` | **併發數沒有限制**（`workers: undefined` 會用一半的核心數），Windows 的暫時埠被 TIME_WAIT 吃光 |
+
+兩件都不是那條測試壞了，但看起來完全像。修法：
+
+1. 自己的 Node 靜態伺服器（事件驅動、keep-alive 30 秒、不增加相依）
+2. `workers` 本機也**明確限制**成 3，不留 undefined
+
+改動後連續兩輪 465 全綠，時間從 2.6 分降到 2.0 分。
+
+> ⚠️ 不要換回 `python3 -m http.server`。
 
 ## 競賽規章（權威文件）
 

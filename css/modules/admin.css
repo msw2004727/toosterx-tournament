@@ -113,6 +113,8 @@
   flex:1 1 auto;min-width:0;font-size:var(--fs-sm);color:var(--text-primary);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
+/* 隊職員排在球員後面，灰一階——審核看的是球員 */
+.adm__member--staff{opacity:.7}
 .adm__memberMeta{
   flex:none;font-size:var(--fs-xs);color:var(--text-muted);
   font-family:var(--font-num);

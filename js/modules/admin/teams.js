@@ -24,7 +24,7 @@ import { REGISTRATION_LIMITS } from '../../engine/formats.js';
 import { reviewTeam as review, buildApprovePatch, buildRejectPatch } from '../../engine/review.js';
 import { rocShort } from '../../lib/roc.js';
 import * as data from './data.js';
-import { adminHead, denied, TEAM_STATUS } from './bits.js';
+import { adminHead, denied, TEAM_STATUS, KIND_LABEL } from './bits.js';
 
 /** 分頁。順序照「主辦一天要做的事」排：待審的排最前面。 */
 const TABS = [
@@ -64,6 +64,18 @@ export async function adminTeamsPage({ scope, view }) {
 
   // ── 具名函式（會被提升）───────────────────────────────────
   function divisionOf(id) { return state.divisions.find(d => d.divisionId === id) ?? null; }
+
+  function isStaffMember(m) { return (m?.kind ?? m?.role ?? 'player') !== 'player'; }
+
+  /** 已核准的成員：球員先（依背號），隊職員後 */
+  function sortForReview(list) {
+    const rows = (list ?? []).filter(m => m.status === 'approved');
+    const byNo = (a, b) => (a.jerseyNo ?? 999) - (b.jerseyNo ?? 999);
+    return [
+      ...rows.filter(m => !isStaffMember(m)).sort(byNo),
+      ...rows.filter(isStaffMember)
+    ];
+  }
 
   function rowsOf(tab) {
     return (state.teams ?? []).filter(t => (t.status || 'draft') === tab);
@@ -160,16 +172,20 @@ export async function adminTeamsPage({ scope, view }) {
 
       // ── 名單 ──
       el('h3', { class: 'adm__sectionHead', text: `名單（球員 ${r.players}・隊職員 ${r.staff}）` }),
-      el('ul', { class: 'adm__roster' }, members
-        .filter(m => m.status === 'approved')
-        .map(m => el('li', { class: 'adm__member' }, [
+      // ⚠️ 球員排前面。Firestore 的 orderBy('jerseyNo') 會把 null 排在最前，
+      //    於是沒有背號的隊職員擋在名單開頭——而審核要看的是球員。
+      el('ul', { class: 'adm__roster' }, sortForReview(members).map(m => el('li', {
+        class: `adm__member${isStaffMember(m) ? ' adm__member--staff' : ''}`
+      }, [
           el('span', { class: 'adm__no num', text: m.jerseyNo != null ? String(m.jerseyNo) : '—' }),
           el('span', { class: 'adm__memberName', text: m.name || '（未填）' }),
           el('span', {
             class: 'adm__memberMeta',
             // 審核要核對的就是這兩格；生日用民國年，跟證件一致
-            text: [m.birthDate ? rocShort(m.birthDate) : null,
-                   m.idLast4 ? `末四碼 ${m.idLast4}` : null].filter(Boolean).join('　·　')
+            text: isStaffMember(m)
+              ? (KIND_LABEL[m.kind || m.role] || '隊職員')
+              : [m.birthDate ? rocShort(m.birthDate) : null,
+                 m.idLast4 ? `末四碼 ${m.idLast4}` : null].filter(Boolean).join('　·　')
           })
         ]))),
 

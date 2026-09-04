@@ -8,6 +8,12 @@ import { el } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
 
+/** 隊職員的三種身分（規章第十二條：領隊、教練、管理各 1 人）*/
+export const KIND_LABEL = {
+  player: '球員', leader: '領隊', coach: '教練', manager: '管理',
+  medic: '隊醫', staff: '隊職員'
+};
+
 export const TEAM_STATUS = {
   draft: '草稿', submitted: '待審核', approved: '已通過',
   rejected: '已退回', withdrawn: '已撤銷'

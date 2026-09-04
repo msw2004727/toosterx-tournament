@@ -208,6 +208,24 @@ test('草稿球隊不用審核，也不畫核准鈕 @admin', async ({ page }) =>
   await expect(page.getByRole('button', { name: /核准/ })).toHaveCount(0);
 });
 
+test('⭐ 名單球員排前面、隊職員排後面 @admin', async ({ page }) => {
+  // Firestore 的 orderBy('jerseyNo') 會把 null 排最前，
+  // 於是沒有背號的隊職員擋在名單開頭——而審核要看的是球員。
+  await stub(page, {
+    members: {
+      [`events/${EVENT}/teams/t-ok/members/s1`]:
+        member('s1', { name: '林教練', kind: 'coach', jerseyNo: null, birthDate: null, idLast4: null })
+    }
+  });
+  await go(page);
+  await item(page, '合格球隊').locator('.adm__itemHead').click();
+
+  const rows = page.locator('.adm__member');
+  await expect(rows.first()).not.toContainText('林教練');
+  await expect(rows.last()).toContainText('林教練');
+  await expect(rows.last()).toContainText('教練');
+});
+
 test('名單顯示民國年生日與後四碼（審核要核對的就是這兩格）@admin', async ({ page }) => {
   await stub(page);
   await go(page);

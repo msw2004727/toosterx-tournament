@@ -81,6 +81,18 @@ function youthBirthDate(division, i) {
   return t.toISOString().slice(0, 10);
 }
 
+/**
+ * 留在「待審核」的兩支球隊（demo 用）。
+ *
+ * 報名審核那一頁如果沒有東西可以審，就看不出它會不會動。
+ *   ・`clean` → 完全合格，按核准會成功
+ *   ・`dupJersey` → 兩位球員同號，示範「有問題就不畫核准鈕」
+ *
+ * ⚠️ 刻意**不**用超齡當範例：種子資料違反規章比沒有種子更糟
+ *    （2026-09-03 才修過一次）。背號重複是系統限制，不是規章違規。
+ */
+const REVIEW_DEMO = { 臺中晨星: 'clean', 大甲金剛: 'dupJersey' };
+
 /** 學童組公開端只顯示暱稱（R-PRIV-002），種子資料也照這個走 */
 const NICKNAMES = [
   '小豆子', '阿光', '小虎', '球球', '小飛', '阿寶', '小杰', '毛毛',
@@ -214,6 +226,10 @@ function buildTeams(rng) {
 
     names.forEach((name, idx) => {
       teamSeq += 1;
+      // 報名審核那一頁要有東西可以審，不然在 demo 上永遠是空的。
+      // 一支完全合格（核准會成功），一支背號重複（示範「擋下來」的樣子）——
+      // 背號重複是**系統限制**不是規章違規，所以種子資料仍然符合規章。
+      const reviewDemo = REVIEW_DEMO[name] ?? null;
       const teamId = `t-${teamSeq}`;
       const isYouth = ['u6', 'u8', 'u10'].includes(div.divisionId);
       const is5v5 = div.playersOnField === 5;
@@ -230,16 +246,19 @@ function buildTeams(rng) {
         founded: 2015 + (idx % 8),
         homeRegion: '臺中市',
         // ── M4 報名欄位（docs/10 §2.1）──────────────────────
-        // 種子資料的球隊當作「已經報名並通過審核」：status=approved、名單已鎖。
+        // 種子的球隊多數當作「已經報名並通過審核」：status=approved、名單已鎖。
+        // ⚠️ 但**留兩支在待審核**（見 REVIEW_DEMO）——不然報名審核那一頁
+        //    在 demo 上永遠是空的，看不出它會不會動。
         // captainUid 給一個可預測的 demo uid，方便在 demo 站試隊長端。
         captainUid: `demo-cap-${teamSeq}`,
         captainName: `${name}隊長`,
         contact: { phone: null, email: null, lineDisplayName: null },
-        status: 'approved',
-        submittedAt: null, reviewedAt: null, reviewedBy: 'demo-admin', rejectReason: null,
+        status: reviewDemo ? 'submitted' : 'approved',
+        submittedAt: null, reviewedAt: null,
+        reviewedBy: reviewDemo ? null : 'demo-admin', rejectReason: null,
         inviteCode: inviteCodeOf(teamSeq),
         announcement: { text: null, updatedAt: null, updatedBy: null },
-        rosterLocked: true,
+        rosterLocked: !reviewDemo,
         // docs/10 §2.1：已核准人數，一個數字（由 Function 維護）。
         // docs/01b 早期寫成 { player, staff } 物件，但公開端拿它直接印
         // 「N 人」，物件會變成「[object Object] 人」。以 docs/10 為準。
@@ -256,7 +275,8 @@ function buildTeams(rng) {
         const isFemale = div.divisionId === 'women';
         const given = isFemale ? pick(rng, GIVEN_F) : pick(rng, GIVEN);
         const memberId = `m-${teamSeq}-${String(p + 1).padStart(2, '0')}`;
-        const jerseyNo = p + 1;
+        // dupJersey 那一支故意讓第 2 位跟第 1 位同號，示範審核擋下來的樣子
+        const jerseyNo = (reviewDemo === 'dupJersey' && p === 1) ? 1 : p + 1;
         const pos = positions[p % positions.length];
         const birthYear = BIRTH_YEAR[div.divisionId] - (isYouth ? 0 : (p % 12));
         // 學童組：教練直接建名單，只填暱稱＋後四碼＋生日，不收真名（R-PRIV-002）
