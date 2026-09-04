@@ -107,6 +107,48 @@ const MUTANTS = [
     file: 'functions/line.js',
     from: `  const roles = staff?.roles ?? [];`,
     to: `  const roles = arguments[0]?.roles ?? staff?.roles ?? [];`
+  },
+
+  // ── 挑戰系統管線（M6-a）─────────────────────────────────────
+  {
+    name: 'FN#17 ⭐ 抽獎張數用累加（觸發器重放就多發一張，而券收不回來）',
+    file: 'functions/pipeline.js',
+    from: `  await ref.update({
+    completedChallengeIds: completed,
+    luckyDrawEntries: entries,`,
+    to: `  await ref.update({
+    completedChallengeIds: completed,
+    luckyDrawEntries: FieldValue.increment(1),`
+  },
+  {
+    name: 'FN#18 ⭐ 一關全部作廢時不從完成清單移除（玩家留著那張券）',
+    file: 'functions/pipeline.js',
+    from: `  } else if (cur.includes(challengeId)) {
+    completed = cur.filter(id => id !== challengeId);      // 全部作廢 → 退回
+  }`,
+    to: `  }`
+  },
+  {
+    name: 'FN#19 ⭐ 排行榜的 totalPlayers 用截斷後的列數（第 51 名之後算不出名次）',
+    file: 'functions/pipeline.js',
+    from: `      topN: LEADERBOARD_TOP_N,
+      totalPlayers,`,
+    to: `      topN: LEADERBOARD_TOP_N,
+      totalPlayers: rows.length,`
+  },
+  {
+    name: 'FN#20 ⭐ 關卡統計把作廢的也算進去（活動成效報告虛胖）',
+    file: 'functions/pipeline.js',
+    from: `  const live = attempts.filter(a => a?.voided !== true);
+  const stats = {`,
+    to: `  const live = attempts;
+  const stats = {`
+  },
+  {
+    name: 'FN#21 ⭐ 關卡設定讀不到就套一份預設（算錯的排行榜跟算對的長得一樣）',
+    file: 'functions/pipeline.js',
+    from: `  const challenge = await loadChallenge(eventId, challengeId);`,
+    to: `  const challenge = await loadChallenge(eventId, challengeId).catch(() => ({ rankingRule: 'higher' }));`
   }
 ];
 

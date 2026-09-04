@@ -174,6 +174,72 @@ export async function loadStandings(eventId, divisionId) {
   return out;
 }
 
+// ── 挑戰系統（M6，docs/06）───────────────────────────────────
+
+/**
+ * 關卡設定。**缺設定一律丟錯**（R-ENG-005）：沒有 minValue / maxValue /
+ * rankingRule 的話，引擎算不出正確的最佳成績，而算錯的排行榜看起來
+ * 跟算對的一模一樣。
+ */
+export const loadChallenge = (eventId, challengeId) =>
+  must(evRef(eventId).collection('challenges').doc(challengeId), `關卡 ${challengeId}`);
+
+export async function loadChallenges(eventId) {
+  const snap = await evRef(eventId).collection('challenges').get();
+  return snap.docs.map(d => ({ challengeId: d.id, ...d.data() }));
+}
+
+/**
+ * 一位玩家在一關的全部成績（含作廢——引擎自己會濾）。
+ *
+ * ⚠️ 不在查詢裡篩 `voided`：作廢的那幾筆要拿來算 `diffBestFlags`
+ *    （把舊的 isBest 關掉），查詢就濾掉的話它們永遠留著旗標。
+ */
+export async function loadPlayerAttempts(eventId, challengeId, playerId) {
+  const snap = await evRef(eventId).collection('attempts')
+    .where('challengeId', '==', challengeId)
+    .where('playerId', '==', playerId)
+    .get();
+  return snap.docs.map(d => ({ attemptId: d.id, ...d.data() }));
+}
+
+/** 一關的全部成績（排行榜用） */
+export async function loadChallengeAttempts(eventId, challengeId) {
+  const snap = await evRef(eventId).collection('attempts')
+    .where('challengeId', '==', challengeId).get();
+  return snap.docs.map(d => ({ attemptId: d.id, ...d.data() }));
+}
+
+export const playerRef = (eventId, playerId) =>
+  evRef(eventId).collection('players').doc(playerId);
+
+export async function loadPlayers(eventId, playerIds) {
+  const ids = [...new Set((playerIds || []).filter(Boolean))];
+  const out = {};
+  // Firestore 的 getAll 一次上限 300，分批
+  for (let i = 0; i < ids.length; i += 300) {
+    const refs = ids.slice(i, i + 300).map(id => playerRef(eventId, id));
+    if (!refs.length) continue;
+    const snaps = await db().getAll(...refs);
+    for (const s of snaps) if (s.exists) out[s.id] = { playerId: s.id, ...s.data() };
+  }
+  return out;
+}
+
+/**
+ * 抽獎規則。
+ *
+ * ⚠️ 讀不到就回 null，**不要套一份預設值**——引擎收到 null 會回 0 張，
+ *    而多發出去的抽獎券收不回來（docs/06 §7.1）。
+ */
+export async function loadChallengeRewards() {
+  const snap = await db().doc('config/challengeRewards').get();
+  return snap.exists ? snap.data() : null;
+}
+
+export const leaderboardRef = (eventId, challengeId) =>
+  evRef(eventId).collection('leaderboards').doc(challengeId);
+
 // ── 稽核（R-SEC-002：只新增，不改不刪）──────────────────────
 
 export function writeAudit(eventId, { entity, entityId, action, before = null, after = null, reason = null }) {

@@ -27,8 +27,13 @@ import { rosterProjection } from './engine/privacy.js';
 import {
   db, evRef, loadRankingRule, loadFormat, loadDivision, loadGroups,
   loadDivisionMatches, loadStageMatchesTx, loadCardEvents, loadTeams, loadTimeline,
-  loadRosters, teamMetaOf, withdrawnIdsOf, standingRef, loadStandings, writeAudit
+  loadRosters, teamMetaOf, withdrawnIdsOf, standingRef, loadStandings, writeAudit,
+  loadChallenge, loadChallenges, loadPlayerAttempts, loadChallengeAttempts,
+  loadPlayers, loadChallengeRewards, playerRef, leaderboardRef
 } from './store.js';
+import {
+  diffBestFlags, buildLeaderboard, drawEntries, nextCompleted
+} from './engine/challenge.js';
 
 /** 已產生勝負、會被計入統計的狀態 */
 const DECIDED = ['finished', 'confirmed', 'walkover'];
@@ -502,4 +507,184 @@ export async function rejectDuplicateApplication({ eventId, teamId, memberId, me
     after: { guardianUid }, reason: '同一帳號對同一隊只能有一筆待審申請（docs/10 §3.3）'
   });
   return true;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  挑戰系統（M6，docs/06 §6.1）
+// ══════════════════════════════════════════════════════════════
+
+/** 排行榜取前幾名（docs/06 §5.3：前 50 名） */
+const LEADERBOARD_TOP_N = 50;
+
+/**
+ * 一筆成績送出（或被作廢）之後要做的事。
+ *
+ * docs/06 §6.1 的五個步驟：
+ *   ① 查該玩家該關的所有 attempt，依 rankingRule 決定 best
+ *   ② 更新舊 best 的 isBest = false、新 best 的 isBest = true
+ *   ③ 若首次完成該關 → completedChallengeIds += id、重算抽獎張數
+ *   ④ 重算 leaderboards/{challengeId}
+ *   ⑤ challenges/{id}.stats 累加
+ *
+ * ⚠️ **這一支必須是冪等的**：作廢一筆成績也會走同一條路（驗收 C07），
+ *    而 Firestore 的觸發器本來就可能重放。所有寫入都是「算出現在該是
+ *    什麼，然後寫成那樣」，沒有任何 `+1` 式的累加（stats 除外，見下）。
+ *
+ * ⚠️ 缺設定一律丟錯（R-ENG-005）。算錯的排行榜跟算對的長得一模一樣，
+ *    現場不會有人發現。
+ */
+export async function onAttemptSubmitted({ eventId, challengeId, playerId }) {
+  if (!eventId || !challengeId || !playerId) {
+    throw new Error('onAttemptSubmitted：需要 eventId / challengeId / playerId');
+  }
+  const challenge = await loadChallenge(eventId, challengeId);
+
+  // ① ② 這位玩家在這一關的最佳成績
+  const mine = await loadPlayerAttempts(eventId, challengeId, playerId);
+  const flags = diffBestFlags(mine, challenge);
+  if (flags.length) {
+    const batch = db().batch();
+    for (const f of flags) {
+      batch.update(evRef(eventId).collection('attempts').doc(f.attemptId), { isBest: f.isBest });
+    }
+    await batch.commit();
+  }
+
+  // ③ 完成關卡與抽獎張數
+  const completion = await syncPlayerCompletion({ eventId, challengeId, playerId, attempts: mine, challenge });
+
+  // ④ 排行榜
+  const board = await rebuildLeaderboard({ eventId, challengeId, challenge });
+
+  // ⑤ 關卡統計
+  const stats = await recountChallengeStats({ eventId, challengeId });
+
+  return { bestFlags: flags.length, ...completion, ...board, stats };
+}
+
+/**
+ * 玩家的完成關卡與抽獎張數。
+ *
+ * ⚠️ **抽獎張數是算出來的，不是累加的。** `luckyDrawEntries += 1` 在觸發器
+ *    重放時會多發一張，而抽獎券發出去就收不回來。這裡永遠是
+ *    「依現在完成了哪幾關算出應得幾張」。
+ *
+ * ⚠️ 一關的成績全部被作廢時，那一關要**從完成清單移除**，張數跟著退回去
+ *    （驗收 C07 的延伸）。只加不減的話，作廢之後玩家還留著那張券。
+ */
+async function syncPlayerCompletion({ eventId, challengeId, playerId, attempts, challenge }) {
+  const ref = playerRef(eventId, playerId);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    // 玩家不存在是資料問題，不是可以忽略的情況——但也不該讓整條管線爆掉，
+    // 成績本身已經寫進去了。記一筆稽核讓主辦查得到。
+    await writeAudit(eventId, {
+      entity: 'player', entityId: playerId, action: 'challenge.playerMissing',
+      after: { challengeId }, reason: '成績指到一個不存在的玩家，抽獎張數沒有更新'
+    });
+    return { completedChanged: false, entries: null };
+  }
+
+  const player = snap.data();
+  const hasLiveScore = attempts.some(a => a?.voided !== true);
+  const cur = Array.isArray(player.completedChallengeIds) ? player.completedChallengeIds : [];
+
+  let completed = cur;
+  if (hasLiveScore) {
+    completed = nextCompleted(cur, challengeId) ?? cur;
+  } else if (cur.includes(challengeId)) {
+    completed = cur.filter(id => id !== challengeId);      // 全部作廢 → 退回
+  }
+
+  const [rewards, all] = await Promise.all([loadChallengeRewards(), loadChallenges(eventId)]);
+  const { entries } = drawEntries({
+    completedChallengeIds: completed,
+    challengeTotal: all.length,
+    rewards
+  });
+
+  const changed = completed.length !== cur.length || entries !== (player.luckyDrawEntries ?? 0);
+  if (!changed) return { completedChanged: false, entries };
+
+  await ref.update({
+    completedChallengeIds: completed,
+    luckyDrawEntries: entries,
+    lastActiveAt: FieldValue.serverTimestamp()
+  });
+  return { completedChanged: true, entries, completedCount: completed.length, challengeName: challenge?.name ?? null };
+}
+
+/**
+ * 重建一關的排行榜。
+ *
+ * ⚠️ `totalPlayers` 是**截斷前**的人數：玩家不在前 50 時，畫面底部仍要
+ *    顯示自己那一列與真正的名次（docs/06 §5.3）。
+ *
+ * 用交易而不是讀-改-寫：五個攤位的成績會同時打進來。
+ */
+async function rebuildLeaderboard({ eventId, challengeId, challenge }) {
+  const attempts = await loadChallengeAttempts(eventId, challengeId);
+  const players = await loadPlayers(eventId, attempts.map(a => a.playerId));
+  const { rows, totalPlayers } = buildLeaderboard({
+    attempts, challenge, players, topN: LEADERBOARD_TOP_N
+  });
+
+  const ref = leaderboardRef(eventId, challengeId);
+  await db().runTransaction(async tx => {
+    const prev = (await tx.get(ref)).data();
+    tx.set(ref, {
+      challengeId,
+      rows: rows.map(r => ({
+        rank: r.rank, playerId: r.playerId, nickname: r.nickname,
+        value: r.value, displayValue: r.displayValue,
+        attempts: r.attempts, achievedAt: r.achievedAt
+      })),
+      topN: LEADERBOARD_TOP_N,
+      totalPlayers,
+      version: (prev?.version ?? 0) + 1,
+      computedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+  });
+
+  return { rows: rows.length, totalPlayers };
+}
+
+/**
+ * 關卡統計（docs/06 §11 的指標來源）。
+ *
+ * 用**重數**而不是累加：觸發器重放時 `+1` 會虛胖，而這個數字會出現在
+ * 活動後的成效報告裡。attempts 一關幾百筆，重數的成本可以忽略。
+ */
+async function recountChallengeStats({ eventId, challengeId }) {
+  const attempts = await loadChallengeAttempts(eventId, challengeId);
+  const live = attempts.filter(a => a?.voided !== true);
+  const stats = {
+    attempts: live.length,
+    players: new Set(live.map(a => a.playerId).filter(Boolean)).size,
+    voided: attempts.length - live.length
+  };
+  await evRef(eventId).collection('challenges').doc(challengeId)
+    .set({ stats, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  return stats;
+}
+
+/**
+ * 一位玩家的完整進度（`#/challenge/me` 與抽獎名單匯出都用這一支）。
+ * 純讀取，不寫。
+ */
+export async function playerProgress({ eventId, playerId }) {
+  const [snap, challenges, rewards] = await Promise.all([
+    playerRef(eventId, playerId).get(),
+    loadChallenges(eventId),
+    loadChallengeRewards()
+  ]);
+  if (!snap.exists) return null;
+  const player = { playerId, ...snap.data() };
+  const completed = Array.isArray(player.completedChallengeIds) ? player.completedChallengeIds : [];
+  return {
+    player,
+    challengeTotal: challenges.length,
+    completedCount: completed.length,
+    draw: drawEntries({ completedChallengeIds: completed, challengeTotal: challenges.length, rewards })
+  };
 }

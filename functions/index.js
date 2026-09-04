@@ -25,7 +25,8 @@ import {
   recalcStandingForMatch, recalcStandingsForStage, resolveDownstreamOf,
   resolveAdvancementForStage, computeFinalRankingFor, publishFinalRankingFor,
   rebuildBoardsFor, reconcileMatchScore,
-  syncRosterFor, recountTeamMembers, recountUserTeams, rejectDuplicateApplication
+  syncRosterFor, recountTeamMembers, recountUserTeams, rejectDuplicateApplication,
+  onAttemptSubmitted
 } from './pipeline.js';
 import { writeAudit } from './store.js';
 import { loginWithLine } from './line.js';
@@ -187,9 +188,37 @@ export const onTeamWritten = onDocumentWritten(
     }
   });
 
-export const onAttemptCreated = onDocumentCreated(
-  'events/{eventId}/attempts/{attemptId}', async () => {
-    // TODO(M6): best score、抽獎資格、leaderboards 重算
+/**
+ * 挑戰成績寫入 → 最佳成績 → 抽獎張數 → 排行榜 → 關卡統計（docs/06 §6.1）。
+ *
+ * ⚠️ 用 `onDocumentWritten` 而不是 `onDocumentCreated`：**作廢也要重算**
+ *    （驗收 C07：作廢一筆最佳成績，排行榜與 best 要自動退回次佳），
+ *    而作廢是 update 不是 create。只接 create 的話，被作廢的成績會
+ *    永遠留在榜首——而且畫面上看起來完全正常。
+ *
+ * ⚠️ 管線自己會把 `isBest` 寫回 attempts，那又會再觸發這一支。
+ *    只有「會影響結果的欄位」變了才往下走，不然兩次寫入互相打不完。
+ */
+export const onAttemptWritten = onDocumentWritten(
+  'events/{eventId}/attempts/{attemptId}', async (event) => {
+    const { eventId } = event.params;
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    const doc = after ?? before;
+    if (!doc?.challengeId || !doc?.playerId) return;
+
+    // isBest 是這條管線自己寫回去的，不能拿它當重算的理由
+    if (before && after
+        && before.rawValue === after.rawValue
+        && before.voided === after.voided) return;
+
+    const r = await onAttemptSubmitted({
+      eventId, challengeId: doc.challengeId, playerId: doc.playerId
+    });
+    logger.info('[onAttemptWritten] 挑戰成績已處理', {
+      challengeId: doc.challengeId, playerId: doc.playerId,
+      bestFlags: r.bestFlags, rows: r.rows, entries: r.entries
+    });
   });
 
 export const onCheckinCreated = onDocumentCreated(
