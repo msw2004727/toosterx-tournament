@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20260904d';
+export const CACHE_VERSION = '0.20260904e';
 
 /** 本次活動。未來要辦第二場時，這裡改成從路由或設定讀取。 */
 export const EVENT_ID = 'feda-cup-2026';
@@ -130,7 +130,7 @@ export const topRole = (roles = []) =>
  * 權限碼字典 —— 每一個「獨立功能」一條。
  * ------------------------------------------------------------------
  * 這是總管在授權介面上看到的清單。`minRole` 是**預設**歸屬（含繼承），
- * 總管可以在 `config/rolePermissions/{role}` 逐條開關來覆寫。
+ * 總管可以在 `rolePermissions/{role}` 逐條開關來覆寫。
  *
  * `destructive: true` 的那幾條**同時寫在 firestore.rules 裡**
  * （主辦 2026-09-03 決定：破壞性操作進規則，其餘只控畫面）。
@@ -196,7 +196,7 @@ export function defaultPermsOf(role) {
  * 一組角色實際擁有的權限碼。
  *
  * @param {string[]} roles   staff/{uid}.roles
- * @param {object} [matrix]  config/rolePermissions 的內容
+ * @param {object} [matrix]  rolePermissions 集合的內容
  *                           `{ scorer: { perms: { 'match.finish': false } } }`
  *                           只列覆寫，沒列的走預設。
  * @returns {Set<string>}
@@ -246,7 +246,7 @@ export const FEATURES = [
   { code: 'schedule.manage',  label: '賽程管理',   hint: '編排場次與場地',           route: null,     icon: 'table' },
   { code: 'audit.read',       label: '稽核紀錄',   hint: '誰在什麼時候改了什麼',      route: null,     icon: 'note' },
   { code: 'staff.assign',     label: '身分授權',   hint: '指派管理員／賽務／檢錄員',  route: '/admin/staff', icon: 'person' },
-  { code: 'perms.manage',     label: '權限開關',   hint: '逐條調整每個身分能做的事',  route: null,     icon: 'more' },
+  { code: 'perms.manage',     label: '權限開關',   hint: '逐條調整每個身分能做的事',  route: '/admin/perms', icon: 'more' },
   { code: 'registration.manage', label: '報名開關', hint: '開放／截止與日期',        route: null,     icon: 'clock' }
 ];
 

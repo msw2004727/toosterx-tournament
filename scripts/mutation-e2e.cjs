@@ -32,11 +32,23 @@ const MUTANTS = [
     file: 'js/modules/account/my.js',
     from: `    const mine = FEATURES.filter(f => can(f.code));`,
     to: `    const mine = FEATURES;`
+  },
+  {
+    name: '#E4 ⭐ 權限開關整份覆蓋（同一個角色其他權限被靜靜抹掉）',
+    file: 'js/modules/admin/data.js',
+    from: `  }, { merge: true });`,
+    to: `  });`
+  },
+  {
+    name: '#E5 ⭐ 替身 SDK 的 merge 退回淺層（會證明「整份覆蓋」是對的）',
+    file: 'tests/e2e/fake-firebase.js',
+    from: `    store.set(ref.path, opts?.merge ? deepMerge(store.get(ref.path) || {}, next) : next);`,
+    to: `    store.set(ref.path, opts?.merge ? { ...(store.get(ref.path) || {}), ...next } : next);`
   }
 ];
 
 process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js --project=chromium-mobile --reporter=dot',
+  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js --project=chromium-mobile --reporter=dot',
   title: '前端時序｜E2E 變異測試'
 }));

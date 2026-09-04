@@ -181,10 +181,33 @@ export function onSnapshot(ref, a, b, c) {
   return () => watchers.delete(w);
 }
 
+/**
+ * `setDoc(..., { merge: true })` 的**巢狀 map 是深層合併**，不是整包取代。
+ *
+ * 這裡原本是淺層 `{...prev, ...next}`，於是
+ * `setDoc(ref, { perms: { 'match.finish': false } }, { merge: true })`
+ * 會把 `perms` 底下其他十幾條權限整組刪掉——而真的 Firestore 不會。
+ *
+ * 替身寫錯 schema 或行為比沒有測試更危險：它會主動證明錯的東西是對的。
+ * `tests/firestore-rules/assign.test.js` 的 R109 用真的模擬器盯著這一條，
+ * 這樣替身再漂移一次就會有人發現。
+ *
+ * ⚠️ `updateDoc` 刻意**不**深層合併：真的 Firestore 對 updateDoc 的巢狀 map
+ *    就是整包取代（CLAUDE.md「已知但未修」那一條講的就是這件事）。
+ */
+const deepMerge = (prev, next) => {
+  const out = { ...prev };
+  for (const [k, v] of Object.entries(next)) {
+    const isMap = x => x && typeof x === 'object' && !Array.isArray(x);
+    out[k] = isMap(v) && isMap(prev?.[k]) ? deepMerge(prev[k], v) : v;
+  }
+  return out;
+};
+
 export function setDoc(ref, data, opts) {
   return write(ref.path, offline => {
-    const prev = opts?.merge ? (store.get(ref.path) || {}) : {};
-    store.set(ref.path, { ...prev, ...resolveSentinels(data, offline) });
+    const next = resolveSentinels(data, offline);
+    store.set(ref.path, opts?.merge ? deepMerge(store.get(ref.path) || {}, next) : next);
   });
 }
 export function updateDoc(ref, data) {

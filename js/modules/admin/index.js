@@ -46,4 +46,6 @@ export function registerAdminRoutes() {
     { title: '報名審核', guard: requireLogin });
   route('/admin/staff', page('../admin/staff.js', m => m.adminStaffPage),
     { title: '身分授權', guard: requireLogin });
+  route('/admin/perms', page('../admin/perms.js', m => m.adminPermsPage),
+    { title: '權限開關', guard: requireLogin });
 }

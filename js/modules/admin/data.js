@@ -167,3 +167,35 @@ export async function setStaffActive(targetUid, patch) {
     updatedBy: uid()
   });
 }
+
+// ── 權限開關 ─────────────────────────────────────────────────
+
+/**
+ * 監聽權限矩陣。
+ *
+ * 用監聽而不是一次性讀取：總管可能開兩個分頁，或是跟另一位總管
+ * 同時在調。看到別人剛改的值比看到自己頁面上的舊值重要。
+ */
+export function watchRolePermissions(scope, cb, onError) {
+  const { collection, onSnapshot } = sdk();
+  const unsub = onSnapshot(collection(db(), 'rolePermissions'),
+    snap => cb(Object.fromEntries(snap.docs.map(d => [d.id, d.data()]))),
+    err => onError?.(err));
+  return hold(scope, unsub, 'admin:rolePermissions');
+}
+
+/**
+ * 改一條權限開關。
+ *
+ * ⚠️ 一定要 merge。整份覆蓋會把同一個角色其他權限的設定一起抹掉，
+ *    而那份設定可能是賽前調好的——而且抹掉之後畫面看起來完全正常
+ *    （讀不到值就走預設）。
+ */
+export async function setRolePermission(role, patch) {
+  const { doc, setDoc, serverTimestamp } = sdk();
+  await setDoc(doc(db(), 'rolePermissions', role), {
+    ...patch,
+    updatedAt: serverTimestamp(),
+    updatedBy: uid()
+  }, { merge: true });
+}

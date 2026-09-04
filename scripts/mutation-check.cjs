@@ -820,6 +820,62 @@ const MUTANTS = [
     from: `      uid: t.captainUid, displayName: t.captainName, pictureUrl: null,`,
     to: `      uid: t.captainUid, displayName: null, pictureUrl: null,`
   },
+  {
+    name: '#C1 ⭐ 總管的權限也給調（開關按下去不會有任何效果）',
+    file: 'js/engine/perms.js',
+    from: `  if (p.minRole === 'super_admin') {`,
+    to: `  if (false) {`
+  },
+  {
+    name: '#C2 ⭐ 繼承來的那一階也給調（聯集會蓋回去，開關等於沒作用）',
+    file: 'js/engine/perms.js',
+    from: `  if (p.minRole !== role) {`,
+    to: `  if (false) {`
+  },
+  {
+    name: '#C3 ⭐ 不講「誰不受影響」（主辦以為整個功能被關掉）',
+    file: 'js/engine/perms.js',
+    from: `  return STAFF_CHAIN.slice(i + 1);`,
+    to: `  return [];`
+  },
+  {
+    name: '#C4 「誰不受影響」把自己也算進去（關掉的那一階說自己還可以）',
+    file: 'js/engine/perms.js',
+    from: `  return STAFF_CHAIN.slice(i + 1);
+}`,
+    to: `  return STAFF_CHAIN.slice(i);
+}`
+  },
+  {
+    name: '#C5 ⭐ on 另外算一份，不用 effectivePerms（畫面說開著、實際上關著）',
+    file: 'js/engine/perms.js',
+    from: `  const on = role === 'super_admin' ? true : effectivePerms([role], matrix).has(p.code);`,
+    to: `  const on = stored !== false;`
+  },
+  {
+    name: '#C6 沒動過的也標成「已調整」（畫面上到處是黃點）',
+    file: 'js/engine/perms.js',
+    from: `    changed: stored === false,        // 只有「被關掉」算改過；true 就是預設值`,
+    to: `    changed: stored !== null,`
+  },
+  {
+    name: '#C7 ⭐ 權限開關整份覆蓋（其他權限的設定被抹掉）',
+    file: 'js/engine/perms.js',
+    from: `  return { role, patch: { role, perms: { [p.code]: on } } };`,
+    to: `  return { role, patch: { role, perms: Object.fromEntries(PERMISSIONS.filter(x => x.minRole === role).map(x => [x.code, x.code === p.code ? on : true])) } };`
+  },
+  {
+    name: '#C8 開關收非 boolean（undefined 寫進去會變成「沒設定」）',
+    file: 'js/engine/perms.js',
+    from: `  if (typeof on !== 'boolean') throw new Error('權限開關只能是 true 或 false');`,
+    to: ``
+  },
+  {
+    name: '#C9 總管的權限不丟錯，安靜地寫進去',
+    file: 'js/engine/perms.js',
+    from: `  if (role === 'super_admin') throw new Error('總管的權限不能由介面調整');`,
+    to: ``
+  },
 ];
 
 process.exit(runMutants({

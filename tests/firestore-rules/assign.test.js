@@ -11,7 +11,7 @@
  * 總管只會看到「還沒有人登入過」，然後以為系統壞了。
  */
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, collection, setDoc, updateDoc, getDocs } from 'firebase/firestore';
+import { doc, collection, setDoc, updateDoc, getDoc, getDocs } from 'firebase/firestore';
 import { makeEnv, seedBaseline, asAdminSdk, authed, guest, EVENT } from './helpers.js';
 
 let env;
@@ -103,5 +103,52 @@ describe('R103–R108 這一頁寫得進去嗎', () => {
 
     await asAdminSdk(env, db => updateDoc(staffRef(db, 'u-plain'), { active: false }));
     await assertFails(writeScore(2));
+  });
+});
+
+describe('R109–R112 權限開關（`#/admin/perms` 實際會發的請求）', () => {
+  const permRef = (db, role) => doc(db, 'rolePermissions', role);
+
+  beforeEach(async () => {
+    await asAdminSdk(env, db => setDoc(permRef(db, 'scorer'), {
+      role: 'scorer',
+      perms: { 'match.finish': true, 'match.score.write': true, 'match.undo': true }
+    }));
+  });
+
+  test('R109 ⭐ merge 寫入只動一條，其他權限原封不動', async () => {
+    // 這一條在測**真的 Firestore**，不是我們的替身。
+    // 替身的 setDoc 原本是淺層合併，會把 perms 底下其他十幾條整組刪掉——
+    // 而畫面看起來完全正常（讀不到值就走預設）。
+    // 沒有這一條，替身漂移就沒有人會發現。
+    await assertSucceeds(setDoc(permRef(authed(env, 'u-super'), 'scorer'),
+      { role: 'scorer', perms: { 'match.finish': false } }, { merge: true }));
+
+    const after = await asAdminSdk(env, db => getDoc(permRef(db, 'scorer')));
+    expect(after.data().perms).toEqual({
+      'match.finish': false, 'match.score.write': true, 'match.undo': true
+    });
+  });
+
+  test('R110 ⭐ 只有總管改得動權限矩陣', async () => {
+    const patch = { perms: { 'match.finish': false } };
+    await assertFails(setDoc(permRef(authed(env, 'u-admin'), 'scorer'), patch, { merge: true }));
+    await assertFails(setDoc(permRef(authed(env, 'u-scorer'), 'scorer'), patch, { merge: true }));
+    await assertFails(setDoc(permRef(guest(env), 'scorer'), patch, { merge: true }));
+  });
+
+  test('R111 權限矩陣是公開可讀的（每個裝置載入時都要讀）', async () => {
+    await assertSucceeds(getDocs(collection(guest(env), 'rolePermissions')));
+  });
+
+  test('R112 ⭐ 關掉畫面上的權限**不會**讓 rules 跟著放行', async () => {
+    // R-PERM-002：動態權限只用在 UI 層。反過來說也要成立——
+    // 把 match.score.write 關掉之後，rules 仍然照角色判斷；
+    // 這一頁不是安全邊界，也不該假裝是。
+    await asAdminSdk(env, db => setDoc(permRef(db, 'scorer'),
+      { role: 'scorer', perms: { 'match.score.write': false } }, { merge: true }));
+    await assertSucceeds(updateDoc(doc(authed(env, 'u-scorer'), 'events', EVENT, 'matches', 'AO-G-A-01'), {
+      score: { home: 1, away: 0 }, updatedBy: 'u-scorer'
+    }));
   });
 });

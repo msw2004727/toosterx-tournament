@@ -110,7 +110,10 @@ export function baseMatch(matchId, venueId = 'venue-a', over = {}) {
 
 /** 直接改資料庫狀態（繞過 rules），供個別案例佈置前置條件 */
 export async function asAdminSdk(env, fn) {
-  await env.withSecurityRulesDisabled(async ctx => fn(ctx.firestore()));
+  // 回傳值要帶出來：讀回文件確認「寫進去的到底是什麼」時會用到
+  let out;
+  await env.withSecurityRulesDisabled(async ctx => { out = await fn(ctx.firestore()); });
+  return out;
 }
 
 export const authed = (env, uid) => env.authenticatedContext(uid).firestore();
