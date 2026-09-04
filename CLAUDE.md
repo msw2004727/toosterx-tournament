@@ -173,7 +173,8 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       - [x] 身分授權 `#/admin/staff`（指派／場地／停用，總管專屬）
       - [x] 權限開關 `#/admin/perms`（逐條開關＋留痕，總管專屬）
       - [x] 稽核紀錄 `#/admin/audits`（唯讀，兩種欄位形狀都讀得懂）
-      - [ ] 報名開關　[ ] 賽程管理　[ ] 挑戰攤位（M6 子系統）
+      - [x] 報名開關 `#/admin/registration`（開關／起訖／規章欄位唯讀，總管專屬）
+      - [ ] 賽程管理　[ ] 挑戰攤位（M6 子系統）
       ・總管仍由 `scripts/grant-super-admin.mjs` 建立（Admin SDK，不經 rules）
 - [ ] M4-d   「我的球員」（需要 members 的 collectionGroup 索引與規則）
 - [x] M4-b④  依競賽規章校正設定＋未成年組教練管理名單＋檢錄台
@@ -188,12 +189,12 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 647 全綠（31 個 suite） |
-| `npm run test:mutation` | ✅ 148 / 148 全被抓到 |
+| `npm run test:unit` | ✅ 673 全綠（32 個 suite） |
+| `npm run test:mutation` | ✅ 156 / 156 全被抓到 |
 | `npm run test:mutation:e2e` | ✅ 12 / 12 全被抓到（畫面層時序、權限與替身語意） |
-| `npm run test:e2e` | ✅ 636 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 169 全綠（R34–R72 報名、R73–R92 檢錄與階層、R93–R98 審核、R99–R112 授權與權限） |
-| `npm run test:mutation:rules` | ✅ 27 / 27 全被抓到 |
+| `npm run test:e2e` | ✅ 684 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:rules` | ✅ 174 全綠（R34–R72 報名、R73–R92 檢錄與階層、R93–R98 審核、R99–R117 授權／權限／報名開關） |
+| `npm run test:mutation:rules` | ✅ 29 / 29 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
 | `npm run test:mutation:fn` | ✅ 16 / 16 全被抓到 |
 
@@ -486,7 +487,8 @@ js/modules/admin/
 ├── teams.js   報名審核 #/admin/teams
 ├── staff.js   身分授權 #/admin/staff
 ├── perms.js   權限開關 #/admin/perms
-└── audits.js  稽核紀錄 #/admin/audits
+├── audits.js  稽核紀錄 #/admin/audits
+└── registration.js 報名開關 #/admin/registration
 ```
 
 新增一個功能要動三個地方，`tests/unit/perms.test.js` 會檢查前兩者對得起來：
@@ -583,6 +585,46 @@ LINE 的 uid 沒辦法憑空產生，所以「指派身分」的第一步永遠�
    **最後**（Firestore 的 null 最小），不是假裝自己最新。
 3. **不認得的動作照原樣印出來。** 日後新增的動作在 `describeAudit()`
    還沒有分支時，主辦仍然要看得到「發生過某件事」。
+
+### 報名開關（`#/admin/registration`、`js/engine/registration.js`）
+
+開放條件是 **AND**：主辦手動開關 **且** 現在在起訖區間內。所以這一頁最上面
+顯示的是「現在到底開不開放」，不是那個開關本身——只看開關會讓主辦以為
+還開著，而家長看到的是「報名已經截止」。
+
+判斷只有一份（`registrationState()`），報名端 `js/modules/register/data.js`
+轉一手。單元測試逐字比對 `firestore.rules` 的 `regOpen()`：兩邊分岔的方向是
+「畫面說開放、送出被規則擋掉」。讀不到設定一律當關閉（fail-closed）。
+
+**人數上限與費用不在這一頁**：那些照規章第十二條，權威在
+`js/engine/formats.js` 的 `REGISTRATION_LIMITS`（R-REG-001）。
+寫入一律 `merge`，不會把 `config/registration` 上那幾個欄位抹掉。
+
+日期提醒（起訖顛倒、截止已過、晚於比賽日）**全部是 warn，沒有一條擋得住
+儲存**——規章沒寫的事情不要升成錯誤（跟報名審核同一條界線）。
+
+#### ⚠️ Firestore 的規則跨路徑是 OR，不是「以最具體的為準」
+
+`registration.manage` 的 minRole 是 super_admin 而且 destructive，
+所以 `config/registration` 的寫入要收到總管（R-PERM-002）。
+
+**不可以**另外加一條 `match /config/registration` 來收緊：
+
+```
+match /config/registration { allow write: if isSuperAdmin(); }   ← 沒有用
+match /config/{key}        { allow write: if isAdmin(); }        ← 這條照樣放行
+```
+
+多條路徑同時命中時 Firestore 是 **OR**——上面那樣寫，管理員仍然改得動，
+而且看起來完全像收緊了。條件必須放進**同一條**：
+
+```
+match /config/{key} {
+  allow write: if key == 'registration' ? isSuperAdmin() : isAdmin();
+}
+```
+
+變異 RU#30 就是把那個錯版本試一次，確認 R114 抓得到。
 
 ### 兩個方向相反的鎖
 
