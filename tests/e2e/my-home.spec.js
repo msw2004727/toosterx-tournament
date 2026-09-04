@@ -129,13 +129,28 @@ test('⭐ 身分列只顯示最高身分，不列出繼承來的一長串 @my', 
 
 test('⭐ 還沒做的功能畫成說明列，不是按不動的按鈕 @my', async ({ page }) => {
   // 按了沒反應是最難回報的故障；完全不顯示又會讓人以為身分沒生效。
+  //
+  // ⚠️ **不要寫死「一定有規劃中的項目」**：功能一個一個做完之後，
+  //    沒有路由的 FEATURES 會歸零（2026-09-05 攤位端上線時就發生了）。
+  //    這條測試守的是兩個方向——有的時候不能是按鈕、沒有的時候不能
+  //    留一個空的區塊標題。
   await stub(page, { roles: ['admin'] });
   await go(page);
+  await expect(page.locator('.acct__card').first()).toBeVisible({ timeout: 15_000 });
 
-  await expect(soon(page).first()).toContainText('規劃中');
-  // 「規劃中」的那幾列不可以是按鈕
-  const buttons = await page.locator('.acct__soonList button').count();
-  expect(buttons).toBe(0);
+  const routeless = await page.evaluate(async () => {
+    const m = await import('/js/config.js');
+    return m.FEATURES.filter(f => !f.route).map(f => f.code);
+  });
+
+  if (routeless.length) {
+    await expect(soon(page).first()).toContainText('規劃中');
+    expect(await page.locator('.acct__soonList button').count()).toBe(0);
+  } else {
+    // 全部都有頁面了：不可以留一個空的「規劃中」區塊
+    await expect(page.locator('.acct__soonList')).toHaveCount(0);
+    await expect(page.getByText('規劃中')).toHaveCount(0);
+  }
 });
 
 test('⭐ 總管把某一項關掉，那顆功能就不見了 @my', async ({ page }) => {
