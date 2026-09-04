@@ -34,6 +34,15 @@
 #    下面的 no-cache 先留著：語意上本來就該送，zone 設定改好之後它就會生效。
 #    驗證：curl -sI https://cup-demo.toosterx.com/js/config.js | grep -i cache-control
 
+# ⚠️ `/app.js` 在**根目錄**，不在 `/js/*` 底下——所以上面那條規則罩不到它。
+#    它是整個站的進入點：靜態 import 了 firebase-config / config / appbar /
+#    install，而且它自己就是 Service Worker 預先快取的 app shell 之一。
+#    它一舊，路由表就是舊的（新加的路由會顯示「找不到這個頁面」）。
+#    Pages 目前**剛好**給根目錄的 .js 一個 max-age=0，但那是預設值不是承諾，
+#    而且 zone 設定改一次就可能不同。明寫一條比靠預設安全。
+/app.js
+  Cache-Control: public, max-age=0, must-revalidate, no-cache
+
 /js/*
   Cache-Control: public, max-age=0, must-revalidate, no-cache
 

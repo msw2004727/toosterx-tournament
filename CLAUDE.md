@@ -171,7 +171,8 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 - [ ] M4-c   管理後台（依主辦指定的順序逐項實作）
       - [x] 報名審核 `#/admin/teams`（名單檢核＋核准／退回＋留痕）
       - [x] 身分授權 `#/admin/staff`（指派／場地／停用，總管專屬）
-      - [ ] 權限開關　[ ] 稽核紀錄
+      - [x] 權限開關 `#/admin/perms`（逐條開關＋留痕，總管專屬）
+      - [ ] 稽核紀錄
       - [ ] 報名開關　[ ] 賽程管理　[ ] 挑戰攤位（M6 子系統）
       ・總管仍由 `scripts/grant-super-admin.mjs` 建立（Admin SDK，不經 rules）
 - [ ] M4-d   「我的球員」（需要 members 的 collectionGroup 索引與規則）
@@ -187,11 +188,11 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 575 全綠（28 個 suite） |
-| `npm run test:mutation` | ✅ 124 / 124 全被抓到 |
-| `npm run test:mutation:e2e` | ✅ 3 / 3 全被抓到（畫面層時序） |
-| `npm run test:e2e` | ✅ 522 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 165 全綠（R34–R72 報名、R73–R92 檢錄與階層、R93–R98 審核、R99–R108 授權） |
+| `npm run test:unit` | ✅ 603 全綠（29 個 suite） |
+| `npm run test:mutation` | ✅ 133 / 133 全被抓到 |
+| `npm run test:mutation:e2e` | ✅ 5 / 5 全被抓到（畫面層時序） |
+| `npm run test:e2e` | ✅ 561 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:rules` | ✅ 169 全綠（R34–R72 報名、R73–R92 檢錄與階層、R93–R98 審核、R99–R112 授權與權限） |
 | `npm run test:mutation:rules` | ✅ 27 / 27 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
 | `npm run test:mutation:fn` | ✅ 16 / 16 全被抓到 |
@@ -483,7 +484,8 @@ js/modules/admin/
 ├── data.js    Firestore 存取 ＋ 錯誤翻譯 ＋ writeAudit
 ├── bits.js    共用頁首與「沒有權限」畫面
 ├── teams.js   報名審核 #/admin/teams
-└── staff.js   身分授權 #/admin/staff
+├── staff.js   身分授權 #/admin/staff
+└── perms.js   權限開關 #/admin/perms
 ```
 
 新增一個功能要動三個地方，`tests/unit/perms.test.js` 會檢查前兩者對得起來：
@@ -598,14 +600,15 @@ LINE 的 uid 沒辦法憑空產生，所以「指派身分」的第一步永遠�
 `matches` 文件上的一道整體閘（`isScorer()`），拆成兩支會讓那條規則長一倍。
 場上的哨音本來就不需要系統。
 
-### 權限開關
+### 權限開關（`#/admin/perms`、`js/engine/perms.js`）
 
 `js/config.js` 的 `PERMISSIONS` 是每一個「獨立功能」一條，
-`minRole` 是預設歸屬。總管可以在 `config/rolePermissions/{role}` 逐條覆寫：
+`minRole` 是預設歸屬。總管可以在 `rolePermissions/{role}` 逐條覆寫
+（**頂層集合，不在 `config` 底下**）：
 
 ```js
 { role: 'scorer', perms: { 'match.finish': false } }   // 關掉記錄員的送出完賽
-{ role: 'referee', perms: { 'match.score.write': true } }  // 把記分下放給裁判
+{ role: 'checkin', perms: { 'member.read': false } }        // 關掉檢錄員看個資
 ```
 
 四條規矩：
@@ -619,9 +622,33 @@ LINE 的 uid 沒辦法憑空產生，所以「指派身分」的第一步永遠�
    （主辦決定：破壞性操作進規則，其餘只控畫面）。
    非 destructive 的條目**只控制畫面**——不要用它們來保護資料。
 
-> ⚠️ `config/rolePermissions` 的初始值由 `scripts/seed` 從 `PERMISSIONS`
+> ⚠️ `rolePermissions` 的初始值由 `scripts/seed` 從 `PERMISSIONS`
 > **推導**，不要手寫第二份。手寫的那一份 2026-09-03 已經跟程式碼分岔過
 > （裁判有覆核權、沒有 checkin 這個角色），而分岔不會有任何錯誤訊息。
+
+#### 介面上調得動的只有「來源那一階」
+
+`effectivePerms()` 是**開優先於關的聯集**，而種子把每個角色的預設權限
+都寫成 `true`。所以在「記錄員」那一列關掉挑戰成績登錄，會被「挑戰攤位」
+那一列的 `true` 蓋過去——**開關完全沒有作用**（T37-A 有實測）。
+
+因此 `#/admin/perms` 讓每一條權限只在它的 `minRole` 那一階可調，
+其他列寫明「這一條屬於挑戰攤位，請到那裡調整」。同理，總管那三條
+（指派身分／權限開關／報名開關）連開關都不畫：`effectivePerms()` 對
+super_admin 直接回傳全部權限，按下去不會有任何效果。
+
+**這一頁只做得到收窄，做不到放寬。** 破壞性的權限同時寫在
+`firestore.rules` 裡（R-PERM-002），把記分下放給裁判在畫面上會成功、
+在資料庫會被擋——那就是「假成功」。上面第 2 條規矩底下原本舉的
+`referee: { 'match.score.write': true }` 例子是**錯的**，已換掉。
+
+關掉之後那一列要寫「管理員、總管仍然可以」——少了這句，主辦會以為
+整個功能被關掉了，然後在現場找不到人送出完賽。
+
+寫入一律 `setDoc(..., { merge: true })`：整份覆蓋會把同一個角色其他
+權限的設定一起抹掉，而抹掉之後畫面看起來完全正常（讀不到值就走預設）。
+真的 Firestore 對 merge 是**深層**合併，`tests/e2e/fake-firebase.js` 起初
+寫成淺層——R109 用真的模擬器盯著這一條，替身再漂移一次就有人會發現。
 
 ### 前端一律走 `can()`
 

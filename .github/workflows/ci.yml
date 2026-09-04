@@ -101,6 +101,9 @@ jobs:
           grep -A2 '^/js/\*' _headers | grep -q 'no-cache' || { echo "/js/* must also send no-cache; a zone-level Browser Cache TTL can rewrite max-age"; exit 1; }
           # /img/* 也不能長快取：Pages 對不存在的路徑回 200 + index.html，
           # 長 TTL 會把那份 HTML 當成圖片存起來（2026-09-03 實地發生，見 _headers）
+          # app.js 在根目錄，不在 /js/* 底下——它一舊，路由表就是舊的
+          grep -q '^/app\.js' _headers || { echo "_headers must cover /app.js; it is the entry point and sits outside /js/*"; exit 1; }
+          grep -A2 '^/app\.js' _headers | grep -q 'max-age=0' || { echo "/app.js must not be long-cached"; exit 1; }
           grep -q '^/img/\*' _headers || { echo "_headers must cover /img/*"; exit 1; }
           grep -A2 '^/img/\*' _headers | grep -q 'max-age=0' || { echo "/img/* must not be long-cached; a missing file is served as 200 + index.html and would be cached as the icon"; exit 1; }
           echo "OK"
