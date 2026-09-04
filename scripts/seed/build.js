@@ -146,7 +146,7 @@ const CHALLENGES = [
     scoreType: 'points', unit: '分', rankingRule: 'higher', decimals: 0,
     minValue: 0, maxValue: 15, inputMode: 'shots', shotCount: 5, shotOptions: [0, 1, 2, 3] },
 
-  { challengeId: 'g02-header-king', order: 2, icon: 'header',
+  { challengeId: 'g02-header-king', order: 2, icon: 'ladder',
     name: 'C羅高空頭球挑戰', shortName: 'C羅頭球', boothLocation: '攤位 2',
     description: '取材自 C 羅具代表性的高空頭球，挑戰能完成多高位置的頭球。',
     rulesText: '依序挑戰各高度，完成後可挑戰下一級，紀錄成功完成的最高高度。',
@@ -168,7 +168,9 @@ const CHALLENGES = [
     scoreType: 'speed', unit: 'km/h', rankingRule: 'higher', decimals: 0,
     minValue: 20, maxValue: 150, inputMode: 'numpad' },
 
-  { challengeId: 'g05-first-touch', order: 5, icon: 'target',
+  // 圖示不跟 g01 共用：五關在挑戰首頁是並排的，兩個一樣的圖示分不出來。
+  // 同心圓對應這一關的計分結構（完美區／控制區／外圍）。
+  { challengeId: 'g05-first-touch', order: 5, icon: 'first-touch',
     name: '停球王挑戰', shortName: '停球王', boothLocation: '攤位 5',
     description: '利用發球設備將球送向玩家，玩家必須完成第一腳停球控制。',
     rulesText: '5 次停球。完美區 3 分、控制區 2 分、外圍 1 分、失敗 0 分。',

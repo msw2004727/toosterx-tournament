@@ -74,6 +74,26 @@ describe('T30-2 程式裡引用的圖示名稱都存在', () => {
       expect(type).toBeTruthy();
     }
   });
+
+  test('⭐ 五個挑戰關卡的圖示都畫得出來（打錯名字是整天空白）', async () => {
+    // 規格書上這五關寫的是 emoji（🎯🦘🎪⚡），一律改畫成線條圖（R-UI-004）。
+    // 攤位工作人員整天只看自己那一關的畫面，圖示沒出來他也不會回報
+    // 「圖示不見了」——只會覺得這個系統做得很粗糙。
+    const { CHALLENGES } = await import('../../scripts/seed/build.js');
+    expect(CHALLENGES).toHaveLength(5);
+    for (const c of CHALLENGES) {
+      expect(ICON_NAMES).toContain(c.icon);
+    }
+  });
+
+  test('⭐ 五關的圖示互不相同（並排時分得出來）', () => {
+    // 這條跟上一條不一樣：名字都存在、但五關共用兩個圖示的話，
+    // 挑戰首頁的清單會有兩列長得一模一樣
+    return import('../../scripts/seed/build.js').then(({ CHALLENGES }) => {
+      const icons = CHALLENGES.map(c => c.icon);
+      expect(new Set(icons).size).toBe(icons.length);
+    });
+  });
 });
 
 describe('T30-3 ⭐ 前端原始碼不得再出現 emoji', () => {
