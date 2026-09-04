@@ -17,7 +17,7 @@ import { startTicker, now } from '../../core/clock.js';
 import { dateLabelFromYmd, hhmm } from '../../lib/format.js';
 import { EVENT } from '../../config.js';
 import * as data from './data.js';
-import { splitHomeSections, isLiveMatch, hiddenScorerDivisions, publishedMatches } from './selectors.js';
+import { splitHomeSections, isLiveMatch, hiddenScorerDivisions, publishedMatches, hasBoardContent } from './selectors.js';
 import { matchRow, sectionCard, empty, pageHead, statusBadge } from './bits.js';
 
 export async function publicHome({ scope, view, query }) {
@@ -61,14 +61,22 @@ export async function publicHome({ scope, view, query }) {
   const dropBoard = () => { const f = stopBoard; stopBoard = null; f?.(); };
 
   stopBoard = data.watchLiveBoard(scope, board => {
-    if (board) {
+    // ⚠️ **空的看板不算看板**（2026-09-05 在真站上看到）。
+    //    種子會建一份三個陣列都是空的 `boards/live` 空殼，而 Function
+    //    只在有比賽結果時才重建它——結果首頁整天顯示「這個日期沒有待進行
+    //    的場次」，而那一天明明排了 35 場。
+    //
+    //    退回去監聽當日場次**永遠不會比較差**：真的沒有場次時，
+    //    splitHomeSections 算出來也是空的；看板還沒建好時，它算出來才是對的。
+    //    看板是效能最佳化，不是功能的前提（這一段的原始註解就是這樣寫的）。
+    if (hasBoardContent(board)) {
       state.board = board;
       state.boardMissing = false;
       state.loading = false;
       render();
       return;
     }
-    // 看板不存在 → 換成監聽當日場次（同樣只有 1 個監聽，先收掉看板那個）
+    // 看板不存在或是空的 → 換成監聽當日場次（同樣只有 1 個監聽，先收掉看板那個）
     if (!state.boardMissing) {
       state.boardMissing = true;
       // 排到下一個 tick：此刻 watchLiveBoard() 可能還沒回傳，stopBoard 還是 null

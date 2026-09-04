@@ -688,7 +688,15 @@ export function buildSeed({ seed = 20261009 } = {}) {
   }
 
   // ── 公開看板 ──
-  add(`${E}/boards/live`, { boardId: 'live', liveMatches: [], nextMatches: [], justFinished: [], seedData: true });
+  //
+  // ⚠️ **不建 `boards/live` 的空殼。** 首頁的規則是「看板存在就用看板」，
+  //    而這份空殼會讓它整天顯示「這個日期沒有待進行的場次」——那一天
+  //    明明排了 35 場（2026-09-05 在 demo 站上實際看到）。
+  //    文件不存在時首頁會退回去監聽當日場次，那條路算出來才是對的。
+  //    畫面那一側現在也擋了一層（`hasBoardContent()`），兩邊都不要製造這個坑。
+  //
+  // scorers 與 fairplay 是**單一文件、rows 帶 divisionId**（docs/01b §1.13），
+  // 公開端讀不到文件會顯示「整理中」，所以空殼是有意義的。
   add(`${E}/boards/scorers`, { boardId: 'scorers', rows: [], seedData: true });
 
   return { docs, stats: summarise(docs, scheduled) };

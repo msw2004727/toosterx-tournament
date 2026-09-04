@@ -267,6 +267,24 @@ export function hiddenScorerDivisions(divisions, featureFlags) {
 }
 
 /**
+ * 這份看板有沒有東西可以顯示。
+ *
+ * ⚠️ **空的看板不算看板。** 種子會建一份三個陣列都是空的 `boards/live`
+ *    空殼，而 Cloud Function 只在有比賽結果時才重建它。首頁的規則是
+ *    「看板存在就用看板」，於是整天顯示「這個日期沒有待進行的場次」，
+ *    而那一天明明排了 35 場（2026-09-05 在 demo 站上看到）。
+ *
+ *    退回去自己算**永遠不會比較差**：真的沒有場次時，
+ *    `splitHomeSections` 算出來也是空的；看板還沒建好時，它算出來才是對的。
+ *    看板是效能最佳化，不是功能的前提。
+ */
+export function hasBoardContent(board) {
+  if (!board) return false;
+  return ['liveMatches', 'nextMatches', 'justFinished']
+    .some(k => Array.isArray(board[k]) && board[k].length > 0);
+}
+
+/**
  * 還沒發布賽程的組別。
  *
  * 主辦在 `#/admin/schedule` 排到一半時，公開端不該看到半套賽程——

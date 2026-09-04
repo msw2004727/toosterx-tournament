@@ -1322,6 +1322,14 @@ const MUTANTS = [
     file: 'js/modules/booth/actions.js',
     from: '  if (isAdmin) return list;',
     to: '  if (false) return list;'
+  },
+
+  // ── 首頁看板 ─────────────────────────────────────────────────
+  {
+    name: '#BD1 ⭐ 空的看板也當成有看板（首頁整天顯示「沒有待進行的場次」）',
+    file: 'js/modules/public/selectors.js',
+    from: "  return ['liveMatches', 'nextMatches', 'justFinished']\n    .some(k => Array.isArray(board[k]) && board[k].length > 0);",
+    to: '  return true;'
   }
 ];
 

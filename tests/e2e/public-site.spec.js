@@ -505,3 +505,41 @@ test('⭐ 仁慈規則封頂真的生效（欄位在 display.mercyRule 底下）
   await expect(page.locator('.pub')).toContainText('7+');
   await expect(page.locator('.pub')).not.toContainText('12');
 });
+
+/* ══════════════════════════════════════════════════════════════
+   看板（boards/live）
+   ══════════════════════════════════════════════════════════════ */
+
+test('⭐ 看板是空殼時要退回去自己算，不可以顯示「沒有待進行的場次」@public', async ({ page }) => {
+  // 2026-09-05 在 demo 站上看到的：種子建了一份三個陣列都空的 boards/live，
+  // 而首頁的規則是「看板存在就用看板」——於是整天顯示沒有場次，
+  // 那一天明明排了 35 場。
+  const seed = full();
+  seed[`events/${EVENT}/boards/live`] = {
+    boardId: 'live', liveMatches: [], nextMatches: [], justFinished: []
+  };
+  await stub(page, seed);
+  await go(page, '/#/');
+
+  await expect(page.getByRole('heading', { name: /現在進行中/ })).toBeVisible();
+  await expect(page.getByText('臺中市西屯區野狼').first()).toBeVisible();
+  await expect(page.getByText('這個日期沒有待進行的場次')).toHaveCount(0);
+});
+
+test('看板真的有內容時就用看板（效能最佳化仍然有效）@public', async ({ page }) => {
+  const seed = full();
+  seed[`events/${EVENT}/boards/live`] = {
+    boardId: 'live',
+    liveMatches: [{
+      matchId: 'BOARD-1', divisionId: 'adult-open', status: 'live',
+      venueName: 'A場', label: '看板來的',
+      kickoffAt: { seconds: Math.floor(Date.parse('2026-10-11T01:00:00Z') / 1000), nanoseconds: 0 },
+      home: { teamId: 'tb1', name: '看板主隊' }, away: { teamId: 'tb2', name: '看板客隊' },
+      score: { home: 3, away: 1 }
+    }],
+    nextMatches: [], justFinished: []
+  };
+  await stub(page, seed);
+  await go(page, '/#/');
+  await expect(page.getByText('看板主隊').first()).toBeVisible();
+});

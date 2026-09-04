@@ -19,7 +19,7 @@ import {
   viewStanding, sortStandings, sortRoster,
   publicMember, leakedFields, PUBLIC_MEMBER_FIELDS,
   embedUrl, isPlaceholder, sideLabel, isLiveMatch, isDoneMatch,
-  hiddenScorerDivisions, unpublishedDivisions, publishedMatches
+  hiddenScorerDivisions, unpublishedDivisions, publishedMatches, hasBoardContent
 } from '../../js/modules/public/selectors.js';
 
 // ⚠️ Windows 上一定要用 fileURLToPath()：`new URL(...).pathname` 是 `/D:/…`，
@@ -433,5 +433,28 @@ describe('T32-10 組別快取的長度', () => {
   test('場地與名單維持長快取（那些不會在活動期間改）', () => {
     const body = SRC.split('export function getVenues')[1]?.split('\n}')[0] ?? '';
     expect(body).not.toContain('DIVISION_CACHE_MS');
+  });
+});
+
+describe('T32-11 空的看板不算看板', () => {
+  // 2026-09-05 在 demo 站上看到：boards/live 是一份三個陣列都空的空殼，
+  // 而首頁的規則是「看板存在就用看板」——於是整天顯示「這個日期沒有
+  // 待進行的場次」，那一天明明排了 35 場。
+  test('⭐ 三個陣列都空的看板要當成沒有看板', () => {
+    expect(hasBoardContent({ boardId: 'live', liveMatches: [], nextMatches: [], justFinished: [] })).toBe(false);
+    expect(hasBoardContent({ boardId: 'live' })).toBe(false);
+    expect(hasBoardContent(null)).toBe(false);
+    expect(hasBoardContent(undefined)).toBe(false);
+  });
+
+  test('任何一區有東西就是有看板', () => {
+    expect(hasBoardContent({ liveMatches: [{ matchId: 'a' }], nextMatches: [], justFinished: [] })).toBe(true);
+    expect(hasBoardContent({ liveMatches: [], nextMatches: [{ matchId: 'a' }] })).toBe(true);
+    expect(hasBoardContent({ justFinished: [{ matchId: 'a' }] })).toBe(true);
+  });
+
+  test('欄位型別不對時當成沒有（不要因此整頁掛掉）', () => {
+    expect(hasBoardContent({ liveMatches: '不是陣列' })).toBe(false);
+    expect(hasBoardContent({ liveMatches: 3 })).toBe(false);
   });
 });
