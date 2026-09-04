@@ -14,7 +14,20 @@ import { db, sdk, evPath } from '../../core/firebase.js';
 import { hold, get as cacheGet, put as cachePut } from '../../core/store.js';
 import { EVENT_ID } from '../../config.js';
 
-const CACHE_MS = 5 * 60 * 1000;      // 組別／場地這類設定五分鐘內不重讀
+const CACHE_MS = 5 * 60 * 1000;      // 場地、名單這類設定五分鐘內不重讀
+
+/**
+ * 組別的快取要短很多。
+ *
+ * ⚠️ 2026-09-05 在真站上抓到：組別本來是靜態設定，五分鐘快取完全無害。
+ *    但賽程管理加了 `schedulePublished` 之後，**組別會在活動期間被改**——
+ *    主辦按下「發布賽程」、拿自己的手機看公開站，最多五分鐘看不到東西，
+ *    然後以為功能壞了。「按了沒反應」是最難回報的故障。
+ *
+ *    三十秒是折衷：換分頁、來回點組別仍然不會重讀，
+ *    而發布之後最多半分鐘就看得到。組別只有六筆小文件，代價可以忽略。
+ */
+const DIVISION_CACHE_MS = 30 * 1000;
 
 /* ── 監聽（即時）─────────────────────────────────────────── */
 
@@ -94,8 +107,8 @@ export function watchStandings(scope, divisionId, cb, onError) {
 
 /* ── 一次性讀取（含快取）─────────────────────────────────── */
 
-async function cached(key, loader) {
-  const hit = cacheGet(key, CACHE_MS);
+async function cached(key, loader, ms = CACHE_MS) {
+  const hit = cacheGet(key, ms);
   if (hit !== undefined) return hit;
   return cachePut(key, await loader());
 }
@@ -105,7 +118,7 @@ export function getDivisions() {
     const { getDocs, query, orderBy } = sdk();
     const snap = await getDocs(query(evPath('divisions'), orderBy('order', 'asc')));
     return snap.docs.map(d => ({ divisionId: d.id, ...d.data() }));
-  });
+  }, DIVISION_CACHE_MS);
 }
 
 export function getVenues() {
@@ -121,7 +134,7 @@ export function getDivision(divisionId) {
     const { doc, getDoc } = sdk();
     const snap = await getDoc(doc(db(), 'events', EVENT_ID, 'divisions', divisionId));
     return snap.exists() ? { divisionId: snap.id, ...snap.data() } : null;
-  });
+  }, DIVISION_CACHE_MS);
 }
 
 export function getTeam(teamId) {
