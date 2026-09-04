@@ -168,8 +168,11 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 - [x] M4-b②  報名流程畫面：`#/register`、`#/register/new`、`#/join/:code`、
       `#/team/:id/manage`。18 個 E2E × 3 種視窗
 - [x] M4-b③  全站頁首（首頁／我的／安裝／主題）＋ PWA 可安裝 ＋ 角色字典與 FC 對齊
-- [ ] M4-c   總管授權介面（指派 admin/scorer/referee/booth）
-      ・目前走 `scripts/grant-super-admin.mjs`（Admin SDK，不經 rules）
+- [ ] M4-c   管理後台（依主辦指定的順序逐項實作）
+      - [x] 報名審核 `#/admin/teams`（名單檢核＋核准／退回＋留痕）
+      - [ ] 身分授權　[ ] 權限開關　[ ] 稽核紀錄
+      - [ ] 報名開關　[ ] 賽程管理　[ ] 挑戰攤位（M6 子系統）
+      ・總管仍由 `scripts/grant-super-admin.mjs` 建立（Admin SDK，不經 rules）
 - [ ] M4-d   「我的球員」（需要 members 的 collectionGroup 索引與規則）
 - [x] M4-b④  依競賽規章校正設定＋未成年組教練管理名單＋檢錄台
 - [x] M4-b⑤  資訊架構重整：角色階層（向上包含）＋權限矩陣＋專屬首頁＋
@@ -183,11 +186,11 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 507 全綠（26 個 suite） |
-| `npm run test:mutation` | ✅ 101 / 101 全被抓到 |
+| `npm run test:unit` | ✅ 530 全綠（27 個 suite） |
+| `npm run test:mutation` | ✅ 110 / 110 全被抓到 |
 | `npm run test:mutation:e2e` | ✅ 3 / 3 全被抓到（畫面層時序） |
-| `npm run test:e2e` | ✅ 429 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 148 全綠（含 R34–R72 報名、R73–R82 檢錄、R83–R92 階層） |
+| `npm run test:e2e` | ✅ 462 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:rules` | ✅ 155 全綠（含 R34–R72 報名、R73–R82 檢錄、R83–R92 階層、R93–R98 審核） |
 | `npm run test:mutation:rules` | ✅ 27 / 27 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
 | `npm run test:mutation:fn` | ✅ 16 / 16 全被抓到 |
@@ -451,6 +454,50 @@ checkin-data.js     Firestore 存取（寫入一律經 sync.track）
 一個人可能同時是隊長與記錄員，分成幾條就要決定「他登入後該去哪一條」，
 而且每加一個層級就多一個入口要維護。同一條路由、內容依權限展開，
 新增一個功能只要在 `js/config.js` 的 `FEATURES` 加一行。
+
+## 管理後台（M4-c）
+
+```
+js/modules/admin/
+├── index.js   路由（lazy() ＋ ?v=，同 staff/index.js）
+├── data.js    Firestore 存取 ＋ 錯誤翻譯 ＋ writeAudit
+├── bits.js    共用頁首與「沒有權限」畫面
+└── teams.js   報名審核 #/admin/teams
+```
+
+新增一個功能要動三個地方，`tests/unit/perms.test.js` 會檢查前兩者對得起來：
+
+1. `js/config.js` 的 `PERMISSIONS` 加一條權限碼
+2. `js/config.js` 的 `FEATURES` 加一行（含 `route`）
+3. `js/modules/admin/index.js` 註冊路由
+
+守衛只擋「有沒有登入」，「有沒有這項權限」由頁面自己顯示原因——
+擋在路由層只會得到一個空白頁，使用者看不出是權限問題還是壞掉。
+
+### 報名審核的檢核（js/engine/review.js）
+
+`reviewTeam()` 是純函式，回傳 findings ＋ `canApprove`。
+**error 與 warn 的界線很重要**：
+
+| level | 收什麼 |
+|---|---|
+| `error` | 規章明文（人數、年齡）＋「放行之後會產生錯誤結果」（背號重複）|
+| `warn` | 提醒，主辦仍可核准（例如還沒填背號）|
+
+規章沒寫、也不會弄錯結果的事情不要升成 error——那等於系統替主辦
+訂了一條規章沒有的規則。每一條 finding 都帶 `source`，
+背號重複標的是**「系統限制」而不是「規章」**，因為規章真的沒有那一條。
+
+### 兩個方向相反的鎖
+
+| 動作 | `status` | `rosterLocked` |
+|---|---|---|
+| 核准 | `approved` | **true**（第二道鎖，要改只能退回）|
+| 退回 | `rejected` | **false**（解凍，隊長改完再送）|
+
+⚠️ 退回時**不可以**順手鎖起來。`rosterFrozen()` 看的是
+`status in ['draft','rejected'] && !rosterLocked`——鎖了的話隊長改不動，
+卻完全看不出為什麼。變異 #A6 守這件事。
 
 ## 角色階層與權限（R-ROLE-002）
 

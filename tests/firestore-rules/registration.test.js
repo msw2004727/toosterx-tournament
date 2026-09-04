@@ -419,3 +419,58 @@ describe('R65–R72 教練直接管理名單（學童組，主辦 2026-09-03 指
     await assertFails(setDoc(memberRef(authed(env, CAP), 'm-c1'), coachMemberDoc()));
   });
 });
+
+
+// ══════════════════════════════════════════════════════════════
+describe('R93–R98 報名審核（docs/05 §8.2、docs/10 §3）', () => {
+  test('R93 ⭐ Admin 核准：狀態改成 approved 並鎖名單', async () => {
+    await seedTeam({ status: 'submitted' });
+    await assertSucceeds(updateDoc(teamRef(authed(env, 'u-admin')), {
+      status: 'approved', rosterLocked: true, reviewedBy: 'u-admin'
+    }));
+  });
+
+  test('R94 ⭐ Admin 退回：狀態改成 rejected 並解凍', async () => {
+    // rosterFrozen() 看的是 status in ['draft','rejected'] && !rosterLocked。
+    // 退回時順手鎖起來的話，隊長改不動卻看不出為什麼。
+    await seedTeam({ status: 'submitted' });
+    await assertSucceeds(updateDoc(teamRef(authed(env, 'u-admin')), {
+      status: 'rejected', rosterLocked: false, rejectReason: '超齡'
+    }));
+  });
+
+  test('R95 ⭐ 隊長自己核准不了（審核是主辦的閘門）', async () => {
+    await seedTeam({ status: 'submitted' });
+    await assertFails(updateDoc(teamRef(authed(env, CAP)), {
+      status: 'approved', rosterLocked: true
+    }));
+  });
+
+  test('R96 ⭐ 記錄員也核准不了（覆核與審核都在管理員以上）', async () => {
+    await seedTeam({ status: 'submitted' });
+    await assertFails(updateDoc(teamRef(authed(env, 'u-scorer')), { status: 'approved' }));
+  });
+
+  test('R97 ⭐ 核准之後隊長改不動名單（第二道鎖）', async () => {
+    await seedTeam({ status: 'approved', rosterLocked: true });
+    await assertFails(setDoc(memberRef(authed(env, CAP), 'm-new'),
+      newMemberDoc({ memberId: 'm-new' })));
+  });
+
+  test('R98 退回之後隊長可以改，也可以再送一次', async () => {
+    await seedTeam({ status: 'rejected', rosterLocked: false });
+    await assertSucceeds(setDoc(memberRef(authed(env, PARENT), 'm-again'),
+      newMemberDoc({ memberId: 'm-again' })));
+    await assertSucceeds(updateDoc(teamRef(authed(env, CAP)), { status: 'draft' }));
+  });
+
+  test('R98b ⭐ 稽核紀錄只能新增，改不動也刪不掉（R-SEC-002）', async () => {
+    const auditRef = db => doc(db, 'events', EVENT, 'audits', 'a-1');
+    await assertSucceeds(setDoc(auditRef(authed(env, 'u-admin')), {
+      auditId: 'a-1', action: 'team.approve', targetType: 'team', targetId: TEAM,
+      actor: { uid: 'u-admin', at: null }
+    }));
+    await assertFails(updateDoc(auditRef(authed(env, 'u-admin')), { action: 'x' }));
+    await assertFails(deleteDoc(auditRef(authed(env, 'u-super'))));
+  });
+});

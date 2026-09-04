@@ -1,0 +1,144 @@
+/* 管理後台｜規格：docs/05、docs/08 §1
+   ------------------------------------------------------------------
+   R-UI-005：這裡**沒有** @media (prefers-color-scheme)。深淺兩套色一律
+             由 css/tokens.css 的 [data-theme] 提供。
+   R-UI-006：最小驗證寬度 320px。
+
+   命名一律 adm- 前綴。 */
+
+.adm{
+  max-width:var(--page-max);margin:0 auto;width:100%;
+  padding:var(--sp-4) var(--sp-3) var(--sp-8);
+  display:flex;flex-direction:column;gap:var(--sp-3);
+}
+
+/* ── 頁首 ───────────────────────────────────────────────── */
+.adm__head{display:flex;align-items:center;gap:var(--sp-2);min-width:0}
+.adm__back{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  min-width:var(--tap);min-height:var(--tap);color:var(--text-primary);
+}
+.adm__headText{display:flex;flex-direction:column;min-width:0}
+.adm__headText strong{font-size:var(--fs-lg);color:var(--text-primary)}
+.adm__headSub{font-size:var(--fs-xs);color:var(--text-secondary)}
+
+/* ── 提示框 ─────────────────────────────────────────────── */
+.adm__box{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3);
+  align-items:flex-start;
+}
+.adm__box--warn{background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn-text)}
+.adm__box--warn .adm__note{color:var(--warn-text);opacity:.9}
+.adm__note{font-size:var(--fs-sm);color:var(--text-secondary);line-height:1.6}
+.adm__empty{
+  padding:var(--sp-6) var(--sp-3);text-align:center;
+  font-size:var(--fs-sm);color:var(--text-secondary);line-height:1.7;
+}
+
+/* ── 分頁 ───────────────────────────────────────────────── */
+.adm__tabs{display:flex;gap:var(--sp-1)}
+.adm__tab{
+  flex:1 1 0;min-width:0;min-height:var(--tap);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:var(--sp-2) 4px;border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--bg-card);color:var(--text-secondary);
+  font-family:inherit;font-size:var(--fs-sm);cursor:pointer;
+}
+.adm__tab.is-on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+.adm__tabCount{font-family:var(--font-num);font-size:var(--fs-xs)}
+
+/* ── 球隊清單 ───────────────────────────────────────────── */
+.adm__list{display:flex;flex-direction:column;gap:var(--sp-2);margin:0;padding:0;list-style:none}
+.adm__item{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-md);
+  overflow:hidden;
+}
+.adm__item.is-open{border-color:var(--accent)}
+.adm__itemHead{
+  display:flex;align-items:center;gap:var(--sp-2);width:100%;
+  min-height:var(--tap);padding:var(--sp-3);
+  background:none;border:0;color:var(--text-primary);
+  font-family:inherit;text-align:left;cursor:pointer;
+}
+.adm__itemMain{display:flex;flex-direction:column;gap:2px;flex:1 1 auto;min-width:0}
+.adm__teamName{
+  font-size:var(--fs-md);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.adm__teamMeta{font-size:var(--fs-xs);color:var(--text-secondary)}
+
+.adm__badge{
+  flex:none;font-size:var(--fs-xs);padding:2px var(--sp-2);border-radius:999px;
+  background:var(--bg-input);color:var(--text-secondary);
+}
+.adm__badge--submitted{background:var(--info-bg);color:var(--info)}
+.adm__badge--approved{background:var(--ok-bg);color:var(--success)}
+.adm__badge--rejected{background:var(--danger-bg);color:var(--danger)}
+
+/* ── 展開後的細節 ───────────────────────────────────────── */
+.adm__detail{
+  padding:0 var(--sp-3) var(--sp-3);
+  display:flex;flex-direction:column;gap:var(--sp-3);
+  border-top:1px solid var(--border);
+}
+.adm__sectionHead{
+  margin:var(--sp-3) 0 0;font-size:var(--fs-sm);color:var(--text-secondary);
+}
+
+/* 檢核結果。錯誤要一眼看得出來——主辦是照這個決定按不按核准的 */
+.adm__checks{display:flex;flex-direction:column;gap:var(--sp-2);margin:0;padding:0;list-style:none}
+.adm__check{
+  display:flex;align-items:flex-start;gap:var(--sp-2);
+  padding:var(--sp-2) var(--sp-3);border-radius:var(--r-sm);
+  font-size:var(--fs-sm);line-height:1.6;
+}
+.adm__check--ok{background:var(--ok-bg);color:var(--success)}
+.adm__check--warn{background:var(--warn-bg);color:var(--warn-text)}
+.adm__check--error{background:var(--danger-bg);color:var(--danger)}
+.adm__checkText{display:flex;flex-direction:column;gap:2px;min-width:0}
+.adm__checkSrc{font-size:var(--fs-xs);opacity:.75}
+
+/* 名單 */
+.adm__roster{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none}
+.adm__member{
+  display:flex;align-items:baseline;gap:var(--sp-2);
+  padding:var(--sp-2) var(--sp-3);background:var(--bg-elevated);border-radius:var(--r-sm);
+}
+.adm__no{
+  flex:none;min-width:2.2em;text-align:center;
+  font-family:var(--font-num);color:var(--text-primary);
+}
+.adm__memberName{
+  flex:1 1 auto;min-width:0;font-size:var(--fs-sm);color:var(--text-primary);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.adm__memberMeta{
+  flex:none;font-size:var(--fs-xs);color:var(--text-muted);
+  font-family:var(--font-num);
+}
+
+/* ── 動作 ───────────────────────────────────────────────── */
+.adm__actions{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+.adm__actions > .btn{flex:1 1 auto;min-width:0}
+.adm__blocked{
+  flex:1 1 100%;
+  display:flex;align-items:center;gap:var(--sp-2);
+  font-size:var(--fs-sm);color:var(--warn-text);
+}
+.adm__textarea{
+  width:100%;min-height:calc(var(--tap) * 2);
+  padding:var(--sp-2) var(--sp-3);
+  font-size:16px;font-family:inherit;line-height:1.6;
+  color:var(--text-primary);background:var(--bg-input);
+  border:1px solid var(--border);border-radius:var(--r-sm);resize:vertical;
+}
+.adm__textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+
+@media (max-width:359px){
+  .adm{padding-left:var(--sp-2);padding-right:var(--sp-2)}
+  .adm__detail{padding-left:var(--sp-2);padding-right:var(--sp-2)}
+  /* 窄機把名單的核對欄換到下一行，才不會把名字擠成兩個字 */
+  .adm__member{flex-wrap:wrap}
+  .adm__memberMeta{flex:1 1 100%;padding-left:calc(2.2em + var(--sp-2))}
+}

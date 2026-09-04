@@ -63,6 +63,9 @@ async function boot() {
     sessionStorage.setItem('feda:loginError', back.error);
   }
 
+  // 管理後台（M4-c）。註冊在公開端之前——路由先註冊先贏。
+  (await import('./js/modules/admin/index.js')).registerAdminRoutes();
+
   // 報名（M4-b）。必須註冊在公開端之前——路由是先註冊先贏，
   // 而 /team/:id/manage 不該被公開端的 /team/:id 之類的樣式接走。
   (await import('./js/modules/register/index.js')).registerRegistrationRoutes();

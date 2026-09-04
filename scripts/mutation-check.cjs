@@ -679,6 +679,62 @@ const MUTANTS = [
     from: `      officialName: div.officialName,`,
     to: ``
   },
+  {
+    name: '#A1 審核不擋超齡（規章第十八條第 3 款：冒名頂替停整隊資格）',
+    file: 'js/engine/review.js',
+    from: `  if (tooOld.length) {
+    add('error', 'TOO_OLD',`,
+    to: `  if (tooOld.length) {
+    add('warn', 'TOO_OLD',`
+  },
+  {
+    name: '#A2 審核不擋人數超限（規章第十二條 15 人）',
+    file: 'js/engine/review.js',
+    from: `  } else if (players.length > limits.maxPlayers) {`,
+    to: `  } else if (false) {`
+  },
+  {
+    name: '#A3 背號重複只提醒（賽務台會把進球記到錯的球員身上）',
+    file: 'js/engine/review.js',
+    from: `    add('error', 'DUPLICATE_JERSEY',`,
+    to: `    add('warn', 'DUPLICATE_JERSEY',`
+  },
+  {
+    name: '#A4 背號重複標成「規章」（規章其實沒有這一條）',
+    file: 'js/engine/review.js',
+    from: `      '系統限制');`,
+    to: `      '規章第十八條');`
+  },
+  {
+    name: '#A5 學童組不檢查身分證後四碼（檢錄當天核對不了證件）',
+    file: 'js/engine/review.js',
+    from: `    const noId = players.filter(m => !/^`,
+    to: `    const noId = players.filter(m => false && !/^`
+  },
+  {
+    name: '#A6 退回時順手鎖名單（隊長改不動卻看不出為什麼）',
+    file: 'js/engine/review.js',
+    from: `  return { status: 'rejected', rosterLocked: false, reviewedBy: uid, rejectReason: text.slice(0, 500) };`,
+    to: `  return { status: 'rejected', rosterLocked: true, reviewedBy: uid, rejectReason: text.slice(0, 500) };`
+  },
+  {
+    name: '#A7 退回可以不填原因（隊長只看到「被退回」）',
+    file: 'js/engine/review.js',
+    from: `  if (!text) throw new Error('退回一定要填原因');`,
+    to: ``
+  },
+  {
+    name: '#A8 核准不鎖名單（審過的跟通過的會是兩份不同的東西）',
+    file: 'js/engine/review.js',
+    from: `  return { status: 'approved', rosterLocked: true, reviewedBy: uid, rejectReason: null };`,
+    to: `  return { status: 'approved', rosterLocked: false, reviewedBy: uid, rejectReason: null };`
+  },
+  {
+    name: '#A9 檢核把 pending／removed 的人也算進名單',
+    file: 'js/engine/review.js',
+    from: `  const roster = (Array.isArray(members) ? members : []).filter(m => ACTIVE.includes(m?.status));`,
+    to: `  const roster = (Array.isArray(members) ? members : []);`
+  },
 ];
 
 process.exit(runMutants({

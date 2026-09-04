@@ -145,7 +145,24 @@ export const persistentMultipleTabManager = () => ({});
 export const memoryLocalCache = () => ({});
 export const getFirestore = () => ({ __fake: true });
 
-export function doc(_db, ...segs) { return { __doc: true, path: segs.join('/') }; }
+/**
+ * `doc(db, ...segs)` 或 `doc(collectionRef)`（自動 id）。
+ *
+ * ⚠️ 第二種形式一定要支援。真的 Firestore 用它產生自動 id
+ * （audits／timeline／attempts 就是這樣寫的，R-ID-007 的例外）。
+ * 少了這一段，`doc(collection(db,...))` 會拿 collection ref 當 db、
+ * segs 是空的，於是**安靜地寫到路徑 ''**——測試看起來只是「資料沒出現」，
+ * 不會有任何錯誤（2026-09-04 在報名審核的稽核紀錄上踩過）。
+ */
+let autoId = 0;
+export function doc(dbOrRef, ...segs) {
+  if (dbOrRef?.__col && segs.length === 0) {
+    // 20 碼英數，形狀跟 Firestore 的自動 id 一致
+    const id = `fake${String(++autoId).padStart(4, '0')}${'x'.repeat(12)}`;
+    return { __doc: true, path: `${dbOrRef.path}/${id}`, id };
+  }
+  return { __doc: true, path: segs.join('/'), id: segs[segs.length - 1] };
+}
 export function collection(_db, ...segs) { return { __col: true, path: segs.join('/') }; }
 
 export function query(ref, ...clauses) { return { ...ref, clauses }; }
