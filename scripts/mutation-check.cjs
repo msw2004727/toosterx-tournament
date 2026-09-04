@@ -876,6 +876,30 @@ const MUTANTS = [
     from: `  if (role === 'super_admin') throw new Error('總管的權限不能由介面調整');`,
     to: ``
   },
+  {
+    name: '#D1 ⭐ 校時探測退回保留 ID（每位使用者主控台都紅一條 400）',
+    file: 'js/lib/ping.js',
+    from: "const PING_PATH = 'events?pageSize=1&mask.fieldPaths=eventId';",
+    to: "const PING_PATH = '__ping__/__ping__';"
+  },
+  {
+    name: '#D2 ⭐ 校時探測改打單一文件（空資料庫的正式站會 404）',
+    file: 'js/lib/ping.js',
+    from: "const PING_PATH = 'events?pageSize=1&mask.fieldPaths=eventId';",
+    to: "const PING_PATH = 'events/feda-cup-2026?mask.fieldPaths=eventId';"
+  },
+  {
+    name: '#D3 ⭐ 校時探測改打同源（會被 SW 接走，拿到快取的舊 Date）',
+    file: 'js/lib/ping.js',
+    from: "const PING_HOST = 'https://firestore.googleapis.com';",
+    to: "const PING_HOST = location.origin;"
+  },
+  {
+    name: '#D4 ⭐ 校時失敗回 0（在沒有資料時假裝時鐘完全準）',
+    file: 'js/lib/ping.js',
+    from: '  if (!dateHeader) return null;',
+    to: '  if (!dateHeader) return 0;'
+  },
 ];
 
 process.exit(runMutants({

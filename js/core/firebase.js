@@ -14,6 +14,7 @@ import { FIREBASE_CONFIG, FUNCTIONS_REGION, ENV } from '../firebase-config.js';
 import { impliedRoles, effectivePerms, EVENT_ID } from '../config.js';
 import { setOnline } from './sync.js';
 import { setServerOffset } from './clock.js';
+import { pingUrl, offsetFrom } from '../lib/ping.js';
 import { put, get as cacheGet } from './store.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/12.0.0';
@@ -244,15 +245,14 @@ function watchConnectivity() {
  * 伺服器時間校正。
  * 寫一筆 serverTimestamp 再讀回來太吵，改用 Firestore REST 的回應標頭：
  * 一次 fetch 就能拿到伺服器時間，誤差在往返時間之內，對「第幾分鐘」綽綽有餘。
+ *
+ * 網址怎麼挑的（三個坑）寫在 `js/lib/ping.js`。
  */
 async function syncServerOffset() {
   const t0 = Date.now();
-  const res = await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE_CONFIG.projectId}/databases/(default)/documents/__ping__/__ping__`, { method: 'GET', cache: 'no-store' });
+  const res = await fetch(pingUrl(FIREBASE_CONFIG.projectId), { method: 'GET', cache: 'no-store' });
   const t1 = Date.now();
-  const dateHeader = res.headers.get('date');
-  if (!dateHeader) return;
-  const serverMs = Date.parse(dateHeader);
-  if (Number.isNaN(serverMs)) return;
-  // 假設往返對稱，伺服器時間對應本機的中點
-  setServerOffset(serverMs - (t0 + (t1 - t0) / 2));
+  const offset = offsetFrom(res.headers.get('date'), t0, t1);
+  if (offset === null) return;      // 算不出來就不動，不要用 0 假裝校時成功
+  setServerOffset(offset);
 }
