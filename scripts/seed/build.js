@@ -57,8 +57,16 @@ const GIVEN_F  = ['雅婷','怡君','欣怡','詩涵','宜蓁','語彤','家瑜'
 const POSITIONS_5 = ['GK', 'DF', 'DF', 'MF', 'MF', 'FW', 'MF', 'FW'];
 const POSITIONS_9 = ['GK', 'DF', 'DF', 'DF', 'DF', 'MF', 'MF', 'MF', 'MF', 'FW', 'FW', 'DF', 'MF', 'FW'];
 
-const STAFF_ROLES_5 = [['coach', '總教練'], ['manager', '領隊']];
-const STAFF_ROLES_9 = [['coach', '總教練'], ['manager', '領隊'], ['medic', '隊醫']];
+/**
+ * 隊職員。代碼一律照**競賽規章第十二條**的三個職稱：
+ *   leader 領隊／coach 教練／manager 管理（各 1 人）
+ *
+ * ⚠️ 改動前 `manager` 標的是「領隊」，而 js/config.js 的 KIND_LABEL 把
+ *    manager 對到「管理」——同一筆資料在種子與畫面上叫不同的職稱，
+ *    而且不會有任何錯誤。9 人制多一個隊醫（規章沒有，是現場實務）。
+ */
+const STAFF_ROLES_5 = [['coach', '教練'], ['leader', '領隊']];
+const STAFF_ROLES_9 = [['coach', '教練'], ['leader', '領隊'], ['manager', '管理']];
 
 // 兒童組驗齡基準（2026/1/1）
 const BIRTH_YEAR = { u6: 2020, u8: 2018, u10: 2016, women: 1998, 'adult-fun': 1995, 'adult-open': 1996 };
@@ -311,7 +319,9 @@ function buildTeams(rng) {
           _teamId: teamId,
           memberId, teamId, eventId: EVENT_ID, divisionId: div.divisionId,
           role, kind: role,
-          name: `${pick(rng, SURNAMES)}${label}`,
+          // 名字用真的人名，職稱由畫面上的 KIND_LABEL 顯示。
+          // 叫「李總教練」再配一個「教練」的標籤會變成「李總教練教練」。
+          name: `${pick(rng, SURNAMES)}${pick(rng, GIVEN)}`,
           nameKind: 'legal',
           status: 'approved',
           source: isYouth ? 'coach' : 'guardian',
