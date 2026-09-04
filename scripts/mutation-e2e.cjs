@@ -64,11 +64,33 @@ const MUTANTS = [
     file: 'js/modules/staff/checkin.js',
     from: `          can('member.read')`,
     to: `          can('member.read') || true`
+  },
+  {
+    name: '#E9 ⭐ 檢錄名單不把球員排前面（檢錄員先看到三位大人）',
+    file: 'js/modules/staff/checkin-data.js',
+    from: `  return sortForCheckin(rows);`,
+    to: `  return rows;`
+  },
+  {
+    // 以下兩條改的是**替身**：替身行為與真的 Firestore 不一致時，
+    // 它會主動證明錯的東西是對的（2026-09-04 的 merge 與排序都中過）。
+    name: '#E10 ⭐ 替身把 null 排最大（真 Firestore 是最小，會蓋掉排序缺陷）',
+    file: 'tests/e2e/fake-firebase.js',
+    from: `  if (a == null) return -1;
+  if (b == null) return 1;`,
+    to: `  if (a == null) return 1;
+  if (b == null) return -1;`
+  },
+  {
+    name: '#E11 ⭐ 替身不懂 Timestamp（orderBy 時間完全沒有作用）',
+    file: 'tests/e2e/fake-firebase.js',
+    from: `  if (v && typeof v.seconds === 'number') return v.seconds * 1000 + (v.nanoseconds ?? 0) / 1e6;`,
+    to: ``
   }
 ];
 
 process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js --project=chromium-mobile --reporter=dot',
+  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js --project=chromium-mobile --reporter=dot',
   title: '前端時序｜E2E 變異測試'
 }));

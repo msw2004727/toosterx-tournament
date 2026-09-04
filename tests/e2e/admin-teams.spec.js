@@ -163,7 +163,7 @@ test('⭐ 核准會留痕（誰、什麼時候、改了什麼）@admin', async (
   const d = await dump(page);
   const audit = Object.entries(d).find(([k]) => k.includes('/audits/'))[1];
   expect(audit.action).toBe('team.approve');
-  expect(audit.targetId).toBe('t-ok');
+  expect(audit.entityId).toBe('t-ok');
   expect(audit.before.status).toBe('submitted');
   expect(audit.after.status).toBe('approved');
   expect(audit.actor.uid).toBe(UID);

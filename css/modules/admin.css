@@ -244,3 +244,17 @@
   .adm__permMain{flex:1 1 100%}
   .adm__switch,.adm__lock{margin-left:auto}
 }
+
+/* ── 稽核紀錄 ───────────────────────────────────────────── */
+.adm__audits{display:flex;flex-direction:column;gap:var(--sp-2);margin:0;padding:0;list-style:none}
+.adm__audit{
+  display:flex;flex-direction:column;gap:2px;
+  padding:var(--sp-3);background:var(--bg-card);
+  border:1px solid var(--border);border-radius:var(--r-md);
+}
+.adm__auditTop{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
+.adm__auditWhen{font-size:var(--fs-xs);color:var(--text-secondary);font-family:var(--font-num)}
+.adm__auditTitle{margin:2px 0 0;font-size:var(--fs-md);color:var(--text-primary);line-height:1.5}
+.adm__auditNote{margin:0;font-size:var(--fs-xs);color:var(--text-muted);line-height:1.6}
+.adm__auditWho{margin:2px 0 0;font-size:var(--fs-xs);color:var(--text-secondary)}
+.adm__note .icon{vertical-align:-.15em;margin-right:2px}

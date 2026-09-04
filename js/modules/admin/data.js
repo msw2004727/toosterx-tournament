@@ -80,7 +80,13 @@ export async function writeAudit({ action, targetType, targetId, before, after, 
   await setDoc(ref, {
     auditId: ref.id,
     eventId: EVENT_ID,
-    action, targetType, targetId,
+    action,
+    // ⚠️ 欄位名是 `entity` / `entityId`，跟賽務端（js/modules/staff/data.js）
+    //    與結果管線（functions/store.js）一致。這一支早期寫的是
+    //    `targetType` / `targetId`，demo 上已經有 14 筆那種形狀——
+    //    而稽核紀錄不可以改寫（R-SEC-002），所以舊的那些只能靠
+    //    `js/engine/audit.js` 的 normalizeAudit() 在讀取時收斂。
+    entity: targetType, entityId: targetId,
     before: before ?? null,
     after: after ?? null,
     reason: reason ?? null,
@@ -198,4 +204,47 @@ export async function setRolePermission(role, patch) {
     updatedAt: serverTimestamp(),
     updatedBy: uid()
   }, { merge: true });
+}
+
+// ── 稽核紀錄 ─────────────────────────────────────────────────
+
+/**
+ * 最近的稽核紀錄。
+ *
+ * 用一次性讀取而不是監聽：這一頁是「回頭查」用的，不是即時看板，
+ * 而且每一筆稽核都是別人操作時產生的——掛一個永久監聽只是白白多花讀取。
+ *
+ * ⚠️ 只 orderBy 一個欄位（`createdAt`），不在查詢裡篩 action。
+ *    篩選要複合索引，而索引要另外部署——賽前臨時想加一個分類就得動
+ *    `firestore.indexes.json` 再跑一次 deploy。幾百筆在前端篩就夠了。
+ */
+export async function getAudits(max = 200) {
+  const { collection, getDocs, query, orderBy, limit } = sdk();
+  const snap = await getDocs(query(
+    collection(db(), 'events', EVENT_ID, 'audits'),
+    orderBy('createdAt', 'desc'), limit(max)
+  ));
+  return snap.docs.map(d => ({ auditId: d.id, ...d.data() }));
+}
+
+/**
+ * 把 uid 與 teamId 翻成名字。
+ *
+ * ⚠️ 稽核紀錄上的 `actor.name` **不能信**：賽務端寫的是 Firebase 使用者的
+ *    displayName，而 custom token 登入的人那一格永遠是 null（docs/10 §8.5）。
+ *    權威在 `users/{uid}`，所以名字一律讀取時再查。
+ *
+ * 查不到就讓畫面退回 id——顯示空白會讓人以為紀錄壞了。
+ */
+export async function getAuditLookup() {
+  const { collection, getDocs, query, orderBy } = sdk();
+  const [users, teams] = await Promise.all([
+    getDocs(collection(db(), 'users')).catch(() => null),
+    getDocs(query(collection(db(), 'events', EVENT_ID, 'teams'), orderBy('name', 'asc'))).catch(() => null)
+  ]);
+  return {
+    people: Object.fromEntries((users?.docs ?? []).map(d => [d.id, d.data().displayName || d.data().name || null])
+      .filter(([, v]) => v)),
+    teams: Object.fromEntries((teams?.docs ?? []).map(d => [d.id, d.data().name]).filter(([, v]) => v))
+  };
 }

@@ -924,6 +924,36 @@ const MUTANTS = [
     from: '  if (p.pending === true) {',
     to: '  if (false) {'
   },
+  {
+    name: '#G1 ⭐ 稽核只讀新形狀（demo 上 14 筆舊紀錄整個看不到）',
+    file: 'js/engine/audit.js',
+    from: "  const entity = raw.entity ?? raw.targetType ?? null;",
+    to: "  const entity = raw.entity ?? null;"
+  },
+  {
+    name: '#G2 ⭐ 還沒同步的稽核填本機時間（時間軸失真）',
+    file: 'js/engine/audit.js',
+    from: "    at: raw.createdAt ?? raw.actor?.at ?? null",
+    to: "    at: raw.createdAt ?? raw.actor?.at ?? new Date().toISOString()"
+  },
+  {
+    name: '#G3 ⭐ 不認得的稽核動作被吞掉（發生過的事看不到）',
+    file: 'js/engine/audit.js',
+    from: "      title = `${a.action ?? '（不明動作）'}：${a.entityLabel} ${a.entityId ?? ''}`.trim();",
+    to: "      title = '（其他）';"
+  },
+  {
+    name: '#G4 稽核不顯示退回原因（隊長只會打電話問主辦）',
+    file: 'js/engine/audit.js',
+    from: "  if (a.reason) detail.push(`原因：${a.reason}`);",
+    to: ""
+  },
+  {
+    name: '#G5 ⭐ 搜尋比對原始欄位而不是畫面上那句話',
+    file: 'js/engine/audit.js',
+    from: "    const d = describeAudit(a, lookup);",
+    to: "    const d = { title: a.action ?? '', detail: [] };"
+  },
 ];
 
 process.exit(runMutants({

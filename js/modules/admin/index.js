@@ -48,4 +48,6 @@ export function registerAdminRoutes() {
     { title: '身分授權', guard: requireLogin });
   route('/admin/perms', page('../admin/perms.js', m => m.adminPermsPage),
     { title: '權限開關', guard: requireLogin });
+  route('/admin/audits', page('../admin/audits.js', m => m.adminAuditsPage),
+    { title: '稽核紀錄', guard: requireLogin });
 }

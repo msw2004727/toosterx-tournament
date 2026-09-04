@@ -213,7 +213,7 @@ test('⭐ 指派會留痕 @admin', async ({ page }) => {
   const d = await dump(page);
   const audit = Object.entries(d).find(([k]) => k.includes('/audits/'))[1];
   expect(audit.action).toBe('staff.assign');
-  expect(audit.targetId).toBe('u-a');
+  expect(audit.entityId).toBe('u-a');
   expect(audit.before).toBeNull();
   expect(audit.after.roles).toEqual(['checkin']);
   expect(audit.actor.uid).toBe(UID);

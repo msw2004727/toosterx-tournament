@@ -37,7 +37,7 @@ export async function getCheckinRoster(teamId) {
     where('status', '==', 'approved'),
     orderBy('jerseyNo', 'asc')
   ));
-  return snap.docs.map(d => {
+  const rows = snap.docs.map(d => {
     const m = d.data();
     return {
       memberId: d.id,
@@ -50,6 +50,22 @@ export async function getCheckinRoster(teamId) {
       idLast4: m.idLast4 ?? null
     };
   });
+  return sortForCheckin(rows);
+}
+
+/**
+ * 球員先（依背號），隊職員後。
+ *
+ * ⚠️ `orderBy('jerseyNo', 'asc')` **會把沒有背號的隊職員排在最前面**——
+ *    Firestore 的 null 排序是最小的。檢錄員拿著證件一個一個對，
+ *    第一眼看到的卻是三位大人，而他要找的是小孩。
+ *    報名審核那一頁（sortForReview）踩過同一個坑。
+ */
+export function sortForCheckin(rows) {
+  const isStaff = m => (m?.role ?? 'player') !== 'player';
+  const byNo = (a, b) => (a.jerseyNo ?? 999) - (b.jerseyNo ?? 999);
+  const list = rows ?? [];
+  return [...list.filter(m => !isStaff(m)).sort(byNo), ...list.filter(isStaff)];
 }
 
 /**

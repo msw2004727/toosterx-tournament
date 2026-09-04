@@ -172,7 +172,7 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       - [x] 報名審核 `#/admin/teams`（名單檢核＋核准／退回＋留痕）
       - [x] 身分授權 `#/admin/staff`（指派／場地／停用，總管專屬）
       - [x] 權限開關 `#/admin/perms`（逐條開關＋留痕，總管專屬）
-      - [ ] 稽核紀錄
+      - [x] 稽核紀錄 `#/admin/audits`（唯讀，兩種欄位形狀都讀得懂）
       - [ ] 報名開關　[ ] 賽程管理　[ ] 挑戰攤位（M6 子系統）
       ・總管仍由 `scripts/grant-super-admin.mjs` 建立（Admin SDK，不經 rules）
 - [ ] M4-d   「我的球員」（需要 members 的 collectionGroup 索引與規則）
@@ -188,10 +188,10 @@ M3.5 的四關全部實跑過了，`test:rules` 那一關的疑慮解除：分�
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 618 全綠（30 個 suite） |
-| `npm run test:mutation` | ✅ 141 / 141 全被抓到 |
-| `npm run test:mutation:e2e` | ✅ 8 / 8 全被抓到（畫面層時序與權限） |
-| `npm run test:e2e` | ✅ 594 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:unit` | ✅ 642 全綠（31 個 suite） |
+| `npm run test:mutation` | ✅ 146 / 146 全被抓到 |
+| `npm run test:mutation:e2e` | ✅ 11 / 11 全被抓到（畫面層時序、權限與替身語意） |
+| `npm run test:e2e` | ✅ 633 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 169 全綠（R34–R72 報名、R73–R92 檢錄與階層、R93–R98 審核、R99–R112 授權與權限） |
 | `npm run test:mutation:rules` | ✅ 27 / 27 全被抓到 |
 | `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
@@ -485,7 +485,8 @@ js/modules/admin/
 ├── bits.js    共用頁首與「沒有權限」畫面
 ├── teams.js   報名審核 #/admin/teams
 ├── staff.js   身分授權 #/admin/staff
-└── perms.js   權限開關 #/admin/perms
+├── perms.js   權限開關 #/admin/perms
+└── audits.js  稽核紀錄 #/admin/audits
 ```
 
 新增一個功能要動三個地方，`tests/unit/perms.test.js` 會檢查前兩者對得起來：
@@ -548,6 +549,34 @@ LINE 的 uid 沒辦法憑空產生，所以「指派身分」的第一步永遠�
 ⚠️ 這一頁管不到的角色（已移除的 `venue_lead`、FC 同步過來的 `captain` 等）
 要**照原樣印出來**，不可以顯示成「未指派」——看起來像沒有身分的話，
 總管永遠不會發現它還在資料庫裡。demo 上真的有兩份 `venue_lead` 的殘留。
+
+### 稽核紀錄（`#/admin/audits`、`js/engine/audit.js`）
+
+整頁唯讀。稽核只能新增（R-SEC-002），所以這裡連一顆「清除」都不該有。
+
+⚠️ **這個集合有兩種欄位形狀**，因為歷史上有三個寫入者：
+
+| 寫入者 | 目標欄位 |
+|---|---|
+| `js/modules/staff/data.js`（賽務端）| `entity` / `entityId` |
+| `functions/store.js`（結果管線）| `entity` / `entityId` |
+| `js/modules/admin/data.js`（管理後台，早期）| `targetType` / `targetId` |
+
+管理後台已改用 `entity` / `entityId`（跟另外兩個一致），但 demo 上已經有
+14 筆舊形狀的紀錄，而**稽核紀錄不可以改寫**——所以 `normalizeAudit()`
+的收斂只能發生在讀取時，而且**要永遠留著**。變異 #G1 守這件事。
+
+三件容易做錯的：
+
+1. **`actor.name` 不能信。** 賽務端寫的是 Firebase 使用者的 displayName，
+   而 custom token 登入的人那一格永遠是 null（docs/10 §8.5）。
+   名字一律讀取時再查 `users/{uid}`，查不到就退回 uid——顯示空白會讓人
+   以為紀錄壞了。
+2. **還沒同步的時間顯示「同步中」**，不要填本機時間：那會讓稽核的
+   時間軸失真，而時間軸正是這一頁的用途。而且它在 desc 排序裡會落在
+   **最後**（Firestore 的 null 最小），不是假裝自己最新。
+3. **不認得的動作照原樣印出來。** 日後新增的動作在 `describeAudit()`
+   還沒有分支時，主辦仍然要看得到「發生過某件事」。
 
 ### 兩個方向相反的鎖
 
@@ -969,6 +998,13 @@ M5 是照**想像的 schema** 寫的，四個欄位在真實資料庫裡都不�
 
 > E2E 的替身資料當時也照著錯的 schema 寫，所以測試看起來全綠。
 > **替身資料寫錯 schema 比沒有測試更危險**：它會主動證明錯的東西是對的。
+>
+> 2026-09-04 又中了兩次，這次錯的是**替身的行為**不是資料：
+> `setDoc(merge:true)` 寫成淺層合併（真 Firestore 是深層），以及
+> `orderBy` 對 Timestamp 完全沒有作用、`null` 排最大（真 Firestore 最小）。
+> 後者一修好，檢錄台就露出「沒有背號的隊職員排在名單最前面」——
+> 檢錄員拿著證件要找小孩，第一眼看到的卻是三位大人。
+> 變異 #E5／#E10／#E11 現在盯著替身的這三個語意。
 > 現在替身種子已對齊真實資料庫，並補了四條 E2E 專門盯欄位路徑。
 
 ### 統計頁只有兩張榜

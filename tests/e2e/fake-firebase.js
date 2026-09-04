@@ -108,10 +108,38 @@ function querySnapOf(w) {
   for (const c of (w.clauses || []).filter(c => c.kind === 'orderBy')) {
     rows.sort((a, b) => cmp(a.data()[c.field], b.data()[c.field]) * (c.dir === 'desc' ? -1 : 1));
   }
+  const lim = (w.clauses || []).find(c => c.kind === 'limit');
+  if (lim) rows = rows.slice(0, lim.n);
   return { docs: rows, size: rows.length, metadata: { fromCache: !S.online, hasPendingWrites: S.pending.length > 0 } };
 }
 
-const cmp = (a, b) => (a == null ? 1 : b == null ? -1 : a < b ? -1 : a > b ? 1 : 0);
+/**
+ * 排序用的鍵。
+ *
+ * Timestamp 是**物件**，兩個物件之間的 `<` 永遠是 false——所以原本
+ * `orderBy('createdAt', 'desc')` 完全沒有作用，而測試看起來是綠的
+ * （順序剛好等於插入順序）。真的 Firestore 會正確排序時間。
+ */
+const sortKey = v => {
+  if (v && typeof v.toMillis === 'function') return v.toMillis();
+  if (v && typeof v.seconds === 'number') return v.seconds * 1000 + (v.nanoseconds ?? 0) / 1e6;
+  if (v instanceof Date) return v.getTime();
+  return v;
+};
+
+/**
+ * ⚠️ `null` 在 Firestore 的排序裡是**最小**的，不是最大。
+ *    所以 `orderBy('jerseyNo', 'asc')` 會把沒有背號的隊職員排在最前面——
+ *    那正是 `js/modules/admin/teams.js` 的 sortForReview() 在處理的事。
+ *    這裡原本把 null 當最大，方向剛好相反，等於讓那個修正沒有被測到。
+ */
+const cmp = (a0, b0) => {
+  const a = sortKey(a0), b = sortKey(b0);
+  if (a == null && b == null) return 0;
+  if (a == null) return -1;
+  if (b == null) return 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+};
 
 /**
  * 模擬「本機立刻生效、伺服器稍後確認」

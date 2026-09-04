@@ -208,7 +208,7 @@ test('⭐ 每一次調整都留痕 @admin', async ({ page }) => {
   const d = await dump(page);
   const audit = Object.entries(d).find(([k]) => k.includes('/audits/'))[1];
   expect(audit.action).toBe('perms.toggle');
-  expect(audit.targetId).toBe('checkin');
+  expect(audit.entityId).toBe('checkin');
   expect(audit.before['checkin.write']).toBe(true);
   expect(audit.after['checkin.write']).toBe(false);
   expect(audit.actor.uid).toBe(UID);
