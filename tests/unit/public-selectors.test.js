@@ -10,6 +10,9 @@
  *   ・排不出名次時自己填一個數字進去（這是不可協商的紅線）
  */
 
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import {
   sortByKickoff, groupBySlot, splitHomeSections,
   filterMatches, filterToQuery, queryToFilter,
@@ -18,6 +21,10 @@ import {
   embedUrl, isPlaceholder, sideLabel, isLiveMatch, isDoneMatch,
   hiddenScorerDivisions, unpublishedDivisions, publishedMatches
 } from '../../js/modules/public/selectors.js';
+
+// ⚠️ Windows 上一定要用 fileURLToPath()：`new URL(...).pathname` 是 `/D:/…`，
+//    丟給 fs 會被解成 `D:\D:\…` 而 ENOENT（icons.test.js 出過事）
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 const T = (h, m = 0) => Date.parse(`2026-10-11T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+08:00`);
 const match = (over = {}) => ({
@@ -394,5 +401,37 @@ describe('T32-9 賽程發布閘門', () => {
     expect(publishedMatches(rows, null)).toHaveLength(1);
     expect(publishedMatches(rows, [])).toHaveLength(1);
     expect(publishedMatches(null, divisions)).toEqual([]);
+  });
+});
+
+describe('T32-10 組別快取的長度', () => {
+  // 2026-09-05 在真站上抓到的缺陷：組別本來是靜態設定，5 分鐘快取無害；
+  // 賽程管理加了 schedulePublished 之後，組別會在活動期間被改——
+  // 主辦按下發布、拿手機看公開站，最多五分鐘看不到東西。
+  //
+  // ⚠️ 這件事**沒有任何行為測試抓得到**：替身 SDK 沒有這一層快取，
+  //    而真站上要等 5 分鐘才看得出來。所以這裡用原始碼比對守著，
+  //    跟 registration.test.js 讀 firestore.rules 是同一個手法。
+  const SRC = fs.readFileSync(join(ROOT, 'js/modules/public/data.js'), 'utf8');
+
+  test('⭐ 組別有自己的短快取，而且比通用快取短', () => {
+    const div = SRC.match(/const DIVISION_CACHE_MS = ([^;]+);/)?.[1];
+    const gen = SRC.match(/const CACHE_MS = ([^;/]+)/)?.[1];
+    expect(div).toBeTruthy();
+    // eslint-disable-next-line no-eval
+    expect(eval(div)).toBeLessThan(eval(gen));
+    expect(eval(div)).toBeLessThanOrEqual(60 * 1000);
+  });
+
+  test('⭐ getDivisions 與 getDivision 真的用到它（宣告了卻沒接上等於沒改）', () => {
+    for (const fn of ['getDivisions', 'getDivision']) {
+      const body = SRC.split(`export function ${fn}`)[1]?.split('\n}')[0] ?? '';
+      expect(body).toContain('DIVISION_CACHE_MS');
+    }
+  });
+
+  test('場地與名單維持長快取（那些不會在活動期間改）', () => {
+    const body = SRC.split('export function getVenues')[1]?.split('\n}')[0] ?? '';
+    expect(body).not.toContain('DIVISION_CACHE_MS');
   });
 });
