@@ -637,7 +637,7 @@ async function rebuildLeaderboard({ eventId, challengeId, challenge }) {
       rows: rows.map(r => ({
         rank: r.rank, playerId: r.playerId, nickname: r.nickname,
         value: r.value, displayValue: r.displayValue,
-        attempts: r.attempts, achievedAt: r.achievedAt
+        attempts: r.attempts, attemptAt: r.attemptAt
       })),
       topN: LEADERBOARD_TOP_N,
       totalPlayers,

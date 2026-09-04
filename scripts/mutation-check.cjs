@@ -1243,6 +1243,86 @@ const MUTANTS = [
     from: '  if (!/^\\d{1,6}$/.test(digits)) return null;',
     to: '  if (false) return null;'
   },
+  {
+    name: '#CH21 ⭐ 時間戳漏掉字串那一路（替身與序列化資料一律變成「還沒同步」）',
+    file: 'js/engine/challenge.js',
+    from: "  if (typeof v === 'string') {\n    const t = Date.parse(v);\n    return Number.isNaN(t) ? null : t;\n  }\n  return null;\n}",
+    to: '  return null;\n}'
+  },
+
+  // ── 攤位端（M6-b）───────────────────────────────────────────
+  {
+    name: '#BT1 ⭐ inputMode 讀不到就丟錯（現場最不需要的就是「這一關打不開」）',
+    file: 'js/modules/booth/actions.js',
+    from: "  return ['stepper', 'shots', 'ladder', 'numpad'].includes(m) ? m : 'numpad';",
+    to: "  return m;"
+  },
+  {
+    name: '#BT2 ⭐ shots 的細項直接傳出去不複製（畫面之後改它會連動改到送出的內容）',
+    file: 'js/modules/booth/actions.js',
+    from: '      ? { ok: true, rawValue: r.total, detail: [...detail], reason: \'\' }',
+    to: '      ? { ok: true, rawValue: r.total, detail, reason: \'\' }'
+  },
+  {
+    name: '#BT3 ⭐ 去重不看時間（同一位玩家整天只送得出一次同樣的分數）',
+    file: 'js/modules/booth/actions.js',
+    from: '    Number.isFinite(r.atMs) && nowMs - r.atMs < DEDUPE_MS);',
+    to: '    true);'
+  },
+  {
+    name: '#BT4 ⭐ 去重只看玩家不看分數（真的想再挑戰一次也被擋掉）',
+    file: 'js/modules/booth/actions.js',
+    from: '    numOf(r.rawValue) === numOf(next.rawValue) &&',
+    to: '    true &&'
+  },
+  {
+    name: '#BT5 ⭐ attemptId 改用亂數（離線佇列重送就變成兩筆成績）',
+    file: 'js/modules/booth/actions.js',
+    from: '  const attemptId = `${playerId}__${challenge.challengeId}__${atMs}`;',
+    to: '  const attemptId = `${playerId}__${challenge.challengeId}__${Math.random()}`;'
+  },
+  {
+    name: '#BT6 ⭐ 送出的文件自己填 createdAt（rules 的 10 分鐘作廢窗就失效了）',
+    file: 'js/modules/booth/actions.js',
+    from: '      voidReason: null\n      // createdAt 由呼叫端補 serverTimestamp()',
+    to: '      voidReason: null,\n      createdAt: new Date(atMs)'
+  },
+  {
+    name: '#BT7 ⭐ 平手也算破紀錄（每次同分都跳「個人最佳」）',
+    file: 'js/modules/booth/actions.js',
+    from: '  const isPersonalBest = prev.value == null || isBetter(rawValue, prev.value, ranking);',
+    to: '  const isPersonalBest = prev.value == null || !isBetter(prev.value, rawValue, ranking);'
+  },
+  {
+    name: '#BT8 ⭐ 次數滿了就硬擋（規格明文：現場彈性比嚴格限制重要）',
+    file: 'js/modules/booth/actions.js',
+    from: "    source: q.exhausted ? 'staff' : 'free',",
+    to: "    source: 'free',"
+  },
+  {
+    name: '#BT9 ⭐ 作廢不檢查是不是自己送的（畫面放行、規則擋掉＝假成功）',
+    file: 'js/modules/booth/actions.js',
+    from: "  if (attempt.staffUid !== uid) return { ok: false, reason: '只能作廢自己送出的紀錄，其餘請找管理員。' };",
+    to: '  if (false) return { ok: false, reason: \'\' };'
+  },
+  {
+    name: '#BT10 ⭐ 還沒同步就畫作廢鈕（伺服器認可的時間還不存在＝假成功）',
+    file: 'js/modules/booth/actions.js',
+    from: "  if (created == null) return { ok: false, reason: '還在等伺服器確認送出時間，稍候再試。' };",
+    to: '  const c2 = created ?? nowMs;'
+  },
+  {
+    name: '#BT11 ⭐ 作廢沒有時間上限（跟 firestore.rules 的 10 分鐘分岔）',
+    file: 'js/modules/booth/actions.js',
+    from: "  if (left <= 0) return { ok: false, reason: '超過 10 分鐘了，請找管理員處理。' };",
+    to: '  if (false) return { ok: false, reason: \'\' };'
+  },
+  {
+    name: '#BT12 ⭐ 管理員也受攤位指派限制（主辦自己進不了任何攤位頁）',
+    file: 'js/modules/booth/actions.js',
+    from: '  if (isAdmin) return list;',
+    to: '  if (false) return list;'
+  }
 ];
 
 process.exit(runMutants({

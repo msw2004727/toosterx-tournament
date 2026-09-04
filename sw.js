@@ -4,7 +4,7 @@
  * ⚠️ R-REL-013：HTML 一律 network-first，禁止 cache-first。
  * ⚠️ R-REL-014：新資源必須由 scripts/bump-version.js 納管。
  */
-const CACHE_NAME = 'feda-cup-0.20260905a';
+const CACHE_NAME = 'feda-cup-0.20260905b';
 
 const APP_SHELL = [
   '/css/tokens.css',
@@ -15,6 +15,7 @@ const APP_SHELL = [
   '/css/modules/account.css',
   '/css/modules/register.css',
   '/css/modules/admin.css',
+  '/css/modules/booth.css',
   '/app.js',
   '/manifest.json',
   // PWA 圖示。裝到主畫面之後第一次離線開啟時，圖示與 manifest 都要拿得到，

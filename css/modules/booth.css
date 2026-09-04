@@ -1,0 +1,157 @@
+/* ══════════════════════════════════════════════════════════════
+   挑戰攤位（M6-b，docs/06 §4）
+
+   設計前提跟賽務台一樣：站著、單手、可能戴手套、在陽光下。
+   所以按鈕比別頁大（--tap 的 1.2–1.6 倍），而且不用細字。
+   驗收 C02 要求掃碼到送出 10 秒內、3 次點擊以內。
+   ══════════════════════════════════════════════════════════════ */
+
+.booth{display:flex;flex-direction:column;gap:var(--sp-4);padding:var(--sp-4)}
+
+/* ── 頁首：整天只看這一關，所以關卡名要大 ───────────────── */
+.booth__head{display:flex;align-items:center;gap:var(--sp-3)}
+.booth__headIcon{
+  flex:none;display:grid;place-items:center;
+  width:3rem;height:3rem;border-radius:var(--r-md);
+  background:var(--accent-bg);color:var(--accent);font-size:1.6rem;
+}
+.booth__headText{display:flex;flex-direction:column;min-width:0}
+.booth__headText strong{font-size:var(--fs-lg);color:var(--text-primary);line-height:1.3}
+.booth__headSub{font-size:var(--fs-sm);color:var(--text-secondary)}
+
+.booth__sectionHead{
+  margin:var(--sp-2) 0 0;font-size:var(--fs-sm);font-weight:600;color:var(--text-secondary);
+}
+
+/* ── 方框 ────────────────────────────────────────────────── */
+.booth__box{
+  display:flex;flex-direction:column;gap:var(--sp-2);
+  padding:var(--sp-4);border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--bg-card);
+}
+.booth__box--ok{background:var(--ok-bg);border-color:var(--success);color:var(--success)}
+.booth__box--ok .booth__note{color:var(--success);opacity:.9}
+.booth__box--warn{background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn-text)}
+.booth__note{margin:0;font-size:var(--fs-sm);color:var(--text-secondary);line-height:1.6}
+.booth__permNote{margin:0;font-size:var(--fs-xs);color:var(--text-muted);line-height:1.6}
+.booth__warn{margin:0;font-size:var(--fs-sm);color:var(--warn-text)}
+.booth__label{font-size:var(--fs-sm);color:var(--text-secondary)}
+
+/* ── 選關卡（被指派到兩關以上時才出現）───────────────── */
+.booth__choices{display:flex;flex-direction:column;gap:var(--sp-2)}
+.booth__choice{
+  display:flex;align-items:center;gap:var(--sp-3);
+  min-height:calc(var(--tap) * 1.4);padding:var(--sp-3) var(--sp-4);
+  border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--bg-card);color:var(--text-primary);
+  font-family:inherit;font-size:var(--fs-md);text-align:left;cursor:pointer;
+}
+.booth__choiceName{flex:1;min-width:0;font-weight:600}
+.booth__choiceNote{font-size:var(--fs-xs);color:var(--text-muted)}
+
+/* ── 玩家 ID 輸入 ────────────────────────────────────────── */
+.booth__idRow{display:flex;gap:var(--sp-2);flex-wrap:wrap}
+.booth__id{
+  flex:1 1 9rem;min-width:0;min-height:calc(var(--tap) * 1.2);
+  padding:0 var(--sp-3);border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--bg-input);color:var(--text-primary);
+  font-family:var(--font-num);font-size:var(--fs-lg);letter-spacing:.05em;
+}
+
+.booth__box--player{gap:var(--sp-1)}
+.booth__playerTop{display:flex;align-items:baseline;gap:var(--sp-2);flex-wrap:wrap}
+.booth__nick{font-size:var(--fs-lg);color:var(--text-primary)}
+.booth__pid{font-family:var(--font-num);font-size:var(--fs-sm);color:var(--text-muted)}
+.booth__clear{
+  align-self:flex-start;min-height:var(--tap);padding:0 var(--sp-3);
+  border:1px solid var(--border);border-radius:999px;
+  background:transparent;color:var(--text-secondary);
+  font-family:inherit;font-size:var(--fs-sm);cursor:pointer;
+}
+
+/* ── stepper（橫樑：0–5 次）───────────────────────────── */
+.booth__stepper{display:flex;align-items:center;justify-content:center;gap:var(--sp-4)}
+.booth__stepBtn{
+  width:calc(var(--tap) * 1.6);height:calc(var(--tap) * 1.6);
+  border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--bg-card);color:var(--text-primary);
+  font-family:inherit;font-size:2rem;line-height:1;cursor:pointer;
+}
+.booth__stepValue{
+  min-width:3.5rem;text-align:center;
+  font-family:var(--font-num);font-size:3rem;font-weight:700;color:var(--text-primary);
+}
+
+/* ── shots（九宮格／停球王：五排，每排 0 1 2 3）────────── */
+.booth__shots{display:flex;flex-direction:column;gap:var(--sp-2)}
+.booth__shotRow{display:flex;align-items:center;gap:var(--sp-2)}
+.booth__shotNo{flex:none;width:3.4rem;font-size:var(--fs-sm);color:var(--text-secondary)}
+.booth__shotBtn{
+  flex:1;min-width:0;min-height:calc(var(--tap) * 1.15);
+  border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--bg-card);color:var(--text-secondary);
+  font-family:var(--font-num);font-size:var(--fs-lg);cursor:pointer;
+}
+.booth__shotBtn.is-on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);font-weight:700}
+.booth__shotTotal{
+  text-align:right;font-family:var(--font-num);font-size:var(--fs-lg);
+  font-weight:700;color:var(--text-primary);
+}
+
+/* ── ladder（頭球：由高到低排，點到達成的最高一級）──────── */
+.booth__ladder{display:flex;flex-direction:column;gap:var(--sp-2)}
+.booth__ladderStep{
+  min-height:calc(var(--tap) * 1.2);
+  border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--bg-card);color:var(--text-primary);
+  font-family:var(--font-num);font-size:var(--fs-lg);cursor:pointer;
+}
+.booth__ladderStep.is-on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);font-weight:700}
+
+/* ── numpad（球速）──────────────────────────────────────── */
+.booth__numValue{
+  text-align:center;font-family:var(--font-num);font-size:2.6rem;font-weight:700;
+  color:var(--text-primary);margin-bottom:var(--sp-3);
+}
+.booth__keys{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-2)}
+.booth__key{
+  min-height:calc(var(--tap) * 1.3);
+  border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--bg-card);color:var(--text-primary);
+  font-family:var(--font-num);font-size:var(--fs-xl);cursor:pointer;
+}
+.booth__key--wide{grid-column:span 2;font-family:inherit;font-size:var(--fs-md)}
+
+/* ── 送出 ───────────────────────────────────────────────── */
+.booth__submitBar{display:flex;flex-direction:column;gap:var(--sp-2)}
+.booth__resultLine{margin:0;font-size:var(--fs-xl);font-weight:700;line-height:1.3}
+
+/* ── 最近登錄（10 分鐘內可作廢）─────────────────────────── */
+.booth__recent{display:flex;flex-direction:column;gap:var(--sp-2);margin:0;padding:0;list-style:none}
+.booth__recentRow{
+  display:flex;align-items:center;gap:var(--sp-3);
+  padding:var(--sp-3);border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--bg-card);
+}
+.booth__recentRow.is-voided{opacity:.55}
+.booth__recentMain{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.booth__recentName{font-size:var(--fs-md);color:var(--text-primary)}
+.booth__recentMeta{font-size:var(--fs-xs);color:var(--text-secondary);font-family:var(--font-num)}
+.booth__voidBtn{
+  flex:none;min-height:var(--tap);padding:0 var(--sp-3);
+  border:1px solid var(--border);border-radius:999px;
+  background:transparent;color:var(--text-secondary);
+  font-family:inherit;font-size:var(--fs-sm);cursor:pointer;
+}
+/* 作廢不了的時候要寫出原因，不要只把按鈕拿掉——
+   「按鈕不見了」是攤位人員最難回報的狀況 */
+.booth__voidNote{flex:none;max-width:9rem;font-size:var(--fs-xs);color:var(--text-muted);line-height:1.4}
+
+/* 320px：鍵盤與每球的按鈕會撐破，讓它們自己縮（R-UI-006）*/
+@media (max-width:359px){
+  .booth__stepBtn{width:calc(var(--tap) * 1.3);height:calc(var(--tap) * 1.3);font-size:1.6rem}
+  .booth__stepValue{font-size:2.4rem;min-width:2.6rem}
+  .booth__shotNo{width:2.8rem;font-size:var(--fs-xs)}
+  .booth__numValue{font-size:2rem}
+  .booth__voidNote{max-width:6.5rem}
+}

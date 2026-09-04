@@ -45,9 +45,18 @@ describe('T37-A 調得動與調不動', () => {
   test('⭐ 功能還沒上線的調不動（開關按了不會有效果）', () => {
     // 2026-09-04：`match.finish` 沒有標 pending，賽務台卻從來沒問過 can()——
     // 主辦關掉之後按鈕照樣在。現在 pending 由靜態掃描盯著（T42-8）。
-    const r = editableRole(P('challenge.attempt.write'), 'booth');
-    expect(r.ok).toBe(false);
-    expect(r.reason).toContain('還沒上線');
+    //
+    // ⚠️ **不要在這裡寫死某一條權限碼。** 功能一上線那條的 pending 就會被
+    //    拿掉，這條測試就跟著紅——但它要守的是「pending 會讓開關鎖住」
+    //    這個行為，不是某一條權限的狀態。提醒拿掉旗標是 T42-8 的職責。
+    //    （`schedule.manage` 與 `challenge.attempt.write` 各讓這裡紅過一次。）
+    const pending = PERMISSIONS.filter(p => p.pending === true && p.minRole !== 'super_admin');
+    expect(pending.length).toBeGreaterThan(0);      // 全部上線了就該改寫這條測試
+    for (const p of pending) {
+      const r = editableRole(p, p.minRole);
+      expect(r.ok).toBe(false);
+      expect(r.reason).toContain('還沒上線');
+    }
   });
 
   test('⭐ 繼承來的那一階調不動，而且說得出要去哪裡調', () => {

@@ -145,14 +145,26 @@ export function validateLadder(rawValue, challenge) {
 /** 作廢的紀錄一律不算。作廢之後排行榜要自動退回次佳（驗收 C07）。 */
 const live = list => (Array.isArray(list) ? list : []).filter(a => a && a.voided !== true);
 
-/** 時間戳（毫秒）。相容 Firestore Timestamp、Date、數字。 */
+/**
+ * 時間戳（毫秒）。相容 Firestore Timestamp、Date、數字、ISO 字串。
+ *
+ * ⚠️ **字串那一路不能漏**：真的 Firestore 回的是 Timestamp 物件，
+ *    所以漏掉也看不出來；但任何拿到序列化時間的路徑（替身 SDK、
+ *    從 JSON 還原的資料、匯出再匯入）都會回 null，然後那一筆就被
+ *    當成「還沒同步」排到最後面。`js/lib/format.js` 的 toMillis
+ *    是同一套判斷——引擎不能 import lib（會循環），只能各留一份。
+ */
 export function attemptMs(a) {
   const v = a?.attemptAt ?? a?.createdAt;
   if (v == null) return null;
   if (typeof v === 'number') return Number.isFinite(v) ? v : null;
-  if (v instanceof Date) return v.getTime();
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v.getTime();
   if (typeof v.toMillis === 'function') return v.toMillis();
   if (typeof v.seconds === 'number') return v.seconds * 1000 + Math.floor((v.nanoseconds ?? 0) / 1e6);
+  if (typeof v === 'string') {
+    const t = Date.parse(v);
+    return Number.isNaN(t) ? null : t;
+  }
   return null;
 }
 
@@ -292,7 +304,7 @@ export function buildLeaderboard({ attempts = [], challenge, players = {}, topN 
       value,
       displayValue: formatScore(value, challenge),
       attempts: count,
-      achievedAt: attemptMs(attempt)
+      attemptAt: attemptMs(attempt)
     });
   }
 
@@ -300,8 +312,8 @@ export function buildLeaderboard({ attempts = [], challenge, players = {}, topN 
     if (a.value !== b.value) return ranking === 'lower' ? a.value - b.value : b.value - a.value;
     // 同成績依較早達成排前。時間未知的排後面——不能讓一筆還沒同步的
     // 紀錄插到已經確定的成績前面
-    const ta = a.achievedAt;
-    const tb = b.achievedAt;
+    const ta = a.attemptAt;
+    const tb = b.attemptAt;
     if (ta == null && tb == null) return String(a.playerId).localeCompare(String(b.playerId));
     if (ta == null) return 1;
     if (tb == null) return -1;

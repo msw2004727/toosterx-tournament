@@ -245,12 +245,28 @@ describe('T46-E 最佳成績', () => {
     expect(pickBest(pending, CROSSBAR).attempt.attemptId).toBe('sync');
   });
 
-  test('attemptMs 吃得下 Timestamp／Date／數字', () => {
+  test('⭐ attemptMs 吃得下 Timestamp／Date／數字／ISO 字串', () => {
     expect(attemptMs({ attemptAt: 1000 })).toBe(1000);
     expect(attemptMs({ attemptAt: new Date(2000) })).toBe(2000);
     expect(attemptMs({ attemptAt: { seconds: 3, nanoseconds: 500e6 } })).toBe(3500);
     expect(attemptMs({ createdAt: { toMillis: () => 4000 } })).toBe(4000);
     expect(attemptMs({})).toBeNull();
+
+    // ⭐ 字串那一路不能漏：真的 Firestore 回 Timestamp 物件，所以漏掉
+    //    在線上看不出來；但替身 SDK、序列化過的資料、匯出再匯入的資料
+    //    都是字串——回 null 的話那一筆會被當成「還沒同步」排到最後面，
+    //    同分時就分不出誰先達成了（變異 #CH21）
+    const iso = '2026-10-11T02:00:00.000Z';
+    expect(attemptMs({ attemptAt: iso })).toBe(Date.parse(iso));
+    expect(attemptMs({ createdAt: iso })).toBe(Date.parse(iso));
+    expect(attemptMs({ attemptAt: '不是時間' })).toBeNull();
+    expect(attemptMs({ attemptAt: new Date('壞掉') })).toBeNull();
+  });
+
+  test('⭐ 同分時字串時間戳也要分得出先後（漏掉字串就會退化成 playerId 排序）', () => {
+    const early = { attemptId: 'e', playerId: 'p1', rawValue: 5, attemptAt: '2026-10-11T01:00:00.000Z', voided: false };
+    const late = { attemptId: 'l', playerId: 'p1', rawValue: 5, attemptAt: '2026-10-11T03:00:00.000Z', voided: false };
+    expect(pickBest([late, early], CROSSBAR).attempt.attemptId).toBe('e');
   });
 });
 
