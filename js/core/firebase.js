@@ -86,7 +86,9 @@ export const isPersistenceDegraded = () => cacheGet('persistence:degraded') === 
 
 export function onAuth(fn) {
   authListeners.add(fn);
-  fn(currentUser, currentStaff);
+  // 一個壞掉的訂閱者不該讓所有人的 auth 監聽跟著壞（首次回呼是同步的，例外會往上炸到頁面）
+  try { fn(currentUser, currentStaff); }
+  catch (err) { console.error('[firebase] onAuth 首次回呼失敗', err); }
   return () => authListeners.delete(fn);
 }
 

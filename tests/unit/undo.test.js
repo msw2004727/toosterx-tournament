@@ -100,7 +100,8 @@ describe('T31-4 撤回的 patch', () => {
   test('⭐ 退回「實際打過的最後一個期別」，不是一律當成下半場', () => {
     expect(lastPlayedPeriod([ev(1, 'h1'), ev(9, 'h2'), ev(14, 'et1')])).toBe('et1');
     expect(lastPlayedPeriod([ev(1, 'h1')])).toBe('h1');
-    expect(lastPlayedPeriod([])).toBe('h2');            // 沒資料時的保守預設
+    // 沒資料時退回第一期：六個組別都是單節，退回 'h2' 會顯示「下半場」、時鐘從 13 分起（驗收 D-06）
+    expect(lastPlayedPeriod([])).toBe('h1');
   });
 
   test('作廢掉的 period_start 不算', () => {

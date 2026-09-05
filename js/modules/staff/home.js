@@ -11,7 +11,7 @@
 import { el, emptyState, toast, mount } from '../../core/ui.js';
 import { iconText } from '../../core/icons.js';
 import { hhmm, dateLabelFromYmd, STATUS_LABEL } from '../../lib/format.js';
-import { staff, user, isPersistenceDegraded } from '../../core/firebase.js';
+import { staff, user, isPersistenceDegraded, can } from '../../core/firebase.js';
 import { navigate } from '../../core/router.js';
 import { watchMyMatches, getVenues } from './data.js';
 import { syncIndicator } from './sync-indicator.js';
@@ -164,25 +164,32 @@ export async function staffHome({ scope, view }) {
     ]);
   }
 
+  // 依權限畫按鈕（R-PERM-001）。攤位人員點「檢錄」只會進到「你沒有檢錄權限」——
+  // 一顆按了會失敗的按鈕比沒有按鈕更糟（驗收 D-13）。
   function toolsBar() {
-    return el('div', { class: 'toolbar' }, [
-      el('button', {
+    const btns = [];
+    if (can('checkin.write')) {
+      btns.push(el('button', {
         class: 'btn btn--lg', type: 'button',
         onClick: () => {
           const m = pickCurrent(matches);
           if (!m) return toast('目前沒有可管理的場次。', 'warn');
           navigate(`/staff/checkin/${encodeURIComponent(m.matchId)}`);
         }
-      }, [...iconText('list', '檢錄')]),
-      el('button', {
+      }, [...iconText('list', '檢錄')]));
+    }
+    if (can('matchsheet.write')) {
+      btns.push(el('button', {
         class: 'btn btn--lg', type: 'button',
         onClick: () => {
           const m = pickCurrent(matches);
           if (!m) return toast('目前沒有可管理的場次。', 'warn');
           navigate(`/staff/sheet/${encodeURIComponent(m.matchId)}`);
         }
-      }, [...iconText('list', '出場名單')])
-    ]);
+      }, [...iconText('list', '出場名單')]));
+    }
+    if (!btns.length) return null;
+    return el('div', { class: 'toolbar' }, btns);
   }
 
   return () => { offSync(); indicator.destroy(); };

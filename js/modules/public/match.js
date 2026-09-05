@@ -15,7 +15,7 @@ import { icon, iconText } from '../../core/icons.js';
 import { startTicker, now, elapsedSec } from '../../core/clock.js';
 import {
   hhmm, dateLabelFromYmd, displayMinute, scoreText,
-  STATUS_LABEL, PERIOD_LABEL
+  STATUS_LABEL, periodLabel
 } from '../../lib/format.js';
 import * as data from './data.js';
 import { sideLabel, isLiveMatch, isDoneMatch, embedUrl, publicMember, sortRoster } from './selectors.js';
@@ -122,7 +122,8 @@ export async function publicMatch({ params, scope, view, query }) {
   function scoreboard(m) {
     const sc = scoreText(m.score, state.division?.display?.mercyRule);
     const started = isLiveMatch(m) || isDoneMatch(m);
-    const ht = m.htScore && m.htScore.home != null
+    // 單節的組別（規章第十八條第 2 款：不分上下半場）沒有「半場」這回事（驗收 D-07）
+    const ht = (state.division?.periods ?? 2) > 1 && m.htScore && m.htScore.home != null
       ? `半場 ${m.htScore.home}-${m.htScore.away}` : null;
 
     return el('div', { class: 'psb', dataset: { status: m.status || 'scheduled' } }, [
@@ -199,7 +200,7 @@ export async function publicMatch({ params, scope, view, query }) {
           ? `icon--card-fill ${e.cardType === 'yellow' ? 'icon--yellow' : 'icon--red'}`
           : undefined
       })),
-      el('span', { class: 'ptl__text', text: eventLine(e) }),
+      el('span', { class: 'ptl__text', text: eventLine(e, state.division?.periods ?? 2) }),
       el('span', { class: 'ptl__team', text: sideLabel(state.match, e.side) })
     ])));
   }
@@ -281,7 +282,7 @@ function iconFor(e) {
   return EVENT_ICON[e?.type] || 'note';
 }
 
-function eventLine(e) {
+function eventLine(e, periods = 2) {
   const who = e?.playerName
     ? `${e.jerseyNo != null ? '#' + e.jerseyNo + ' ' : ''}${e.playerName}`
     : '';
@@ -292,8 +293,8 @@ function eventLine(e) {
     case 'own_goal':       return `烏龍球　${who}`;
     case 'card':           return `${{ yellow: '黃牌', second_yellow: '兩黃換紅', red: '紅牌' }[e.cardType] || '出牌'}　${who}`;
     case 'substitution':   return `換人　${who} 下場`;
-    case 'period_start':   return `${PERIOD_LABEL[e.periodId] ?? e.periodId} 開始`;
-    case 'period_end':     return `${PERIOD_LABEL[e.periodId] ?? e.periodId} 結束`;
+    case 'period_start':   return `${periodLabel(e.periodId, periods)} 開始`;
+    case 'period_end':     return `${periodLabel(e.periodId, periods)} 結束`;
     default:               return e?.note || e?.type || '';
   }
 }

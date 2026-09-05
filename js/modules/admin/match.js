@@ -149,10 +149,14 @@ export async function adminMatchPage({ scope, view, params }) {
     });
   }
 
-  function doReopen() {
+  async function doReopen() {
+    // 重開要退回**最後打過的那一期**，所以先讀事件流；讀不到就退回第一期（單節組別本來就只有那一期）
+    let events = [];
+    try { events = await data.getTimeline(state.match.matchId); }
+    catch (err) { console.warn('[admin] 讀不到事件流，重開退回第一期', err); }
     return act({
       action: 'reopen', label: '重開場次',
-      patch: buildReopenPatch(user()?.uid),
+      patch: buildReopenPatch(user()?.uid, events),
       before: { status: state.match.status, result: state.match.result ?? null },
       after: { status: 'live' }
     });
@@ -424,6 +428,8 @@ export async function adminMatchPage({ scope, view, params }) {
         ? el('div', { class: 'adm__box' }, [
             el('p', { class: 'adm__note', text:
               '競賽規章第十八條第 6 款：逾時 5 分鐘不出場以棄權論 0:2。比分由系統依規章判定，不能手填。' }),
+            // 按鈕反灰要說得出為什麼（驗收 D-12）
+            !woG.ok ? el('p', { class: 'adm__permMeta', id: 'walkover-reason', text: woG.reason }) : null,
             el('div', { class: 'adm__choices' }, [
               el('button', {
                 class: 'adm__choice', type: 'button', disabled: !woG.ok || !!state.busy,

@@ -127,7 +127,7 @@ const MUTANTS = [
   {
     name: '#17 撤回一律退回下半場（延長賽／PK 會被退錯期別）',
     file: 'js/modules/staff/live-actions.js',
-    from: `  return best?.periodId ?? 'h2';`,
+    from: `  return best?.periodId ?? 'h1';`,
     to: `  return 'h2';`
   },
   {
@@ -1448,13 +1448,13 @@ const MUTANTS = [
   },
   {
     name: '#MA2 ⭐ PK 在正規時間分出勝負時也拿來翻盤（2:1 卻判成敗）',
-    file: 'js/modules/admin/match-actions.js',
+    file: 'js/engine/result.js',
     from: "  if (winner === 'draw' && hasPk && pkH !== pkA) {",
     to: '  if (hasPk && pkH !== pkA) {'
   },
   {
     name: '#MA3 ⭐ 比分用 Number()（null 變成 0，把「沒填」判成 0:0）',
-    file: 'js/modules/admin/match-actions.js',
+    file: 'js/engine/result.js',
     from: '  return typeof v === \'number\' && Number.isInteger(v) && v >= 0 ? v : null;',
     to: '  const n = Number(v); return Number.isFinite(n) ? n : null;'
   },
@@ -1787,6 +1787,98 @@ const MUTANTS = [
     file: 'js/engine/csv.js',
     from: "  const d = typeof isoDate === 'string' && /^\\d{4}-\\d{2}-\\d{2}/.test(isoDate)\n    ? isoDate.slice(0, 10) : 'unknown';",
     to: '  const d = String(isoDate).slice(0, 10);'
+  },
+
+  // ══ 驗收整合修正（2026-09-06，T58）═══════════════════════════════
+  {
+    name: '#AF1 ⭐ 賽務端完賽自己算 method（3:1 加 PK 2:4 被標成 PK 決勝，跟管理端分岔；C-01）',
+    file: 'js/modules/staff/live-actions.js',
+    from: "  const result = matchResult({ home: h, away: a }, pkInts);",
+    to: "  const result = { ...matchResult({ home: h, away: a }, pkInts), method: pk ? 'penalty' : 'regulation' };"
+  },
+  {
+    name: '#AF2 ⭐ 沒有 period_start 就退回下半場（單節組別重開後顯示「下半場」、時鐘從 13 分起；D-06）',
+    file: 'js/modules/staff/live-actions.js',
+    from: "  return best?.periodId ?? 'h1';",
+    to: "  return best?.periodId ?? 'h2';"
+  },
+  {
+    name: '#AF3 ⭐ 事件文字不看 periods（單節組別的事件列寫「上半場」；D-07）',
+    file: 'js/modules/staff/live-actions.js',
+    from: "    case 'period_start':   return `${periodLabel(e.periodId, periods)} 開始`;",
+    to: "    case 'period_start':   return `${periodLabel(e.periodId, 2)} 開始`;"
+  },
+  {
+    name: '#AF4 ⭐ 名冊不把隊職員排到最後（有背號的教練混進球員中間；D-08）',
+    file: 'js/modules/staff/live-actions.js',
+    from: "    (isPlayerRow(a) ? 0 : 1) - (isPlayerRow(b) ? 0 : 1)\n    || (a?.jerseyNo ?? Infinity) - (b?.jerseyNo ?? Infinity)",
+    to: "    (a?.jerseyNo ?? Infinity) - (b?.jerseyNo ?? Infinity)"
+  },
+  {
+    name: '#AF5 ⭐ 沒背號的排最前（跟 Firestore 一樣把 null 當最小；D-08）',
+    file: 'js/modules/staff/live-actions.js',
+    from: "    || (a?.jerseyNo ?? Infinity) - (b?.jerseyNo ?? Infinity)",
+    to: "    || (a?.jerseyNo ?? -1) - (b?.jerseyNo ?? -1)"
+  },
+  {
+    name: '#AF6 ⭐ 重開一律退回下半場（D-06）',
+    file: 'js/modules/admin/match-actions.js',
+    from: "    period: lastPlayedPeriod(events),",
+    to: "    period: 'h2',"
+  },
+  {
+    name: '#AF7 ⭐ 改判比分不清 walkoverSide（文件同時說「客隊棄賽」與「1:1 平手」；D-11）',
+    file: 'js/modules/admin/match-actions.js',
+    from: "    walkoverSide: match?.status === 'walkover' ? (match?.walkoverSide ?? null) : null,\n",
+    to: ""
+  },
+  {
+    name: '#AF8 ⭐ hadResult 不看 result（取消但打完的場次被當成沒打過；D-10）',
+    file: 'js/modules/admin/schedule-actions.js',
+    from: "  if (m.result && typeof m.result === 'object' && m.result.winner) return true;\n",
+    to: ""
+  },
+  {
+    name: '#AF9 ⭐ canRegenerate 只看狀態（重產會把取消場次的 result 一起刪掉；D-10）',
+    file: 'js/modules/admin/schedule-actions.js',
+    from: "  const started = existingMatches.filter(hadResult);",
+    to: "  const started = existingMatches.filter(m => STARTED.includes(m.status));"
+  },
+  {
+    name: '#AF10 ⭐ 登入頁先訂閱再看 user()（已登入時整頁 TDZ；D-02）',
+    file: 'js/modules/account/login.js',
+    from: "  if (user()) { navigate(next); return; }\n  const off = onAuth(u => { if (u) { off(); navigate(next); } });",
+    to: "  const off = onAuth(u => { if (u) { off(); navigate(next); } });\n  if (user()) return;"
+  },
+  {
+    name: '#AF11 ⭐ 攤位「最近登錄」的複合索引不見了（正式站 FAILED_PRECONDITION，模擬器看不到；D-03）',
+    file: 'firestore.indexes.json',
+    from: '"fieldPath": "staffUid"',
+    to: '"fieldPath": "staffUidX"'
+  },
+  {
+    name: '#AF12 ⭐ CLAUDE.md 的角色 level 跟 ROLE_INFO 漂移（Codex 抓到的那一次）',
+    file: 'CLAUDE.md',
+    from: '| `referee` | 2.3 | 裁判 | ✗ 賽事專用 |',
+    to: '| `referee` | 2.6 | 裁判 | ✗ 賽事專用 |'
+  },
+  {
+    name: '#AF13 ⭐ 檢錄台讀回不存在的 homeTeamId（名單永遠載不出來；D-01）',
+    file: 'js/modules/staff/checkin.js',
+    from: "      const teamId = state.match?.[side]?.teamId;",
+    to: "      const teamId = state.match?.[side + 'TeamId'];"
+  },
+  {
+    name: '#AF14 ⭐ 404 不換分頁標題（D-14）',
+    file: 'js/core/router.js',
+    from: "    document.title = '找不到頁面｜FEDA CUP 2026';\n",
+    to: ""
+  },
+  {
+    name: '#AF15 ⭐ 單節組別也顯示「半場 x-y」（D-07）',
+    file: 'js/modules/public/match.js',
+    from: "    const ht = (state.division?.periods ?? 2) > 1 && m.htScore && m.htScore.home != null",
+    to: "    const ht = m.htScore && m.htScore.home != null"
   }
 ];
 

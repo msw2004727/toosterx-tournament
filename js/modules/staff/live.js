@@ -29,7 +29,7 @@ import {
   buildGoalEvent, buildCardEvent, buildSubEvent, buildPeriodEvent,
   buildFinishPatch, finishSummary, suggestCardType, sentOffPlayerIds,
   checkSubLimit, eventText, EVENT_ICON, CARD_LABEL, sortEventsDesc,
-  scoreFromTimeline, isLive, undoState, buildUndoPatch, UNDO_WINDOW_SEC
+  scoreFromTimeline, isLive, undoState, buildUndoPatch, UNDO_WINDOW_SEC, isPlayerRow
 } from './live-actions.js';
 import { syncIndicator } from './sync-indicator.js';
 import { isOnline } from '../../core/sync.js';
@@ -256,7 +256,7 @@ export async function liveConsole({ params, scope, view }) {
           ? `icon--card-fill ${e.cardType === 'yellow' ? 'icon--yellow' : 'icon--red'}`
           : undefined
       })),
-      el('span', { class: 'tl__text', text: eventText(e) }),
+      el('span', { class: 'tl__text', text: eventText(e, { periods: state.division?.periods ?? 2 }) }),
       el('span', { class: 'tl__team', text: teamNameOf(e.side) }),
       (!readOnly && !e.voided)
         ? el('button', { class: 'tl__more', type: 'button', 'aria-label': '修正這筆事件', onClick: () => voidFlow(e) }, icon('more'))
@@ -388,6 +388,7 @@ export async function liveConsole({ params, scope, view }) {
 
   async function pickPlayer(side, { title, allowNone = false, exclude = new Set(), only = null }) {
     const list = (state.rosters[side] || []).filter(p => {
+      if (!isPlayerRow(p)) return false;          // 教練不會進球，也不會吃牌（驗收 D-08）
       if (exclude.has(p.memberId)) return false;
       if (only && !only.has(p.memberId)) return false;
       return true;
@@ -573,7 +574,7 @@ export async function liveConsole({ params, scope, view }) {
     const ok = await confirmDialog({
       title: '作廢這筆事件？',
       body: el('div', {}, [
-        el('p', { text: eventText(e) }),
+        el('p', { text: eventText(e, { periods: state.division?.periods ?? 2 }) }),
         el('p', { class: 'muted', text: isScoring ? '作廢後比分會一併扣回。原紀錄不會刪除，只會標記作廢。' : '原紀錄不會刪除，只會標記作廢。' })
       ]),
       confirmText: '作廢',
@@ -581,7 +582,7 @@ export async function liveConsole({ params, scope, view }) {
     });
     if (!ok) return;
 
-    voidTimelineEvent(matchId, e.timelineId, '賽務現場修正', `作廢事件　${eventText(e)}`);
+    voidTimelineEvent(matchId, e.timelineId, '賽務現場修正', `作廢事件　${eventText(e, { periods: state.division?.periods ?? 2 })}`);
 
     if (isScoring) {
       const after = scoreFromTimeline(state.events.map(x => x.timelineId === e.timelineId ? { ...x, voided: true } : x));

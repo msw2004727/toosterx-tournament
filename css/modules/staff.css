@@ -161,6 +161,7 @@
   align-items:center;min-height:var(--tap-lg);border-bottom:1px solid var(--border);
 }
 .roster__row.is-start{background:var(--ok-bg)}
+.roster__row.is-staff{opacity:.72}   /* 隊職員：不上場，沒有先發／替補鈕（驗收 D-08） */
 .roster__no{color:var(--text-muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 .roster__name{font-weight:700;font-size:var(--fs-sm);min-width:0;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

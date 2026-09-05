@@ -209,6 +209,16 @@ export async function getDocs(ref) { S.stats.getDocs += 1; return querySnapOf({ 
 
 export function onSnapshot(ref, a, b, c) {
   const cb = typeof a === 'function' ? a : b;
+  const onErr = typeof a === 'function' ? b : c;
+  // 模擬伺服器回錯（缺複合索引、規則變更）：
+  //   window.__FAKE_SNAPSHOT_FAIL = { path: 'attempts', code: 'failed-precondition' }
+  // 真的 SDK 會呼叫 onError 而且**不再送任何快照**；畫面若吞掉錯誤，那一區就靜靜消失（驗收 D-03）。
+  const fail = window.__FAKE_SNAPSHOT_FAIL;
+  if (fail && String(ref.path || '').includes(fail.path)) {
+    const err = Object.assign(new Error(fail.message || 'FAILED_PRECONDITION: The query requires an index.'), { code: fail.code || 'failed-precondition' });
+    setTimeout(() => { try { onErr?.(err); } catch (e) { console.error(e); } }, 0);
+    return () => {};
+  }
   const w = ref.__doc ? { path: ref.path, cb } : { prefix: ref.path, group: ref.__group, clauses: ref.clauses, cb };
   watchers.add(w);
   try { cb(ref.__doc ? snapOf(ref.path) : querySnapOf(w)); } catch (e) { console.error(e); }

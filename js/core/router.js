@@ -133,6 +133,8 @@ async function handle(force = false) {
   const match = routes.map(r => ({ r, m: r.re.exec(path) })).find(x => x.m);
   if (!match) {
     currentScope = null;
+    // 404 也要換標題，不然瀏覽器分頁還掛著上一頁的名字（驗收 D-14）
+    document.title = '找不到頁面｜FEDA CUP 2026';
     host.replaceChildren(view);
     mount(view, notFound(path));
     return;

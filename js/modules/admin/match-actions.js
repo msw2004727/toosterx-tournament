@@ -20,6 +20,8 @@
  */
 
 import { DEFAULT_WALKOVER } from '../../engine/tally.js';
+import { scoreOf as engineScoreOf, matchResult } from '../../engine/result.js';
+import { lastPlayedPeriod } from '../staff/live-actions.js';
 
 /** 已經產生勝負、動它就會動到積分榜的狀態 */
 export const DECIDED_STATUSES = ['finished', 'confirmed', 'walkover'];
@@ -27,39 +29,16 @@ export const DECIDED_STATUSES = ['finished', 'confirmed', 'walkover'];
 /** 還沒開打 */
 export const NOT_STARTED_STATUSES = ['scheduled', 'checkin', 'ready'];
 
-/** 嚴格取整數比分。⚠️ 不可以用 Number()：Number(null) 是 0（R-ENG-002） */
-export function scoreOf(v) {
-  return typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : null;
-}
+/** 嚴格取整數比分（引擎的那一份，這裡只是轉手）。⚠️ 不可以用 Number()：Number(null) 是 0（R-ENG-002） */
+export const scoreOf = engineScoreOf;
 
 /**
- * 由比分算出 result。
- *
- * PK 只在正規時間平手時才決定勝負——先看正規比分，平手才看 PK。
- * 反過來寫的話，2:1 但 PK 輸的那一場會被判成敗，而那在足球裡不存在。
+ * 由比分算出 result——**只有引擎的 matchResult 一份**（R-ENG-001）。
+ * 賽務端送出完賽也用同一支；兩份實作曾經分岔（驗收 C-01）。
+ * PK 只在正規時間平手時才決定勝負。
  */
-export function resultOf(score, penaltyScore, { winPoints = 3, drawPoints = 1 } = {}) {
-  const h = scoreOf(score?.home);
-  const a = scoreOf(score?.away);
-  if (h == null || a == null) return null;
-
-  const pkH = scoreOf(penaltyScore?.home);
-  const pkA = scoreOf(penaltyScore?.away);
-  const hasPk = pkH != null && pkA != null;
-
-  let winner = h > a ? 'home' : h < a ? 'away' : 'draw';
-  let method = 'regulation';
-  if (winner === 'draw' && hasPk && pkH !== pkA) {
-    winner = pkH > pkA ? 'home' : 'away';
-    method = 'penalty';
-  }
-
-  return {
-    winner,
-    method,
-    homePoints: winner === 'home' ? winPoints : winner === 'draw' ? drawPoints : 0,
-    awayPoints: winner === 'away' ? winPoints : winner === 'draw' ? drawPoints : 0
-  };
+export function resultOf(score, penaltyScore, opts = {}) {
+  return matchResult(score, penaltyScore, opts);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -134,11 +113,14 @@ export function buildConfirmPatch(uid) {
  * ⚠️ 比分與事件**全部保留**。重開的意思是「這場還沒結束」，不是
  *    「這場沒發生過」；把比分一起清掉的話，賽務要從頭記一次。
  */
-export function buildReopenPatch(uid) {
+export function buildReopenPatch(uid, events = []) {
   return {
     status: 'live',
-    period: 'h2',
+    // 退回**最後打過的那一期**（讀 timeline 的 period_start）。寫死 'h2' 的話，
+    // 六個都是單節的組別重開後會顯示「下半場」、時鐘從 13 分開始（驗收 D-06）
+    period: lastPlayedPeriod(events),
     result: null,
+    walkoverSide: null,
     lock: { locked: false, lockedAt: null, lockedBy: null },
     scoreSubmittedAt: null,
     scoreSubmittedBy: null,
@@ -176,6 +158,8 @@ export function buildOverridePatch({ score, penaltyScore = null, match, uid }) {
     // 改判之後這一場一定是「有結果」的。原本就是 walkover 的維持 walkover
     // （棄賽的比分是規章判的，改比分不會讓它變回一般完賽）。
     status: match?.status === 'walkover' ? 'walkover' : 'finished',
+    // 不是棄賽就把 walkoverSide 清掉：留著的話文件同時宣稱「客隊棄賽」與「1:1 平手」（驗收 D-11）
+    walkoverSide: match?.status === 'walkover' ? (match?.walkoverSide ?? null) : null,
     revisionCount: (Number.isInteger(match?.revisionCount) ? match.revisionCount : 0) + 1,
     updatedBy: uid
   };

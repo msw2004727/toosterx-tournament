@@ -368,3 +368,68 @@ test('⭐ 貼網址存成影片 ID；認不出來的不存 @adminmatch @stream',
   await expect(page.locator('.adm__permNote--err')).toContainText('看不出這是 YouTube');
   expect((await matchOf(page)).stream.videoId).toBe('dQw4w9WgXcQ');
 });
+
+// ── 驗收整合修正（2026-09-06）────────────────────────────────
+
+const timelineOf = events => Object.fromEntries(events.map((e, i) => [
+  `events/${EVENT}/matches/${MATCH}/timeline/ev-${i + 1}`,
+  { matchId: MATCH, seq: i + 1, clockSec: 0, voided: false, ...e }
+]));
+
+test('⭐ D-06 重開退回最後打過的那一期（timeline 打到下半場 → h2）@adminmatch', async ({ page }) => {
+  await stub(page, { extra: timelineOf([
+    { type: 'period_start', periodId: 'h1' },
+    { type: 'goal', side: 'home', periodId: 'h1', clockSec: 300 },
+    { type: 'period_start', periodId: 'h2', clockSec: 900 }
+  ]) });
+  await go(page);
+  await ready(page);
+  answerPrompt(page, '賽務按錯');
+  await page.getByRole('button', { name: /^重開場次$/ }).click();
+  await page.locator('.modal').getByRole('button', { name: /^重開場次$/ }).click();
+  await expect.poll(async () => (await matchOf(page))?.status, { timeout: 15_000 }).toBe('live');
+  expect((await matchOf(page)).period).toBe('h2');
+});
+
+test('⭐ D-06 單節的比賽重開後是第一期，不是「下半場」@adminmatch', async ({ page }) => {
+  await stub(page, { extra: timelineOf([
+    { type: 'period_start', periodId: 'h1' },
+    { type: 'goal', side: 'home', periodId: 'h1', clockSec: 300 }
+  ]) });
+  await go(page);
+  await ready(page);
+  answerPrompt(page, '賽務按錯');
+  await page.getByRole('button', { name: /^重開場次$/ }).click();
+  await page.locator('.modal').getByRole('button', { name: /^重開場次$/ }).click();
+  await expect.poll(async () => (await matchOf(page))?.status, { timeout: 15_000 }).toBe('live');
+  expect((await matchOf(page)).period).toBe('h1');
+});
+
+test('⭐ D-12 棄賽鈕反灰時說得出為什麼（已取消的場次）@adminmatch', async ({ page }) => {
+  await stub(page, { m: match({ status: 'cancelled', result: null, lock: { locked: false, lockedAt: null, lockedBy: null } }) });
+  await go(page);
+  await ready(page);
+  await expect(page.locator('#walkover-reason')).toContainText('已取消');
+  await expect(page.getByRole('button', { name: /臺中雷霆 棄賽/ })).toBeDisabled();
+});
+
+test('D-12 可以判棄賽時不畫原因 @adminmatch', async ({ page }) => {
+  await stub(page);
+  await go(page);
+  await ready(page);
+  await expect(page.getByRole('button', { name: /臺中雷霆 棄賽/ })).toBeEnabled();
+  await expect(page.locator('#walkover-reason')).toHaveCount(0);
+});
+
+test('⭐ D-11 改判之後 walkoverSide 清掉（不再同時說「棄賽」與「平手」）@adminmatch', async ({ page }) => {
+  await stub(page, { m: match({ walkoverSide: 'away' }) });
+  await go(page);
+  await ready(page);
+  await page.locator('#sc-home').fill('1');
+  await page.locator('#sc-away').fill('1');
+  answerPrompt(page, '記錯了');
+  await page.getByRole('button', { name: /^改判比分$/ }).click();
+  await page.locator('.modal').getByRole('button', { name: /^改判比分$/ }).click();
+  await expect.poll(async () => (await matchOf(page))?.score?.away, { timeout: 15_000 }).toBe(1);
+  expect((await matchOf(page)).walkoverSide).toBeNull();
+});

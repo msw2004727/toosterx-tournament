@@ -348,6 +348,16 @@ export async function getMatchAudits(matchId, max = 50) {
   return snap.docs.map(d => ({ auditId: d.id, ...d.data() }));
 }
 
+/** 這一場的事件流（重開時要知道最後打到哪一期）。timeline 是公開讀取。 */
+export async function getTimeline(matchId) {
+  const { collection, getDocs, query, orderBy } = sdk();
+  const snap = await getDocs(query(
+    collection(db(), 'events', EVENT_ID, 'matches', matchId, 'timeline'),
+    orderBy('seq', 'asc')
+  ));
+  return snap.docs.map(d => ({ timelineId: d.id, ...d.data() }));
+}
+
 // ── 賽程管理 ─────────────────────────────────────────────────
 
 /**

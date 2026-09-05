@@ -9,6 +9,7 @@ import { db, sdk, evPath, user } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { track } from '../../core/sync.js';
 import { EVENT_ID } from '../../config.js';
+import { sortRosterForMatch } from './live-actions.js';
 
 const uid = () => user()?.uid ?? null;
 
@@ -67,7 +68,8 @@ export async function getTeamRoster(teamId) {
     collection(db(), 'events', EVENT_ID, 'teams', teamId, 'roster'),
     orderBy('jerseyNo', 'asc')
   ));
-  return snap.docs.map(d => ({ memberId: d.id, ...d.data() }));
+  // ⚠️ Firestore 的 orderBy 把 null 排最前，沒背號的隊職員會擋在名單開頭（驗收 D-08）
+  return sortRosterForMatch(snap.docs.map(d => ({ memberId: d.id, ...d.data() })));
 }
 
 export async function getMatchSheet(matchId, teamId) {

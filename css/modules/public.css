@@ -204,6 +204,11 @@
 .ptable td{font-variant-numeric:tabular-nums}
 .ptable__team{font-weight:700;font-size:var(--fs-sm);text-align:left;
   max-width:8em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 隊名可以點進球隊頁：整顆按鈕都是觸控目標，高度不得低於 --tap（驗收 D-15） */
+button.ptable__team{
+  display:inline-flex;align-items:center;min-height:var(--tap);
+  padding:0 4px;margin:-6px 0;border:0;background:none;color:inherit;font:inherit;
+}
 .ptable__pts{font-weight:700}
 /* 晉級區：底色 ＋ 左邊條，兩個訊號不只靠顏色 */
 .ptable tbody tr.is-qualified{background:var(--ok-bg)}

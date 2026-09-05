@@ -126,11 +126,102 @@ const MUTANTS = [
     file: 'js/modules/challenge/me.js',
     from: `    const hasKey = !!pass.contactKey;`,
     to: `    const hasKey = true;`
+  },
+
+  // ══ 驗收整合修正（2026-09-06）：tests/e2e/audit-fixes.spec.js ＋ admin-match ＋ admin-schedule ══
+  {
+    name: '#E18 ⭐ 檢錄台讀回不存在的 homeTeamId（名單永遠載不出來；驗收 D-01）',
+    file: 'js/modules/staff/checkin.js',
+    from: `      const teamId = state.match?.[side]?.teamId;`,
+    to: `      const teamId = state.match?.[side + 'TeamId'];`
+  },
+  {
+    name: '#E19 ⭐ 登入頁先訂閱再看 user()（已登入時 onAuth 的同步回呼撞到 TDZ，整頁空白；D-02）',
+    file: 'js/modules/account/login.js',
+    from: `  if (user()) { navigate(next); return; }
+  const off = onAuth(u => { if (u) { off(); navigate(next); } });`,
+    to: `  const off = onAuth(u => { if (u) { off(); navigate(next); } });
+  if (user()) return;`
+  },
+  {
+    name: '#E20 ⭐ 現場代建不把輸入區歸零（0 分送不出去；D-04）',
+    file: 'js/modules/booth/booth.js',
+    from: `    state.attempts = [];
+    resetInput();`,
+    to: `    state.attempts = [];`
+  },
+  {
+    name: '#E21 ⭐ 攤位「最近登錄」的 onError 吞掉（缺索引時整區靜靜消失；D-03）',
+    file: 'js/modules/booth/booth.js',
+    from: `      err => { console.warn('[booth] 最近登錄', err); state.recentError = data.explain(err, '讀不到最近登錄的清單。'); render(); });`,
+    to: `      () => {});`
+  },
+  {
+    name: '#E22 ⭐ 已開打仍可重新抽籤（草稿一產生就覆蓋已打完的分組；D-09）',
+    file: 'js/modules/admin/schedule.js',
+    from: `          class: 'btn btn--lg', type: 'button', disabled: !!state.busy || !canRegenerate(existing()).ok,`,
+    to: `          class: 'btn btn--lg', type: 'button', disabled: !!state.busy,`
+  },
+  {
+    name: '#E23 ⭐ 棄賽鈕反灰不說原因（D-12）',
+    file: 'js/modules/admin/match.js',
+    from: `            !woG.ok ? el('p', { class: 'adm__permMeta', id: 'walkover-reason', text: woG.reason }) : null,`,
+    to: `            null,`
+  },
+  {
+    name: '#E24 ⭐ 賽務首頁的檢錄鈕不看權限（攤位人員按了只會看到沒有權限；D-13）',
+    file: 'js/modules/staff/home.js',
+    from: `    if (can('checkin.write')) {`,
+    to: `    if (true) {`
+  },
+  {
+    name: '#E25 ⭐ 404 不換分頁標題（D-14）',
+    file: 'js/core/router.js',
+    from: `    document.title = '找不到頁面｜FEDA CUP 2026';
+`,
+    to: ``
+  },
+  {
+    name: '#E26 ⭐ 單節組別也印「半場 x-y」（D-07）',
+    file: 'js/modules/public/match.js',
+    from: `    const ht = (state.division?.periods ?? 2) > 1 && m.htScore && m.htScore.home != null`,
+    to: `    const ht = m.htScore && m.htScore.home != null`
+  },
+  {
+    name: '#E27 ⭐ 主題切換鈕退回 34px（320px 上點不到；D-15）',
+    file: 'css/components.css',
+    from: `  min-height:var(--tap);min-width:var(--tap);padding:0 10px;border-radius:var(--r-full);`,
+    to: `  min-height:34px;padding:0 10px;border-radius:var(--r-full);`
+  },
+  {
+    name: '#E28 ⭐ 重開不讀事件流（timeline 打到下半場也退回第一期；D-06）',
+    file: 'js/modules/admin/match.js',
+    from: `      patch: buildReopenPatch(user()?.uid, events),`,
+    to: `      patch: buildReopenPatch(user()?.uid),`
+  },
+  {
+    name: '#E29 ⭐ 賽務台的球員選單也列出教練（D-08）',
+    file: 'js/modules/staff/live.js',
+    from: `      if (!isPlayerRow(p)) return false;          // 教練不會進球，也不會吃牌（驗收 D-08）
+`,
+    to: ``
+  },
+  {
+    name: '#E30 ⭐ 名冊不重排（Firestore 把沒背號的隊職員排在最前面；D-08）',
+    file: 'js/modules/staff/data.js',
+    from: `  return sortRosterForMatch(snap.docs.map(d => ({ memberId: d.id, ...d.data() })));`,
+    to: `  return snap.docs.map(d => ({ memberId: d.id, ...d.data() }));`
+  },
+  {
+    name: '#E31 ⭐ 出場名單給隊職員畫先發／替補鈕（D-08）',
+    file: 'js/modules/staff/sheet.js',
+    from: `      if (!isPlayerRow(p)) {`,
+    to: `      if (false) {`
   }
 ];
 
 process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js --project=chromium-mobile --reporter=dot',
+  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js --project=chromium-mobile --reporter=dot',
   title: '前端時序｜E2E 變異測試'
 }));

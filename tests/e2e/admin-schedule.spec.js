@@ -311,3 +311,39 @@ test('⭐ 320px 不出現橫向捲軸 @admin @narrow', async ({ page }) => {
   });
   expect(over).toBeNull();
 });
+
+// ── 驗收整合修正（2026-09-06）────────────────────────────────
+
+test('⭐ D-09 已經開打就不給重新抽籤（抽籤會覆蓋已打完的分組）@admin', async ({ page }) => {
+  await stub(page, {
+    matches: { 'AO-G-A-01': match({ status: 'finished', score: { home: 2, away: 1 }, result: { winner: 'home', method: 'regulation', homePoints: 3, awayPoints: 0 } }) },
+    division: { schedulePublished: true }
+  });
+  await go(page);
+  await ready(page);
+  await expect(page.locator('#draw-locked')).toContainText('不能重新產生');
+  await expect(page.getByRole('button', { name: /抽籤/ })).toBeDisabled();
+});
+
+test('⭐ D-10 取消但已經有結果的場次也擋重產（延期／取消不清比分，重產會把 result 一起刪掉）@admin', async ({ page }) => {
+  await stub(page, {
+    matches: { 'AO-G-A-01': match({ status: 'cancelled', score: { home: 2, away: 1 }, result: { winner: 'home', method: 'regulation', homePoints: 3, awayPoints: 0 } }) },
+    division: { schedulePublished: true }
+  });
+  await go(page);
+  await ready(page);
+  await expect(page.locator('.adm__box--warn')).toContainText('不能重新產生');
+  await expect(page.getByRole('button', { name: /重新產生/ })).toHaveCount(0);
+  await expect(page.locator('#draw-locked')).toBeVisible();
+});
+
+test('真的沒打過的取消場次不擋重產 @admin', async ({ page }) => {
+  await stub(page, {
+    matches: { 'AO-G-A-01': match({ status: 'cancelled' }) },
+    division: { schedulePublished: false }
+  });
+  await go(page);
+  await ready(page);
+  await expect(page.locator('#draw-locked')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /抽籤/ })).toBeEnabled();
+});

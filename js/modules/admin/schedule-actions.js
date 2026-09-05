@@ -16,6 +16,21 @@ import {
 /** 已經開打或打完的狀態。這些場次一動就會出事。 */
 const STARTED = ['live', 'halftime', 'finished', 'confirmed', 'walkover'];
 
+/**
+ * 這一場**打過**了嗎——狀態在 STARTED 裡，或者雖然被延期／取消但已經有結果。
+ * 延期／取消不清比分（match-actions 的 buildStatusPatch），所以一場 2:1 打完才取消的比賽
+ * 狀態是 cancelled、result 還在；只看狀態會把它當成沒打過而放行重產，
+ * 而重產會把它的 result 連同文件一起刪掉（驗收 D-10）。
+ */
+export function hadResult(m) {
+  if (!m) return false;
+  if (STARTED.includes(m.status)) return true;
+  if (m.result && typeof m.result === 'object' && m.result.winner) return true;
+  if (Number.isInteger(m.revisionCount) && m.revisionCount > 0) return true;
+  if (m.lock?.locked === true) return true;
+  return false;
+}
+
 /** 還沒開打的狀態 */
 export const NOT_STARTED = ['scheduled', 'checkin', 'ready', 'postponed', 'cancelled'];
 
@@ -57,7 +72,7 @@ export function venuesForDate(cfg, date, venues = []) {
  *    積分榜會靜靜地算出一份沒有人看得懂的結果。
  */
 export function canRegenerate(existingMatches = []) {
-  const started = existingMatches.filter(m => STARTED.includes(m.status));
+  const started = existingMatches.filter(hadResult);
   if (started.length) {
     return {
       ok: false,

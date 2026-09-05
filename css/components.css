@@ -68,8 +68,8 @@
   background:var(--bg-elevated);border-radius:var(--r-full);
 }
 .theme-switch__opt{
-  display:inline-flex;align-items:center;gap:5px;
-  min-height:34px;padding:0 10px;border-radius:var(--r-full);
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  min-height:var(--tap);min-width:var(--tap);padding:0 10px;border-radius:var(--r-full);
   color:var(--text-muted);font-size:var(--fs-xs);font-weight:700;
   transition:background var(--transition),color var(--transition);
 }
@@ -235,7 +235,7 @@
 .demo-banner__text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .demo-switch{
   flex:none;display:inline-flex;align-items:center;
-  min-height:30px;padding:0 var(--sp-3);border-radius:var(--r-full);
+  min-height:var(--tap);padding:0 var(--sp-3);border-radius:var(--r-full);
   background:rgba(0,0,0,.28);color:#fff;font-size:var(--fs-xs);font-weight:700;
 }
 .demo-switch:active{background:rgba(0,0,0,.42)}
@@ -265,8 +265,8 @@
 .apphead__spacer{flex:1}
 
 .apphead__link,.apphead__install{
-  display:inline-flex;align-items:center;gap:var(--sp-1);
-  min-height:var(--tap);padding:0 var(--sp-2);
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1);
+  min-height:var(--tap);min-width:var(--tap);padding:0 var(--sp-2);
   border-radius:var(--r-sm);border:0;background:none;
   color:var(--text-secondary);font-size:var(--fs-sm);font-family:inherit;
   text-decoration:none;cursor:pointer;flex:none;

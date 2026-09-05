@@ -91,8 +91,14 @@ export async function boothPage({ scope, view, params }) {
   }
 
   function watchForChallenge() {
-    data.watchMyRecent(scope, rows => { state.recent = rows; render(); }, () => {});
-    data.watchLeaderboard(scope, state.challenge.challengeId, b => { state.board = b; render(); }, () => {});
+    // ⚠️ onSnapshot 的 onError 不可以傳空函式：缺索引、規則變更、離線降級都走這條路，
+    //    吞掉就等於「最近登錄」與作廢鈕靜靜消失、沒有任何線索（驗收 D-03）。
+    data.watchMyRecent(scope,
+      rows => { state.recent = rows; state.recentError = null; render(); },
+      err => { console.warn('[booth] 最近登錄', err); state.recentError = data.explain(err, '讀不到最近登錄的清單。'); render(); });
+    data.watchLeaderboard(scope, state.challenge.challengeId,
+      b => { state.board = b; render(); },
+      err => { console.warn('[booth] 排行榜', err); });
   }
 
   // ── 動作 ─────────────────────────────────────────────────
@@ -120,19 +126,27 @@ export async function boothPage({ scope, view, params }) {
       state.playerId = pid;
       state.player = player;
       state.attempts = attempts;
-      // ⚠️ stepper 的起始值要**真的是那個數字**，不能留 null。
-      //    畫面顯示 0 但 state 是 null 的話，「一次都沒中」這個很常見的
-      //    成績要先按 ＋ 再按 − 才送得出去——而 0 是合法成績（E2E 抓到的）。
-      state.value = inputModeOf(state.challenge) === 'stepper'
-        ? (state.challenge.minValue ?? 0)
-        : null;
-      state.detail = null;
-      state.result = null;
+      resetInput();
     } catch (err) {
       toast(data.explain(err, '查不到玩家。'), 'error');
     } finally {
       state.busy = false; render();
     }
+  }
+
+  /**
+   * 選定玩家後把輸入區歸零。
+   * ⚠️ stepper 的起始值要**真的是那個數字**，不能留 null。
+   *    畫面顯示 0 但 state 是 null 的話，「一次都沒中」這個很常見的成績要先按 ＋ 再按 −
+   *    才送得出去——而 0 是合法成績。查既有玩家與現場代建**都要走這一支**：
+   *    第一版只有查詢那一路歸零，代建的卡送不出 0 分（驗收 D-04）。
+   */
+  function resetInput() {
+    state.value = inputModeOf(state.challenge) === 'stepper'
+      ? (state.challenge.minValue ?? 0)
+      : null;
+    state.detail = null;
+    state.result = null;
   }
 
   async function createOnSite(pid) {
@@ -141,6 +155,7 @@ export async function boothPage({ scope, view, params }) {
     state.playerId = pid;
     state.player = { playerId: pid, nickname, completedChallengeIds: [], luckyDrawEntries: 0 };
     state.attempts = [];
+    resetInput();
     toast('已代建，成績可以直接登錄');
   }
 
@@ -420,6 +435,12 @@ export async function boothPage({ scope, view, params }) {
   }
 
   function recentBox() {
+    if (state.recentError) {
+      return el('div', { class: 'booth__box booth__box--warn', role: 'alert', id: 'booth-recent-error' }, [
+        el('strong', { text: '讀不到最近登錄' }),
+        el('p', { class: 'booth__note', text: `${state.recentError} 送出的成績仍然有效，只是這裡看不到、也沒辦法作廢，請聯絡主辦。` })
+      ]);
+    }
     const mine = state.recent.filter(a => a.challengeId === state.challenge?.challengeId).slice(0, 10);
     if (!mine.length) return null;
     return el('div', {}, [

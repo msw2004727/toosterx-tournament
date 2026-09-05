@@ -61,8 +61,9 @@ export async function challengeBoardPage({ scope, view, params }) {
         state.best = b ? { rawValue: b.rawValue, attemptAtMs: attemptMs(b) } : null;
         render();
       })
-      .catch(() => {});
-    data.watchPlayer(scope, pass.playerId, p => { state.player = p; render(); }, () => {});
+      .catch(err => console.warn('[challenge] 讀不到最佳成績', err));
+    data.watchPlayer(scope, pass.playerId, p => { state.player = p; render(); },
+      err => console.warn('[challenge] 讀不到玩家', err));
   }
 
   // ── 具名函式（會被提升）───────────────────────────────────

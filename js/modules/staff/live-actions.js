@@ -10,6 +10,8 @@
 
 import { FAIR_PLAY } from '../../engine/ranking.js';
 import { GOAL_EVENT_TYPES, isLive, scoreFromTimeline, reconcileScore } from '../../engine/timeline.js';
+import { matchResult } from '../../engine/result.js';
+import { periodLabel } from '../../lib/format.js';
 
 // 比分推算搬去 js/engine/timeline.js 了：Cloud Function 對帳要用同一份邏輯，
 // 而 R-ENG-001 不允許有第二份實作。這裡只保留 re-export，
@@ -218,9 +220,11 @@ export function buildFinishPatch({ score, htScore, penaltyScore, events, uid, ma
   const a = Number(score?.away) || 0;
   const pk = penaltyScore && (penaltyScore.home != null || penaltyScore.away != null) ? penaltyScore : null;
 
-  const winner = h > a ? 'home' : h < a ? 'away'
-    : pk ? (Number(pk.home) > Number(pk.away) ? 'home' : Number(pk.home) < Number(pk.away) ? 'away' : 'draw')
-    : 'draw';
+  // ⚠️ 勝負與決勝方式只有引擎的 matchResult 一份（R-ENG-001）。
+  //    第一版自己算：正規時間 3:1 加上 PK 2:4 會被標成 penalty——勝方沒錯，
+  //    但「PK 決勝」是假的，而管理端的改判算的是 regulation（驗收 C-01）。
+  const pkInts = pk ? { home: Number(pk.home) || 0, away: Number(pk.away) || 0 } : { home: null, away: null };
+  const result = matchResult({ home: h, away: a }, pkInts);
 
   return {
     score: { home: h, away: a },
@@ -229,12 +233,7 @@ export function buildFinishPatch({ score, htScore, penaltyScore, events, uid, ma
     status: 'finished',
     period: 'ft',
     clock: { running: false, periodStartedAt: null, elapsedSecAtPause: 0, addedTimeSec: 0 },
-    result: {
-      winner,
-      method: pk ? 'penalty' : 'regulation',
-      homePoints: winner === 'home' ? 3 : winner === 'draw' ? 1 : 0,
-      awayPoints: winner === 'away' ? 3 : winner === 'draw' ? 1 : 0
-    },
+    result,
     lock: { locked: true, lockedBy: uid },
     scoreMismatch: !check.ok,
     updatedBy: uid
@@ -265,7 +264,30 @@ export function lastPlayedPeriod(events) {
     if (!isLive(e) || e.type !== 'period_start') continue;
     if (best === null || (e.seq ?? 0) >= (best.seq ?? 0)) best = e;
   }
-  return best?.periodId ?? 'h2';
+  // 沒有任何 period_start 的場次，依定義沒打過下半場；六個組別都是 periods:1，
+  // 退回 'h2' 會讓賽務台顯示「下半場」、時鐘從 13 分開始（驗收 D-06）
+  return best?.periodId ?? 'h1';
+}
+
+/** 名冊上的這一列是球員嗎（隊職員沒有 role，或 role/kind 不是 player） */
+export function isPlayerRow(p) {
+  return (p?.role ?? p?.kind ?? 'player') === 'player';
+}
+
+/** 隊職員在名單上的身分文字 */
+export const ROSTER_ROLE_TEXT = { coach: '教練', captain: '領隊', manager: '管理', staff: '隊職員' };
+
+/**
+ * 出場名單／賽務台的名冊順序：**球員在前**（依背號，沒背號的在後），隊職員排最後。
+ * Firestore 的 orderBy('jerseyNo') 會把 null 排最前，於是沒背號的教練與領隊擋在名單開頭——
+ * 賽務拿著名單找小孩，第一眼看到的是大人（驗收 D-08）。
+ */
+export function sortRosterForMatch(rows) {
+  return [...(rows || [])].sort((a, b) =>
+    (isPlayerRow(a) ? 0 : 1) - (isPlayerRow(b) ? 0 : 1)
+    || (a?.jerseyNo ?? Infinity) - (b?.jerseyNo ?? Infinity)
+    || (a?.order ?? 0) - (b?.order ?? 0)
+    || String(a?.displayName ?? a?.name ?? '').localeCompare(String(b?.displayName ?? b?.name ?? ''), 'zh-Hant'));
 }
 
 /**
@@ -338,8 +360,13 @@ export const EVENT_ICON = {
   period_start: 'play', period_end: 'stop', note: 'note'
 };
 
-/** 事件的一行文字（不含 HTML，呼叫端用 textContent） */
-export function eventText(e) {
+/**
+ * 事件的一行文字（不含 HTML，呼叫端用 textContent）。
+ * ⚠️ 期別的名字要看組別的 `periods`：六個組別都不分上下半場（規章第十八條第 2 款），
+ *    寫死「上半場」會讓公開端的事件列跟賽務台的期別框說不同的話（驗收 D-07）。
+ *    標籤只有 js/lib/format.js 的 periodLabel 一份。
+ */
+export function eventText(e, { periods = 2 } = {}) {
   if (!e) return '';
   const who = e.playerName ? `${e.jerseyNo != null ? '#' + e.jerseyNo + ' ' : ''}${e.playerName}` : '未指定球員';
   switch (e.type) {
@@ -349,15 +376,14 @@ export function eventText(e) {
     case 'own_goal':       return `烏龍球　${who}（記給對隊）`;
     case 'card':           return `${CARD_LABEL[e.cardType] || '出牌'}　${who}`;
     case 'substitution':   return `換人　${who} 下場 ／ ${e.subInJerseyNo != null ? '#' + e.subInJerseyNo + ' ' : ''}${e.subInPlayerName ?? ''} 上場`;
-    case 'period_start':   return `${PERIOD_TEXT[e.periodId] ?? e.periodId} 開始`;
-    case 'period_end':     return `${PERIOD_TEXT[e.periodId] ?? e.periodId} 結束`;
+    case 'period_start':   return `${periodLabel(e.periodId, periods)} 開始`;
+    case 'period_end':     return `${periodLabel(e.periodId, periods)} 結束`;
     case 'note':           return e.note || '備註';
     default:               return e.type;
   }
 }
 
 export const CARD_LABEL = { yellow: '黃牌', second_yellow: '兩黃換紅', red: '紅牌' };
-const PERIOD_TEXT = { h1: '上半場', h2: '下半場', et1: '延長上半', et2: '延長下半', pk: 'PK 大戰' };
 
 /** 事件排序：時間軸由新到舊（現場最關心剛剛發生什麼） */
 export function sortEventsDesc(events) {

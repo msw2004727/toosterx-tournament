@@ -36,8 +36,11 @@ export async function loginPage({ view, query }) {
   } catch { /* 無痕模式讀不到就算了 */ }
 
   // 已經登入就不必再看到登入頁
+  // 已登入就直接導走，不必訂閱。
+  // ⚠️ onAuth() 會**同步**呼叫一次回呼——在回呼裡參考 `off` 會撞到 TDZ
+  //    （已登入時整頁「Cannot access 'off' before initialization」，驗收 D-02）。
+  if (user()) { navigate(next); return; }
   const off = onAuth(u => { if (u) { off(); navigate(next); } });
-  if (user()) return;
 
   render();
   if (state.phase === 'failed') return;      // 已經有導回失敗的原因，不要再蓋掉

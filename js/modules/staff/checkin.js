@@ -70,11 +70,14 @@ export async function checkinPage({ params, scope, view }) {
   // ── 名單 ────────────────────────────────────────────────
   // 一律具名函式（會被提升）。
   async function loadRosters() {
-    const key = `${state.match?.homeTeamId}|${state.match?.awayTeamId}`;
-    if (!state.match?.homeTeamId || state.rosterKey === key) return;
+    // ⚠️ 場次文件的隊伍是巢狀的 `home.teamId` / `away.teamId`（seed 與賽程引擎都這樣寫）。
+    //    第一版讀頂層的 homeTeamId——那個欄位不存在，整段名單載入從來沒有執行過，
+    //    而 E2E 的替身種子照著錯的 schema 寫所以一直是綠的（驗收 D-01，第五次同類事故）。
+    const key = `${state.match?.home?.teamId}|${state.match?.away?.teamId}`;
+    if (!state.match?.home?.teamId || state.rosterKey === key) return;
     state.rosterKey = key;
     for (const side of ['home', 'away']) {
-      const teamId = state.match[`${side}TeamId`];
+      const teamId = state.match?.[side]?.teamId;
       if (!teamId) continue;
       try {
         state.rosters[side] = await getCheckinRoster(teamId);
@@ -87,7 +90,8 @@ export async function checkinPage({ params, scope, view }) {
   }
 
   function teamName(side) {
-    return state.match?.[`${side}TeamName`] || state.match?.[`${side}TeamId`] || (side === 'home' ? '主隊' : '客隊');
+    const t = state.match?.[side];
+    return t?.displayName || t?.name || t?.teamId || (side === 'home' ? '主隊' : '客隊');
   }
 
   function rows() { return state.rosters[state.side] || []; }
@@ -220,7 +224,7 @@ export async function checkinPage({ params, scope, view }) {
    */
   function mark(m, result) {
     const doc = buildCheckin({
-      matchId, teamId: state.match[`${state.side}TeamId`],
+      matchId, teamId: state.match?.[state.side]?.teamId ?? null,
       member: m, result, uid: user()?.uid ?? null
     });
     // 先更新本機狀態，畫面立刻有反應——現場一筆一筆勾，不能等網路

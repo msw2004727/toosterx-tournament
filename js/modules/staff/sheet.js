@@ -15,6 +15,7 @@ import { can, assignedToVenue } from '../../core/firebase.js';
 import { watchMatch, getTeamRoster, getMatchSheet, saveMatchSheet, patchMatch } from './data.js';
 import { getDivision } from './data.js';
 import { syncIndicator } from './sync-indicator.js';
+import { isPlayerRow, ROSTER_ROLE_TEXT } from './live-actions.js';
 
 export async function matchSheetPage({ params, scope, view }) {
   const { matchId } = params;
@@ -103,6 +104,15 @@ export async function matchSheetPage({ params, scope, view }) {
     const picked = state.picked[side];
     return el('ul', { class: 'roster' }, list.map(p => {
       const role = picked.get(p.memberId) || null;
+      // 隊職員（教練／領隊）不上場：不畫先發／替補鈕，只標身分（驗收 D-08）
+      if (!isPlayerRow(p)) {
+        return el('li', { class: 'roster__row is-staff' }, [
+          el('span', { class: 'roster__no num', text: '—' }),
+          el('span', { class: 'roster__name', text: p.displayName || p.name || '（未命名）' }),
+          el('span', { class: 'roster__pos', text: '' }),
+          el('span', { class: 'roster__role', text: ROSTER_ROLE_TEXT[p.role ?? p.kind] || '隊職員' })
+        ]);
+      }
       return el('li', { class: `roster__row ${role ? 'is-' + role : ''}` }, [
         el('span', { class: 'roster__no num', text: p.jerseyNo != null ? `#${p.jerseyNo}` : '—' }),
         el('span', { class: 'roster__name', text: p.displayName || p.name || '（未命名）' }),

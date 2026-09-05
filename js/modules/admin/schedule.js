@@ -39,7 +39,7 @@ import {
 } from '../../engine/schedule.js';
 import {
   approvedTeamsOf, scheduleConfigOf, venuesForDate, canRegenerate,
-  planGeneration, planPlacement, matchDocOf, movePatch, drawSeedFrom, NOT_STARTED
+  planGeneration, planPlacement, matchDocOf, movePatch, drawSeedFrom, NOT_STARTED, hadResult
 } from './schedule-actions.js';
 import * as data from './data.js';
 import { adminHead, denied } from './bits.js';
@@ -139,6 +139,8 @@ export async function adminSchedulePage({ scope, view }) {
   // ── 動作 ─────────────────────────────────────────────────
 
   function doDraw() {
+    const drawGuard = canRegenerate(existing());
+    if (!drawGuard.ok) { toast(drawGuard.reason, 'error'); return; }
     const seed = drawSeedFrom(serverNow());
     state.draft = {
       ...(state.draft ?? {}),
@@ -284,7 +286,7 @@ export async function adminSchedulePage({ scope, view }) {
       const hit = updatedSubset.find(x => x.matchId === m.matchId);
       return hit ? { ...m, kickoffAt: hit.kickoffAt } : m;
     });
-    const frozen = merged.some(m => !NOT_STARTED.includes(m.status));
+    const frozen = merged.some(m => !NOT_STARTED.includes(m.status) || hadResult(m));
     const nos = assignMatchNos(merged, { frozen });
     if (!nos.length) return;
     await data.writeMatches(nos.map(n => ({ matchId: n.matchId, data: { matchNo: n.matchNo } })));
@@ -435,7 +437,7 @@ export async function adminSchedulePage({ scope, view }) {
     const mine = existing();
     const published = div?.schedulePublished !== false;
     const n = approved().length;
-    const started = mine.filter(m => !NOT_STARTED.includes(m.status)).length;
+    const started = mine.filter(m => !NOT_STARTED.includes(m.status) || hadResult(m)).length;
 
     return el('div', { class: `adm__box ${mine.length && published ? 'adm__box--ok' : ''}` }, [
       el('strong', {}, iconText(
@@ -519,8 +521,12 @@ export async function adminSchedulePage({ scope, view }) {
         el('p', { class: 'adm__note', text: d.seed == null
           ? '目前是手動指定的順序。規章第十四條寫的是「統一由大會代為抽籤排定」——按下面的抽籤鈕會記錄亂數種子，事後查得到。'
           : `抽籤種子 ${d.seed}。同一個種子永遠得到同一組分組，這是抽籤的證據。` }),
+        // 已經開打就不給重新抽籤：抽籤只改草稿，但草稿一產生就會覆蓋已打完的分組（驗收 D-09）
+        !canRegenerate(existing()).ok
+          ? el('p', { class: 'adm__note', id: 'draw-locked', text: canRegenerate(existing()).reason })
+          : null,
         el('button', {
-          class: 'btn btn--lg', type: 'button', disabled: !!state.busy,
+          class: 'btn btn--lg', type: 'button', disabled: !!state.busy || !canRegenerate(existing()).ok,
           onClick: () => doDraw()
         }, iconText('retry', d.seed == null ? '抽籤' : '重新抽籤'))
       ]),
@@ -600,7 +606,8 @@ export async function adminSchedulePage({ scope, view }) {
     const c = cfg();
     const ms = kickoffMsOf(m);
     const parts = ms == null ? { date: div?.date ?? '', time: '' } : msToTaipei(ms);
-    const locked = !NOT_STARTED.includes(m.status);
+    // 延期／取消但已有結果的場次也算鎖定：時間可以改，但要進改判頁才能動結果（驗收 D-10）
+    const locked = !NOT_STARTED.includes(m.status) || hadResult(m);
     const venues = venuesForDate(c, div?.date, state.venues);
 
     return el('div', { class: 'adm__item' }, [

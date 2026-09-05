@@ -34,8 +34,6 @@ const seed = ({ roles = ['checkin'], memberOver = {} } = {}) => ({
     matchId: MATCH, eventId: EVENT, divisionId: 'u10', stageId: 'group', groupId: 'A',
     label: '第1場 A組第1輪', venueId: 'venue-a', venueName: 'A場', date: '2026-10-09',
     kickoffAt: '2026-10-09T08:30:00+08:00',
-    homeTeamId: 't-101', homeTeamName: '大甲金剛',
-    awayTeamId: 't-102', awayTeamName: '沙鹿飛龍',
     home: { teamId: 't-101', name: '大甲金剛' }, away: { teamId: 't-102', name: '沙鹿飛龍' },
     teamIds: ['t-101', 't-102'],
     score: { home: 0, away: 0 }, status: 'scheduled', period: 'pre',
