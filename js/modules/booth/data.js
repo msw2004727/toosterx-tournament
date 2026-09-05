@@ -9,6 +9,7 @@ import { db, sdk, user } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { track } from '../../core/sync.js';
 import { EVENT_ID } from '../../config.js';
+import { newPlayerDoc } from '../../engine/challenge.js';
 
 const uid = () => user()?.uid ?? null;
 const evCol = (...segs) => {
@@ -120,17 +121,10 @@ export function createPlayer({ playerId, nickname, ageBand }, label) {
   const { doc, setDoc, serverTimestamp } = sdk();
   const ref = doc(db(), 'events', EVENT_ID, 'players', playerId);
   return track(label, () => setDoc(ref, {
-    playerId,
-    eventId: EVENT_ID,
-    nickname: String(nickname ?? '').trim().slice(0, 12),
-    ageBand: ageBand ?? null,
-    avatarSeed: playerId.slice(-4),
-    qrCode: null,
-    linkedTeamId: null,
-    contact: { phone: null, lineUserId: null },
-    completedChallengeIds: [],
-    luckyDrawEntries: 0,
-    createdVia: 'staff',
+    // ⚠️ 欄位形狀只有 `js/engine/challenge.js` 的 newPlayerDoc 一份。
+    //    rules 用 hasOnly([...]) 逐項列了准許的鍵，兩邊分岔的話會被整筆
+    //    擋掉，而現場只看得到「permission-denied」。
+    ...newPlayerDoc({ playerId, eventId: EVENT_ID, nickname, ageBand, createdVia: 'staff' }),
     createdAt: serverTimestamp(),
     lastActiveAt: serverTimestamp()
   }), { kind: 'player', playerId });

@@ -24,6 +24,13 @@ jobs:
       - name: No leftover mutation
         run: node scripts/mutation-guard.cjs
 
+      # 每一條變異都靠一段逐字比對的原始碼定位。那段程式碼一改，錨點就對不上，
+      # 那條變異從此**什麼都不守**——而報告上印的是「找不到要變異的程式碼」，
+      # 很容易被當成「漏掉」或被 grep 濾掉。這一條兩秒就跑完，
+      # 不必等 25 分鐘的完整變異才發現（2026-09-05 就這樣白跑了一輪）。
+      - name: Mutation anchors still match
+        run: node scripts/mutation-anchors.cjs
+
       - name: Version consistency (config.js / sw.js / index.html / package.json)
         run: node scripts/bump-version.js --check
 

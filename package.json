@@ -15,6 +15,7 @@
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "node scripts/mutation-guard.cjs && node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit/",
     "test:unit:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit/ --coverage",
+    "check:anchors": "node scripts/mutation-anchors.cjs",
     "test:mutation": "node scripts/mutation-check.cjs",
     "test:rules:unit": "node scripts/mutation-guard.cjs && node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/",
     "test:rules": "firebase emulators:exec --only firestore --project demo-rules-test \"npm run test:rules:unit\"",

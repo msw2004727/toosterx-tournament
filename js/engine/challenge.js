@@ -402,6 +402,40 @@ export function normalizePlayerId(input, prefix = 'FEDA') {
   return `${prefix}-${digits.padStart(4, '0')}`;
 }
 
+/**
+ * 一份全新的 Game Pass（不含時間戳——引擎不碰時間，R-ENG-004）。
+ *
+ * ⚠️ **欄位清單只能有這一份。** `firestore.rules` 用 `hasOnly([...])`
+ *    逐項列了准許的鍵，多一個或少一個都會被整筆擋掉，而錯誤訊息只有
+ *    「permission-denied」——現場沒有人查得出是哪一個欄位的問題。
+ *    攤位代建（`js/modules/booth/data.js`）與玩家自建
+ *    （`js/modules/challenge/data.js`）都從這裡拿形狀，才不會分岔。
+ *
+ * @param {'self'|'staff'} createdVia 誰建的。留著是為了日後看得出
+ *        「現場代建」與「玩家自己掃碼」的比例（docs/06 §11）。
+ */
+export function newPlayerDoc({ playerId, eventId, nickname, ageBand = null, createdVia = 'self' }) {
+  const nick = String(nickname ?? '').trim().slice(0, 12);
+  if (!playerId) throw new Error('newPlayerDoc：需要 playerId');
+  if (!nick) throw new Error('newPlayerDoc：暱稱不可以是空的');
+  return {
+    playerId,
+    eventId,
+    nickname: nick,
+    // 頭像用 ID 的後四碼當種子——不存照片、不問任何個資
+    avatarSeed: String(playerId).slice(-4),
+    ageBand: ageBand ?? null,
+    qrCode: null,
+    linkedTeamId: null,
+    contact: { phone: null, lineUserId: null },
+    // ⚠️ 這兩個一定要是空的／0。rules 明文擋著，而且它們只有
+    //    Function 改得動——玩家自己灌抽獎張數就是這裡防的
+    completedChallengeIds: [],
+    luckyDrawEntries: 0,
+    createdVia
+  };
+}
+
 // CommonJS 相容（供 functions/ 以 require 使用）
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -411,6 +445,6 @@ if (typeof module !== 'undefined' && module.exports) {
     attemptMs, pickBest, diffBestFlags, attemptQuota,
     buildLeaderboard, myRank,
     drawEntries, nextCompleted,
-    formatPlayerId, normalizePlayerId
+    formatPlayerId, normalizePlayerId, newPlayerDoc
   };
 }

@@ -280,6 +280,23 @@ const MUTANTS = [
         allow write: if isScorer();
       }`
   },
+  {
+    name: 'RU#35 ⭐ 聯絡方式也開放訪客改（中獎人的聯絡方式誰都能覆寫）',
+    file: F,
+    from: `        allow update: if isAdmin()
+                      || onlyChanged(['nickname', 'lastActiveAt']);`,
+    to: `        allow update: if isAdmin()
+                      || onlyChanged(['nickname', 'lastActiveAt', 'contact']);`
+  },
+  {
+    name: 'RU#34 ⭐ Game Pass 也放行整份覆寫（撞號時後來的人把先來的人蓋掉）',
+    file: F,
+    from: `        allow update: if isAdmin()
+                      || onlyChanged(['nickname', 'lastActiveAt']);
+        allow delete: if isAdmin();`,
+    to: `        allow update: if true;
+        allow delete: if isAdmin();`
+  }
 ];
 
 process.exit(runMutants({

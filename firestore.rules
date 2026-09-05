@@ -479,9 +479,19 @@ service cloud.firestore {
                       && request.resource.data.nickname.size() <= 12
                       && request.resource.data.completedChallengeIds.size() == 0
                       && request.resource.data.luckyDrawEntries == 0;
-        // 進度與抽獎張數只有 Function／Admin 可改
+        // 進度與抽獎張數只有 Function／Admin 可改。
+        //
+        // ⚠️ `contact` **刻意不在這裡**。這一條沒有任何身分條件——代號空間
+        //    只有 FEDA-0000–9999 一萬組，掃得完，等於「任何人都改得動任何人的
+        //    這幾格」。暱稱被亂改是玩笑（重新輸入就好），聯絡方式被覆寫是
+        //    兌獎爭議（中獎人聯絡不到，而且 players 不寫稽核，事後查不出是誰）。
+        //    兩者的可回復性差太多，不該當成同一件事。
+        //
+        //    docs/06 §7.2 的「填寫聯絡方式」做出來時，要走 Function 寫
+        //    （或另外設計一組只有本人知道的憑證）。在那之前收在這裡最便宜：
+        //    今天沒有任何一行程式在更新 contact，拿掉不會壞任何東西。
         allow update: if isAdmin()
-                      || onlyChanged(['nickname', 'lastActiveAt', 'contact']);
+                      || onlyChanged(['nickname', 'lastActiveAt']);
         allow delete: if isAdmin();
       }
 

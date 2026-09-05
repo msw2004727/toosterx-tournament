@@ -69,6 +69,10 @@ async function boot() {
   // 挑戰攤位（M6-b）
   (await import('./js/modules/booth/index.js')).registerBoothRoutes();
 
+  // 挑戰區玩家端（M6-c）。**沒有守衛**——這一端免註冊免登入。
+  // 一樣要排在公開端之前，`/challenge/...` 不該被萬用樣式接走。
+  (await import('./js/modules/challenge/index.js')).registerChallengeRoutes();
+
   // 報名（M4-b）。必須註冊在公開端之前——路由是先註冊先贏，
   // 而 /team/:id/manage 不該被公開端的 /team/:id 之類的樣式接走。
   (await import('./js/modules/register/index.js')).registerRegistrationRoutes();

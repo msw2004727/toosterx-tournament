@@ -21,7 +21,7 @@ import {
   validateScore, sumShots, validateLadder,
   attemptMs, pickBest, diffBestFlags, attemptQuota,
   buildLeaderboard, myRank, drawEntries, nextCompleted,
-  formatPlayerId, normalizePlayerId, DEFAULT_RANKING
+  formatPlayerId, normalizePlayerId, newPlayerDoc, DEFAULT_RANKING
 } from '../../js/engine/challenge.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -451,5 +451,73 @@ describe('T46-J 玩家識別碼', () => {
     expect(normalizePlayerId('FEDA-')).toBeNull();
     expect(normalizePlayerId(null)).toBeNull();
     expect(normalizePlayerId('12345678')).toBeNull();
+  });
+});
+
+describe('T46-9 ⭐ 新的 Game Pass（newPlayerDoc）', () => {
+  const base = { playerId: 'FEDA-0182', eventId: 'feda-cup-2026', nickname: '阿哲' };
+
+  /**
+   * ⭐ 這兩格**一定要是空的／0**。
+   *
+   * `firestore.rules` 明文擋著（`completedChallengeIds.size() == 0`、
+   * `luckyDrawEntries == 0`），而且它們之後只有 Function 改得動——
+   * 玩家自己灌抽獎券就是這裡防的。
+   *
+   * ⚠️ 這一條原本只有 E2E 在守，而 `npm run test:mutation` 跑的是**單元測試**，
+   *    所以變異 #GP7 逃掉了。「某一層有測」不等於「變異抓得到」。
+   */
+  test('⭐ 抽獎張數是 0、完成關卡是空的', () => {
+    const d = newPlayerDoc(base);
+    expect(d.luckyDrawEntries).toBe(0);
+    expect(d.completedChallengeIds).toEqual([]);
+  });
+
+  test('⭐ 暱稱是空的要丟錯，不可以建出一筆沒有名字的 Game Pass', () => {
+    // 名冊上出現一排沒有名字的人，主辦分不出誰是誰，而抽獎要靠它聯絡
+    expect(() => newPlayerDoc({ ...base, nickname: '' })).toThrow(/暱稱/);
+    expect(() => newPlayerDoc({ ...base, nickname: '   ' })).toThrow(/暱稱/);
+    expect(() => newPlayerDoc({ ...base, nickname: null })).toThrow(/暱稱/);
+  });
+
+  test('沒有 playerId 要丟錯', () => {
+    expect(() => newPlayerDoc({ ...base, playerId: null })).toThrow(/playerId/);
+  });
+
+  test('暱稱前後空白修掉、超過 12 字截斷（跟 rules 的上限一致）', () => {
+    expect(newPlayerDoc({ ...base, nickname: '  阿哲  ' }).nickname).toBe('阿哲');
+    expect(newPlayerDoc({ ...base, nickname: '一二三四五六七八九十一二三四' }).nickname)
+      .toHaveLength(12);
+  });
+
+  /**
+   * ⭐ 欄位清單只能有這一份。
+   *
+   * `firestore.rules` 用 `hasOnly([...])` 逐項列了准許的鍵——多一個就被
+   * **整筆**擋掉，而現場只看得到「permission-denied」，沒有人查得出是
+   * 哪一個欄位的問題。這一條逐字比對規則檔上的那份白名單。
+   */
+  test('⭐ 產出的欄位全部在 firestore.rules 的白名單裡', () => {
+    const rules = fs.readFileSync(join(ROOT, 'firestore.rules'), 'utf8');
+    const m = rules.match(/match \/players\/\{playerId\}[\s\S]*?hasOnly\(\[([\s\S]*?)\]\)/);
+    expect(m).toBeTruthy();
+    const allowed = new Set([...m[1].matchAll(/'([^']+)'/g)].map(x => x[1]));
+
+    // 時間戳由呼叫端補（引擎不碰時間），所以不在 newPlayerDoc 的產出裡
+    for (const k of Object.keys(newPlayerDoc(base))) {
+      expect(allowed.has(k)).toBe(true);
+    }
+    expect(allowed.has('createdAt')).toBe(true);
+    expect(allowed.has('lastActiveAt')).toBe(true);
+  });
+
+  test('createdVia 記得出來是誰建的（現場代建 vs 玩家自己掃碼）', () => {
+    expect(newPlayerDoc(base).createdVia).toBe('self');
+    expect(newPlayerDoc({ ...base, createdVia: 'staff' }).createdVia).toBe('staff');
+  });
+
+  test('沒選年齡層就是 null，不猜一個', () => {
+    expect(newPlayerDoc(base).ageBand).toBeNull();
+    expect(newPlayerDoc({ ...base, ageBand: 'kid' }).ageBand).toBe('kid');
   });
 });

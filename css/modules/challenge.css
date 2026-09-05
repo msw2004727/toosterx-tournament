@@ -1,0 +1,144 @@
+/**
+ * 挑戰區（玩家端）
+ * ------------------------------------------------------------------
+ * 使用情境跟其他頁都不一樣：**戶外、單手、排隊中、螢幕可能很亮或很暗**。
+ * 所以字大一級、觸控目標大一號，而且 QR 那一張卡永遠在最上面。
+ */
+
+.chal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  max-width: 30rem;
+  margin: 0 auto;
+}
+
+.chal__hero { text-align: center; padding: var(--sp-2) 0; }
+.chal__heroTitle { display: block; font-size: var(--fs-xl); }
+.chal__heroSub { margin: 4px 0 0; color: var(--text-secondary); font-size: var(--fs-sm); }
+
+.chal__card {
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.chal__card--warn { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
+.chal__cardHead { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.chal__count { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+.chal__label { font-size: var(--fs-sm); color: var(--text-secondary); }
+.chal__hint { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.6; }
+.chal__hint--dim { opacity: .8; }
+
+.chal__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-lg);              /* 戶外、單手打字，比一般表單大一級 */
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+/* 代號是等寬數字，念給工作人員聽的時候比較不會看錯 */
+.chal__input--id { font-variant-numeric: tabular-nums; letter-spacing: .08em; text-transform: uppercase; }
+
+.chal__tabs { display: flex; gap: var(--sp-2); }
+.chal__tab {
+  flex: 1 1 0; min-width: 0;
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+.chal__tab[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); }
+
+.chal__chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.chal__chip {
+  flex: 1 1 5rem; min-width: 0;
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+.chal__chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); }
+
+.chal__go { width: 100%; }
+.chal__back { align-self: center; }
+.chal__row { display: flex; gap: var(--sp-2); justify-content: center; flex-wrap: wrap; }
+
+.chal__note {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-2); flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+/* ── QR ─────────────────────────────────────────────────── */
+.chal__qrCard { align-items: center; text-align: center; }
+
+/*
+ * ⚠️ QR 一律**白底黑點**，不跟著主題變。深色主題下反過來畫的話，
+ *    很多掃碼器讀不到（它們預期暗色模組在亮色底上）。SVG 裡的顏色
+ *    已經寫死，這裡只負責那一圈白色襯底與圓角。
+ */
+.chal__qr {
+  width: min(70vw, 15rem);
+  aspect-ratio: 1;
+  background: #fff;
+  border-radius: var(--r-md);
+  padding: 0;                            /* 白邊由 SVG 自己的 quiet zone 負責 */
+  line-height: 0;
+}
+.chal__qr svg { width: 100%; height: 100%; display: block; border-radius: var(--r-md); }
+
+/*
+ * 代號要夠大。QR 掃不到的時候，這一行就是整個系統的備援——
+ * 工作人員照著打得進去，玩家念得出來。
+ */
+.chal__pid {
+  font-size: var(--fs-xl);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .1em;
+}
+.chal__nick { color: var(--text-secondary); }
+
+/* ── 進度 ───────────────────────────────────────────────── */
+.chal__list { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.chal__item {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.chal__item[data-done="true"] { border-color: var(--success); background: var(--ok-bg); }
+.chal__itemIcon { flex: none; font-size: 1.4em; color: var(--text-secondary); line-height: 1; }
+.chal__item[data-done="true"] .chal__itemIcon { color: var(--success); }
+.chal__itemMain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.chal__itemName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chal__itemVenue { font-size: var(--fs-xs); color: var(--text-muted); }
+.chal__itemScore { flex: none; font-variant-numeric: tabular-nums; font-size: var(--fs-sm); }
+.chal__itemDone { flex: none; color: var(--success); }
+
+.chal__breakdown { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px;
+  font-size: var(--fs-sm); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+/* 320px：關卡列的成績換行放到名稱底下，不要把名稱擠成三個字（R-UI-006） */
+@media (max-width: 22.5rem) {
+  .chal { padding: var(--sp-2); }
+  .chal__qr { width: min(78vw, 13rem); }
+}

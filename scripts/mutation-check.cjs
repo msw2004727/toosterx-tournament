@@ -1456,6 +1456,120 @@ const MUTANTS = [
     file: 'js/modules/admin/standing-actions.js',
     from: "  teamIds.map(id => teamsById?.[id]?.name ?? id).join('、');",
     to: "  teamIds.map(id => teamsById?.[id]?.name ?? '').join('、');"
+  },
+  {
+    name: '#QR1 ⭐ 保留格式資訊區時把第 6 列／欄的時序圖樣一起洗白（掃碼器對不準格線）',
+    file: 'js/lib/qr-render.js',
+    from: '  for (let i = 0; i < 9; i++) {\n    if (i === 6) continue;\n    setFn(8, i, false);\n    setFn(i, 8, false);\n  }',
+    to: '  for (let i = 0; i < 9; i++) {\n    setFn(8, i, false);\n    setFn(i, 8, false);\n  }'
+  },
+  {
+    name: '#QR2 ⭐ 沒有留白邊（深色主題下掃碼器找不到定位圖樣）',
+    file: 'js/lib/qr-render.js',
+    from: "export function qrSvg(text, { quiet = 4, label = 'QR code' } = {}) {",
+    to: "export function qrSvg(text, { quiet = 0, label = 'QR code' } = {}) {"
+  },
+  {
+    name: '#QR3 ⭐ 遮罩挑罰分最高的那一個',
+    file: 'js/lib/qr-render.js',
+    from: '    if (!best || score < best.score) best = { score, m, size, mask };',
+    to: '    if (!best || score > best.score) best = { score, m, size, mask };'
+  },
+  {
+    name: '#QR4 ⭐ 補滿位元組用 0x00（規格指定的是 0xEC / 0x11 交替）',
+    file: 'js/lib/qr-render.js',
+    from: '  for (let i = 0; out.length < dataCodewords(version); i++) out.push(i % 2 === 0 ? 0xec : 0x11);',
+    to: '  for (let i = 0; out.length < dataCodewords(version); i++) out.push(0x00);'
+  },
+  {
+    name: '#QR5 ⭐ 交錯寫成「資料全部接完再接容錯」（版本 4 的兩個區塊才會現形）',
+    file: 'js/lib/qr-render.js',
+    from: '  const out = [];\n  const maxData = Math.max(...blocks.map(b => b.dat.length));\n  for (let i = 0; i < maxData; i++) {\n    for (const b of blocks) if (i < b.dat.length) out.push(b.dat[i]);\n  }\n  for (let i = 0; i < eccLen; i++) for (const b of blocks) out.push(b.ecc[i]);',
+    to: '  const out = [];\n  for (const b of blocks) out.push(...b.dat);\n  for (const b of blocks) out.push(...b.ecc);'
+  },
+  {
+    name: '#QR6 ⭐ 裝不下就截斷（產生一張掃得出來、但內容是錯的 QR）',
+    file: 'js/lib/qr-render.js',
+    from: '  for (const v of [1, 2, 3, 4]) if (byteLen <= byteCapacity(v)) return v;\n  throw new Error(`QR：${byteLen} 個位元組太長了（這一版最多 ${byteCapacity(4)}）`);',
+    to: '  for (const v of [1, 2, 3, 4]) if (byteLen <= byteCapacity(v)) return v;\n  return 4;'
+  },
+  {
+    name: '#QR7 ⭐ GF 乘法不特判 0（LOG[0] 是 0，結果會安靜地錯掉）',
+    file: 'js/lib/qr-render.js',
+    from: 'const gfMul = (a, b) => (a === 0 || b === 0 ? 0 : EXP[LOG[a] + LOG[b]]);',
+    to: 'const gfMul = (a, b) => EXP[LOG[a] + LOG[b]];'
+  },
+  {
+    name: '#QR8 ⭐ 沒有畫「永遠是黑的那一格」（dark module）',
+    file: 'js/lib/qr-render.js',
+    from: '  m[size - 8][8] = true;                       // 永遠是黑的那一格',
+    to: '  m[size - 8][8] = false;'
+  },
+  {
+    name: '#QR9 ⭐ 格式資訊少了規格指定的 XOR 遮罩（全白的 QR 會被誤判成有效格式）',
+    file: 'js/lib/qr-render.js',
+    from: '  return ((data << 10) | rem) ^ 0x5412;',
+    to: '  return (data << 10) | rem;'
+  },
+  {
+    name: '#QR10 ⭐ 版本容量沒扣掉表頭的 2 個位元組（剛好塞滿時會溢位）',
+    file: 'js/lib/qr-render.js',
+    from: 'const byteCapacity = v => dataCodewords(v) - 2;',
+    to: 'const byteCapacity = v => dataCodewords(v);'
+  },
+  {
+    name: '#QR11 ⭐ 內容不是字串也照畫（TextEncoder 會把 null 編成 "null"）',
+    file: 'js/lib/qr-render.js',
+    from: "  if (typeof text !== 'string' || !text) throw new Error('QR：內容必須是非空字串');",
+    to: '  if (false) throw new Error(0);'
+  },
+  {
+    name: '#GP1 ⭐ localStorage 丟例外時不接住（無痕視窗一開頁面就整片空白）',
+    file: 'js/modules/challenge/pass.js',
+    from: '    const raw = localStorage.getItem(KEY);\n    if (!raw) return null;\n    const o = JSON.parse(raw);\n    const playerId = normalizePlayerId(o?.playerId);\n    return playerId ? { playerId, nickname: o?.nickname ?? null } : null;\n  } catch {\n    return null;\n  }',
+    to: '    const raw = localStorage.getItem(KEY);\n    if (!raw) return null;\n    const o = JSON.parse(raw);\n    const playerId = normalizePlayerId(o?.playerId);\n    return playerId ? { playerId, nickname: o?.nickname ?? null } : null;\n  } catch (e) {\n    throw e;\n  }'
+  },
+  {
+    name: '#GP2 ⭐ 存不進去就丟例外（存不進去不算失敗，ID 仍然有效）',
+    file: 'js/modules/challenge/pass.js',
+    from: '    localStorage.setItem(KEY, JSON.stringify({ playerId, nickname }));\n    return true;\n  } catch {\n    return false;\n  }',
+    to: '    localStorage.setItem(KEY, JSON.stringify({ playerId, nickname }));\n    return true;\n  } catch (e) {\n    throw e;\n  }'
+  },
+  {
+    name: '#GP3 ⭐ 存了不成格式的代號也照用（後面每一次查詢都會落空）',
+    file: 'js/modules/challenge/pass.js',
+    from: '    const playerId = normalizePlayerId(o?.playerId);\n    return playerId ? { playerId, nickname: o?.nickname ?? null } : null;',
+    to: '    return { playerId: o?.playerId, nickname: o?.nickname ?? null };'
+  },
+  {
+    name: '#GP4 ⭐ 配號的範圍少了 9999（一萬組變九千九百九十九組）',
+    file: 'js/modules/challenge/pass.js',
+    from: '  return formatPlayerId(Math.floor(Math.random() * 10000));',
+    to: '  return formatPlayerId(Math.floor(Math.random() * 9999));'
+  },
+  {
+    name: '#GP5 ⭐ 配號寫死成同一組（現場所有人都拿到 FEDA-0001）',
+    file: 'js/modules/challenge/pass.js',
+    from: '  return formatPlayerId(Math.floor(Math.random() * 10000));',
+    to: '  return formatPlayerId(1);'
+  },
+  {
+    name: '#GP6 ⭐ 暱稱上限放寬成 20（畫面說可以、送出被 rules 擋掉）',
+    file: 'js/modules/challenge/pass.js',
+    from: "  if (s.length > 12) return { ok: false, reason: '暱稱最多 12 個字' };",
+    to: "  if (s.length > 20) return { ok: false, reason: '暱稱最多 20 個字' };"
+  },
+  {
+    name: '#GP7 ⭐ 新的 Game Pass 自帶抽獎張數（玩家自己灌券）',
+    file: 'js/engine/challenge.js',
+    from: '    completedChallengeIds: [],\n    luckyDrawEntries: 0,\n    createdVia',
+    to: '    completedChallengeIds: [],\n    luckyDrawEntries: 1,\n    createdVia'
+  },
+  {
+    name: '#GP8 ⭐ 暱稱是空的也照建（名冊上會出現一排沒有名字的人）',
+    file: 'js/engine/challenge.js',
+    from: "  if (!nick) throw new Error('newPlayerDoc：暱稱不可以是空的');",
+    to: '  if (false) throw new Error(0);'
   }
 ];
 

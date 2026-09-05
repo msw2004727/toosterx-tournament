@@ -16,6 +16,7 @@ const APP_SHELL = [
   '/css/modules/register.css',
   '/css/modules/admin.css',
   '/css/modules/booth.css',
+  '/css/modules/challenge.css',
   '/app.js',
   '/manifest.json',
   // PWA 圖示。裝到主畫面之後第一次離線開啟時，圖示與 manifest 都要拿得到，

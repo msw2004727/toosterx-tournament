@@ -233,6 +233,16 @@ const deepMerge = (prev, next) => {
 };
 
 export function setDoc(ref, data, opts) {
+  // ⚠️ 模擬「只放行 create」的集合（rules 上 `allow create` 而沒有 `allow update`）。
+  //    真的 Firestore 對已存在的文件會把 setDoc 當成 update 而擋下來，
+  //    替身若照寫不誤，Game Pass 的**撞號重試就永遠測不到**——而那是
+  //    配號機制唯一的安全網。替身跟真的語意分岔已經出過三次事
+  //    （深層 merge、orderBy 的 Timestamp、null 排序），這是第四道。
+  const denyUpdate = (window.__FAKE_CREATE_ONLY || [])
+    .some(prefix => ref.path.startsWith(prefix)) && store.has(ref.path);
+  if (denyUpdate) {
+    return Promise.reject(Object.assign(new Error('permission-denied'), { code: 'permission-denied' }));
+  }
   return write(ref.path, offline => {
     const next = resolveSentinels(data, offline);
     store.set(ref.path, opts?.merge ? deepMerge(store.get(ref.path) || {}, next) : next);
