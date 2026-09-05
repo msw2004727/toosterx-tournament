@@ -92,11 +92,24 @@ const MUTANTS = [
     file: 'js/modules/admin/data.js',
     from: `  for (const d of staff?.docs ?? []) if (d.data().name) people[d.id] = d.data().name;`,
     to: ``
+  },
+  {
+    name: '#E13 ⭐ 報名開關重畫時不把打到一半的日期傳回去（空白的截止日永遠填不進去）',
+    file: 'js/modules/admin/registration.js',
+    from: `        parts: state.parts[dateKey],
+`,
+    to: ``
+  },
+  {
+    name: '#E14 ⭐ 報名開關重畫後不還原焦點（打「24」變成打了「2」就得再點一次）',
+    file: 'js/modules/admin/registration.js',
+    from: `    restoreFocus(focusId, caret);`,
+    to: ``
   }
 ];
 
 process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js --project=chromium-mobile --reporter=dot',
+  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js --project=chromium-mobile --reporter=dot',
   title: '前端時序｜E2E 變異測試'
 }));

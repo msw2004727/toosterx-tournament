@@ -56,6 +56,10 @@ export async function adminRegistrationPage({ scope, view }) {
   const state = {
     cfg: undefined,          // undefined = 還沒載入；null = 文件不存在
     draft: null,
+    // 打到一半的民國年三格（{ y, m, d }），依 opensDate / closesDate 分開放。
+    // 日期還不完整時 draft 裡是空字串，重畫若只靠 draft 重建輸入框，
+    // 剛打的字會被清掉——空白的截止日永遠填不進去（正式站 2026-09-05 開報名時中的）
+    parts: {},
     firstMatchDate: null,
     busy: false, error: null
   };
@@ -66,9 +70,9 @@ export async function adminRegistrationPage({ scope, view }) {
     state.cfg = cfg;
     // 只在第一次（或自己沒有在編輯時）用伺服器的值重建草稿，
     // 不然總管打到一半會被別人的儲存蓋掉
-    if (!state.draft) state.draft = draftFrom(cfg);
+    if (!state.draft) resetDraft(cfg);
     render();
-  }, err => { state.error = err; state.cfg = null; state.draft = state.draft ?? draftFrom(null); render(); });
+  }, err => { state.error = err; state.cfg = null; if (!state.draft) resetDraft(null); render(); });
 
   data.getScheduleBounds().then(b => { state.firstMatchDate = b.firstMatchDate; render(); }).catch(() => {});
 
@@ -85,6 +89,26 @@ export async function adminRegistrationPage({ scope, view }) {
       closesDate: c.date, closesTime: c.time || '00:00',
       maxTeams: cfg?.maxTeamsPerAccount ?? null
     };
+  }
+
+  /** 草稿回到伺服器的值時，打到一半的三格也要一起丟掉 */
+  function resetDraft(cfg) {
+    state.draft = draftFrom(cfg);
+    state.parts = {};
+  }
+
+  /**
+   * 重畫之後把焦點放回原本那一格。整頁是 mount() 換掉的，正在打字的輸入框
+   * 會被換成新的節點——不還原的話，打「24」會變成打了「2」就得再點一次。
+   */
+  function restoreFocus(focusId, caret) {
+    if (!focusId) return;
+    const n = root.querySelector(`#${CSS.escape(focusId)}`);
+    if (!n) return;
+    n.focus();
+    if (caret != null && typeof n.setSelectionRange === 'function') {
+      try { n.setSelectionRange(caret, caret); } catch { /* type=time 不支援，沒關係 */ }
+    }
   }
 
   function draftMs() {
@@ -181,7 +205,8 @@ export async function adminRegistrationPage({ scope, view }) {
       el('span', { class: 'adm__fieldLabel', text: label }),
       rocDateInput(`reg-${key}`, {
         value: state.draft[dateKey],
-        onChange: iso => { state.draft[dateKey] = iso || ''; render(); }
+        parts: state.parts[dateKey],
+        onChange: (iso, parts) => { state.parts[dateKey] = parts; state.draft[dateKey] = iso || ''; render(); }
       }),
       el('div', { class: 'adm__timeRow' }, [
         el('label', { class: 'adm__fieldLabel', for: `reg-${key}-time`, text: '時間' }),
@@ -211,10 +236,15 @@ export async function adminRegistrationPage({ scope, view }) {
     // 存檔之後草稿會被清掉，等下一筆快照重建。這裡就地補回來——
     // 只等快照的話，離線時那筆快照可能永遠不會到，畫面就卡在骨架上
     // （R-UI-002 的同一個道理：不要把畫面的狀態綁在 Firestore 的回應上）。
-    if (!state.draft) state.draft = draftFrom(state.cfg);
+    if (!state.draft) resetDraft(state.cfg);
 
     const warns = warnings();
     const changed = dirty();
+
+    // 正在打字的那一格：重畫完要把焦點與游標放回去
+    const active = document.activeElement;
+    const focusId = root.contains(active) ? active.id : null;
+    const caret = focusId && typeof active.selectionEnd === 'number' ? active.selectionEnd : null;
 
     mount(root,
       adminHead('報名開關', { sub: changed ? '有未儲存的變更' : '已儲存' }),
@@ -266,7 +296,7 @@ export async function adminRegistrationPage({ scope, view }) {
         changed
           ? el('button', {
               class: 'btn btn--lg', type: 'button', disabled: state.busy,
-              onClick: () => { state.draft = draftFrom(state.cfg); render(); }
+              onClick: () => { resetDraft(state.cfg); render(); }
             }, iconText('undo', '放棄變更'))
           : null
       ].filter(Boolean)),
@@ -277,5 +307,7 @@ export async function adminRegistrationPage({ scope, view }) {
         ? el('p', { class: 'adm__permNote', text: `最後更新：${dateLabel(state.cfg.updatedAt)} ${hhmm(state.cfg.updatedAt)}` })
         : null
     );
+
+    restoreFocus(focusId, caret);
   }
 }

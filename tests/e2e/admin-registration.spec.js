@@ -114,6 +114,32 @@ test('⭐ 日期用民國年，而且把西元也印出來對帳 @admin', async 
   await expect(page.locator('.adm__field', { hasText: '截止日期' })).toContainText('西元 2026-09-14');
 });
 
+test('⭐ 空白的截止日填得進去：每打一格就重畫，剛打的字不能被清掉 @admin', async ({ page }) => {
+  // 正式站 2026-09-05 開報名時中的：資料庫還沒有日期，打「115」年之後
+  // onChange 收到 null（日期還不完整）→ 頁面重畫 → 三格從空的草稿重建 → 剛打的字不見了。
+  // demo 有種子日期，上面那條「改年份」的測試永遠走不到這一步。
+  await stub(page, { reg: { ...REG, open: false, opensAt: null, closesAt: null } });
+  await go(page);
+  await ready(page);
+  await expect(page.locator('.adm__field', { hasText: '截止日期' })).toContainText('沒有截止限制');
+
+  await page.locator('#reg-closes').fill('115');
+  await expect(page.locator('#reg-closes')).toHaveValue('115');
+  await page.locator('#reg-closes-m').fill('9');
+  await expect(page.locator('#reg-closes')).toHaveValue('115');
+  await expect(page.locator('#reg-closes-m')).toHaveValue('9');
+  await page.locator('#reg-closes-d').fill('24');
+  await expect(page.locator('.adm__field', { hasText: '截止日期' })).toContainText('西元 2026-09-24');
+
+  // 打字中途焦點不能跑掉：日期一完整就會重畫，「24」打成「2」之後那一格已經被換掉了。
+  // 不還原焦點的話，接下來按的鍵會掉在頁面上、哪裡都不去。
+  await page.locator('#reg-closes-d').press('End');
+  await page.keyboard.press('Backspace');                 // 24 → 2（仍是合法日期，會重畫）
+  await page.keyboard.type('5');                          // 沒還原焦點的話這個 5 會不見
+  await expect(page.locator('#reg-closes-d')).toHaveValue('25');
+  await expect(page.locator('.adm__field', { hasText: '截止日期' })).toContainText('西元 2026-09-25');
+});
+
 test('⭐ 沒改就不能按儲存 @admin', async ({ page }) => {
   await stub(page);
   await go(page);

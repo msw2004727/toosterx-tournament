@@ -195,8 +195,8 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 |---|---|
 | `npm run test:unit` | ✅ 1065 全綠（41 個 suite） |
 | `npm run test:mutation` | ✅ 266 / 266 全被抓到 |
-| `npm run test:mutation:e2e` | ✅ 12 / 12 全被抓到（畫面層時序、權限與替身語意） |
-| `npm run test:e2e` | ✅ 972 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:mutation:e2e` | ✅ 14 / 14 全被抓到（畫面層時序、權限與替身語意） |
+| `npm run test:e2e` | ✅ 975 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 213 全綠（…、R129–R132 改判、R17b–R17d Game Pass、R133 球員上限） |
 | `npm run test:mutation:rules` | ✅ 36 / 36 全被抓到 |
 | `npm run test:fn` | ✅ 79 全綠（F01–F15j 結果管線與同分裁定、FR01–FR15e 報名／登入／規章第十二條、FC01–FC14c 挑戰） |
@@ -330,11 +330,20 @@ R-TEST-001 的重點是鑑別力，但報告上的紅字要先分清楚是哪一
 3. ~~Cloudflare Browser Cache TTL~~ ✅ 已完成，兩個網域實測都回我們自己的標頭
 4. ~~Functions 映像檔清理政策~~ ✅ 兩個專案都設好（要帶 `--location asia-east1`，
    不帶的話它去找 us-central1 然後說「請先部署 Functions」）
-5. **GitHub Actions 帳務**——CI 自 2026-09-04 起每次 3–4 秒就紅，不是程式壞了。
-   修好之前所有測試只能在本機跑
-6. **LINE Developers**：LIFF `2011382367` 的 Endpoint URL 要是 `https://cup.toosterx.com`
-7. **正式站用 LINE 登入一次拿 uid** → `node scripts/grant-super-admin.mjs --project feda-cup-2026 --uid U… --name 名字`
-8. **正式站 `#/admin/registration` 開放報名並設截止日**（需要 7 先完成）
+5. ~~GitHub Actions 帳務~~ ✅ 主辦 2026-09-05 決定把倉庫改成**公開**，Actions 不再計費
+   （私有倉庫每月 2,000 分鐘，9/4 一天就燒掉近 1,000 分鐘——每次 push 五條工作含三套變異）。
+   改公開前掃過整個歷史：沒有私鑰、沒有憑證檔，兩個 zip 快照裡也沒有
+6. ~~LINE Developers~~ ✅ LIFF `2011382367` 的 Endpoint URL 本來就是 `https://cup.toosterx.com`
+7. ~~正式站的總管~~ ✅ uid `U7774e14…`（與 demo 的「小麥（大總管）」同一個 LINE Provider，uid 相同）
+   已用 `grant-super-admin.mjs` 授權
+8. **正式站 `#/admin/registration` 開放報名並設截止日**（主辦指定 2026-09-24 00:00）
+
+> ⚠️ **正式站的 Firebase Authentication 要先在 Console 按一次「開始使用」**（2026-09-05 才發現）。
+> 沒按之前 Auth 的設定根本不存在，`signInWithCustomToken` 會回
+> `auth/configuration-not-found`，`listUsers()` 回「There is no configuration corresponding
+> to the provided identifier」——LINE 那邊授權成功、回到站上卻登不進去。
+> demo 能用是因為建 demo 時有人按過。**不需要啟用任何登入方式**：正式站只用 custom token，
+> demo 的「匿名」只給 `js/modules/demo/` 的自助身分用（R-DEMO-001）。docs/11 §1.6。
 
 > 第一次對新專案部署 Firestore 觸發器會拿到
 > `Permission denied while using the Eventarc Service Agent`（HTTP 400）——
@@ -358,11 +367,9 @@ R-TEST-001 的重點是鑑別力，但報告上的紅字要先分清楚是哪一
    剩 rules 與畫面。
 3. **M7 彩排（10/6–10/7）**。
 
-⚠️ **CI 從 2026-09-04 18:19 之後就沒有真的跑過**：GitHub Actions 的工作
-根本沒有啟動（`The job was not started because recent account payments have
-failed or your spending limit needs to be increased`）。本機全綠，但 CI 跑
-Linux，專門抓 CRLF、路徑大小寫這類本機看不到的問題。要去 GitHub 的
-Billing & plans 處理。
+CI 曾在 2026-09-04 18:19 到 09-05 之間完全沒有跑（私有倉庫的 Actions 分鐘用完、
+預算 $0）。主辦 2026-09-05 把倉庫改成公開後重跑 `main` 與 `demo`，兩條都綠——
+CI 跑 Linux，專門抓 CRLF、路徑大小寫這類本機看不到的問題，現在又有人在守了。
 
 規章有、系統還沒有的：申訴（賽後 30 分鐘＋保證金 2000）、眼鏡切結書、退費機制。
 （每人限報乙隊的跨隊檢查、球員人數上限的伺服器端強制：2026-09-05 已做，見「規章第十二條」那一節。）
@@ -772,6 +779,18 @@ LINE 的 uid 沒辦法憑空產生，所以「指派身分」的第一步永遠�
 
 日期提醒（起訖顛倒、截止已過、晚於比賽日）**全部是 warn，沒有一條擋得住
 儲存**——規章沒寫的事情不要升成錯誤（跟報名審核同一條界線）。
+
+#### ⚠️ 空白的日期要填得進去（正式站 2026-09-05 開報名時中的）
+
+民國年三格每打一格就 `onChange`，日期還不完整時收到的是 `null`；頁面照著
+`render()` 整頁重畫，三格從空的草稿重建——**剛打的「115」立刻不見**，空白的截止日
+永遠填不進去。demo 有種子日期（只改年份就是合法日期），所以 E2E 全綠、沒人發現。
+
+修法兩件：`rocDateInput` 多收 `parts`（打到一半的三格）並在 `onChange` 一起吐回來，
+頁面把它存在 `state.parts` 重畫時傳回去；重畫完用 `restoreFocus()` 把焦點與游標放回
+原本那一格——不然「24」會打成「2」就得再點一次。E2E 從空白填到完整、再用鍵盤改
+一格，變異 #E13／#E14 守著。**任何會在 `onChange` 裡重畫的頁面用 `rocDateInput` 都要傳 `parts`**；
+`register/manage.js` 的球員生日不重畫，所以沒事。
 
 #### ⚠️ Firestore 的規則跨路徑是 OR，不是「以最具體的為準」
 

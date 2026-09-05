@@ -134,11 +134,20 @@ export function selectInput(id, options, { value, onChange }) {
  * @param {string} id
  * @param {{value?:string, onChange?:(iso:string|null)=>void}} o  value 是西元 ISO
  */
-export function rocDateInput(id, { value = '', onChange } = {}) {
-  const init = isoToRoc(value) || { y: '', m: '', d: '' };
+/**
+ * @param {object} o
+ * @param {string} o.value    西元 ISO（`YYYY-MM-DD`），空字串＝沒有日期
+ * @param {object} [o.parts]  打到一半的三格 `{ y, m, d }`。**會重畫的頁面一定要傳**：
+ *   日期還不完整時 `onChange` 收到的是 `null`，頁面若照著重畫、又只用 `value`
+ *   重建這三格，剛打的字就會被清掉——空白的截止日永遠填不進去
+ *   （正式站 2026-09-05 開報名時就是這樣；demo 有種子日期所以沒人發現）。
+ * @param {(iso: string|null, parts: {y:string,m:string,d:string}) => void} [o.onChange]
+ */
+export function rocDateInput(id, { value = '', parts: given = null, onChange } = {}) {
+  const init = given ?? (isoToRoc(value) || { y: '', m: '', d: '' });
   const parts = { y: String(init.y || ''), m: String(init.m || ''), d: String(init.d || '') };
 
-  const emit = () => onChange?.(rocToIso(parts.y, parts.m, parts.d));
+  const emit = () => onChange?.(rocToIso(parts.y, parts.m, parts.d), { ...parts });
 
   const box = (key, label, ph, max) => el('div', { class: 'reg__rocPart' }, [
     el('input', {
