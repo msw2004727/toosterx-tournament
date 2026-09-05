@@ -308,20 +308,77 @@ export function buildLeaderboard({ attempts = [], challenge, players = {}, topN 
     });
   }
 
-  rows.sort((a, b) => {
-    if (a.value !== b.value) return ranking === 'lower' ? a.value - b.value : b.value - a.value;
-    // 同成績依較早達成排前。時間未知的排後面——不能讓一筆還沒同步的
-    // 紀錄插到已經確定的成績前面
-    const ta = a.attemptAt;
-    const tb = b.attemptAt;
-    if (ta == null && tb == null) return String(a.playerId).localeCompare(String(b.playerId));
-    if (ta == null) return 1;
-    if (tb == null) return -1;
-    return ta - tb;
-  });
+  rows.sort((a, b) => compareEntries(a, b, ranking));
 
   rows.forEach((r, i) => { r.rank = i + 1; });
-  return { rows: rows.slice(0, Math.max(1, topN)), totalPlayers: rows.length };
+  return {
+    rows: rows.slice(0, Math.max(1, topN)),
+    totalPlayers: rows.length,
+    // ⭐ 給「不在前 N 名的人算自己的名次」用（docs/06 §5.3）。
+    //    排行榜文件只存前 50 列，第 51 名之後的玩家在客戶端**沒有東西可以
+    //    算名次**——而那一列正是他點進排行榜的理由。
+    //
+    //    這裡只放**數字**：成績與達成時間，沒有 playerId 也沒有暱稱。
+    //    放 ID 的話等於公布一份完整的代號名冊，而代號只有一萬組、
+    //    知道代號就改得動那個人的暱稱。
+    ladder: {
+      values: rows.map(r => r.value),
+      times: rows.map(r => (r.attemptAt ?? null))
+    }
+  };
+}
+
+/**
+ * 排行榜的排序：成績優先，同成績依較早達成，時間未知的排後面。
+ *
+ * ⚠️ **只有這一份實作。** `buildLeaderboard` 排名次用它，`rankInLadder`
+ *    算「我第幾名」也用它——兩份的話玩家看到的名次會跟榜上的對不起來，
+ *    而那種錯不會有任何錯誤訊息。
+ */
+export function compareEntries(a, b, ranking = 'higher') {
+  if (a.value !== b.value) return ranking === 'lower' ? a.value - b.value : b.value - a.value;
+  // 時間未知的排後面——不能讓一筆還沒同步的紀錄插到已經確定的成績前面
+  const ta = a.attemptAt ?? null;
+  const tb = b.attemptAt ?? null;
+  if (ta == null && tb == null) {
+    // 兩邊都沒有時間才用 teamId／playerId 決定，讓排序穩定。
+    // ladder 上沒有 ID（刻意的），那時候就算並列。
+    if (a.playerId == null || b.playerId == null) return 0;
+    return String(a.playerId).localeCompare(String(b.playerId));
+  }
+  if (ta == null) return 1;
+  if (tb == null) return -1;
+  return ta - tb;
+}
+
+/**
+ * 我在這一關的名次 = 排在我前面的人數 + 1。
+ *
+ * 排行榜文件只存前 50 列，所以第 51 名之後的人要靠 `ladder`（只有數字的
+ * 那一份）自己算。用的是跟榜單**同一支**比較函式，算出來的名次跟榜上一致。
+ *
+ * ⚠️ 兩筆成績與時間都完全相同時，榜單用 playerId 決定先後，而 ladder 上
+ *    沒有 ID——那種情況會算成並列（取較前的名次）。那是**極少數**，
+ *    而且寧可少算一名也不要多算：告訴玩家他比實際更後面沒有意義。
+ *
+ * @returns {number|null} 名次；沒有成績或沒有 ladder 時回 null（不要猜）
+ */
+export function rankInLadder(ladder, me, challenge) {
+  const values = ladder?.values;
+  if (!Array.isArray(values) || !values.length) return null;
+  const myValue = numOf(me?.value);
+  if (myValue == null) return null;
+
+  const ranking = rankingOf(challenge);
+  const times = Array.isArray(ladder.times) ? ladder.times : [];
+  const mine = { value: myValue, attemptAt: me?.attemptAt ?? null, playerId: null };
+
+  let better = 0;
+  for (let i = 0; i < values.length; i++) {
+    const other = { value: values[i], attemptAt: times[i] ?? null, playerId: null };
+    if (compareEntries(other, mine, ranking) < 0) better++;
+  }
+  return better + 1;
 }
 
 /**
@@ -443,7 +500,7 @@ if (typeof module !== 'undefined' && module.exports) {
     numOf, formatScore, rankingOf, isBetter,
     validateScore, sumShots, validateLadder,
     attemptMs, pickBest, diffBestFlags, attemptQuota,
-    buildLeaderboard, myRank,
+    buildLeaderboard, myRank, compareEntries, rankInLadder,
     drawEntries, nextCompleted,
     formatPlayerId, normalizePlayerId, newPlayerDoc
   };

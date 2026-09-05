@@ -13,6 +13,7 @@
  */
 import { db as adminDb } from '../../functions/admin.js';
 import { onAttemptSubmitted, playerProgress } from '../../functions/pipeline.js';
+import { rankInLadder } from '../../js/engine/challenge.js';
 
 const E = 'feda-cup-2026';
 const PROJECT = process.env.GCLOUD_PROJECT || 'demo-fn-test';
@@ -265,5 +266,52 @@ describe('FC10–FC13 缺資料時的行為', () => {
     expect(r.draw.entries).toBe(1);
     expect(r.player.nickname).toBe('玩家1');
     expect(await playerProgress({ eventId: E, playerId: '不存在' })).toBeNull();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+describe('FC14 ⭐ ladder：前 N 名之外的玩家也要算得出名次', () => {
+  /**
+   * 排行榜文件只存前 N 列（正式是 50）。第 N+1 名之後的玩家在客戶端
+   * **沒有東西可以算名次**——而那一列正是他點進排行榜的理由（docs/06 §5.3）。
+   * 所以管線要一併寫一份只有數字的 `ladder`。
+   */
+  test('FC14 ⭐ ladder 涵蓋全部玩家，而且不含任何 playerId', async () => {
+    await submit('a1', { playerId: 'FEDA-0001', rawValue: 5, at: '10:00' });
+    await submit('a2', { playerId: 'FEDA-0002', rawValue: 3, at: '10:01' });
+    await submit('a3', { playerId: 'FEDA-0003', rawValue: 1, at: '10:02' });
+
+    const b = await board(CROSSBAR.challengeId);
+    expect(b.totalPlayers).toBe(3);
+    expect(b.ladder.values).toEqual([5, 3, 1]);
+    expect(b.ladder.times).toHaveLength(3);
+    // ⚠️ 代號只有一萬組、掃得完，而知道代號就改得動那個人的暱稱。
+    //    ladder 上放 ID 等於公布一份完整的代號名冊。
+    expect(JSON.stringify(b.ladder)).not.toMatch(/FEDA-/);
+  });
+
+  test('FC14b ⭐ 用 ladder 算出來的名次跟榜上的一致', async () => {
+    await submit('a1', { playerId: 'FEDA-0001', rawValue: 5, at: '10:00' });
+    await submit('a2', { playerId: 'FEDA-0002', rawValue: 3, at: '10:01' });
+    await submit('a3', { playerId: 'FEDA-0003', rawValue: 1, at: '10:02' });
+
+    const b = await board(CROSSBAR.challengeId);
+    for (const row of b.rows) {
+      expect(rankInLadder(b.ladder, { value: row.value, attemptAt: row.attemptAt }, CROSSBAR))
+        .toBe(row.rank);
+    }
+  });
+
+  test('FC14c ⭐ 作廢之後 ladder 要跟著縮短（不然名次永遠算多一個人）', async () => {
+    await submit('a1', { playerId: 'FEDA-0001', rawValue: 5, at: '10:00' });
+    await submit('a2', { playerId: 'FEDA-0002', rawValue: 3, at: '10:01' });
+    expect((await board(CROSSBAR.challengeId)).ladder.values).toEqual([5, 3]);
+
+    await db.doc(`events/${E}/attempts/a1`).update({ voided: true, voidReason: '掃錯人' });
+    await onAttemptSubmitted({ eventId: E, challengeId: CROSSBAR.challengeId, playerId: 'FEDA-0001' });
+
+    const b = await board(CROSSBAR.challengeId);
+    expect(b.ladder.values).toEqual([3]);
+    expect(b.totalPlayers).toBe(1);
   });
 });

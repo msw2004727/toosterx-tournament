@@ -142,3 +142,34 @@
   .chal { padding: var(--sp-2); }
   .chal__qr { width: min(78vw, 13rem); }
 }
+
+/* ── 首頁的關卡列（整列可點，去排行榜）───────────────────── */
+.chal__item--link {
+  width: 100%; box-sizing: border-box;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+  background: var(--bg-card);
+  min-height: var(--tap);
+}
+.chal__itemGo { flex: none; color: var(--text-muted); }
+
+/* ── 排行榜 ─────────────────────────────────────────────── */
+.chal__heroIcon { display: block; font-size: 2em; color: var(--accent); line-height: 1; margin-bottom: 4px; }
+
+.chal__board { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.chal__boardRow {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+}
+/* 自己那一列一定要一眼看得到——玩家點進排行榜就是為了找自己 */
+.chal__boardRow[data-me="true"] {
+  background: var(--accent-bg);
+  outline: 1px solid var(--accent);
+}
+.chal__rank {
+  flex: none; min-width: 2.2em; text-align: right;
+  font-variant-numeric: tabular-nums; color: var(--text-secondary);
+}
+.chal__rank[data-top="true"] { color: var(--accent); font-weight: 700; }
+.chal__boardName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chal__boardValue { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }

@@ -186,20 +186,20 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 - [x] M4-b⑤  資訊架構重整：角色階層（向上包含）＋權限矩陣＋專屬首頁＋
       常駐頁首（登入／我的）＋主題只留圖示＋移除關注功能
 - [ ] M6 Challenge 挑戰系統（a 引擎與管線 ✅、b 攤位端 ✅、
-      c 玩家端：QR 產生器 ✅ ／ Game Pass ✅ ／ 首頁與排行榜⏳、d 抽獎匯出）
+      c 玩家端 ✅（QR 產生器／Game Pass／首頁／排行榜）、d 抽獎匯出⏳）
 - [ ] M7 彩排 → 上線
 
 ## 現在的狀態（2026-09-05）
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 1017 全綠（40 個 suite） |
-| `npm run test:mutation` | ✅ 245 / 245 全被抓到 |
+| `npm run test:unit` | ✅ 1026 全綠（40 個 suite） |
+| `npm run test:mutation` | ✅ 252 / 252 全被抓到 |
 | `npm run test:mutation:e2e` | ✅ 12 / 12 全被抓到（畫面層時序、權限與替身語意） |
-| `npm run test:e2e` | ✅ 909 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:e2e` | ✅ 945 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 206 全綠（…、R118–R125 賽程、R129–R132 改判、R17b–R17d Game Pass） |
 | `npm run test:mutation:rules` | ✅ 34 / 34 全被抓到 |
-| `npm run test:fn` | ✅ 64 全綠（F01–F15j 結果管線與同分裁定、FR01–FR13 報名與登入、FC01–FC13 挑戰） |
+| `npm run test:fn` | ✅ 67 全綠（F01–F15j 結果管線與同分裁定、FR01–FR13 報名與登入、FC01–FC14c 挑戰） |
 | `npm run test:mutation:fn` | ✅ 21 / 21 全被抓到 |
 
 ### 「變異漏掉」有四種原因，不是只有一種
@@ -210,6 +210,7 @@ R-TEST-001 的重點是鑑別力，但報告上的紅字要先分清楚是哪一
 |---|---|---|
 | `❌ 漏掉` | **測試不夠力** | #CH4：用 3 分測「沒有上下限就擋下」，被下一行 `n > max` 接住了；真正會漏的是 0 分 |
 | `❌ 漏掉` | **那段程式碼沒有作用** | #S16 的日期過濾、#CH12 的 `voided !== true`——上游已經濾過了，濾不濾都一樣 |
+| `❌ 漏掉` | **測試剛好走在等價的那一邊** | #LB6：`String(null).localeCompare(String(null))` 也是 0，兩邊都 null 的測試證明不了那個守衛；混合的那一種才會 -1 |
 | `❌ 漏掉` | **只有別的層在測** | #GP7／#GP8：E2E 明明有守「抽獎張數是 0」，但 `test:mutation` 跑的是**單元測試**，所以照樣逃掉 |
 | `⚠️ 找不到要變異的程式碼` | **錨點過期** | #H4 的字串帶著 `pending: true`，功能上線把旗標拿掉之後就對不上了 |
 
@@ -832,9 +833,18 @@ U6 只有 3 隊、女子組 5 隊，全部同分的機率不是零（F15 用「�
 js/lib/qr-render.js            QR 產生（純函式，無相依）
 js/modules/challenge/pass.js   Game Pass 身分：localStorage、找回、配號
 js/modules/challenge/data.js   Firestore（公開讀 ＋ 建立 Game Pass）
+js/modules/challenge/home.js   #/challenge　　　　五關 ＋ 我的進度
 js/modules/challenge/join.js   #/challenge/join　建立／找回
 js/modules/challenge/me.js     #/challenge/me　　我的 QR、進度、抽獎張數
+js/modules/challenge/board.js  #/challenge/board/:challengeId　排行榜
 ```
+
+⚠️ **路由要把 `/challenge` 註冊在最後**（router 先註冊先贏），
+不然 `/challenge/join` 會被 `/challenge` 接走。
+
+⚠️ **公開首頁的挑戰區入口放在最上面**（`js/modules/public/home.js`）。
+現場立牌的 QR 掃進來就是首頁，而掃立牌的人多半是路過想玩遊戲的，
+不是來看比分的——藏在最底下的話攤位就沒有人。E2E 會量它的 Y 座標。
 
 **這一端完全免登入，路由上沒有守衛。** 掛一個 `requireLogin` 上去就等於把
 「免註冊」整個推翻掉。身分是 localStorage 裡的一組 `FEDA-0182`。
@@ -856,6 +866,33 @@ js/modules/challenge/me.js     #/challenge/me　　我的 QR、進度、抽獎�
 模擬「只放行 create」。少了它，撞號重試在 E2E 裡永遠測不到——
 替身跟真的語意分岔已經出過三次事（深層 merge、`orderBy` 的 Timestamp、
 `null` 排序），這是第四道。
+
+#### 排行榜只存前 50 名——名次要另外算（`ladder`）
+
+`leaderboards/{id}` 的 `rows` 只有前 50 列（`LEADERBOARD_TOP_N`）。
+規格 §5.3 要「自己不在前 50 時底部固定顯示自己那一列」，但客戶端
+**沒有東西可以算名次**——而那一列正是玩家點進排行榜的理由。
+
+所以 `buildLeaderboard` 一併回傳 `ladder`，管線把它寫進同一份文件：
+
+```js
+ladder: { values: [5, 4, 3, 3, 1, …], times: [1760…, …] }   // 全部玩家，只有數字
+```
+
+⚠️ **只有數字，沒有 playerId 也沒有暱稱**（變異 #LB2）。代號空間只有一萬組、
+掃得完，而知道代號就改得動那個人的暱稱——ladder 上放 ID 等於公布一份
+完整的代號名冊。
+
+⚠️ **ladder 不可以跟著 `rows` 一起截斷**（#LB1）。截了的話第 51 名之後
+永遠算不出名次，而畫面看起來完全正常（那一格就只是空的）。
+
+⚠️ **排序邏輯只有 `compareEntries` 一份**。`buildLeaderboard` 排名次用它，
+`rankInLadder` 算「我第幾名」也用它——兩份的話玩家看到的名次會跟榜上
+對不起來，而那種錯不會有任何錯誤訊息。前 50 名的每一列都會被 T46-10
+拿去逐一驗證「算出來 == 榜上的」。
+
+⚠️ 玩家端算自己的時間戳一律用引擎的 `attemptMs`：ladder 上的時間就是它
+算出來的，換一支（例如 `js/lib/format.js` 的 `toMillis`）就可能差一點而排錯。
 
 #### `contact` 刻意不開放訪客改（2026-09-05 決定）
 

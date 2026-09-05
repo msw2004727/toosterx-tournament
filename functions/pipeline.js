@@ -627,7 +627,7 @@ async function syncPlayerCompletion({ eventId, challengeId, playerId, attempts, 
 async function rebuildLeaderboard({ eventId, challengeId, challenge }) {
   const attempts = await loadChallengeAttempts(eventId, challengeId);
   const players = await loadPlayers(eventId, attempts.map(a => a.playerId));
-  const { rows, totalPlayers } = buildLeaderboard({
+  const { rows, totalPlayers, ladder } = buildLeaderboard({
     attempts, challenge, players, topN: LEADERBOARD_TOP_N
   });
 
@@ -643,6 +643,9 @@ async function rebuildLeaderboard({ eventId, challengeId, challenge }) {
       })),
       topN: LEADERBOARD_TOP_N,
       totalPlayers,
+      // 只有數字（成績與時間），沒有 ID——讓第 51 名之後的玩家也算得出
+      // 自己的名次（docs/06 §5.3）。放 ID 等於公布一份完整的代號名冊。
+      ladder,
       version: (prev?.version ?? 0) + 1,
       computedAt: FieldValue.serverTimestamp()
     }, { merge: true });

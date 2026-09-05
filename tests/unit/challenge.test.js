@@ -21,7 +21,8 @@ import {
   validateScore, sumShots, validateLadder,
   attemptMs, pickBest, diffBestFlags, attemptQuota,
   buildLeaderboard, myRank, drawEntries, nextCompleted,
-  formatPlayerId, normalizePlayerId, newPlayerDoc, DEFAULT_RANKING
+  formatPlayerId, normalizePlayerId, newPlayerDoc, DEFAULT_RANKING,
+  compareEntries, rankInLadder
 } from '../../js/engine/challenge.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -519,5 +520,115 @@ describe('T46-9 ⭐ 新的 Game Pass（newPlayerDoc）', () => {
   test('沒選年齡層就是 null，不猜一個', () => {
     expect(newPlayerDoc(base).ageBand).toBeNull();
     expect(newPlayerDoc({ ...base, ageBand: 'kid' }).ageBand).toBe('kid');
+  });
+});
+
+describe('T46-10 ⭐ 前 50 名之外也要算得出名次（ladder）', () => {
+  /** n 個玩家，成績 n..1（第 i 個是 n-i 分），時間依序遞增 */
+  const manyAttempts = n => Array.from({ length: n }, (_, i) => ({
+    attemptId: `a${i}`, playerId: `FEDA-${String(i).padStart(4, '0')}`,
+    challengeId: 'g03-crossbar', rawValue: n - i,
+    createdAt: `2026-10-11T09:${String(i % 60).padStart(2, '0')}:00+08:00`
+  }));
+
+  test('⭐ ladder 涵蓋全部玩家，不是只有前 N 名', () => {
+    // 排行榜文件只存前 50 列。ladder 若也被切掉，第 51 名之後的人
+    // 就永遠算不出自己的名次——而那正是他點進排行榜的理由
+    const r = buildLeaderboard({ attempts: manyAttempts(80), challenge: CROSSBAR, topN: 50 });
+    expect(r.rows).toHaveLength(50);
+    expect(r.totalPlayers).toBe(80);
+    expect(r.ladder.values).toHaveLength(80);
+    expect(r.ladder.times).toHaveLength(80);
+  });
+
+  test('⭐ ladder 上沒有 playerId、沒有暱稱（代號只有一萬組，別公布名冊）', () => {
+    const r = buildLeaderboard({ attempts: manyAttempts(5), challenge: CROSSBAR });
+    expect(Object.keys(r.ladder).sort()).toEqual(['times', 'values']);
+    expect(JSON.stringify(r.ladder)).not.toMatch(/FEDA-/);
+  });
+
+  test('⭐ 算出來的名次跟榜上的一致（前 50 名逐一比對）', () => {
+    // 兩份排序邏輯分岔的話，玩家看到的名次會跟榜上的對不起來，
+    // 而那種錯不會有任何錯誤訊息
+    const r = buildLeaderboard({ attempts: manyAttempts(80), challenge: CROSSBAR, topN: 50 });
+    for (const row of r.rows) {
+      expect(rankInLadder(r.ladder, { value: row.value, attemptAt: row.attemptAt }, CROSSBAR))
+        .toBe(row.rank);
+    }
+  });
+
+  test('⭐ 第 51 名之後也算得對', () => {
+    const r = buildLeaderboard({ attempts: manyAttempts(80), challenge: CROSSBAR, topN: 50 });
+    // 第 i 個玩家的成績是 80-i，時間遞增 → 名次就是 i+1
+    for (const i of [50, 60, 79]) {
+      const value = 80 - i;
+      const at = Date.parse(`2026-10-11T09:${String(i % 60).padStart(2, '0')}:00+08:00`);
+      expect(rankInLadder(r.ladder, { value, attemptAt: at }, CROSSBAR)).toBe(i + 1);
+    }
+  });
+
+  test('⭐ lower is better 的關卡方向要反過來（沒有人用的分支最容易寫錯）', () => {
+    const TIME = { challengeId: 'g99', scoreType: 'time', unit: '秒', rankingRule: 'lower', decimals: 1 };
+    const attempts = [
+      { attemptId: 'a', playerId: 'p1', challengeId: 'g99', rawValue: 12.5, createdAt: '2026-10-11T09:00:00+08:00' },
+      { attemptId: 'b', playerId: 'p2', challengeId: 'g99', rawValue: 9.8,  createdAt: '2026-10-11T09:01:00+08:00' },
+      { attemptId: 'c', playerId: 'p3', challengeId: 'g99', rawValue: 15.0, createdAt: '2026-10-11T09:02:00+08:00' }
+    ];
+    const r = buildLeaderboard({ attempts, challenge: TIME });
+    expect(r.rows.map(x => x.playerId)).toEqual(['p2', 'p1', 'p3']);
+    expect(rankInLadder(r.ladder, { value: 9.8, attemptAt: Date.parse('2026-10-11T09:01:00+08:00') }, TIME)).toBe(1);
+    expect(rankInLadder(r.ladder, { value: 15.0, attemptAt: Date.parse('2026-10-11T09:02:00+08:00') }, TIME)).toBe(3);
+  });
+
+  test('同成績時較早達成的排前', () => {
+    const attempts = [
+      { attemptId: 'a', playerId: 'p1', challengeId: 'g03-crossbar', rawValue: 3, createdAt: '2026-10-11T10:00:00+08:00' },
+      { attemptId: 'b', playerId: 'p2', challengeId: 'g03-crossbar', rawValue: 3, createdAt: '2026-10-11T09:00:00+08:00' }
+    ];
+    const r = buildLeaderboard({ attempts, challenge: CROSSBAR });
+    expect(r.rows.map(x => x.playerId)).toEqual(['p2', 'p1']);
+    expect(rankInLadder(r.ladder, { value: 3, attemptAt: Date.parse('2026-10-11T09:00:00+08:00') }, CROSSBAR)).toBe(1);
+    expect(rankInLadder(r.ladder, { value: 3, attemptAt: Date.parse('2026-10-11T10:00:00+08:00') }, CROSSBAR)).toBe(2);
+  });
+
+  test('⭐ 沒有成績、沒有 ladder 一律回 null（不要猜一個名次）', () => {
+    const r = buildLeaderboard({ attempts: manyAttempts(3), challenge: CROSSBAR });
+    expect(rankInLadder(r.ladder, { value: null }, CROSSBAR)).toBeNull();
+    expect(rankInLadder(null, { value: 3 }, CROSSBAR)).toBeNull();
+    expect(rankInLadder({ values: [] }, { value: 3 }, CROSSBAR)).toBeNull();
+    expect(rankInLadder(undefined, undefined, CROSSBAR)).toBeNull();
+  });
+
+  test('時間還沒同步（null）的成績排在同分的後面', () => {
+    const attempts = [
+      { attemptId: 'a', playerId: 'p1', challengeId: 'g03-crossbar', rawValue: 3, createdAt: null },
+      { attemptId: 'b', playerId: 'p2', challengeId: 'g03-crossbar', rawValue: 3, createdAt: '2026-10-11T09:00:00+08:00' }
+    ];
+    const r = buildLeaderboard({ attempts, challenge: CROSSBAR });
+    expect(r.rows.map(x => x.playerId)).toEqual(['p2', 'p1']);
+    expect(rankInLadder(r.ladder, { value: 3, attemptAt: null }, CROSSBAR)).toBe(2);
+  });
+
+  test('compareEntries：ladder 上沒有 ID 時，完全相同的兩筆算並列（不亂猜先後）', () => {
+    const a = { value: 5, attemptAt: null, playerId: null };
+    const b = { value: 5, attemptAt: null, playerId: null };
+    expect(compareEntries(a, b, 'higher')).toBe(0);
+  });
+
+  /**
+   * ⭐ 一邊有 ID、一邊沒有時**也**要算並列。
+   *
+   * ⚠️ 兩邊都是 null 的情況測不出這個守衛——`String(null).localeCompare(String(null))`
+   *    剛好也是 0，拿掉守衛結果一樣（變異 #LB6 就是這樣逃掉的）。
+   *    真正會出事的是混合的那一種：`'FEDA-0001'.localeCompare('null')` 是 -1，
+   *    等於拿一個真的代號去跟字串 "null" 比大小——一個沒有意義的順序。
+   *    `compareEntries` 現在有兩個形狀不同的呼叫端（榜單有 ID、ladder 沒有），
+   *    這個守衛就是為了那一天。
+   */
+  test('⭐ compareEntries：一邊有 ID 一邊沒有時也算並列，不拿代號去跟 "null" 比', () => {
+    const withId = { value: 5, attemptAt: null, playerId: 'FEDA-0001' };
+    const noId = { value: 5, attemptAt: null, playerId: null };
+    expect(compareEntries(withId, noId, 'higher')).toBe(0);
+    expect(compareEntries(noId, withId, 'higher')).toBe(0);
   });
 });

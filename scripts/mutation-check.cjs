@@ -1208,20 +1208,20 @@ const MUTANTS = [
   {
     name: '#CH14 ⭐ 排行榜不看排序方向（time 型態整張榜倒過來，驗收 C09）',
     file: 'js/engine/challenge.js',
-    from: "    if (a.value !== b.value) return ranking === 'lower' ? a.value - b.value : b.value - a.value;",
-    to: '    if (a.value !== b.value) return b.value - a.value;'
+    from: "  if (a.value !== b.value) return ranking === 'lower' ? a.value - b.value : b.value - a.value;",
+    to: '  if (a.value !== b.value) return b.value - a.value;'
   },
   {
     name: '#CH15 ⭐ 同成績用 playerId 排（不是較早達成的排前）',
     file: 'js/engine/challenge.js',
-    from: '    if (ta == null && tb == null) return String(a.playerId).localeCompare(String(b.playerId));\n    if (ta == null) return 1;\n    if (tb == null) return -1;\n    return ta - tb;\n  });\n\n  rows.forEach',
-    to: '    return String(a.playerId).localeCompare(String(b.playerId));\n  });\n\n  rows.forEach'
+    from: '  const ta = a.attemptAt ?? null;\n  const tb = b.attemptAt ?? null;',
+    to: '  const ta = null;\n  const tb = null;'
   },
   {
     name: '#CH16 ⭐ totalPlayers 在截斷之後才算（自己不在前 50 時算不出真正的名次）',
     file: 'js/engine/challenge.js',
-    from: '  return { rows: rows.slice(0, Math.max(1, topN)), totalPlayers: rows.length };',
-    to: '  const out = rows.slice(0, Math.max(1, topN));\n  return { rows: out, totalPlayers: out.length };'
+    from: '    rows: rows.slice(0, Math.max(1, topN)),\n    totalPlayers: rows.length,',
+    to: '    rows: rows.slice(0, Math.max(1, topN)),\n    totalPlayers: rows.slice(0, Math.max(1, topN)).length,'
   },
   {
     name: '#CH17 ⭐ 讀不到抽獎設定就套一份預設（多發的抽獎券收不回來）',
@@ -1570,6 +1570,48 @@ const MUTANTS = [
     file: 'js/engine/challenge.js',
     from: "  if (!nick) throw new Error('newPlayerDoc：暱稱不可以是空的');",
     to: '  if (false) throw new Error(0);'
+  },
+  {
+    name: '#LB1 ⭐ ladder 跟著切成前 N 名（第 51 名之後永遠算不出自己的名次）',
+    file: 'js/engine/challenge.js',
+    from: '      values: rows.map(r => r.value),\n      times: rows.map(r => (r.attemptAt ?? null))',
+    to: '      values: rows.slice(0, Math.max(1, topN)).map(r => r.value),\n      times: rows.slice(0, Math.max(1, topN)).map(r => (r.attemptAt ?? null))'
+  },
+  {
+    name: '#LB2 ⭐ ladder 帶上 playerId（等於公布一份完整的代號名冊）',
+    file: 'js/engine/challenge.js',
+    from: '      values: rows.map(r => r.value),\n      times: rows.map(r => (r.attemptAt ?? null))\n    }',
+    to: '      values: rows.map(r => r.value),\n      times: rows.map(r => (r.attemptAt ?? null)),\n      playerIds: rows.map(r => r.playerId)\n    }'
+  },
+  {
+    name: '#LB3 ⭐ rankInLadder 從 0 開始編號（每個人的名次都少一名）',
+    file: 'js/engine/challenge.js',
+    from: '  return better + 1;\n}',
+    to: '  return better;\n}'
+  },
+  {
+    name: '#LB4 ⭐ rankInLadder 不看排序方向（lower is better 的關卡整份反過來）',
+    file: 'js/engine/challenge.js',
+    from: '    if (compareEntries(other, mine, ranking) < 0) better++;',
+    to: "    if (compareEntries(other, mine, 'higher') < 0) better++;"
+  },
+  {
+    name: '#LB5 ⭐ 沒有成績也算得出名次（沒挑戰過的人被塞一個第 1 名）',
+    file: 'js/engine/challenge.js',
+    from: '  const myValue = numOf(me?.value);\n  if (myValue == null) return null;',
+    to: '  const myValue = numOf(me?.value) ?? 0;'
+  },
+  {
+    name: '#LB6 ⭐ 排序改用「同成績也比 playerId」（ladder 上沒有 ID，名次會亂跳）',
+    file: 'js/engine/challenge.js',
+    from: '    if (a.playerId == null || b.playerId == null) return 0;\n    return String(a.playerId).localeCompare(String(b.playerId));',
+    to: '    return String(a.playerId).localeCompare(String(b.playerId));'
+  },
+  {
+    name: '#LB7 ⭐ 時間未知的成績排到同分的前面（還沒同步的插隊到已確定的成績之前）',
+    file: 'js/engine/challenge.js',
+    from: '  if (ta == null) return 1;\n  if (tb == null) return -1;\n  return ta - tb;',
+    to: '  if (ta == null) return -1;\n  if (tb == null) return 1;\n  return ta - tb;'
   }
 ];
 

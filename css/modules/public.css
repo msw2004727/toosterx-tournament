@@ -319,3 +319,22 @@
 @media (min-width:840px){
   .pwall{display:grid;grid-template-columns:1fr 1fr}
 }
+
+/* ── 挑戰區入口（docs/06 §9）─────────────────────────────
+   放在首頁最上面：現場立牌的 QR 掃進來就是這一頁，而掃立牌的人
+   多半是路過想玩遊戲的。藏在底下的話攤位就沒有人。 */
+.pub__challengeEntry {
+  display: flex; align-items: center; gap: var(--sp-3);
+  width: 100%; box-sizing: border-box;
+  padding: var(--sp-3);
+  min-height: var(--tap);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-lg);
+  background: var(--accent-bg);
+  color: var(--text-primary);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.pub__challengeIcon { flex: none; font-size: 1.8em; color: var(--accent); line-height: 1; }
+.pub__challengeMain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pub__challengeSub { font-size: var(--fs-xs); color: var(--text-secondary); }
+.pub__challengeGo { flex: none; color: var(--accent); }

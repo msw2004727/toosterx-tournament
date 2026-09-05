@@ -42,13 +42,33 @@ const player = (over = {}) => ({
   createdVia: 'self', ...over
 });
 
-function seed({ players = {}, withRewards = true } = {}) {
+/**
+ * 橫樑關的排行榜。`outsider: true` 時前三名的成績都比 1 好，
+ * 而且 ladder 上有 6 筆——用來測「自己不在前 N 名」那一條。
+ */
+const board = ({ outsider = false } = {}) => ({
+  challengeId: 'g03-crossbar', topN: 50, version: 3,
+  rows: [
+    { rank: 1, playerId: 'FEDA-0001', nickname: 'Kevin', value: 5, displayValue: '5 次', attempts: 2, attemptAt: 1760000000000 },
+    { rank: 2, playerId: outsider ? 'FEDA-0002' : 'FEDA-0182', nickname: outsider ? 'Amy' : '阿哲', value: 4, displayValue: '4 次', attempts: 1, attemptAt: 1760000100000 },
+    { rank: 3, playerId: 'FEDA-0003', nickname: '小明', value: 3, displayValue: '3 次', attempts: 3, attemptAt: 1760000200000 }
+  ],
+  totalPlayers: outsider ? 7 : 3,
+  // ⚠️ ladder 涵蓋**全部**玩家（不是只有前 50），而且只有數字沒有 ID
+  ladder: outsider
+    ? { values: [5, 4, 3, 3, 2, 2, 1], times: [1760000000000, 1760000100000, 1760000200000, 1760000300000, 1760000400000, 1760000500000, Date.parse('2026-10-11T09:30:00+08:00')] }
+    : { values: [5, 4, 3], times: [1760000000000, 1760000100000, 1760000200000] }
+});
+
+function seed({ players = {}, withRewards = true, boards = {}, attempts = {}, noChallenges = false } = {}) {
   const s = {
     [`events/${EVENT}`]: { eventId: EVENT, name: 'FEDA CUP 2026' },
     'config/env': { env: 'demo' }
   };
-  for (const [id, c] of Object.entries(CHALLENGES)) s[`events/${EVENT}/challenges/${id}`] = c;
+  if (!noChallenges) for (const [id, c] of Object.entries(CHALLENGES)) s[`events/${EVENT}/challenges/${id}`] = c;
   for (const [id, p] of Object.entries(players)) s[`events/${EVENT}/players/${id}`] = p;
+  for (const [id, b] of Object.entries(boards)) s[`events/${EVENT}/leaderboards/${id}`] = b;
+  for (const [id, a] of Object.entries(attempts)) s[`events/${EVENT}/attempts/${id}`] = a;
   if (withRewards) {
     s['config/challengeRewards'] = {
       rule: 'perChallengeCompleted', entriesPerCompletion: 1,
@@ -338,4 +358,164 @@ test('⭐ 一直撞號時要說得出原因，不是靜靜失敗 @challenge', as
   const box = page.locator('.chal__card--warn[role="alert"]');
   await expect(box).toContainText('再按一次', { timeout: 15_000 });
   await expect(page).toHaveURL(/#\/challenge\/join/);        // 沒有假裝成功
+});
+
+// ══════════════════════════════════════════════════════════════
+//  #/challenge 首頁（docs/06 §8）
+// ══════════════════════════════════════════════════════════════
+
+test('⭐ 挑戰區首頁畫得出來，五關照 order 排 @challenge', async ({ page }) => {
+  await stub(page);
+  await page.goto('/#/challenge');
+  await boot(page);
+
+  await expect(page.locator('.chal__heroTitle')).toContainText('挑戰區', { timeout: 15_000 });
+  const items = page.locator('.chal__item');
+  await expect(items).toHaveCount(2);
+  // 立牌上的攤位編號就是這個順序，現場的人照號碼找路
+  await expect(items.nth(0)).toContainText('九宮格');
+  await expect(items.nth(1)).toContainText('橫樑');
+});
+
+test('⭐ 還沒有挑戰卡的人也看得到五關（免註冊）@challenge', async ({ page }) => {
+  await stub(page);
+  await page.goto('/#/challenge');
+  await boot(page);
+  await expect(page.locator('.chal__item')).toHaveCount(2, { timeout: 15_000 });
+  await expect(page.getByRole('button', { name: /開始挑戰/ })).toBeVisible();
+});
+
+test('⭐ 有挑戰卡時顯示進度與抽獎張數 @challenge', async ({ page }) => {
+  await stub(page, { players: { 'FEDA-0182': player() } });
+  await withPass(page, 'FEDA-0182');
+  await page.goto('/#/challenge');
+  await boot(page);
+
+  await expect(page.locator('.chal__count').first()).toHaveText('1 / 2', { timeout: 15_000 });
+  await expect(page.locator('.chal')).toContainText('1 張抽獎資格');
+  await page.getByRole('button', { name: /我的 QR/ }).click();
+  await expect(page).toHaveURL(/#\/challenge\/me/);
+});
+
+test('⭐ 點關卡進排行榜 @challenge', async ({ page }) => {
+  await stub(page);
+  await page.goto('/#/challenge');
+  await boot(page);
+  await page.locator('.chal__item').first().click();
+  await expect(page).toHaveURL(/#\/challenge\/board\/g01-nine-grid/, { timeout: 15_000 });
+});
+
+test('⭐ 沒有關卡設定時說清楚，不是一片空白 @challenge', async ({ page }) => {
+  await stub(page, { noChallenges: true });
+  await page.goto('/#/challenge');
+  await boot(page);
+  await expect(page.locator('.chal')).toContainText('關卡還沒公布', { timeout: 15_000 });
+});
+
+// ══════════════════════════════════════════════════════════════
+//  #/challenge/board/:challengeId（docs/06 §5.3）
+// ══════════════════════════════════════════════════════════════
+
+test('⭐ 排行榜畫得出來，前幾名照名次排 @challenge', async ({ page }) => {
+  await stub(page, { boards: { 'g03-crossbar': board() } });
+  await page.goto('/#/challenge/board/g03-crossbar');
+  await boot(page);
+
+  await expect(page.locator('.chal__heroTitle')).toContainText('橫樑', { timeout: 15_000 });
+  const rows = page.locator('.chal__board .chal__boardRow');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('Kevin');
+  await expect(rows.nth(0)).toContainText('5次');
+  await expect(rows.nth(2)).toContainText('小明');
+});
+
+test('⭐ 自己在前 50 名裡時，那一列被標起來、底下不再重複印一次 @challenge', async ({ page }) => {
+  await stub(page, {
+    players: { 'FEDA-0182': player() },
+    boards: { 'g03-crossbar': board() }
+  });
+  await withPass(page, 'FEDA-0182');
+  await page.goto('/#/challenge/board/g03-crossbar');
+  await boot(page);
+
+  const me = page.locator('.chal__boardRow[data-me="true"]');
+  await expect(me).toHaveCount(1, { timeout: 15_000 });
+  await expect(me).toContainText('阿哲');
+  await expect(page.locator('.chal__myLine')).toHaveCount(0);
+});
+
+test('⭐ 自己不在前 50 名時，底部固定顯示自己那一列，名次由 ladder 算出來 @challenge', async ({ page }) => {
+  // 這是 §5.3 的重點：排行榜文件只存前 50 列，第 51 名之後的人
+  // 在客戶端沒有別的東西可以算名次——而那一列正是他點進來的理由
+  await stub(page, {
+    players: { 'FEDA-0900': player({ playerId: 'FEDA-0900', nickname: '排很後面' }) },
+    boards: { 'g03-crossbar': board({ outsider: true }) },
+    attempts: {
+      'att-outsider': {
+        attemptId: 'att-outsider', playerId: 'FEDA-0900', challengeId: 'g03-crossbar',
+        rawValue: 1, isBest: true, voided: false,
+        createdAt: '2026-10-11T09:30:00+08:00'
+      }
+    }
+  });
+  await withPass(page, 'FEDA-0900', '排很後面');
+  await page.goto('/#/challenge/board/g03-crossbar');
+  await boot(page);
+
+  const mine = page.locator('.chal__myLine');
+  await expect(mine).toBeVisible({ timeout: 15_000 });
+  await expect(mine).toContainText('排很後面');
+  await expect(mine).toContainText('1次');
+  // ladder 上有 6 筆成績都比 1 好 → 第 7 名
+  await expect(mine.locator('.chal__rank')).toHaveText('7');
+});
+
+test('⭐ 沒挑戰過這一關時說「你還沒挑戰過」，不要印一個猜的名次 @challenge', async ({ page }) => {
+  // outsider 的那一份榜上沒有 FEDA-0182，而且沒有種任何 attempt →
+  // 「我的最佳」是 null，所以既不該印名次也不該印成績
+  await stub(page, {
+    players: { 'FEDA-0182': player({ completedChallengeIds: [] }) },
+    boards: { 'g03-crossbar': board({ outsider: true }) }
+  });
+  await withPass(page, 'FEDA-0182');
+  await page.goto('/#/challenge/board/g03-crossbar');
+  await boot(page);
+  await expect(page.locator('.chal')).toContainText('你還沒挑戰過', { timeout: 15_000 });
+});
+
+test('⭐ 還沒有人挑戰時說得出來 @challenge', async ({ page }) => {
+  await stub(page);                        // 沒有 leaderboard 文件
+  await page.goto('/#/challenge/board/g03-crossbar');
+  await boot(page);
+  await expect(page.locator('.chal')).toContainText('還沒有人挑戰', { timeout: 15_000 });
+});
+
+test('⭐ 找不到這一關時給一條路回去 @challenge', async ({ page }) => {
+  await stub(page);
+  await page.goto('/#/challenge/board/g99-not-exist');
+  await boot(page);
+  await expect(page.locator('.chal__card--warn')).toContainText('找不到這一關', { timeout: 15_000 });
+  await page.getByRole('button', { name: /回挑戰區/ }).click();
+  await expect(page).toHaveURL(/#\/challenge$/);
+});
+
+// ══════════════════════════════════════════════════════════════
+//  公開首頁的入口（docs/06 §9）
+// ══════════════════════════════════════════════════════════════
+
+test('⭐ 公開首頁最上面有挑戰區入口 @challenge', async ({ page }) => {
+  await stub(page);
+  await page.goto('/#/');
+  await boot(page);
+
+  const entry = page.locator('.pub__challengeEntry');
+  await expect(entry).toBeVisible({ timeout: 15_000 });
+  await expect(entry).toContainText('挑戰區');
+  // ⚠️ 現場立牌的 QR 掃進來就是首頁，掃立牌的人多半是來玩遊戲的。
+  //    藏在最底下的話攤位就沒有人——所以它要在第一屏。
+  const y = await entry.evaluate(n => n.getBoundingClientRect().top);
+  expect(y).toBeLessThan(600);
+
+  await entry.click();
+  await expect(page).toHaveURL(/#\/challenge$/);
 });

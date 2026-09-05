@@ -12,7 +12,7 @@
 
 import { el, mount, skeleton } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
-import { iconText } from '../../core/icons.js';
+import { icon, iconText } from '../../core/icons.js';
 import { startTicker, now } from '../../core/clock.js';
 import { dateLabelFromYmd, hhmm } from '../../lib/format.js';
 import { EVENT } from '../../config.js';
@@ -141,6 +141,25 @@ export async function publicHome({ scope, view, query }) {
     mount(root,
       pageHead(EVENT.name, { sub: `${EVENT.slogan}　·　${EVENT.venueName}` }),
       dateTabs(),
+
+      // 挑戰區入口（docs/06 §9：賽事與挑戰區並列兩個入口）。
+      //
+      // ⚠️ **放在最上面、live 之前。** 現場立牌的 QR 掃進來就是首頁，
+      //    而掃那張立牌的人多半是路過想玩遊戲的，不是來看比分的。
+      //    藏在最底下的話他找不到，攤位就沒有人。
+      //    這一格不看有沒有 Game Pass——判斷要多讀一份文件，
+      //    而「挑戰區在哪裡」對兩種人都是同一個答案。
+      el('button', {
+        class: 'pub__challengeEntry', type: 'button',
+        onClick: () => navigate('/challenge')
+      }, [
+        el('span', { class: 'pub__challengeIcon' }, icon('goal')),
+        el('span', { class: 'pub__challengeMain' }, [
+          el('strong', { text: '足球挑戰區' }),
+          el('span', { class: 'pub__challengeSub', text: '五個關卡，完成一關就有一次抽獎機會' })
+        ]),
+        el('span', { class: 'pub__challengeGo' }, icon('forward'))
+      ]),
 
       // 只在真的有進行中場次時才出現（§2.3）
       live.length ? sectionCard('現在進行中', 'live',

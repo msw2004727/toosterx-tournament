@@ -22,8 +22,14 @@ const page = (path, fn) => {
 };
 
 export function registerChallengeRoutes() {
+  // ⚠️ 具體路徑要註冊在 `/challenge` 之前——router 是先註冊先贏，
+  //    而 `/challenge/join` 不該被 `/challenge` 接走。
   route('/challenge/join', page('../challenge/join.js', m => m.challengeJoinPage),
     { title: '開始挑戰' });
   route('/challenge/me', page('../challenge/me.js', m => m.challengeMePage),
     { title: '我的挑戰卡' });
+  route('/challenge/board/:challengeId', page('../challenge/board.js', m => m.challengeBoardPage),
+    { title: '排行榜' });
+  route('/challenge', page('../challenge/home.js', m => m.challengeHomePage),
+    { title: '挑戰區' });
 }
