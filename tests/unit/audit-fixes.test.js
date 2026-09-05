@@ -192,6 +192,25 @@ describe('T58-G 畫面層修法釘在原始碼上（E2E 另外守行為）', () 
     expect(hit).toBeTruthy();
   });
 
+  test('D-01b 檢錄名單的查詢（status ＋ jerseyNo）有對應的複合索引', () => {
+    // D-01 修好之後名單查詢第一次真的執行，demo 實地驗證立刻回 failed-precondition：
+    // 模擬器與替身都不查索引，只有正式資料庫會。
+    const q = read('js/modules/staff/checkin-data.js');
+    expect(q).toContain("where('status', '==', 'approved'),\n    orderBy('jerseyNo', 'asc')");
+    const idx = JSON.parse(read('firestore.indexes.json'));
+    const hit = idx.indexes.find(i => i.collectionGroup === 'members' && i.queryScope === 'COLLECTION'
+      && i.fields.length === 2
+      && i.fields[0].fieldPath === 'status' && i.fields[0].order === 'ASCENDING'
+      && i.fields[1].fieldPath === 'jerseyNo' && i.fields[1].order === 'ASCENDING');
+    expect(hit).toBeTruthy();
+  });
+
+  test('D-01b 檢錄台讀不到名單時說「讀不到」，不說「還沒有名單」', () => {
+    const src = read('js/modules/staff/checkin.js');
+    expect(src).toContain("id: 'chk-roster-error'");
+    expect(src).toContain('state.rosterError[side] = rosterErrorText(err);');
+  });
+
   test('D-03 攤位的 onSnapshot 不再吞掉錯誤', () => {
     const src = read('js/modules/booth/booth.js');
     expect(src).not.toMatch(/watch(MyRecent|Leaderboard)\([\s\S]{0,200}\(\) => \{\}\)/);

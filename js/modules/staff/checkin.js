@@ -41,7 +41,7 @@ export async function checkinPage({ params, scope, view }) {
   //    而且畫面看起來只是「名單是空的」，不像壞掉。
   //    這是這個 codebase 第五次踩到同一個坑（見 CLAUDE.md）。
   const state = {
-    match: null, rosters: {}, checkins: {},
+    match: null, rosters: {}, rosterError: {}, checkins: {},
     side: 'home', loaded: false, busy: false,
     rosterKey: null
   };
@@ -81,12 +81,26 @@ export async function checkinPage({ params, scope, view }) {
       if (!teamId) continue;
       try {
         state.rosters[side] = await getCheckinRoster(teamId);
+        state.rosterError[side] = null;
       } catch (err) {
+        // ⚠️ 讀不到跟「沒有名單」是兩件事。這個查詢要複合索引（members: status + jerseyNo），
+        //    正式站沒部署索引會回 failed-precondition，而模擬器與替身不查索引——
+        //    2026-09-06 在 demo 實地驗證才發現（D-01 修好之後才走得到這一行）。
         console.warn('[checkin] roster', teamId, err);
         state.rosters[side] = [];
+        state.rosterError[side] = rosterErrorText(err);
       }
       render();
     }
+  }
+
+  /** 錯誤翻成人話（檢錄員看不懂 failed-precondition） */
+  function rosterErrorText(err) {
+    const code = err?.code || '';
+    if (code.includes('failed-precondition')) return '資料庫缺少這個查詢需要的索引（主辦要部署 firestore 索引）。';
+    if (code.includes('permission-denied')) return '你的身分沒有讀取名單的權限。';
+    if (code.includes('unavailable')) return '目前連不上伺服器，而且本機沒有這份名單的快取。';
+    return err?.message ? `錯誤：${err.message}` : '原因不明。';
   }
 
   function teamName(side) {
@@ -110,9 +124,14 @@ export async function checkinPage({ params, scope, view }) {
       head(),
       tabs(sum),
       guide(),
-      !list.length
-        ? el('p', { class: 'chk__empty', text: '這一隊還沒有公開名單。請確認球隊已完成報名並通過審核。' })
-        : el('ul', { class: 'chk__list' }, list.map(memberRow)),
+      state.rosterError[state.side]
+        ? el('div', { class: 'chk__empty chk__error', role: 'alert', id: 'chk-roster-error' }, [
+            el('strong', { text: '讀不到這一隊的名單' }),
+            el('p', { text: `${state.rosterError[state.side]} 這不代表球隊沒有名單，請先不要完成檢錄，聯絡主辦。` })
+          ])
+        : !list.length
+          ? el('p', { class: 'chk__empty', text: '這一隊還沒有名單。請確認球隊已完成報名並通過審核。' })
+          : el('ul', { class: 'chk__list' }, list.map(memberRow)),
       footer(sum)
     );
   }

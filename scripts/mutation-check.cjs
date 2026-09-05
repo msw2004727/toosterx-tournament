@@ -1857,6 +1857,12 @@ const MUTANTS = [
     to: '"fieldPath": "staffUidX"'
   },
   {
+    name: '#AF16 ⭐ 檢錄名單的複合索引不見了（正式站 failed-precondition、名單永遠 0/0；D-01b）',
+    file: 'firestore.indexes.json',
+    from: '"fieldPath": "jerseyNo"',
+    to: '"fieldPath": "jerseyNoX"'
+  },
+  {
     name: '#AF12 ⭐ CLAUDE.md 的角色 level 跟 ROLE_INFO 漂移（Codex 抓到的那一次）',
     file: 'CLAUDE.md',
     from: '| `referee` | 2.3 | 裁判 | ✗ 賽事專用 |',

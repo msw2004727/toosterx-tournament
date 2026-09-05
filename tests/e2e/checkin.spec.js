@@ -219,3 +219,16 @@ test('切結書收到了就標已收 @staff @checkin @glasses', async ({ page })
   await go(page);
   await expect(page.locator('.chk__tag--ok').first()).toContainText('切結書已收');
 });
+
+// ── 驗收整合修正（2026-09-06）────────────────────────────────
+
+test('⭐ D-01b 名單讀不到（缺索引）時說「讀不到」，不說「還沒有名單」 @staff @checkin', async ({ page }) => {
+  await stub(page);
+  // 真的 SDK 缺複合索引會 reject；模擬器與替身都不查索引，所以要主動模擬
+  await page.addInitScript(() => { window.__FAKE_SNAPSHOT_FAIL = { path: 'members', code: 'failed-precondition' }; });
+  await go(page);
+  await expect(page.locator('#chk-roster-error')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('#chk-roster-error')).toContainText('索引');
+  await expect(page.locator('.chk__empty', { hasText: '還沒有名單' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /完成這一隊的檢錄/ })).toBeVisible();
+});

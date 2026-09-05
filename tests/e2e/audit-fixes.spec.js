@@ -263,7 +263,7 @@ test('⭐ D-04 現場代建的卡可以直接送出 0 分（不必先按 ＋ 再
 });
 
 test('⭐ D-03 「最近登錄」讀不到時要說出來，不是靜靜消失（缺索引在正式站才會發生）@audit @booth', async ({ page }) => {
-  await stub(page, boothSeed(), { init: { __FAKE_SNAPSHOT_FAIL: { path: 'attempts', code: 'failed-precondition' } } });
+  await stub(page, boothSeed(), { init: { __FAKE_SNAPSHOT_FAIL: { path: 'attempts', field: 'staffUid', code: 'failed-precondition' } } });
   await go(page, '/#/booth');
   await expect(page.locator('.booth')).toBeVisible({ timeout: 15_000 });
   await page.locator('#booth-id').fill('FEDA-0182');

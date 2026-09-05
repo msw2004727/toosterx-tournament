@@ -310,3 +310,11 @@
 /* ── 檢錄：眼鏡切結書標記（規章附件二）── */
 .chk__tag{display:inline-block;margin-left:var(--sp-2);padding:0 var(--sp-2);border-radius:6px;font-size:var(--fs-xs);font-weight:600;background:var(--warn-bg);color:var(--warn-text);border:1px solid var(--warn-border)}
 .chk__tag--ok{background:var(--ok-bg);color:var(--ok-text);border-color:var(--ok-border)}
+
+/* 檢錄名單讀不到（缺索引、沒權限、離線無快取）：跟「還沒有名單」長得不一樣（驗收 D-01b） */
+.chk__error{
+  text-align:left;background:var(--warn-bg);color:var(--warn-text);
+  border:1px solid var(--warn-border);border-radius:var(--r-md);margin:var(--sp-3);
+}
+.chk__error strong{display:block;margin-bottom:var(--sp-1)}
+.chk__error p{margin:0}

@@ -205,17 +205,34 @@ export const orderBy = (field, dir = 'asc') => ({ kind: 'orderBy', field, dir })
 export const limit = n => ({ kind: 'limit', n });
 
 export async function getDoc(ref) { S.stats.getDoc += 1; return snapOf(ref.path); }
-export async function getDocs(ref) { S.stats.getDocs += 1; return querySnapOf({ prefix: ref.path, group: ref.__group, clauses: ref.clauses }); }
+/**
+ * 模擬伺服器對某一種查詢回錯（缺複合索引、規則變更）：
+ *   window.__FAKE_SNAPSHOT_FAIL = { path: 'attempts', field: 'staffUid', code: 'failed-precondition' }
+ * `path` 是集合路徑的子字串；`field`（選填）要出現在 where／orderBy 裡才算——
+ * 缺的是「某一組欄位」的索引，同一個集合用別的欄位查照樣成功，替身要分得出來。
+ */
+function failFor(ref) {
+  const fail = window.__FAKE_SNAPSHOT_FAIL;
+  if (!fail || !String(ref.path || '').includes(fail.path)) return null;
+  if (fail.field && !(ref.clauses || []).some(c => c.field === fail.field)) return null;
+  return Object.assign(new Error(fail.message || 'FAILED_PRECONDITION: The query requires an index.'), { code: fail.code || 'failed-precondition' });
+}
+
+export async function getDocs(ref) {
+  S.stats.getDocs += 1;
+  // 一次性查詢也會失敗：缺複合索引時真的 SDK 是 reject（驗收 D-01b）
+  const err = failFor(ref);
+  if (err) throw err;
+  return querySnapOf({ prefix: ref.path, group: ref.__group, clauses: ref.clauses });
+}
 
 export function onSnapshot(ref, a, b, c) {
   const cb = typeof a === 'function' ? a : b;
   const onErr = typeof a === 'function' ? b : c;
-  // 模擬伺服器回錯（缺複合索引、規則變更）：
-  //   window.__FAKE_SNAPSHOT_FAIL = { path: 'attempts', code: 'failed-precondition' }
-  // 真的 SDK 會呼叫 onError 而且**不再送任何快照**；畫面若吞掉錯誤，那一區就靜靜消失（驗收 D-03）。
-  const fail = window.__FAKE_SNAPSHOT_FAIL;
-  if (fail && String(ref.path || '').includes(fail.path)) {
-    const err = Object.assign(new Error(fail.message || 'FAILED_PRECONDITION: The query requires an index.'), { code: fail.code || 'failed-precondition' });
+  // 模擬伺服器回錯（見 failFor）：真的 SDK 會呼叫 onError 而且**不再送任何快照**；
+  // 畫面若吞掉錯誤，那一區就靜靜消失（驗收 D-03）。
+  const err = failFor(ref);
+  if (err) {
     setTimeout(() => { try { onErr?.(err); } catch (e) { console.error(e); } }, 0);
     return () => {};
   }

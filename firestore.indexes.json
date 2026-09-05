@@ -215,6 +215,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "members",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "jerseyNo",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

@@ -213,6 +213,14 @@ const MUTANTS = [
     to: `  return snap.docs.map(d => ({ memberId: d.id, ...d.data() }));`
   },
   {
+    name: '#E32 ⭐ 檢錄台把「讀不到名單」畫成「還沒有名單」（缺索引時檢錄員會以為球隊沒報名；D-01b）',
+    file: 'js/modules/staff/checkin.js',
+    from: `      state.rosterError[state.side]
+        ? el('div', { class: 'chk__empty chk__error', role: 'alert', id: 'chk-roster-error' }, [`,
+    to: `      false
+        ? el('div', { class: 'chk__empty chk__error', role: 'alert', id: 'chk-roster-error' }, [`
+  },
+  {
     name: '#E31 ⭐ 出場名單給隊職員畫先發／替補鈕（D-08）',
     file: 'js/modules/staff/sheet.js',
     from: `      if (!isPlayerRow(p)) {`,
