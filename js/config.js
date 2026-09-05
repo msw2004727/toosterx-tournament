@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20260905c';
+export const CACHE_VERSION = '0.20260905d';
 
 /** 本次活動。未來要辦第二場時，這裡改成從路由或設定讀取。 */
 export const EVENT_ID = 'feda-cup-2026';
@@ -176,9 +176,9 @@ export const PERMISSIONS = [
   // ── 管理員 ──
   // ⚠️ 覆核刻意**不在**記錄員身上（主辦 2026-09-03 決定）：
   //    覆核的意義是「第二雙眼睛」，記分的人自己覆核自己等於沒有覆核。
-  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'admin', destructive: true, pending: true },
-  { code: 'match.reopen',      label: '重開已鎖定的場次', group: '管理', minRole: 'admin', destructive: true, pending: true },
-  { code: 'match.score.override', label: '改判比分',    group: '管理', minRole: 'admin', destructive: true, pending: true },
+  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'admin', destructive: true },
+  { code: 'match.reopen',      label: '重開已鎖定的場次', group: '管理', minRole: 'admin', destructive: true },
+  { code: 'match.score.override', label: '改判比分',    group: '管理', minRole: 'admin', destructive: true },
   { code: 'schedule.manage',   label: '編排賽程與場次', group: '管理', minRole: 'admin', destructive: true },
   { code: 'standing.manual',   label: '人工裁定同分',   group: '管理', minRole: 'admin', destructive: true, pending: true },
   { code: 'team.manage',       label: '審核報名與球隊', group: '管理', minRole: 'admin', destructive: true },

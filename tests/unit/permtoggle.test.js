@@ -215,13 +215,19 @@ describe('T37-D 整張表', () => {
   });
 
   test('⭐ 功能還沒上線的那幾條標得出來', () => {
+    // ⚠️ **不要寫死某一條權限碼。** 功能一上線那條的 pending 就會被拿掉，
+    //    這條測試就跟著紅——但它要守的是「pending 有沒有被帶到畫面那一層」，
+    //    不是某一條權限現在的狀態。提醒拿掉旗標是 T42-8 的職責。
+    //    （`schedule.manage`、`challenge.attempt.write`、`match.confirm`
+    //      各讓這裡紅過一次。）
     const rows = groups.flatMap(g => g.rows);
-    // ⚠️ 這裡挑的是「目前還沒有畫面在讀」的那一條。功能做好、接上 can()
-    //    的那一刻這條測試會紅——那正是提醒你把 pending 旗標拿掉的地方。
-    //    `schedule.manage` 就是這樣在 M4-c 第 6 項做好時紅過一次。
-    expect(rows.find(r => r.code === 'match.confirm').pending).toBe(true);
-    expect(rows.find(r => r.code === 'schedule.manage').pending).toBe(false);
-    expect(rows.find(r => r.code === 'match.finish').pending).toBe(false);
+    for (const p of PERMISSIONS) {
+      const row = rows.find(r => r.code === p.code);
+      expect(row).toBeTruthy();
+      expect(row.pending).toBe(p.pending === true);
+    }
+    // 至少要有一條已經上線的，不然這條斷言等於沒測到東西
+    expect(rows.some(r => r.pending === false)).toBe(true);
   });
 });
 

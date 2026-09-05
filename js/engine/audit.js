@@ -64,6 +64,18 @@ const roleText = roles => (Array.isArray(roles) ? roles : [])
 /** 權限碼 → 「送出完賽」 */
 const permText = code => PERMISSION_BY_CODE[code]?.label ?? code;
 
+/**
+ * `{home, away}` → `2:1`。
+ * ⚠️ 不用 `Number()`：0 分是合法比分，而 `Number(null)` 也是 0——
+ *    「沒有比分」跟「0:0」在稽核紀錄上是兩件事（R-ENG-002）。
+ */
+function scoreText(s) {
+  const n = v => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const h = n(s?.home);
+  const a = n(s?.away);
+  return h == null || a == null ? null : `${h}:${a}`;
+}
+
 /** before/after 是 `{ 權限碼: boolean }`，取出唯一那一條 */
 function togglePair(a) {
   const key = Object.keys(a.after ?? {})[0] ?? Object.keys(a.before ?? {})[0] ?? null;
@@ -117,6 +129,39 @@ export function describeAudit(a, lookup = {}) {
     case 'match.finish.undo':
       title = `撤回了 ${a.entityId ?? '某場次'} 的完賽`;
       detail.push('比分與事件都留著，場次退回進行中');
+      break;
+
+    // ── 管理員的改判（docs/04 §6）───────────────────────────
+    case 'match.confirm':
+      title = `覆核了 ${a.entityId ?? '某場次'} 的完賽`;
+      detail.push('結果定案，仍然可以由管理員重開');
+      break;
+    case 'match.reopen':
+      title = `重開了 ${a.entityId ?? '某場次'}`;
+      detail.push('積分榜把這一場的分數收回去，比分與事件都留著');
+      break;
+    case 'match.override': {
+      const b = scoreText(a.before?.score);
+      const f = scoreText(a.after?.score);
+      title = b && f
+        ? `把 ${a.entityId ?? '某場次'} 的比分從 ${b} 改判成 ${f}`
+        : `改判了 ${a.entityId ?? '某場次'} 的比分`;
+      detail.push('積分榜依新的比分重算，公開端立刻跟著變');
+      break;
+    }
+    case 'match.walkover': {
+      const side = a.after?.walkoverSide;
+      title = `判 ${a.entityId ?? '某場次'} 的${side === 'home' ? '主隊' : side === 'away' ? '客隊' : '一方'}棄賽`;
+      detail.push(`比分依競賽規章第十八條第 6 款判為 ${scoreText(a.after?.score) ?? '0:2'}`);
+      break;
+    }
+    case 'match.postponed':
+      title = `把 ${a.entityId ?? '某場次'} 改成延期`;
+      detail.push('比分沒有被清掉，這一場暫時不計入積分榜');
+      break;
+    case 'match.cancelled':
+      title = `取消了 ${a.entityId ?? '某場次'}`;
+      detail.push('比分沒有被清掉，這一場不計入積分榜');
       break;
     case 'timeline.void':
       title = `作廢了 ${a.entityId ?? '某場次'} 的一筆事件`;

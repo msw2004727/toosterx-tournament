@@ -170,33 +170,53 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 - [x] M4-b②  報名流程畫面：`#/register`、`#/register/new`、`#/join/:code`、
       `#/team/:id/manage`。18 個 E2E × 3 種視窗
 - [x] M4-b③  全站頁首（首頁／我的／安裝／主題）＋ PWA 可安裝 ＋ 角色字典與 FC 對齊
-- [ ] M4-c   管理後台（依主辦指定的順序逐項實作）
+- [x] M4-c   管理後台（七項全部完成）
       - [x] 報名審核 `#/admin/teams`（名單檢核＋核准／退回＋留痕）
       - [x] 身分授權 `#/admin/staff`（指派／場地／停用，總管專屬）
       - [x] 權限開關 `#/admin/perms`（逐條開關＋留痕，總管專屬）
       - [x] 稽核紀錄 `#/admin/audits`（唯讀，兩種欄位形狀都讀得懂）
       - [x] 報名開關 `#/admin/registration`（開關／起訖／規章欄位唯讀，總管專屬）
       - [x] 賽程管理 `#/admin/schedule`（抽籤／產生／排定／檢查／發布，見下方章節）
-      - [ ] 挑戰攤位（M6 子系統）
+      - [x] 挑戰攤位 `#/booth`（M6-b，見下方章節）
       ・總管仍由 `scripts/grant-super-admin.mjs` 建立（Admin SDK，不經 rules）
+- [x] M4-c＋ 場次改判 `#/admin/match/:matchId`（覆核／重開／改判／棄賽，見下方章節）
 - [ ] M4-d   「我的球員」（需要 members 的 collectionGroup 索引與規則）
 - [x] M4-b④  依競賽規章校正設定＋未成年組教練管理名單＋檢錄台
 - [x] M4-b⑤  資訊架構重整：角色階層（向上包含）＋權限矩陣＋專屬首頁＋
       常駐頁首（登入／我的）＋主題只留圖示＋移除關注功能
-- [ ] M6 Challenge 挑戰系統　[ ] M7 彩排 → 上線
+- [ ] M6 Challenge 挑戰系統（a 引擎與管線 ✅、b 攤位端 ✅、c 玩家端、d 抽獎匯出）
+- [ ] M7 彩排 → 上線
 
-## 現在的狀態（2026-09-04，管理後台 6/7 完成後全數實跑）
+## 現在的狀態（2026-09-05）
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 756 全綠（34 個 suite） |
-| `npm run test:mutation` | ✅ 172 / 172 全被抓到 |
+| `npm run test:unit` | ✅ 887 全綠（37 個 suite） |
+| `npm run test:mutation` | ✅ 216 / 216 全被抓到 |
 | `npm run test:mutation:e2e` | ✅ 12 / 12 全被抓到（畫面層時序、權限與替身語意） |
-| `npm run test:e2e` | ✅ 726 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 191 全綠（R34–R72 報名、R73–R92 檢錄與階層、R93–R98 審核、R99–R117 授權／權限／報名開關、R118–R125 賽程） |
+| `npm run test:e2e` | ✅ 796 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:rules` | ✅ 203 全綠（…、R118–R125 賽程、R126–R128 攤位、R129–R132 改判） |
 | `npm run test:mutation:rules` | ✅ 32 / 32 全被抓到 |
-| `npm run test:fn` | ✅ 40 全綠（F01–F14 結果管線、FR01–FR13 報名與登入） |
-| `npm run test:mutation:fn` | ✅ 16 / 16 全被抓到 |
+| `npm run test:fn` | ✅ 54 全綠（F01–F14 結果管線、FR01–FR13 報名與登入、FC01–FC13 挑戰） |
+| `npm run test:mutation:fn` | ✅ 21 / 21 全被抓到 |
+
+### 「變異漏掉」有三種原因，不是只有一種
+
+R-TEST-001 的重點是鑑別力，但報告上的紅字要先分清楚是哪一種：
+
+| 症狀 | 原因 | 例子 |
+|---|---|---|
+| `❌ 漏掉` | **測試不夠力** | #CH4：用 3 分測「沒有上下限就擋下」，被下一行 `n > max` 接住了；真正會漏的是 0 分 |
+| `❌ 漏掉` | **那段程式碼沒有作用** | #S16 的日期過濾、#CH12 的 `voided !== true`——上游已經濾過了，濾不濾都一樣 |
+| `⚠️ 找不到要變異的程式碼` | **錨點過期** | #H4 的字串帶著 `pending: true`，功能上線把旗標拿掉之後就對不上了 |
+
+第三種在 `mutate.cjs` 會印 `⚠️` 並在清單標「（變異失效）」，跟前兩種區分得很清楚——
+**但用 grep 過濾輸出時很容易把它濾掉**（2026-09-05 就這樣誤判了一次）。
+過濾時樣式要包含 `⚠️`，或者跑完直接看最後幾行。
+
+> 想單獨檢查所有錨點還對不對，可以寫一支讀 `mutation-check.cjs` 的小腳本逐條比對——
+> ⚠️ **不要 `require()` 它**：那個檔案結尾是 `process.exit(runMutants(...))`，
+> require 等於真的跑一次整套變異（2026-09-05 不小心啟動過一次，被守衛接住）。
 
 ### 這一輪（賽程管理）值得記下的兩件事
 
@@ -239,10 +259,12 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 
 ### 已知但未修（低）
 
-- `buildFinishPatch` / `buildUndoPatch` 寫 `lock` 時只給 `{locked, lockedBy}`，
-  沒有 `lockedAt`。`updateDoc` 的巢狀 map 是整包取代，所以 `lock.lockedAt`
-  （docs/01b §262 有定義、seed 也會寫）會被靜靜刪掉。目前沒有任何程式讀它，
-  純粹是 schema 漂移，等 M4 一起處理。
+- ~~`buildFinishPatch` / `buildUndoPatch` 會靜靜刪掉 `lock.lockedAt`~~
+  ✅ **已修**：`buildUndoPatch` 自己寫齊三個欄位，`submitFinish`（資料層）
+  補 `lockedAt: serverTimestamp()`。管理端的 `buildReopenPatch` /
+  `buildWalkoverPatch` 也一樣寫齊，變異 #MA4 守著。
+  ⚠️ 這條規矩在**任何**寫 `lock` 的地方都成立：`updateDoc` 對巢狀 map 是
+  整包取代，少列一個欄位就等於把它從文件上刪掉。
 - `app.js` 的 `mountAppHeader()` 進到 `#/staff` 時直接 `replaceChildren()`，
   沒有呼叫 `themeSwitch()` 的 `destroy`，訂閱者要等下一次主題變動才自清。
   數量有界且會自癒，不影響現場。
@@ -279,11 +301,23 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 
 ### 下一個里程碑
 
-**M4-c 剩最後一項：挑戰攤位**（M6 子系統，規格在 `docs/06-Challenge挑戰系統.md`）。
-再來是 M4-d「我的球員」（要 members 的 collectionGroup 索引與規則）與 M7 彩排上線。
+**M4-c 七項全部完成**，加上場次改判。主辦在 demo 上可以走完一整條線：
+報名 → 審核 → 抽籤 → 產生賽程 → 排定時間 → 發布 → 檢錄 → 記分 →
+積分榜 → **覆核／改判** → 挑戰攤位登錄。
 
-賽程管理做完之後，主辦在 demo 上可以走完一整條線：
-報名 → 審核 → 抽籤 → 產生賽程 → 排定時間 → 發布 → 檢錄 → 記分 → 積分榜。
+接下來依序是：
+
+1. **M6-c 玩家端 `#/challenge`** —— Game Pass（免註冊）、我的 QR、進度、排行榜。
+   沒有它，挑戰區的抽獎資格與排行榜對玩家不存在。
+2. **`standing.manual` 人工裁定同分**（docs/05 §7.2）—— 引擎會標
+   `hasUnresolvedTie` 等主辦裁定，但**目前沒有地方可以裁定**。
+   規章第十九條第 5 順位是抽籤，抽完要有地方回填。
+3. **M6-d 抽獎名單 CSV** ＋ `export` 匯出資料（規格 §7.3 說 MVP 只要匯出）。
+4. **M4-d「我的球員」** —— 要先建 `members` 的 collectionGroup 索引與規則。
+5. **M7 彩排（10/6–10/7）→ 上線**。
+
+規章有、系統還沒有的：每人限報乙隊的跨隊檢查、球員人數上限的伺服器端強制、
+申訴（賽後 30 分鐘＋保證金 2000）、眼鏡切結書、退費機制。
 
 ## 變異測試的殘留（R-TEST-002，2026-09-03 出過事）
 
@@ -647,6 +681,77 @@ match /config/{key} {
 ```
 
 變異 RU#30 就是把那個錯版本試一次，確認 R114 抓得到。
+
+### 場次改判（`#/admin/match/:matchId`）
+
+```
+js/modules/admin/match-actions.js  純邏輯：各種 patch 與護欄
+js/modules/admin/match.js          畫面
+```
+
+⭐ **這是比賽當天記錯分時唯一的補救工具。** 賽務台送出完賽超過三分鐘就鎖住了
+（rules 分支 (D) 的視窗過了），在這一頁出現之前，現場只能請主辦直接開
+Firestore Console 改資料。入口在賽程管理頁——已開打的那幾列。
+
+| 動作 | 權限碼 | 行為 |
+|---|---|---|
+| 覆核完賽 | `match.confirm` | `finished` → `confirmed`。**不必填原因**（不是破壞性的）|
+| 重開場次 | `match.reopen` | 退回 `live`、解鎖、清 result。**比分與事件全部保留** |
+| 改判比分 | `match.score.override` | 含 PK，`result` 跟著重算，`revisionCount` 累加 |
+| 判棄賽 | 同上 | 規章第十八條第 6 款 **0:2**，由 `DEFAULT_WALKOVER` 算 |
+| 延期／取消 | 同上 | **不清比分**（延期的場次改天還要打）|
+
+#### 四件不可協商
+
+1. **改比分一定要重算 `result`。** `result.winner` 與積分是積分榜的唯一依據；
+   只改 score 不改 result，畫面顯示 2:1、積分卻記著對手贏，而且不會報錯（變異 #MA1）。
+2. **PK 只在正規時間平手時才決定勝負**（變異 #MA2）。反過來寫的話，
+   2:1 但 PK 輸的那一場會被判成敗——那在足球裡不存在。
+3. **棄賽比分不給填。** 手填會讓不同場次的判法不一致，而那要到頒獎才看得出來（#MA5）。
+   `walkoverSide` 記的是**棄賽那一方**，對手獲判勝（#MA6）。
+4. **每個動作必填原因並寫進 audits**，而且**按下去之前先講後果**——
+   重開會讓積分榜收回分數、已解算的晉級要等重新完賽才更新。
+
+⚠️ 重開之後，**已經解出來的晉級名單不會自動回捲**：`canResolve` 要求該階段
+全部完賽，重開之後條件不成立，所以要等這一場重新完賽才會重解。下游若還沒開打
+就會被正確覆寫，這件事寫在確認框裡。
+
+### 挑戰攤位（`#/booth`、`js/engine/challenge.js`）
+
+```
+js/engine/challenge.js             成績型態抽象、best、排行榜、抽獎張數（純函式）
+js/modules/booth/actions.js        送出的文件、去重、作廢視窗
+js/modules/booth/{data,booth}.js   Firestore 與畫面
+functions/pipeline.js              onAttemptSubmitted：best → 券 → 排行榜 → 統計
+```
+
+一個 `challengeId` 都沒有寫死（驗收 C08：新增第六關只要在後台加一筆設定）。
+
+#### 五件不可協商
+
+1. **抽獎張數是算出來的，不是累加的。** `luckyDrawEntries += 1` 在觸發器重放時
+   會多發一張，而**券發出去就收不回來**（變異 FN#17）。
+2. **用 `onDocumentWritten` 不是 `onDocumentCreated`。** 作廢是 update，
+   只接 create 的話被作廢的成績會永遠留在榜首（驗收 C07、變異 FN#18）。
+   一關全部作廢時還要從完成清單移除、券退回去。
+3. **次數滿了不硬擋。** 顯示「已達上限（3/3）」但仍可由工作人員加場送出
+   （`source:'staff'`）——規格明文「現場彈性比嚴格限制重要」（#BT8）。
+4. **離線時不畫作廢鈕。** 伺服器認可的送出時間還不存在，畫了就是假成功
+   （跟賽務端「離線不給撤回」同一條規矩，#BT10）。
+5. **`rankingRule: 'lower'` 兩個方向都要測。** 五關目前都是 higher，
+   沒有人用的分支最容易寫錯又最不會被發現（驗收 C09、變異 #CH2／#CH14）。
+
+#### 攤位端的三個坑（E2E 抓到，單元測試看不到）
+
+1. **`sync.track()` 回傳 `{id, promise}` 而且永不 reject。** 對它 `.catch()`
+   會直接 TypeError；而且方向也錯——失敗要由三態燈呈現，再補一個 toast
+   等於開第二條互相競爭的錯誤通道。
+2. **時間戳一定要處理字串那一路。** 真的 Firestore 回 Timestamp 物件所以漏掉
+   看不出來，但替身 SDK 與任何序列化過的資料都是字串——回 null 的話作廢鈕
+   永遠顯示「還在等伺服器確認」。`js/lib/format.js` 的 `toMillis` 是那一份，
+   **不要自己再寫一個**（引擎不能 import lib，只好各留一份，變異 #CH21 守著）。
+3. **stepper 的起始值要真的是數字，不能留 null。** 畫面顯示 0 但 state 是 null
+   的話，「一次都沒中」這個很常見的成績要先按 ＋ 再按 − 才送得出去。
 
 ### 賽程管理（`#/admin/schedule`、`js/engine/schedule.js`）
 

@@ -254,3 +254,85 @@ describe('積分榜與比賽事件', () => {
     await assertFails(deleteDoc(ref));
   });
 });
+
+// ══════════════════════════════════════════════════════════════
+// R129–R132｜管理員改判（M4-c 補救工具）
+//
+// R21–R23、R31 已經驗過賽務端的邊界。這幾條驗的是**管理員的補救路徑**：
+// 賽務台送出完賽超過三分鐘就鎖住了，這是唯一能改的地方。
+// 畫面上按得下去、規則卻擋掉，就是假成功。
+// ══════════════════════════════════════════════════════════════
+
+describe('R129–R132 管理員改判', () => {
+  test('R129 ⭐ 管理員改判已鎖定場次的比分（賽務端這時已經改不動）', async () => {
+    const db = authed(env, 'u-admin');
+    await asAdminSdk(env, async d => {
+      await setDoc(doc(d, 'events', EVENT, 'matches', MATCH), baseMatch(MATCH, 'venue-a', {
+        status: 'finished', lock: { locked: true, lockedAt: null, lockedBy: 'u-scorer' },
+        result: { winner: 'home', method: 'regulation', homePoints: 3, awayPoints: 0 }
+      }));
+    });
+    await assertSucceeds(updateDoc(doc(db, 'events', EVENT, 'matches', MATCH), {
+      score: { home: 0, away: 3 },
+      result: { winner: 'away', method: 'regulation', homePoints: 0, awayPoints: 3 },
+      status: 'finished', revisionCount: 1, updatedBy: 'u-admin'
+    }));
+  });
+
+  test('R129b ⭐ 同一筆改動，記錄員做就被擋（lock 已鎖）', async () => {
+    await asAdminSdk(env, async d => {
+      await setDoc(doc(d, 'events', EVENT, 'matches', MATCH), baseMatch(MATCH, 'venue-a', {
+        status: 'finished', lock: { locked: true, lockedAt: null, lockedBy: 'u-scorer' }
+      }));
+    });
+    await assertFails(updateDoc(doc(authed(env, 'u-scorer'), 'events', EVENT, 'matches', MATCH), {
+      score: { home: 0, away: 3 }, updatedBy: 'u-scorer'
+    }));
+  });
+
+  test('R130 ⭐ 管理員重開已鎖定的場次（退回 live 並解鎖）', async () => {
+    await asAdminSdk(env, async d => {
+      await setDoc(doc(d, 'events', EVENT, 'matches', MATCH), baseMatch(MATCH, 'venue-a', {
+        status: 'confirmed', lock: { locked: true, lockedAt: null, lockedBy: 'u-scorer' }
+      }));
+    });
+    await assertSucceeds(updateDoc(doc(authed(env, 'u-admin'), 'events', EVENT, 'matches', MATCH), {
+      status: 'live', result: null,
+      lock: { locked: false, lockedAt: null, lockedBy: null },
+      scoreSubmittedAt: null, scoreSubmittedBy: null, updatedBy: 'u-admin'
+    }));
+  });
+
+  test('R131 ⭐ 管理員判棄賽（狀態、棄賽方、比分一起寫）', async () => {
+    await asAdminSdk(env, async d => {
+      await setDoc(doc(d, 'events', EVENT, 'matches', MATCH), baseMatch(MATCH, 'venue-a', { status: 'scheduled' }));
+    });
+    await assertSucceeds(updateDoc(doc(authed(env, 'u-admin'), 'events', EVENT, 'matches', MATCH), {
+      status: 'walkover', walkoverSide: 'home',
+      score: { home: 0, away: 2 },
+      result: { winner: 'away', method: 'walkover', homePoints: 0, awayPoints: 3 },
+      lock: { locked: true, lockedAt: null, lockedBy: 'u-admin' },
+      updatedBy: 'u-admin'
+    }));
+  });
+
+  test('R131b 記錄員判不了棄賽（狀態機不放行 scheduled → walkover）', async () => {
+    await asAdminSdk(env, async d => {
+      await setDoc(doc(d, 'events', EVENT, 'matches', MATCH), baseMatch(MATCH, 'venue-a', { status: 'scheduled' }));
+    });
+    await assertFails(updateDoc(doc(authed(env, 'u-scorer'), 'events', EVENT, 'matches', MATCH), {
+      status: 'walkover', walkoverSide: 'home', updatedBy: 'u-scorer'
+    }));
+  });
+
+  test('R132 ⭐ 改判一定要留痕，而且留了就改不掉（R-SEC-002）', async () => {
+    const db = authed(env, 'u-admin');
+    const ref = doc(db, 'events', EVENT, 'audits', 'a-override');
+    await assertSucceeds(setDoc(ref, {
+      eventId: EVENT, entity: 'match', entityId: MATCH, action: 'match.override',
+      before: { score: { home: 2, away: 1 } }, after: { score: { home: 0, away: 3 } },
+      reason: '賽務記錯隊伍', actor: { uid: 'u-admin', name: 'u-admin' }
+    }));
+    await assertFails(updateDoc(ref, { reason: '改過了' }));
+  });
+});

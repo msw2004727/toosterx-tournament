@@ -31,6 +31,7 @@ import { icon, iconText } from '../../core/icons.js';
 import { can, onAuth } from '../../core/firebase.js';
 import { now as serverNow } from '../../core/clock.js';
 import { hold } from '../../core/store.js';
+import { navigate } from '../../core/router.js';
 import { hhmm, dateLabelFromYmd } from '../../lib/format.js';
 import {
   drawOrder, pickFormatFor, genericFormat, checkSchedule,
@@ -464,7 +465,7 @@ export async function adminSchedulePage({ scope, view }) {
         el('p', { class: 'adm__note', text: '賽程要等報名審核通過之後才產生得出來。' }),
         el('button', {
           class: 'btn btn--lg', type: 'button',
-          onClick: () => { location.hash = '#/admin/teams'; }
+          onClick: () => navigate('/admin/teams')
         }, iconText('check', '去報名審核'))
       ]);
     }
@@ -612,8 +613,18 @@ export async function adminSchedulePage({ scope, view }) {
         locked ? el('span', { class: 'adm__badge', text: m.status }) : null
       ].filter(Boolean)),
 
+      // 已經開打的場次時間與場地改不了，但**比分還是要有地方改**——
+      // 賽務台送出完賽超過三分鐘就鎖住了，這裡是唯一的入口
       locked
-        ? el('p', { class: 'adm__permNote', text: '已經開打，時間與場地不能在這裡改。' })
+        ? el('div', { class: 'adm__schedRow' }, [
+            el('p', { class: 'adm__permNote', text: '已經開打，時間與場地不能在這裡改。' }),
+            can('match.score.override') || can('match.confirm') || can('match.reopen')
+              ? el('button', {
+                  class: 'btn btn--lg', type: 'button',
+                  onClick: () => navigate(`/admin/match/${encodeURIComponent(m.matchId)}`)
+                }, iconText('note', '覆核／改判'))
+              : null
+          ].filter(Boolean))
         : el('div', { class: 'adm__schedRow' }, [
             el('input', {
               class: 'adm__search adm__time', type: 'time', value: parts.time,

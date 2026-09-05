@@ -48,6 +48,8 @@ export function registerAdminRoutes() {
     { title: '身分授權', guard: requireLogin });
   route('/admin/perms', page('../admin/perms.js', m => m.adminPermsPage),
     { title: '權限開關', guard: requireLogin });
+  route('/admin/match/:matchId', page('../admin/match.js', m => m.adminMatchPage),
+    { title: '場次改判', guard: requireLogin });
   route('/admin/schedule', page('../admin/schedule.js', m => m.adminSchedulePage),
     { title: '賽程管理', guard: requireLogin });
   route('/admin/audits', page('../admin/audits.js', m => m.adminAuditsPage),

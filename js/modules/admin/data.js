@@ -305,6 +305,49 @@ export async function saveRegistration(patch) {
   }, { merge: true });
 }
 
+// ── 單一場次的改判（M4-c 補救工具）───────────────────────────
+
+/** 一場的完整內容。監聽而不是一次讀：改判當下畫面要立刻反映。 */
+export function watchMatch(scope, matchId, cb, onError) {
+  const { doc, onSnapshot } = sdk();
+  const unsub = onSnapshot(doc(db(), 'events', EVENT_ID, 'matches', matchId),
+    snap => cb(snap.exists() ? { matchId: snap.id, ...snap.data() } : null),
+    err => onError?.(err));
+  return hold(scope, unsub, `admin:match:${matchId}`);
+}
+
+/**
+ * 改判場次。
+ *
+ * ⚠️ `lock` 這種巢狀 map 由呼叫端（match-actions.js）整包給齊——
+ *    `updateDoc` 對巢狀 map 是整包取代，少列一個欄位就等於刪掉它。
+ *
+ * ⚠️ 時間戳一律 serverTimestamp：改判的時間軸是稽核的依據，
+ *    本機時間被調過就失真了。
+ */
+export async function patchMatch(matchId, patch) {
+  const { doc, updateDoc, serverTimestamp } = sdk();
+  await updateDoc(doc(db(), 'events', EVENT_ID, 'matches', matchId), {
+    ...patch,
+    // lock.lockedAt 只有在 patch 真的帶 lock 時才補（buildWalkoverPatch 會帶）
+    ...(patch.lock && patch.lock.locked === true
+      ? { lock: { ...patch.lock, lockedAt: serverTimestamp() } }
+      : {}),
+    updatedAt: serverTimestamp(),
+    updatedBy: uid()
+  });
+}
+
+/** 這一場的稽核紀錄。單一 where，用不到複合索引。 */
+export async function getMatchAudits(matchId, max = 50) {
+  const { collection, getDocs, query, where, limit } = sdk();
+  const snap = await getDocs(query(
+    collection(db(), 'events', EVENT_ID, 'audits'),
+    where('entityId', '==', matchId), limit(max)
+  ));
+  return snap.docs.map(d => ({ auditId: d.id, ...d.data() }));
+}
+
 // ── 賽程管理 ─────────────────────────────────────────────────
 
 /**

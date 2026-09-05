@@ -612,10 +612,14 @@ const MUTANTS = [
     to: `export const STAFF_CHAIN = ['booth', 'checkin', 'scorer', 'referee', 'admin', 'super_admin'];`
   },
   {
+    // ⚠️ 錨點會跟著 PERMISSIONS 那一行變。2026-09-05 覆核完賽上線、
+    //    pending 旗標拿掉之後，這一條就變成「找不到要變異的程式碼」——
+    //    看起來像測試沒有鑑別力，其實是變異過期了。整套跑完若出現
+    //    「找不到」，先用 check-anchors 掃一遍再懷疑測試。
     name: '#H4 覆核完賽下放給記錄員（記分的人自己覆核自己）',
     file: 'js/config.js',
-    from: `  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'admin', destructive: true, pending: true },`,
-    to: `  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'scorer', destructive: true, pending: true },`
+    from: `  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'admin', destructive: true },`,
+    to: `  { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'scorer', destructive: true },`
   },
   {
     name: '#H5 權限矩陣的「關」優先於「開」（多一個身分反而變弱）',
@@ -1330,6 +1334,68 @@ const MUTANTS = [
     file: 'js/modules/public/selectors.js',
     from: "  return ['liveMatches', 'nextMatches', 'justFinished']\n    .some(k => Array.isArray(board[k]) && board[k].length > 0);",
     to: '  return true;'
+  },
+
+  // ── 場次改判（M4-c 補救工具）─────────────────────────────────
+  {
+    name: '#MA1 ⭐ 改判比分不重算 result（畫面 2:1，積分卻記著對手贏）',
+    file: 'js/modules/admin/match-actions.js',
+    from: '  const result = resultOf({ home: h, away: a }, pk);',
+    to: '  const result = match?.result ?? resultOf({ home: h, away: a }, pk);'
+  },
+  {
+    name: '#MA2 ⭐ PK 在正規時間分出勝負時也拿來翻盤（2:1 卻判成敗）',
+    file: 'js/modules/admin/match-actions.js',
+    from: "  if (winner === 'draw' && hasPk && pkH !== pkA) {",
+    to: '  if (hasPk && pkH !== pkA) {'
+  },
+  {
+    name: '#MA3 ⭐ 比分用 Number()（null 變成 0，把「沒填」判成 0:0）',
+    file: 'js/modules/admin/match-actions.js',
+    from: '  return typeof v === \'number\' && Number.isInteger(v) && v >= 0 ? v : null;',
+    to: '  const n = Number(v); return Number.isFinite(n) ? n : null;'
+  },
+  {
+    name: '#MA4 ⭐ 重開時 lock 只寫 locked（updateDoc 整包取代，另外兩個欄位被刪掉）',
+    file: 'js/modules/admin/match-actions.js',
+    from: "    lock: { locked: false, lockedAt: null, lockedBy: null },\n    scoreSubmittedAt: null,",
+    to: '    lock: { locked: false },\n    scoreSubmittedAt: null,'
+  },
+  {
+    name: '#MA5 ⭐ 棄賽比分手填成 3:0（規章第十八條第 6 款是 0:2）',
+    file: 'js/modules/admin/match-actions.js',
+    from: '  const wo = { ...DEFAULT_WALKOVER, ...(walkover || {}) };',
+    to: '  const wo = { ...DEFAULT_WALKOVER, scoreFor: 3, scoreAgainst: 0, ...(walkover || {}) };'
+  },
+  {
+    name: '#MA6 ⭐ walkoverSide 記成「獲勝那一方」（積分判給棄賽的隊伍）',
+    file: 'js/modules/admin/match-actions.js',
+    from: "  const winnerSide = side === 'home' ? 'away' : 'home';",
+    to: '  const winnerSide = side;'
+  },
+  {
+    name: '#MA7 ⭐ 已覆核的場次還可以再覆核一次',
+    file: 'js/modules/admin/match-actions.js',
+    from: "  if (match.status === 'confirmed') return no('這一場已經覆核過了。');",
+    to: '  if (false) return no(\'\');'
+  },
+  {
+    name: '#MA8 ⭐ 還沒開打的場次也給改判（繞過賽務台的記分流程）',
+    file: 'js/modules/admin/match-actions.js',
+    from: '  if (NOT_STARTED_STATUSES.includes(match.status)) {',
+    to: '  if (false) {'
+  },
+  {
+    name: '#MA9 ⭐ 改判次數不累加（查不出這一場被改過幾次）',
+    file: 'js/modules/admin/match-actions.js',
+    from: '    revisionCount: (Number.isInteger(match?.revisionCount) ? match.revisionCount : 0) + 1,',
+    to: '    revisionCount: match?.revisionCount ?? 0,'
+  },
+  {
+    name: '#MA10 ⭐ 延期／取消時把比分一起清掉（延期的場次改天還要打）',
+    file: 'js/modules/admin/match-actions.js',
+    from: "  return {\n    status,\n    clock: { running: false, periodStartedAt: null, elapsedSecAtPause: 0, addedTimeSec: 0 },\n    updatedBy: uid\n  };",
+    to: "  return {\n    status,\n    score: { home: 0, away: 0 },\n    result: null,\n    clock: { running: false, periodStartedAt: null, elapsedSecAtPause: 0, addedTimeSec: 0 },\n    updatedBy: uid\n  };"
   }
 ];
 
