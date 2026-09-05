@@ -55,13 +55,15 @@
 <link rel="stylesheet" href="/css/tokens.css?v=0.20260905h">
 <link rel="stylesheet" href="/css/base.css?v=0.20260905h">
 <link rel="stylesheet" href="/css/components.css?v=0.20260905h">
-<link rel="stylesheet" href="/css/modules/staff.css?v=0.20260905h">
-<link rel="stylesheet" href="/css/modules/public.css?v=0.20260905h">
-<link rel="stylesheet" href="/css/modules/account.css?v=0.20260905h">
-<link rel="stylesheet" href="/css/modules/register.css?v=0.20260905h">
-<link rel="stylesheet" href="/css/modules/booth.css?v=0.20260905h">
-<link rel="stylesheet" href="/css/modules/challenge.css?v=0.20260905h">
-<link rel="stylesheet" href="/css/modules/admin.css?v=0.20260905h">
+<link rel="stylesheet" href="/css/modules/staff.css?v=0.20260905h" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="/css/modules/public.css?v=0.20260905h" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="/css/modules/account.css?v=0.20260905h" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="/css/modules/register.css?v=0.20260905h" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="/css/modules/booth.css?v=0.20260905h" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="/css/modules/challenge.css?v=0.20260905h" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="/css/modules/admin.css?v=0.20260905h" media="print" onload="this.media='all'">
+<!-- 七個模組 CSS 不擋首次繪製：頁面要等 Firebase 載完才會畫，那時它們早就到了；沒有 JS 時退回一般載入 -->
+<noscript><link rel="stylesheet" href="/css/modules/staff.css?v=0.20260905h"><link rel="stylesheet" href="/css/modules/public.css?v=0.20260905h"><link rel="stylesheet" href="/css/modules/account.css?v=0.20260905h"><link rel="stylesheet" href="/css/modules/register.css?v=0.20260905h"><link rel="stylesheet" href="/css/modules/booth.css?v=0.20260905h"><link rel="stylesheet" href="/css/modules/challenge.css?v=0.20260905h"><link rel="stylesheet" href="/css/modules/admin.css?v=0.20260905h"></noscript>
 <script>window.__APP_VERSION__ = '0.20260905h';</script>
 <!-- 首屏效能（Lighthouse 2026-09-05）：先跟 Firebase 的兩個網域握手；核心模組並行預載，不要等 app.js 逐層發現 -->
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
