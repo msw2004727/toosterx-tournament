@@ -1,0 +1,28 @@
+/* 教學卡共用樣式：A4 直式一頁、字大圖少、給現場工作人員看的 */
+@page { size: A4; margin: 12mm; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  color: #14251F; background: #fff; font-size: 13.5px; line-height: 1.45;
+}
+.card { width: 186mm; min-height: 270mm; margin: 0 auto; padding: 4mm 0; }
+.head { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 3px solid #0E6B4C; padding-bottom: 4mm; margin-bottom: 5mm; }
+.head h1 { font-size: 26px; margin: 0; color: #0E6B4C; letter-spacing: .02em; }
+.head .who { font-size: 14px; color: #4B5B55; }
+.head .url { font-size: 15px; font-weight: 700; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.steps { list-style: none; margin: 0; padding: 0; counter-reset: step; display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+.steps li { position: relative; padding: 3.5mm 3.5mm 3.5mm 15mm; border: 1.5px solid #CFE0D8; border-radius: 6px; break-inside: avoid; }
+.steps li::before { counter-increment: step; content: counter(step); position: absolute; left: 3.5mm; top: 3mm; width: 9mm; height: 9mm; border-radius: 50%; background: #0E6B4C; color: #fff; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; }
+.steps li strong { display: block; font-size: 15.5px; margin-bottom: 1mm; }
+.steps li.wide { grid-column: 1 / -1; }
+.steps li p { margin: 0; }
+.tip { margin: 5mm 0 0; padding: 3.5mm 4mm; background: #FDF3E0; border: 1.5px solid #E9C87A; border-radius: 6px; }
+.tip strong { color: #7A4E06; }
+.tip ul { margin: 1.5mm 0 0; padding-left: 1.4em; }
+.lights { display: flex; gap: 4mm; margin-top: 1.5mm; }
+.lights span { display: inline-flex; align-items: center; gap: 1.5mm; }
+.dot { width: 3.5mm; height: 3.5mm; border-radius: 50%; display: inline-block; }
+.dot.ok { background: #1F9D62; } .dot.wait { background: #E0A200; } .dot.bad { background: #C8362A; }
+.foot { margin-top: 4mm; font-size: 12px; color: #4B5B55; display: flex; justify-content: space-between; }
+kbd { font-family: inherit; font-weight: 700; border: 1px solid #AFC5BB; border-radius: 4px; padding: 0 4px; background: #F1F7F4; }

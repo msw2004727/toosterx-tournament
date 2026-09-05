@@ -22,6 +22,7 @@ import {
 } from './bits.js';
 import { isYouthDivision, validateMember, canAddMember } from '../../engine/eligibility.js';
 import { REGISTRATION_LIMITS } from '../../engine/formats.js';
+import { buildCancelRequest, refundPolicy } from '../../engine/refund.js';
 import { rocShort, rocLabel } from '../../lib/roc.js';
 import { needLogin } from '../account/login.js';
 
@@ -133,14 +134,18 @@ export async function managePage({ params, scope, view }) {
       statusBadge(s)
     ]));
 
-    if (s === 'approved') {
+    if (s === 'withdrawn') {
+      body.push(el('p', { class: 'reg__note', text: '這支球隊已取消報名。退費依競賽規章第二十七條，由主辦處理。' }));
+    } else if (s === 'approved') {
       body.push(el('p', { class: 'reg__note', text: '主辦已經審核通過，名單鎖定。要更動請聯絡主辦。' }));
+      body.push(...cancelRows());
     } else if (s === 'submitted') {
       body.push(el('p', { class: 'reg__note', text: '已送出，等主辦審核。這段期間名單凍結——要改請先撤回。' }));
       body.push(el('button', {
         class: 'btn btn--lg', type: 'button', disabled: state.busy,
         onClick: () => setStatus('draft', '撤回報名', '撤回後名單會解凍，你可以繼續調整。記得改完再送出一次。')
       }, iconText('undo', '撤回報名')));
+      body.push(...cancelRows());
     } else {
       if (s === 'rejected') {
         body.push(el('div', { class: 'reg__box reg__box--warn' }, [
@@ -168,6 +173,38 @@ export async function managePage({ params, scope, view }) {
   }
 
   // ── 邀請碼 ──────────────────────────────────────────────
+  // ── 取消報名（規章第二十七條）────────────────────────────
+  // 隊長只能「申請」；取消與退費由主辦在報名審核頁處理（rules 只放行 cancelRequest）。
+  // 退不退依申請的時間點：活動日前 15 天內不退（可轉讓），先講清楚再讓人按。
+  function cancelRows() {
+    const req = state.team.cancelRequest;
+    if (req?.status === 'requested') {
+      return [el('div', { class: 'reg__box reg__box--warn', id: 'team-cancel-pending' }, [
+        el('strong', { text: '已申請取消報名，等主辦處理' }),
+        el('p', { class: 'reg__note', text: `原因：${req.reason ?? ''}` })
+      ])];
+    }
+    const policy = refundPolicy({ requestedAtMs: Date.now(), eventDateIso: state.division?.date ?? null });
+    return [
+      el('p', { class: 'reg__fine', text: policy.ready
+        ? `要取消報名？${policy.text}。`
+        : '要取消報名？退費依競賽規章第二十七條。' }),
+      el('button', {
+        class: 'btn btn--ghost', type: 'button', id: 'team-cancel', disabled: state.busy,
+        onClick: () => requestCancel()
+      }, '申請取消報名')
+    ];
+  }
+
+  async function requestCancel() {
+    const reason = window.prompt('取消的原因（主辦處理退費時會看）：');
+    if (reason == null) return;
+    let req;
+    try { req = buildCancelRequest({ reason }); }
+    catch (err) { fail('沒有送出', err); return; }
+    await run(() => data.requestCancel(teamId, { reason: req.reason }), '已送出取消申請，等主辦處理');
+  }
+
   function inviteCard() {
     const code = state.team.inviteCode || '—';
     const link = `${location.origin}/#/join/${encodeURIComponent(code)}`;
@@ -224,7 +261,10 @@ export async function managePage({ params, scope, view }) {
       birthDate: m?.birthDate ?? '',
       idLast4: m?.idLast4 ?? '',
       jerseyNo: m?.jerseyNo != null ? String(m.jerseyNo) : '',
-      kind: m?.kind ?? 'player'
+      kind: m?.kind ?? 'player',
+      // 配戴眼鏡上場（規章附件二）
+      glasses: m?.glasses === true,
+      glassesWaiverReceived: m?.glassesWaiver?.signed === true
     };
   }
 
@@ -265,6 +305,31 @@ export async function managePage({ params, scope, view }) {
       }), { hint: '之後還能改，現在可以先留空。' }),
       err('jerseyNo'),
 
+      // ── 配戴眼鏡上場（規章附件二）：切結書是家長紙本親簽，教練記「收到了沒」 ──
+      f.kind === 'player'
+        ? el('label', { class: 'reg__checkRow' }, [
+            el('input', {
+              type: 'checkbox', id: 'm-glasses', checked: f.glasses,
+              onChange: e => { f.glasses = e.target.checked; if (!f.glasses) f.glassesWaiverReceived = false; render(); }
+            }),
+            el('span', { text: '這位球員會配戴眼鏡上場' })
+          ])
+        : null,
+      f.kind === 'player' && f.glasses
+        ? el('div', { class: 'reg__box', id: 'm-glasses-box' }, [
+            el('p', { class: 'reg__note', text:
+              '要有家長簽的「球員配戴眼鏡上場安全切結書」（規章附件二），比賽當天帶到檢錄處。眼鏡必須是運動專用安全防護眼鏡。' }),
+            el('a', { class: 'reg__fine', href: '#/register/waiver', target: '_blank', rel: 'noopener', text: '列印切結書' }),
+            el('label', { class: 'reg__checkRow' }, [
+              el('input', {
+                type: 'checkbox', id: 'm-glasses-received', checked: f.glassesWaiverReceived,
+                onChange: e => { f.glassesWaiverReceived = e.target.checked; }
+              }),
+              el('span', { text: '已收到家長簽好的切結書' })
+            ])
+          ])
+        : null,
+
       field('m-kind', '身分', selectInput('m-kind', [
         { value: 'player', label: '球員' },
         { value: 'leader', label: '領隊' },
@@ -300,7 +365,9 @@ export async function managePage({ params, scope, view }) {
       birthDate: f.birthDate || null,
       idLast4: f.idLast4 || null,
       jerseyNo: f.jerseyNo === '' ? null : Number(f.jerseyNo),
-      kind: f.kind
+      kind: f.kind,
+      glasses: f.kind === 'player' && f.glasses === true,
+      glassesWaiverReceived: f.glassesWaiverReceived === true
     };
 
     // 前端擋一次是為了給好的訊息，權威仍在 rules 與規章設定
@@ -398,7 +465,8 @@ export async function managePage({ params, scope, view }) {
           m.jerseyNo != null ? `#${m.jerseyNo}` : null,
           // 生日用民國年顯示：檢錄當天教練是拿證件對，證件上是民國年
           m.birthDate ? rocShort(m.birthDate) : null,
-          m.idLast4 ? `末四碼 ${m.idLast4}` : null
+          m.idLast4 ? `末四碼 ${m.idLast4}` : null,
+          m.glasses ? (m.glassesWaiver?.signed ? '眼鏡（切結書已收）' : '眼鏡（切結書未收）') : null
         ].filter(Boolean).join('　·　')
       }),
       m.status !== 'approved' && m.status !== 'pending'

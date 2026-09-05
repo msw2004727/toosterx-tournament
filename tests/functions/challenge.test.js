@@ -12,7 +12,8 @@
  *    FC08 專門測重放。
  */
 import { db as adminDb } from '../../functions/admin.js';
-import { onAttemptSubmitted, playerProgress } from '../../functions/pipeline.js';
+import { onAttemptSubmitted, playerProgress, setPlayerContactFor } from '../../functions/pipeline.js';
+import { createHash } from 'node:crypto';
 import { rankInLadder } from '../../js/engine/challenge.js';
 
 const E = 'feda-cup-2026';
@@ -313,5 +314,53 @@ describe('FC14 ⭐ ladder：前 N 名之外的玩家也要算得出名次', () =
     const b = await board(CROSSBAR.challengeId);
     expect(b.ladder.values).toEqual([3]);
     expect(b.totalPlayers).toBe(1);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+describe('FC15 ⭐ 中獎聯絡方式（docs/06 §7.2）：憑證對得上才寫，電話只進 playerContacts', () => {
+  const KEY = 'k-1234567890abcdef1234567890abcdef';
+  const HASH = createHash('sha256').update(KEY).digest('hex');
+  const contact = id => db.doc(`events/${E}/playerContacts/${id}`).get().then(s => (s.exists ? s.data() : null));
+
+  beforeEach(async () => {
+    await db.doc(`events/${E}/players/FEDA-0001`).update({ contactKeyHash: HASH });
+  });
+
+  test('FC15 ⭐ 憑證正確：電話正規化後寫進 playerContacts，回遮罩；players 文件上沒有電話', async () => {
+    const r = await setPlayerContactFor({ eventId: E, playerId: 'feda-0001', key: KEY, phone: '0912-345-678' });
+    expect(r).toEqual({ playerId: 'FEDA-0001', maskedPhone: '0912***678' });
+    expect(await contact('FEDA-0001')).toMatchObject({ playerId: 'FEDA-0001', phone: '0912345678', via: 'self' });
+    const p = await player('FEDA-0001');
+    expect(JSON.stringify(p)).not.toContain('0912345678');
+  });
+
+  test('FC15b ⭐ 憑證不對就不寫（知道代號不等於本人）', async () => {
+    await expect(setPlayerContactFor({ eventId: E, playerId: 'FEDA-0001', key: 'k-wrongwrongwrongwrongwrong', phone: '0912345678' }))
+      .rejects.toThrow('憑證不符');
+    expect(await contact('FEDA-0001')).toBeNull();
+  });
+
+  test('FC15c ⭐ 攤位代建的卡沒有憑證：說清楚要到攤位登記', async () => {
+    await expect(setPlayerContactFor({ eventId: E, playerId: 'FEDA-0002', key: KEY, phone: '0912345678' }))
+      .rejects.toThrow('攤位');
+    expect(await contact('FEDA-0002')).toBeNull();
+  });
+
+  test('FC15d 手機格式不對不寫（市話、少一碼）', async () => {
+    await expect(setPlayerContactFor({ eventId: E, playerId: 'FEDA-0001', key: KEY, phone: '02-2345-6789' }))
+      .rejects.toThrow('09 開頭');
+    expect(await contact('FEDA-0001')).toBeNull();
+  });
+
+  test('FC15e 查無此代號', async () => {
+    await expect(setPlayerContactFor({ eventId: E, playerId: 'FEDA-9999', key: KEY, phone: '0912345678' }))
+      .rejects.toThrow('查無');
+  });
+
+  test('FC15f ⭐ 攤位工作人員替代建的卡登記：不用憑證，但記下是誰登記的', async () => {
+    const r = await setPlayerContactFor({ eventId: E, playerId: 'FEDA-0002', phone: '0987654321', staffUid: 'u-booth' });
+    expect(r.maskedPhone).toBe('0987***321');
+    expect(await contact('FEDA-0002')).toMatchObject({ phone: '0987654321', via: 'booth', byUid: 'u-booth' });
   });
 });

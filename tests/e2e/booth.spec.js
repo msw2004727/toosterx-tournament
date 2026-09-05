@@ -315,3 +315,27 @@ test('⭐ 320px 不出現橫向捲軸 @booth @narrow', async ({ page }) => {
   });
   expect(over).toBeNull();
 });
+
+// ── 攤位替玩家登記中獎聯絡手機（docs/06 §7.2）──────────────
+test('⭐ 攤位替代建的卡登記手機：走 Function、不帶憑證、號碼正規化 @booth @contact', async ({ page }) => {
+  await stub(page);
+  await go(page);
+  await ready(page);
+  await lookup(page);
+  await page.locator('#booth-phone').fill('0987-654-321');
+  await page.locator('#booth-phone-save').click();
+  await expect.poll(() => page.evaluate(() => (window.__FAKE_CALLS || []).find(c => c.name === 'setPlayerContact')?.payload), { timeout: 10_000 })
+    .toEqual({ eventId: EVENT, playerId: 'FEDA-0182', phone: '0987654321' });
+  await expect(page.locator('#booth-phone-note')).toContainText('0987***321');
+});
+
+test('攤位登記手機：格式不對留在畫面上，不送出 @booth @contact', async ({ page }) => {
+  await stub(page);
+  await go(page);
+  await ready(page);
+  await lookup(page);
+  await page.locator('#booth-phone').fill('02-2345-6789');
+  await page.locator('#booth-phone-save').click();
+  await expect(page.locator('#booth-phone-note')).toContainText('09 開頭');
+  expect(await page.evaluate(() => (window.__FAKE_CALLS || []).some(c => c.name === 'setPlayerContact'))).toBe(false);
+});

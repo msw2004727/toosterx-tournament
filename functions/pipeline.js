@@ -26,6 +26,8 @@ import { reconcileScore } from './engine/timeline.js';
 import { rosterProjection } from './engine/privacy.js';
 import { isPlayer, personKeysOf } from './engine/review.js';
 import { REGISTRATION_LIMITS } from './engine/formats.js';
+import { normalizePhone, maskPhone } from './engine/challenge.js';
+import { createHash } from 'node:crypto';
 import {
   db, evRef, loadRankingRule, loadFormat, loadDivision, loadGroups,
   loadDivisionMatches, loadStageMatchesTx, loadCardEvents, loadTeams, loadTimeline,
@@ -935,4 +937,43 @@ export async function enforceRosterCap({ eventId, teamId, maxPlayers = REGISTRAT
     reason: `球員超過 ${maxPlayers} 人上限（規章第十二條）`
   });
   return { rejected: extra.map(d => d.id) };
+}
+
+/**
+ * 抽獎中獎的聯絡方式（docs/06 §7.2）。
+ *
+ * `players` 文件任何人都讀得到、代號空間只有一萬組——電話不能放在那裡，
+ * 也不能讓「知道代號的人」就改得動。所以：
+ *   ・建卡時客戶端產生一組隨機憑證，只把 sha256 存進 players.contactKeyHash
+ *   ・填聯絡方式要把憑證本體送來，這裡算雜湊比對；對得上才寫
+ *   ・電話寫進 `playerContacts/{playerId}`（只有管理員讀得到，匯出抽獎名單時合併）
+ * 攤位代建的卡沒有憑證，只能到攤位登記（畫面會這樣說）。
+ */
+export async function setPlayerContactFor({ eventId, playerId, key, phone, staffUid = null }) {
+  const id = String(playerId ?? '').trim().toUpperCase();
+  if (!/^FEDA-\d{4}$/.test(id)) throw new Error('代號格式不對');
+  const normalized = normalizePhone(phone);
+  if (!normalized) throw new Error('手機號碼要是 09 開頭的 10 碼');
+
+  const snap = await playerRef(eventId, id).get();
+  if (!snap.exists) throw new Error('查無此代號');
+
+  // 攤位工作人員（已登入、有 booth 以上身分，由 callable 驗過）可以替玩家登記——
+  // 攤位代建的卡沒有憑證，只有這條路。留下是誰登記的。
+  if (!staffUid) {
+    const k = String(key ?? '');
+    if (k.length < 16) throw new Error('這支手機上沒有這張卡的憑證');
+    const hash = snap.data()?.contactKeyHash;
+    if (!hash) throw new Error('這張卡是攤位代建的，請到攤位登記聯絡方式');
+    if (createHash('sha256').update(k).digest('hex') !== hash) {
+      throw new Error('憑證不符：這張卡不是在這支手機上建立的');
+    }
+  }
+
+  await evRef(eventId).collection('playerContacts').doc(id).set({
+    playerId: id, eventId, phone: normalized,
+    via: staffUid ? 'booth' : 'self', byUid: staffUid,
+    updatedAt: FieldValue.serverTimestamp()
+  });
+  return { playerId: id, maskedPhone: maskPhone(normalized) };
 }

@@ -236,7 +236,8 @@ service cloud.firestore {
             && !rosterFrozen(tid)
             && unchanged('status')
             && onlyChanged(['name', 'birthDate', 'idLast4', 'jerseyNo',
-                            'position', 'kind', 'role', 'note', 'updatedAt']);
+                            'position', 'kind', 'role', 'note',
+                            'glasses', 'glassesWaiver', 'updatedAt']);
       }
 
       // 家長／本人：申請還沒被決定之前可以修正自己填的資料，
@@ -245,7 +246,7 @@ service cloud.firestore {
         return request.resource.data.status == 'pending'
             && unchanged('guardianUid')
             && onlyChanged(['name', 'birthDate', 'idLast4', 'jerseyNo', 'position',
-                            'kind', 'consent', 'updatedAt']);
+                            'kind', 'consent', 'glasses', 'glassesWaiver', 'updatedAt']);
       }
 
       // ── 球隊與名單（M4，docs/10 §5.2）────────────────────────
@@ -278,10 +279,12 @@ service cloud.firestore {
       function captainTeamPatchOk() {
         return onlyChanged(['name', 'shortName', 'abbr', 'colorPrimary', 'contact',
                             'announcement', 'status', 'captainUid', 'captainName',
-                            'submittedAt', 'updatedAt', 'updatedBy'])
-            // 凍結之後只准撤回（動 status），隊伍資料本身不能再編輯
+                            'submittedAt', 'cancelRequest', 'updatedAt', 'updatedBy'])
+            // 凍結之後只准撤回（動 status）或申請取消（規章第二十七條，寫 cancelRequest），
+            // 隊伍資料本身不能再編輯。取消要由主辦處理（status 變 withdrawn 只有 Admin 設得了）
             && ( resource.data.get('status', 'draft') in ['draft', 'rejected']
-                 || onlyChanged(['status', 'submittedAt', 'updatedAt', 'updatedBy']) );
+                 || onlyChanged(['status', 'submittedAt', 'updatedAt', 'updatedBy'])
+                 || onlyChanged(['cancelRequest', 'updatedAt', 'updatedBy']) );
       }
 
       // 隊長走得到的狀態轉換只有「送出」與「撤回」，以及被退回之後重新編輯。
@@ -289,7 +292,9 @@ service cloud.firestore {
       function captainTeamTransition(from, to) {
         return (from == 'draft'     && to in ['draft', 'submitted'])
             || (from == 'submitted' && to in ['submitted', 'draft'])
-            || (from == 'rejected'  && to in ['rejected', 'draft']);
+            || (from == 'rejected'  && to in ['rejected', 'draft'])
+            // 狀態不動的更新（例如已核准之後申請取消）：欄位仍由 captainTeamPatchOk 的白名單管
+            || from == to;
       }
 
       match /teams/{teamId} {
@@ -494,7 +499,8 @@ service cloud.firestore {
         allow create: if request.resource.data.keys().hasOnly([
                           'playerId', 'eventId', 'nickname', 'avatarSeed', 'ageBand',
                           'qrCode', 'createdAt', 'createdVia', 'completedChallengeIds',
-                          'luckyDrawEntries', 'linkedTeamId', 'lastActiveAt', 'contact'
+                          'luckyDrawEntries', 'linkedTeamId', 'lastActiveAt', 'contact',
+                          'contactKeyHash'
                         ])
                       && request.resource.data.nickname is string
                       && request.resource.data.nickname.size() >= 1
@@ -551,6 +557,23 @@ service cloud.firestore {
         allow read:   if isAdmin();
         allow create: if isStaff() && request.resource.data.actor.uid == uid();
         allow update, delete: if false;
+      }
+
+      // ── 申訴（規章第二十條）──
+      // 申訴書是紙本親簽，這裡是主辦的登記與裁決紀錄：有事由、電話、保證金去向，
+      // 只有管理員讀寫。不可刪除——申訴紀錄跟稽核一樣要留著（R-SEC-002 的同一個精神）。
+      match /appeals/{appealId} {
+        allow read:   if isAdmin();
+        allow create, update: if isAdmin();
+        allow delete: if false;
+      }
+
+      // ── 抽獎中獎聯絡方式（docs/06 §7.2）──
+      // players 文件任何人都讀得到，電話不能放在那裡。這一份只有管理員（匯出抽獎名單時）
+      // 讀得到；寫入一律走 Function（setPlayerContact 用只有本人知道的憑證驗過才寫）。
+      match /playerContacts/{playerId} {
+        allow read:  if isAdmin();
+        allow write: if false;
       }
 
       match /awards/{awardId} {

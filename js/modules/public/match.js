@@ -23,6 +23,7 @@ import {
   pageHead, empty, videoFacade, stopAllVideos, shareButton, statusText
 } from './bits.js';
 import { EVENT_ICON } from '../staff/live-actions.js';
+import { APPEAL_STATUS_LABEL } from '../../lib/format.js';
 
 const TABS = [
   { key: 'events', label: '事件', icon: 'list' },
@@ -139,6 +140,12 @@ export async function publicMatch({ params, scope, view, query }) {
         el('span', { class: 'psb__team', text: sideLabel(m, 'away') })
       ]),
       ht ? el('p', { class: 'psb__ht', text: ht }) : null,
+      // 申訴（規章第二十條）：只顯示狀態與哪一隊，事由與電話不公開
+      m.appeal?.status
+        ? el('p', { class: 'psb__note psb__appeal', dataset: { status: m.appeal.status }, text:
+            `${APPEAL_STATUS_LABEL[m.appeal.status] ?? m.appeal.status}` +
+            (m.appeal.teamId ? `（${m.home?.teamId === m.appeal.teamId ? sideLabel(m, 'home') : sideLabel(m, 'away')} 提出）` : '') })
+        : null,
       sc.masked ? el('p', { class: 'psb__note', text: '兒童組比分達分差上限，以 7+ 顯示' }) : null,
       // 未開賽時把開賽時間講清楚，不要只留一個空的 0-0（§4.5）
       !started ? el('p', { class: 'psb__note', text: `${hhmm(m.kickoffAt)} 開賽` }) : null

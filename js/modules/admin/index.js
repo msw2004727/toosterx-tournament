@@ -60,4 +60,6 @@ export function registerAdminRoutes() {
     { title: '稽核紀錄', guard: requireLogin });
   route('/admin/registration', page('../admin/registration.js', m => m.adminRegistrationPage),
     { title: '報名開關', guard: requireLogin });
+  route('/admin/stream', page('../admin/stream.js', m => m.adminStreamPage),
+    { title: '直播設定', guard: requireLogin });
 }

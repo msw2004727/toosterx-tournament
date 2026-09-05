@@ -27,7 +27,7 @@ export async function joinPage({ params, scope, view }) {
   mount(view, root);
   mount(root, skeleton(3));
 
-  const form = { name: '', birthDate: '', idLast4: '', jerseyNo: '', position: '', kind: 'player' };
+  const form = { name: '', birthDate: '', idLast4: '', jerseyNo: '', position: '', kind: 'player', glasses: false, glassesConsent: false };
   const state = { team: null, division: null, reg: null, loaded: false, busy: false, error: null, done: false };
 
   hold(scope, onAuth(() => state.loaded && render()), 'auth:join');
@@ -130,9 +130,35 @@ export async function joinPage({ params, scope, view }) {
         { value: 'staff', label: '隊職員' }
       ], { value: form.kind, onChange: v => { form.kind = v; } })),
 
+      // ── 配戴眼鏡上場（規章附件二）：勾了就要同意切結書才送得出去 ──
+      el('label', { class: 'reg__checkRow' }, [
+        el('input', {
+          type: 'checkbox', id: 'm-glasses', checked: form.glasses,
+          onChange: e => { form.glasses = e.target.checked; if (!form.glasses) form.glassesConsent = false; render(); }
+        }),
+        el('span', { text: youth ? '這位球員會配戴眼鏡上場' : '我會配戴眼鏡上場' })
+      ]),
+      form.glasses
+        ? el('div', { class: 'reg__box', id: 'm-glasses-box' }, [
+            el('strong', { text: '球員配戴眼鏡上場安全切結書（規章附件二）' }),
+            el('p', { class: 'reg__note', text:
+              '眼鏡必須是運動專用安全防護眼鏡（防護框、安全鏡片、無銳利邊角、附固定帶），' +
+              '不可以是日常的膠框、金屬框或玻璃鏡片。裁判賽前可以檢查，不合格要更換或不下場。' +
+              '眼鏡毀損與因配戴眼鏡造成的自身或他人傷害，由球員、法定代理人與所屬球隊自行負責。' }),
+            el('a', { class: 'reg__fine', href: '#/register/waiver', target: '_blank', rel: 'noopener', text: '看完整切結書（可列印）' }),
+            el('label', { class: 'reg__checkRow' }, [
+              el('input', {
+                type: 'checkbox', id: 'm-glasses-consent', checked: form.glassesConsent,
+                onChange: e => { form.glassesConsent = e.target.checked; refreshSubmit(); }
+              }),
+              el('span', { text: youth ? '本人（家長／法定代理人）已閱讀並同意上述切結條款' : '本人已閱讀並同意上述切結條款' })
+            ])
+          ])
+        : null,
+
       el('button', {
         class: 'btn btn--xl btn--primary', type: 'button', id: 'join-submit',
-        disabled: !nameOk || state.busy,
+        disabled: !nameOk || state.busy || (form.glasses && !form.glassesConsent),
         onClick: () => submit()
       }, state.busy ? '送出中…' : iconText('check', '送出加入申請')),
 
@@ -153,7 +179,7 @@ export async function joinPage({ params, scope, view }) {
 
   function refreshSubmit() {
     const btn = document.getElementById('join-submit');
-    if (btn) btn.disabled = form.name.trim().length < 2 || state.busy;
+    if (btn) btn.disabled = form.name.trim().length < 2 || state.busy || (form.glasses && !form.glassesConsent);
   }
 
   async function submit() {
@@ -170,7 +196,9 @@ export async function joinPage({ params, scope, view }) {
         jerseyNo: form.jerseyNo ? Number(form.jerseyNo) : null,
         position: form.position || null,
         kind: form.kind,
-        isSelf: form.isSelf === true
+        isSelf: form.isSelf === true,
+        glasses: form.glasses === true,
+        glassesConsent: form.glassesConsent === true
       });
       state.done = true;
       toast('申請已送出', 'success');

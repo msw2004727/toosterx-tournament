@@ -31,20 +31,43 @@ export function savedPass() {
     if (!raw) return null;
     const o = JSON.parse(raw);
     const playerId = normalizePlayerId(o?.playerId);
-    return playerId ? { playerId, nickname: o?.nickname ?? null } : null;
+    return playerId
+      ? {
+          playerId,
+          nickname: o?.nickname ?? null,
+          // 聯絡憑證：只有建卡的那支手機有；找回的卡沒有（docs/06 §7.2）
+          contactKey: typeof o?.contactKey === 'string' && o.contactKey ? o.contactKey : null,
+          contactMasked: typeof o?.contactMasked === 'string' ? o.contactMasked : null
+        }
+      : null;
   } catch {
     return null;
   }
 }
 
 /** 存起來。存不進去**不算失敗**——ID 還是有效的，只是下次要自己輸入 */
-export function savePass({ playerId, nickname = null }) {
+export function savePass({ playerId, nickname = null, contactKey = null, contactMasked = null }) {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ playerId, nickname }));
+    localStorage.setItem(KEY, JSON.stringify({ playerId, nickname, contactKey, contactMasked }));
     return true;
   } catch {
     return false;
   }
+}
+
+/**
+ * 填聯絡方式用的憑證（docs/06 §7.2）：建卡時在這支手機上產生，只把 sha256 送上去。
+ * players 文件任何人都讀得到、代號掃得完——沒有這一層，知道代號的人就改得動別人的電話。
+ */
+export function newContactKey() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+export async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(text)));
+  return Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join('');
 }
 
 export function clearPass() {

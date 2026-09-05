@@ -98,16 +98,16 @@ const AGE_LABEL = { kid: '兒童', teen: '青少年', adult: '成人' };
  * 排序：張數多的在前，同張數依代號——**穩定且可重放**，
  * 主辦重匯一次要拿到同一份名單（不然沒辦法比對）。
  */
-export function luckyDrawRows(players = []) {
+export function luckyDrawRows(players = [], { contacts = {} } = {}) {
   return players
     .map(p => ({
       playerId: p.playerId ?? '',
       nickname: p.nickname ?? '',
       entries: Number.isInteger(p.luckyDrawEntries) ? p.luckyDrawEntries : 0,
       completedCount: Array.isArray(p.completedChallengeIds) ? p.completedChallengeIds.length : 0,
-      // contact 目前一律是空的（表單還沒做，而規則也不放行訪客寫）。
-      // 欄位留著是為了讓主辦匯出來的檔案格式從頭到尾一致。
-      contact: contactText(p.contact),
+      // 聯絡方式在另一份只有管理員讀得到的 playerContacts（docs/06 §7.2）：
+      // players 文件任何人都讀得到，電話不能放那裡。
+      contact: contacts?.[p.playerId]?.phone || contactText(p.contact),
       ageBand: AGE_LABEL[p.ageBand] ?? '',
       createdVia: p.createdVia === 'staff' ? '現場代建' : '玩家自建'
     }))

@@ -574,3 +574,105 @@ describe('R134 我的球員：collectionGroup(members) 只讀得到自己報的�
     await assertSucceeds(getDoc(memberRef(authed(env, 'u-scorer'), 'm-1')));
   });
 });
+
+describe('R135 申訴登記（規章第二十條）：只有管理員讀寫，不可刪除', () => {
+  const appealRef = (db, id = 'AO-G-A-01-t-new') => doc(db, 'events', EVENT, 'appeals', id);
+  const appealDoc = {
+    appealId: 'AO-G-A-01-t-new', matchId: 'AO-G-A-01', teamId: TEAM, opponentTeamId: 't-2',
+    filedBy: { role: 'leader', name: '王領隊', phone: '0912345678' },
+    deposit: 2000, depositPaid: true, withinWindow: true, late: false,
+    reason: '第 60 分鐘進球越位', status: 'filed', decision: null, createdBy: 'u-admin'
+  };
+  test('R135 ⭐ 管理員登記與裁決', async () => {
+    await assertSucceeds(setDoc(appealRef(authed(env, 'u-admin')), appealDoc));
+    await assertSucceeds(updateDoc(appealRef(authed(env, 'u-admin')),
+      { status: 'dismissed', decision: { upheld: false, note: '無越位', depositReturned: false } }));
+    await assertSucceeds(getDoc(appealRef(authed(env, 'u-admin'))));
+  });
+  test('R135b ⭐ 隊長、賽務、路人都不能登記；賽務與路人也讀不到（有電話與事由）', async () => {
+    await seedTeam();
+    await assertFails(setDoc(appealRef(authed(env, CAP)), appealDoc));
+    await assertFails(setDoc(appealRef(authed(env, 'u-scorer')), appealDoc));
+    await assertFails(setDoc(appealRef(guest(env)), appealDoc));
+    await asAdminSdk(env, db => setDoc(appealRef(db), appealDoc));
+    await assertFails(getDoc(appealRef(authed(env, 'u-scorer'))));
+    await assertFails(getDoc(appealRef(authed(env, CAP))));
+    await assertFails(getDoc(appealRef(guest(env))));
+  });
+  test('R135c ⭐ 申訴紀錄不可刪除（連管理員也不行）', async () => {
+    await asAdminSdk(env, db => setDoc(appealRef(db), appealDoc));
+    await assertFails(deleteDoc(appealRef(authed(env, 'u-admin'))));
+  });
+});
+
+describe('R136 取消報名與退費（規章第二十七條）', () => {
+  test('R136 ⭐ 隊長可以在已核准（凍結）的球隊上申請取消，但不能自己把狀態改成 withdrawn', async () => {
+    await seedTeam({ status: 'approved', rosterLocked: true });
+    await assertSucceeds(updateDoc(teamRef(authed(env, CAP)),
+      { cancelRequest: { reason: '球員受傷太多', byUid: CAP, status: 'requested', at: null }, updatedAt: null }));
+    await assertFails(updateDoc(teamRef(authed(env, CAP)), { status: 'withdrawn', updatedAt: null }));
+    // 凍結期間仍然不能順手改隊名
+    await assertFails(updateDoc(teamRef(authed(env, CAP)),
+      { cancelRequest: { reason: 'x', byUid: CAP, status: 'requested' }, name: '改名', updatedAt: null }));
+  });
+  test('R136b ⭐ 只有管理員能把球隊設成 withdrawn 並記退費', async () => {
+    await seedTeam({ status: 'approved', rosterLocked: true,
+      cancelRequest: { reason: 'x', byUid: CAP, status: 'requested' } });
+    await assertFails(updateDoc(teamRef(authed(env, 'u-scorer')), { status: 'withdrawn' }));
+    await assertSucceeds(updateDoc(teamRef(authed(env, 'u-admin')), {
+      status: 'withdrawn',
+      refund: { rule: 'before15', refundable: true, fee: 6000, suggested: 6000, amount: 6000, note: null, byUid: 'u-admin' },
+      cancelRequest: { reason: 'x', byUid: CAP, status: 'processed' }
+    }));
+  });
+});
+
+describe('R137 抽獎聯絡方式（docs/06 §7.2）：只有管理員讀得到，只有 Function 寫得進去', () => {
+  const contactRef = (db, id = 'FEDA-0001') => doc(db, 'events', EVENT, 'playerContacts', id);
+  test('R137 ⭐ 管理員讀得到；攤位、路人讀不到', async () => {
+    await asAdminSdk(env, db => setDoc(contactRef(db), { playerId: 'FEDA-0001', phone: '0912345678' }));
+    await assertSucceeds(getDoc(contactRef(authed(env, 'u-admin'))));
+    await assertFails(getDoc(contactRef(authed(env, 'u-booth'))));
+    await assertFails(getDoc(contactRef(guest(env))));
+  });
+  test('R137b ⭐ 誰都寫不進去（連管理員），寫入只走 Function', async () => {
+    await assertFails(setDoc(contactRef(authed(env, 'u-admin')), { playerId: 'FEDA-0001', phone: '0912345678' }));
+    await assertFails(setDoc(contactRef(guest(env)), { playerId: 'FEDA-0001', phone: '0912345678' }));
+  });
+});
+
+describe('R138 配戴眼鏡與切結書（規章附件二）', () => {
+  test('R138 ⭐ 家長在申請被決定之前可以補「戴眼鏡＋已同意切結書」', async () => {
+    await seedTeam();
+    await seedMember();
+    await assertSucceeds(updateDoc(memberRef(authed(env, PARENT), 'm-1'), {
+      glasses: true, glassesWaiver: { signed: true, at: null, byUid: PARENT, by: 'guardian' }, updatedAt: null
+    }));
+    // 但仍然不能順手把自己改成 approved
+    await assertFails(updateDoc(memberRef(authed(env, PARENT), 'm-1'), { glasses: true, status: 'approved' }));
+  });
+  test('R138b 教練可以在自己填的那一筆上記「戴眼鏡＋切結書已收到」', async () => {
+    await seedTeam();
+    await asAdminSdk(env, db => setDoc(memberRef(db, 'm-c1'), coachMemberDoc()));
+    await assertSucceeds(updateDoc(memberRef(authed(env, CAP), 'm-c1'), {
+      glasses: true, glassesWaiver: { signed: true, at: null, byUid: CAP, by: 'teamLead' }, updatedAt: null
+    }));
+  });
+});
+
+describe('R139 Game Pass 帶聯絡憑證雜湊', () => {
+  const playerRef = (db, id) => doc(db, 'events', EVENT, 'players', id);
+  const pass = (over = {}) => ({
+    playerId: 'FEDA-0900', eventId: EVENT, nickname: '測', avatarSeed: '0900', ageBand: null,
+    qrCode: null, linkedTeamId: null, contact: { phone: null, lineUserId: null },
+    completedChallengeIds: [], luckyDrawEntries: 0, createdVia: 'self', ...over
+  });
+  test('R139 ⭐ 自建的卡可以帶 contactKeyHash；帶了電話本身就擋', async () => {
+    await assertSucceeds(setDoc(playerRef(guest(env), 'FEDA-0900'), pass({ contactKeyHash: 'ab'.repeat(32) })));
+    await assertFails(setDoc(playerRef(guest(env), 'FEDA-0901'), pass({ playerId: 'FEDA-0901', phone: '0912345678' })));
+  });
+  test('R139b 建立之後 contactKeyHash 改不動（換憑證等於搶走這張卡的聯絡權）', async () => {
+    await asAdminSdk(env, db => setDoc(playerRef(db, 'FEDA-0902'), pass({ playerId: 'FEDA-0902', contactKeyHash: 'a'.repeat(64) })));
+    await assertFails(updateDoc(playerRef(guest(env), 'FEDA-0902'), { contactKeyHash: 'b'.repeat(64) }));
+  });
+});

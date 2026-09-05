@@ -474,3 +474,14 @@ attemptPolicy: {
 | C08 | 新增第 6 關 | 純後台設定完成，不改任何程式碼 |
 | C09 | 新增 `time` 型態關卡（lower is better） | 排行榜排序正確 |
 | C10 | 匯出抽獎名單 | 張數與系統顯示一致 |
+
+---
+
+## 2026-09-05 補充：§7.2「填寫聯絡方式」的實作
+
+- 電話**不放在 `players` 文件**（任何人都讀得到、代號空間掃得完）。建卡時手機產生一組隨機憑證，
+  只把 sha256 存進 `players.contactKeyHash`；玩家在 `#/challenge/me` 填手機時把憑證本體送給
+  `setPlayerContact` Function，比對過才寫進 `events/{e}/playerContacts/{playerId}`（只有管理員讀得到）。
+- 找回的卡（別的裝置建的）沒有憑證：畫面直接說「到攤位登記」。攤位端在玩家卡片下方有「登記手機」，
+  登入的攤位身分不用憑證（Function 記下是誰登記的，`via: 'booth'`）。
+- 匯出抽獎名單時 `contact` 欄從 `playerContacts` 合併進來，CSV 格式不變。

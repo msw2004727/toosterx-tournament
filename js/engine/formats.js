@@ -385,12 +385,40 @@ const REGISTRATION_LIMITS = {
   fee: { youth: 5000, adult: 6000 }   // 學童三組 / 女子與男子兩組
 };
 
+/**
+ * 規章第二十條：申訴。
+ * 「應由領隊或總教練於賽後三十分鐘內用書面提出，並需繳納保證金新台幣貳仟元整；
+ *   如申訴理由不成立時，保證金不予發還」
+ */
+const APPEAL_RULES = {
+  windowMin: 30,           // 賽後三十分鐘內
+  deposit: 2000,           // 保證金新台幣貳仟元整
+  roles: ['leader', 'headCoach']   // 領隊或總教練
+};
+
+/**
+ * 規章第二十七條：退費機制與取消辦法。
+ * 「活動日前 15 天內取消恕不接受退費申請。但容許將名額轉讓給他人
+ *   （請於活動前 3 天通知主辦單位變更參加者資料）」
+ * 「若活動因不可抗力之因素……主辦單位宣布取消活動，將全額退費，不收取任何手續費」
+ */
+const REFUND_RULES = {
+  noRefundWithinDays: 15,  // 活動日前 15 天內不退
+  transferNoticeDays: 3    // 名額轉讓要在活動前 3 天通知
+};
+
 /** 階段代碼（用於 matchId：{組別碼}-{階段碼}-{小組}-{序}） */
 const STAGE_CODE = { group: 'G', placement: 'P', final: 'F' };
 
-export { FORMATS, RANKING_RULES, DIVISIONS, FAIR_PLAY, STAGE_CODE, REGISTRATION_LIMITS };
+export {
+  FORMATS, RANKING_RULES, DIVISIONS, FAIR_PLAY, STAGE_CODE, REGISTRATION_LIMITS,
+  APPEAL_RULES, REFUND_RULES
+};
 
 // CommonJS 相容（供 functions/ 以 require 使用）
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { FORMATS, RANKING_RULES, DIVISIONS, FAIR_PLAY, STAGE_CODE, REGISTRATION_LIMITS };
+  module.exports = {
+    FORMATS, RANKING_RULES, DIVISIONS, FAIR_PLAY, STAGE_CODE, REGISTRATION_LIMITS,
+    APPEAL_RULES, REFUND_RULES
+  };
 }

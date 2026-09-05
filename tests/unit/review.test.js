@@ -234,3 +234,28 @@ describe('T43-7 personKeysOf：跨隊查重的「同一個人」（規章第十�
     expect(personKeysOf({ isSelf: true, guardianUid: '' })).toEqual([]);
   });
 });
+
+describe('T43-8 配戴眼鏡上場的切結書（規章附件二）', () => {
+  test('⭐ 戴眼鏡但沒有切結書 → 提醒（warn），不擋核准', () => {
+    const r = run([...squad(3), player({ memberId: 'm-g', name: '小眼鏡', jerseyNo: 20, idLast4: '2020', glasses: true })]);
+    expect(codes(r)).toContain('GLASSES_WAIVER_MISSING');
+    expect(errors(r)).not.toContain('GLASSES_WAIVER_MISSING');
+    expect(r.canApprove).toBe(true);
+    const f = r.findings.find(x => x.code === 'GLASSES_WAIVER_MISSING');
+    expect(f.message).toContain('小眼鏡');
+    expect(f.source).toBe('規章附件二');
+  });
+  test('切結書收到了就是 ok', () => {
+    const r = run([...squad(3), player({
+      memberId: 'm-g', name: '小眼鏡', jerseyNo: 20, idLast4: '2020',
+      glasses: true, glassesWaiver: { signed: true, at: null, byUid: 'u-parent' }
+    })]);
+    expect(codes(r)).toContain('GLASSES_WAIVER');
+    expect(codes(r)).not.toContain('GLASSES_WAIVER_MISSING');
+  });
+  test('沒有人戴眼鏡就不提', () => {
+    const r = run(squad(3));
+    expect(codes(r)).not.toContain('GLASSES_WAIVER');
+    expect(codes(r)).not.toContain('GLASSES_WAIVER_MISSING');
+  });
+});

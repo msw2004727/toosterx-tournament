@@ -35,7 +35,8 @@ const seed = ({ roles = ['admin'], teams = null, members = null } = {}) => {
     [`events/${EVENT}/divisions/u10`]: {
       divisionId: 'u10', name: 'U10兒童組', shortName: 'U10', officialName: '學童中年級',
       order: 3, playersOnField: 5, matchDurationMin: 25, periods: 1,
-      eligibility: { bornOnOrAfter: '2016-09-01', note: '' }
+      eligibility: { bornOnOrAfter: '2016-09-01', note: '' },
+      date: '2026-10-09'
     },
     [`events/${EVENT}/teams/t-ok`]: {
       teamId: 't-ok', name: '合格球隊', divisionId: 'u10',
@@ -247,4 +248,57 @@ test('⭐ 320px 不出現橫向捲軸 @admin @narrow', async ({ page }) => {
     return d.scrollWidth <= d.clientWidth ? null : { scroll: d.scrollWidth, client: d.clientWidth };
   });
   expect(over).toBeNull();
+});
+
+// ── 取消報名與退費（規章第二十七條）──────────────────────
+const approvedWithRequest = () => ({
+  [`events/${EVENT}/teams/t-ok`]: {
+    teamId: 't-ok', name: '合格球隊', divisionId: 'u10',
+    captainUid: 'u-cap', status: 'approved', rosterLocked: true, memberCount: 3,
+    cancelRequest: { reason: '球員受傷太多', byUid: 'u-cap', status: 'requested', at: null }
+  }
+});
+
+test('⭐ 隊長申請取消時，審核頁看得到原因與規章算出來的退費 @admin @refund', async ({ page }) => {
+  await stub(page, { teams: approvedWithRequest() });
+  await go(page);
+  await page.locator('.adm__tab', { hasText: '已通過' }).click();
+  await item(page, '合格球隊').click();
+  const box = page.locator('.adm__box--warn', { hasText: '隊長申請取消報名' });
+  await expect(box).toContainText('球員受傷太多');
+  await expect(box).toContainText('報名費 NT$ 5,000');
+});
+
+test('⭐ 取消報名：規章算金額、寫 withdrawn 與退費、留痕、出現在「已取消」@admin @refund', async ({ page }) => {
+  await stub(page, { teams: approvedWithRequest() });
+  await go(page);
+  await page.locator('.adm__tab', { hasText: '已通過' }).click();
+  await item(page, '合格球隊').click();
+  await page.locator('[data-act="withdraw"]').click();
+  await expect(page.locator('.modal')).toContainText('規章算出來退 NT$ 5,000');
+  page.once('dialog', d => d.accept('5000'));                 // 金額用瀏覽器 prompt
+  await page.locator('.modal').getByRole('button', { name: /取消報名並記退費/ }).click();
+
+  await expect.poll(async () => (await teamOf(page, 't-ok'))?.status, { timeout: 15_000 }).toBe('withdrawn');
+  const t = await teamOf(page, 't-ok');
+  expect(t.refund).toMatchObject({ rule: 'before15', refundable: true, fee: 5000, suggested: 5000, amount: 5000, forceMajeure: false });
+  expect(t.cancelRequest.status).toBe('processed');
+  const audits = Object.entries(await dump(page)).filter(([k]) => k.includes('/audits/')).map(([, v]) => v);
+  expect(audits.some(a => a.action === 'team.withdraw' && a.after?.refund?.amount === 5000)).toBe(true);
+
+  await page.locator('.adm__tab', { hasText: '已取消' }).click();
+  await expect(item(page, '合格球隊')).toBeVisible();
+});
+
+test('⭐ 金額跟規章不一樣就要寫原因，沒寫就不做 @admin @refund', async ({ page }) => {
+  await stub(page, { teams: approvedWithRequest() });
+  await go(page);
+  await page.locator('.adm__tab', { hasText: '已通過' }).click();
+  await item(page, '合格球隊').click();
+  await page.locator('[data-act="withdraw"]').click();
+  let prompts = 0;
+  page.on('dialog', d => { prompts += 1; d.accept(prompts === 1 ? '3000' : ''); });   // 金額改了、原因留空
+  await page.locator('.modal').getByRole('button', { name: /取消報名並記退費/ }).click();
+  await expect(page.locator('.toast').last()).toContainText('原因');
+  expect((await teamOf(page, 't-ok')).status).toBe('approved');
 });

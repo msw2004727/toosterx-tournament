@@ -47,7 +47,10 @@ export async function getCheckinRoster(teamId) {
       role: m.kind ?? m.role ?? 'player',
       birthDate: m.birthDate ?? null,
       birthRoc: rocShort(m.birthDate),
-      idLast4: m.idLast4 ?? null
+      idLast4: m.idLast4 ?? null,
+      // 配戴眼鏡上場（規章附件二）：裁判賽前要檢查裝備，檢錄員先看切結書收了沒
+      glasses: m.glasses === true,
+      glassesWaiver: m.glassesWaiver?.signed === true
     };
   });
   return sortForCheckin(rows);

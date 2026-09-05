@@ -25,4 +25,5 @@ export function registerRegistrationRoutes() {
   route('/register/new', page('./new-team.js', m => m.newTeamPage), { title: '建立球隊' });
   route('/join/:inviteCode', page('./join.js', m => m.joinPage), { title: '加入球隊' });
   route('/team/:teamId/manage', page('./manage.js', m => m.managePage), { title: '管理球隊' });
+  route('/register/waiver', page('./waiver.js', m => m.waiverPage), { title: '眼鏡切結書' });
 }

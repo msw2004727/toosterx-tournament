@@ -471,7 +471,7 @@ export function normalizePlayerId(input, prefix = 'FEDA') {
  * @param {'self'|'staff'} createdVia 誰建的。留著是為了日後看得出
  *        「現場代建」與「玩家自己掃碼」的比例（docs/06 §11）。
  */
-export function newPlayerDoc({ playerId, eventId, nickname, ageBand = null, createdVia = 'self' }) {
+export function newPlayerDoc({ playerId, eventId, nickname, ageBand = null, createdVia = 'self', contactKeyHash = null }) {
   const nick = String(nickname ?? '').trim().slice(0, 12);
   if (!playerId) throw new Error('newPlayerDoc：需要 playerId');
   if (!nick) throw new Error('newPlayerDoc：暱稱不可以是空的');
@@ -485,12 +485,32 @@ export function newPlayerDoc({ playerId, eventId, nickname, ageBand = null, crea
     qrCode: null,
     linkedTeamId: null,
     contact: { phone: null, lineUserId: null },
+    // 「只有本人知道的憑證」的雜湊（docs/06 §7.2 的填寫聯絡方式）：
+    // players 文件任何人都讀得到，所以放的是 sha256，不是憑證本身。
+    // 攤位代建的卡沒有憑證（null），聯絡方式只能到攤位登記。
+    contactKeyHash: typeof contactKeyHash === 'string' && contactKeyHash ? contactKeyHash : null,
     // ⚠️ 這兩個一定要是空的／0。rules 明文擋著，而且它們只有
     //    Function 改得動——玩家自己灌抽獎張數就是這裡防的
     completedChallengeIds: [],
     luckyDrawEntries: 0,
     createdVia
   };
+}
+
+/**
+ * 中獎聯絡用的手機號碼（docs/06 §7.2）。只收台灣手機（09 開頭 10 碼），
+ * 破折號、空白照樣接；不合的回 null——市話沒辦法收 LINE 或簡訊通知。
+ */
+export function normalizePhone(input) {
+  let d = String(input ?? '').replace(/\D/g, '');
+  if (d.startsWith('886') && d.length === 12) d = `0${d.slice(3)}`;   // +886 912 345 678
+  return /^09\d{8}$/.test(d) ? d : null;
+}
+
+/** 給畫面回顯用：0912***678。整支號碼只有主辦匯出名單時看得到 */
+export function maskPhone(phone) {
+  const d = String(phone ?? '');
+  return d.length >= 7 ? `${d.slice(0, 4)}***${d.slice(-3)}` : (d ? '***' : '');
 }
 
 // CommonJS 相容（供 functions/ 以 require 使用）
@@ -502,6 +522,7 @@ if (typeof module !== 'undefined' && module.exports) {
     attemptMs, pickBest, diffBestFlags, attemptQuota,
     buildLeaderboard, myRank, compareEntries, rankInLadder,
     drawEntries, nextCompleted,
-    formatPlayerId, normalizePlayerId, newPlayerDoc
+    formatPlayerId, normalizePlayerId, newPlayerDoc,
+    normalizePhone, maskPhone
   };
 }

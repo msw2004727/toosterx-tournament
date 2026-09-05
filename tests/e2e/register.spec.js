@@ -495,3 +495,55 @@ test('⭐ 320px 不出現橫向捲軸（邀請碼與名單列最容易撐破）@
   });
   expect(over).toBeNull();
 });
+
+// ── 配戴眼鏡上場（規章附件二）────────────────────────────
+test('⭐ 配戴眼鏡要先同意切結書才送得出去，而且存下同意的證據 @register @glasses', async ({ page }) => {
+  await stub(page, base(), { uid: PARENT, displayName: '家長' });
+  await go(page, `/#/join/${CODE}`);
+  await page.getByLabel(/球員姓名/).fill('王小明');
+  await page.locator('#m-glasses').check();
+  await expect(page.locator('#m-glasses-box')).toContainText('切結書');
+  await expect(page.getByRole('button', { name: /送出加入申請/ })).toBeDisabled();
+  await page.locator('#m-glasses-consent').check();
+  await page.getByRole('button', { name: /送出加入申請/ }).click();
+  await expect(page.locator('.reg')).toContainText('申請已送出');
+  const m = Object.entries(await dump(page)).find(([p]) => p.includes(`/teams/${TEAM}/members/`))?.[1];
+  expect(m.glasses).toBe(true);
+  expect(m.glassesWaiver).toMatchObject({ signed: true, byUid: PARENT, by: 'guardian' });
+});
+
+test('沒戴眼鏡就不必同意切結書，文件上是 false／null @register @glasses', async ({ page }) => {
+  await stub(page, base(), { uid: PARENT, displayName: '家長' });
+  await go(page, `/#/join/${CODE}`);
+  await page.getByLabel(/球員姓名/).fill('王小明');
+  await expect(page.locator('#m-glasses-box')).toHaveCount(0);
+  await page.getByRole('button', { name: /送出加入申請/ }).click();
+  await expect(page.locator('.reg')).toContainText('申請已送出');
+  const m = Object.entries(await dump(page)).find(([p]) => p.includes(`/teams/${TEAM}/members/`))?.[1];
+  expect(m.glasses).toBe(false);
+  expect(m.glassesWaiver).toBeNull();
+});
+
+test('切結書全文頁免登入、可列印 @register @glasses', async ({ page }) => {
+  await stub(page, base());
+  await go(page, '/#/register/waiver');
+  await expect(page.locator('.reg__waiver')).toContainText('球員配戴眼鏡上場安全切結書');
+  await expect(page.locator('.reg__waiver')).toContainText('運動專用安全防護眼鏡');
+  await expect(page.locator('#waiver-print')).toBeVisible();
+});
+
+// ── 取消報名（規章第二十七條）────────────────────────────
+test('⭐ 已核准的球隊：隊長可以申請取消，狀態留給主辦改 @register @refund', async ({ page }) => {
+  await stub(page, base({ teamOver: { status: 'approved', rosterLocked: true }, members: member('m-1', { status: 'approved' }) }),
+    { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+  await expect(page.locator('.reg')).toContainText('要取消報名');
+  page.once('dialog', d => d.accept('球員受傷太多'));
+  await page.locator('#team-cancel').click();
+  await expect.poll(async () => (await dump(page))[`events/${EVENT}/teams/${TEAM}`]?.cancelRequest?.status, { timeout: 10_000 })
+    .toBe('requested');
+  const t = (await dump(page))[`events/${EVENT}/teams/${TEAM}`];
+  expect(t.status).toBe('approved');
+  expect(t.cancelRequest.reason).toBe('球員受傷太多');
+  await expect(page.locator('#team-cancel-pending')).toContainText('等主辦處理');
+});

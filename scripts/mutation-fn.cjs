@@ -173,6 +173,18 @@ const MUTANTS = [
     file: 'functions/pipeline.js',
     from: "  const playerCount = snap.docs.filter(d => isPlayer(d.data())).length;",
     to: "  const playerCount = snap.size;"
+  },
+  {
+    name: "FN#26 ⭐ 聯絡方式不比對憑證（知道代號就改得動別人的電話）",
+    file: 'functions/pipeline.js',
+    from: "  if (createHash('sha256').update(k).digest('hex') !== hash) {",
+    to: "  if (false) {"
+  },
+  {
+    name: "FN#27 ⭐ 聯絡方式不檢查手機格式（市話存進去，通知打不到）",
+    file: 'functions/pipeline.js',
+    from: "  if (!normalized) throw new Error('手機號碼要是 09 開頭的 10 碼');",
+    to: ""
   }
 ];
 

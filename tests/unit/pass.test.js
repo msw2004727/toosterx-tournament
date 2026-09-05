@@ -37,7 +37,7 @@ describe('T51-1 存與讀', () => {
   test('存進去讀得回來', () => {
     useStorage();
     expect(savePass({ playerId: 'FEDA-0182', nickname: '阿哲' })).toBe(true);
-    expect(savedPass()).toEqual({ playerId: 'FEDA-0182', nickname: '阿哲' });
+    expect(savedPass()).toEqual({ playerId: 'FEDA-0182', nickname: '阿哲', contactKey: null, contactMasked: null });
   });
 
   test('沒存過就是 null（呼叫端會把人導去建立頁）', () => {

@@ -28,6 +28,7 @@ import {
   rejectCrossTeamDuplicate, enforceRosterCap,
   onAttemptSubmitted, setManualRankingFor, clearManualRankingFor
 } from './pipeline.js';
+import { setPlayerContactFor } from './pipeline.js';
 import { writeAudit } from './store.js';
 import { loginWithLine } from './line.js';
 
@@ -55,6 +56,8 @@ async function requireStaff(request, roles = []) {
 }
 
 const ADMIN = ['admin', 'super_admin'];
+// 賽務角色向上包含（R-ROLE-002）：攤位以上都做得了攤位的事
+const BOOTH = ['booth', 'checkin', 'referee', 'scorer', 'admin', 'super_admin'];
 
 /** 結果性欄位有沒有真的變。用 JSON 比對就夠——這些都是小物件。 */
 const changedAny = (before, after, keys) =>
@@ -335,6 +338,24 @@ export const setManualRanking = onCall(async (req) => {
  * 驗證失敗一律回 `unauthenticated` 並附上 LINE 給的原因：
  * 現場最常見的是 token 過期或 Channel 設錯，錯誤訊息含糊的話沒有人查得出來。
  */
+/**
+ * 抽獎中獎聯絡方式（docs/06 §7.2）。公開端點——玩家沒有登入。
+ * 身分靠建卡時留在手機上的憑證（見 pipeline.setPlayerContactFor）。
+ */
+export const setPlayerContact = onCall(async (req) => {
+  const { eventId, playerId, key, phone } = req.data || {};
+  if (!eventId || !playerId) fail('invalid-argument', '需要 eventId / playerId');
+  // 登入的攤位工作人員可以替玩家登記（攤位代建的卡沒有憑證）。
+  // 沒登入的就是玩家本人，要帶建卡時留在手機上的憑證。
+  let staffUid = null;
+  if (req.auth) { await requireStaff(req, BOOTH); staffUid = req.auth.uid; }
+  try {
+    return ok(await setPlayerContactFor({ eventId, playerId, key, phone, staffUid }));
+  } catch (err) {
+    fail('invalid-argument', err.message);
+  }
+});
+
 export const lineLogin = onCall(async (req) => {
   try {
     return ok(await loginWithLine(req.data?.idToken));

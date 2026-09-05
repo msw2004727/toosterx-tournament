@@ -188,20 +188,22 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       常駐頁首（登入／我的）＋主題只留圖示＋移除關注功能
 - [x] M6 Challenge 挑戰系統（a 引擎與管線、b 攤位端、
       c 玩家端＝QR 產生器／Game Pass／首頁／排行榜、d 抽獎名單 CSV）
+- [x] 規章補齊（2026-09-05）：申訴登記與裁決、眼鏡切結書、取消報名／退費、
+      直播設定、中獎聯絡方式、三張教學卡、Lighthouse 首次量測與首屏修正
 - [ ] M7 彩排 → 上線
 
 ## 現在的狀態（2026-09-05）
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 1074 全綠（42 個 suite） |
-| `npm run test:mutation` | ✅ 270 / 270 全被抓到 |
-| `npm run test:mutation:e2e` | ✅ 15 / 15 全被抓到（畫面層時序、權限與替身語意） |
-| `npm run test:e2e` | ✅ 981 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 218 全綠（…、R129–R132 改判、R17b–R17d Game Pass、R133 球員上限、R134 我的球員） |
-| `npm run test:mutation:rules` | ✅ 38 / 38 全被抓到 |
-| `npm run test:fn` | ✅ 79 全綠（F01–F15j 結果管線與同分裁定、FR01–FR15e 報名／登入／規章第十二條、FC01–FC14c 挑戰） |
-| `npm run test:mutation:fn` | ✅ 25 / 25 全被抓到 |
+| `npm run test:unit` | ✅ 1117 全綠（46 個 suite） |
+| `npm run test:mutation` | ✅ 281 / 281 全被抓到 |
+| `npm run test:mutation:e2e` | ✅ 17 / 17 全被抓到（畫面層時序、權限與替身語意） |
+| `npm run test:e2e` | ✅ 1068 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:rules` | ✅ 229 全綠（…、R133 球員上限、R134 我的球員、R135 申訴、R136 取消退費、R137 聯絡方式、R138 眼鏡切結書、R139 憑證雜湊） |
+| `npm run test:mutation:rules` | ✅ 42 / 42 全被抓到 |
+| `npm run test:fn` | ✅ 84 全綠（F01–F15j 結果管線與同分裁定、FR01–FR15e 報名／登入／規章第十二條、FC01–FC15f 挑戰與聯絡方式） |
+| `npm run test:mutation:fn` | ✅ 27 / 27 全被抓到 |
 
 ### 「變異漏掉」有四種原因，不是只有一種
 
@@ -371,8 +373,9 @@ CI 曾在 2026-09-04 18:19 到 09-05 之間完全沒有跑（私有倉庫的 Act
 預算 $0）。主辦 2026-09-05 把倉庫改成公開後重跑 `main` 與 `demo`，兩條都綠——
 CI 跑 Linux，專門抓 CRLF、路徑大小寫這類本機看不到的問題，現在又有人在守了。
 
-規章有、系統還沒有的：申訴（賽後 30 分鐘＋保證金 2000）、眼鏡切結書、退費機制。
-（每人限報乙隊的跨隊檢查、球員人數上限的伺服器端強制：2026-09-05 已做，見「規章第十二條」那一節。）
+規章有、系統原本沒有的三件——申訴（賽後 30 分鐘＋保證金 2000）、眼鏡切結書、退費機制——
+**2026-09-05 已全部做完**（見「規章補齊」那一節），連同直播設定與中獎聯絡方式。
+（每人限報乙隊的跨隊檢查、球員人數上限的伺服器端強制：同日已做，見「規章第十二條」那一節。）
 
 ## 變異測試的殘留（R-TEST-002，2026-09-03 出過事）
 
@@ -479,10 +482,10 @@ CI 跑 Linux，永遠不會重現。
 3. **`drawLots` 不會擲骰子。** 規章第 5 順位是抽籤，但抽籤由主辦執行；
    引擎只標記 `hasUnresolvedTie` 等人回填（R-ENG-004）。
 
-### 規章有、系統還沒有的
+### 規章有、系統原本沒有的
 
-申訴（賽後 30 分鐘＋保證金 2000）、眼鏡切結書、退費機制。
-每人限報乙隊與 15 人上限的伺服器端強制 **2026-09-05 已做**（見下一節）。
+申訴（第二十條）、眼鏡切結書（附件二）、退費機制（第二十七條）——**2026-09-05 已做**
+（見「規章補齊」那一節）。每人限報乙隊與 15 人上限的伺服器端強制同日已做（見下一節）。
 
 ### 規章第十二條的伺服器端強制（2026-09-05）
 
@@ -1566,6 +1569,43 @@ js/modules/account/
 
 `#/my` 會把 uid 顯示出來而且可以複製：那是跨專案對帳唯一的鍵
 （飛達盃的 uid 必須等於 FC-Football 的 uid，docs/10 §8.5），出問題第一個要對它。
+
+## 規章補齊（2026-09-05：申訴、切結書、退費、直播設定、中獎聯絡方式）
+
+```
+js/engine/appeal.js      申訴：30 分鐘窗口、登記文件、裁決（保證金去向由規章決定）
+js/engine/refund.js      退費：15 天內不退、不可抗力全退、報名費依組別、金額不同要寫原因
+js/engine/formats.js     APPEAL_RULES / REFUND_RULES（規章第二十、二十七條；parity 測試 T37-7 盯著）
+js/lib/youtube.js        YouTube 網址 → 影片／頻道 ID（貼整串網址也行）
+js/lib/format.js         APPEAL_STATUS_LABEL（公開端不 import 引擎，狀態文字放 lib）
+```
+
+| 功能 | 在哪裡 | 資料 | 規則 |
+|---|---|---|---|
+| 申訴登記與裁決 | `#/admin/match/:id` 的「申訴」卡 | `events/{e}/appeals/{matchId-teamId}`，場次上只掛 `appeal:{status,teamId}` | 只有 admin 讀寫、不可刪（R135） |
+| 眼鏡切結書 | 報名表單勾「配戴眼鏡」→ 同意切結書；教練記「切結書已收」；檢錄台標記；審核頁提醒 | `members.glasses` / `members.glassesWaiver` | 白名單多這兩欄（R138） |
+| 切結書全文 | `#/register/waiver`（免登入、可列印） | — | — |
+| 取消報名／退費 | 隊長在球隊頁「申請取消」→ 主辦在報名審核頁「取消報名／退費」 | `teams.cancelRequest` → `status:'withdrawn'`＋`teams.refund` | 隊長只能寫 cancelRequest，withdrawn 只有 admin（R136） |
+| 直播設定 | `#/admin/stream`（場地整日）＋場次改判頁的「這一場的直播」（單場覆蓋） | `venues.stream` / `matches.stream` | admin |
+| 中獎聯絡方式 | 玩家在 `#/challenge/me` 填；攤位替代建的卡登記 | `events/{e}/playerContacts/{playerId}`（只有 admin 讀）；`players.contactKeyHash` | 寫入只走 `setPlayerContact` Function（R137） |
+
+### 五件容易做錯的
+
+1. **申訴的 30 分鐘從「送出完賽」算**（`scoreSubmittedAt`），不是排定的開賽時間。逾時的申訴規章不受理，
+   主辦要破例必須在畫面上確認，而且文件記 `late: true`（變異 #AP1、#E16）。
+2. **保證金的去向由規章決定，畫面上沒有選項**：成立退還、不成立沒收（#AP2）。
+3. **退費「15 天內」從 10/9 往回算，9/24 00:00 起不退**；規章沒寫 15 天以前退幾成，系統算「建議全額」，
+   主辦改金額一定要寫原因（#RF1–#RF3）。報名費依組別設定判斷（`feeOf`），不寫死代碼。
+4. **電話不能放在 players 文件上**（任何人都讀得到、代號掃得完）。憑證本體只在建卡的那支手機，
+   Firestore 只存 sha256；Function 比對過才把電話寫進只有管理員讀得到的 `playerContacts`。
+   找回的卡沒有憑證——畫面直接說「到攤位登記」，不畫一個會失敗的表單（#E17、FN#26）。
+5. **YouTube 貼整串網址要抽成 ID**（#YT1）。存整串網址進去 embed 會壞而且不報錯。
+
+### 教學卡與 Lighthouse
+
+`docs/cards/{scorer,checkin,booth}.html` → `node scripts/make-cards.mjs` 產生 PDF（用專案的 Playwright Chromium）。
+`docs/lighthouse/` 放量測報告；2026-09-05 首次量測手機版效能 66，LCP 是等 Firebase SDK 載完才畫的空狀態文字，
+修法是 `index.html` 加 preconnect／modulepreload 與載入中的靜態標題（`.boot-hero`）。
 
 ## 我報名的球員（`#/my`，M4-d）
 

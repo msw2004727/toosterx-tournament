@@ -173,3 +173,8 @@
 .chal__rank[data-top="true"] { color: var(--accent); font-weight: 700; }
 .chal__boardName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chal__boardValue { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* ── 中獎聯絡方式（docs/06 §7.2）── */
+.chal__contact{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;margin-top:var(--sp-2)}
+.chal__contact .chal__input{flex:1 1 10rem}
+.chal__contactErr{color:var(--danger);font-size:var(--fs-sm);margin-top:var(--sp-1)}

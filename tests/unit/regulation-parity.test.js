@@ -15,7 +15,7 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { DIVISIONS, RANKING_RULES, REGISTRATION_LIMITS } from '../../js/engine/formats.js';
+import { DIVISIONS, RANKING_RULES, REGISTRATION_LIMITS, APPEAL_RULES, REFUND_RULES } from '../../js/engine/formats.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = p => fs.readFileSync(join(ROOT, p), 'utf8');
@@ -198,5 +198,24 @@ describe('T37-6 規章沒有的東西不要自己加', () => {
     // R-PRIV-001。規章沒規定，但未滿 13 歲的個人成績不該掛在公開端。
     for (const id of ['u6', 'u8', 'u10']) expect(byId[id].display.scorerBoard).toBe(false);
     for (const id of ['women', 'adult-fun', 'adult-open']) expect(byId[id].display.scorerBoard).toBe(true);
+  });
+});
+
+describe('T37-7 申訴與退費（規章第二十條、第二十七條）', () => {
+  test('⭐ 申訴：賽後三十分鐘內、保證金貳仟元、領隊或總教練', () => {
+    expect(APPEAL_RULES.windowMin).toBe(30);
+    expect(APPEAL_RULES.deposit).toBe(2000);
+    expect([...APPEAL_RULES.roles].sort()).toEqual(['headCoach', 'leader']);
+  });
+  test('⭐ 退費：活動日前 15 天內不退；名額轉讓要在活動前 3 天通知', () => {
+    expect(REFUND_RULES.noRefundWithinDays).toBe(15);
+    expect(REFUND_RULES.transferNoticeDays).toBe(3);
+  });
+  test('規章原文裡真的是這幾個數字（轉錄本 docs/FEDA-CUP-2026-競賽規章.md）', () => {
+    const reg = read('docs/FEDA-CUP-2026-競賽規章.md');
+    expect(reg).toContain('賽後三十分鐘內');
+    expect(reg).toContain('保證金新台幣貳仟元整');
+    expect(reg).toContain('活動日前 15 天內取消恕不接受退費申請');
+    expect(reg).toContain('活動前 3 天通知主辦單位');
   });
 });

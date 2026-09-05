@@ -22,7 +22,9 @@ import { user, can, onAuth } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { REGISTRATION_LIMITS } from '../../engine/formats.js';
 import { reviewTeam as review, buildApprovePatch, buildRejectPatch } from '../../engine/review.js';
+import { feeOf, refundPolicy, refundAmount, buildWithdrawPatch } from '../../engine/refund.js';
 import { rocShort } from '../../lib/roc.js';
+import { toMillis, dateLabel, hhmm } from '../../lib/format.js';
 import * as data from './data.js';
 import { adminHead, denied, TEAM_STATUS, KIND_LABEL } from './bits.js';
 
@@ -31,6 +33,7 @@ const TABS = [
   { key: 'submitted', label: '待審核' },
   { key: 'approved',  label: '已通過' },
   { key: 'rejected',  label: '已退回' },
+  { key: 'withdrawn', label: '已取消' },
   { key: 'draft',     label: '草稿' }
 ];
 
@@ -125,6 +128,7 @@ export async function adminTeamsPage({ scope, view }) {
     if (tab === 'submitted') return '目前沒有待審核的球隊。隊長送出報名之後會出現在這裡。';
     if (tab === 'approved') return '還沒有通過的球隊。';
     if (tab === 'rejected') return '沒有被退回的球隊。';
+    if (tab === 'withdrawn') return '沒有取消報名的球隊。';
     return '沒有還在草稿的球隊。';
   }
 
@@ -193,19 +197,94 @@ export async function adminTeamsPage({ scope, view }) {
         ? el('p', { class: 'adm__note', text: `上次退回原因：${t.rejectReason}` })
         : null,
 
+      cancelBox(t, div),
       actions(t, r)
     ].filter(Boolean));
   }
 
+  // ── 取消報名與退費（規章第二十七條）────────────────────
+  function policyFor(t, div, forceMajeure = false) {
+    const requestedAtMs = toMillis(t.cancelRequest?.at) ?? Date.now();
+    return refundPolicy({ requestedAtMs, eventDateIso: div?.date ?? null, forceMajeure });
+  }
+
+  function cancelBox(t, div) {
+    const req = t.cancelRequest;
+    if (t.status === 'withdrawn') {
+      const r = t.refund;
+      return el('div', { class: 'adm__box adm__box--warn' }, [
+        el('strong', { text: '已取消報名' }),
+        r
+          ? el('p', { class: 'adm__note', text:
+              `退費 NT$ ${Number(r.amount ?? 0).toLocaleString()}（規章算 NT$ ${Number(r.suggested ?? 0).toLocaleString()}）` +
+              (r.forceMajeure ? '・不可抗力' : '') + (r.note ? `・${r.note}` : '') })
+          : null
+      ].filter(Boolean));
+    }
+    if (req?.status !== 'requested') return null;
+    const p = policyFor(t, div);
+    return el('div', { class: 'adm__box adm__box--warn', role: 'status' }, [
+      el('strong', {}, iconText('warn', '隊長申請取消報名')),
+      el('p', { class: 'adm__note', text: `原因：${req.reason ?? '（沒填）'}` +
+        (req.at ? `・${dateLabel(req.at)} ${hhmm(req.at)}` : '') }),
+      el('p', { class: 'adm__note', text: p.ready ? `${p.text}。報名費 NT$ ${feeOf(div).toLocaleString()}，規章算出來退 NT$ ${refundAmount({ fee: feeOf(div), policy: p }).toLocaleString()}。` : p.reason })
+    ]);
+  }
+
+  async function doWithdraw(t, div, forceMajeure) {
+    const fee = feeOf(div);
+    const policy = policyFor(t, div, forceMajeure);
+    if (!policy.ready) { state.error = policy.reason; render(); return; }
+    const suggested = refundAmount({ fee, policy });
+    const ok = await confirmDialog({
+      title: `取消「${t.name}」的報名？`,
+      body: `${policy.text}。\n報名費 NT$ ${fee.toLocaleString()}，規章算出來退 NT$ ${suggested.toLocaleString()}。\n` +
+            '取消後這支球隊不再排賽程，公開端也不會顯示。這個動作不能復原。',
+      confirmText: '取消報名並記退費', tone: 'danger'
+    });
+    if (!ok) return;
+    // 金額用瀏覽器的 prompt（同 #/admin/match）：一天用不到幾次，少一個自製元件就少一處要驗的版面
+    const amountText = window.prompt(`實際退費金額（規章算 NT$ ${suggested.toLocaleString()}）：`, String(suggested));
+    if (amountText == null) return;
+    const amount = Number.parseInt(String(amountText).replace(/[^\d]/g, ''), 10);
+    let note = '';
+    if (amount !== suggested) {
+      note = window.prompt('退費金額跟規章算出來的不一樣，請寫原因（會寫進紀錄）：') ?? '';
+      if (!note.trim()) { toast('金額不同就一定要寫原因', 'warn'); return; }
+    }
+    let patch;
+    try { patch = buildWithdrawPatch({ team: t, fee, policy, amount, note, forceMajeure, actorUid: user()?.uid ?? null }); }
+    catch (err) { toast(err.message, 'warn'); return; }
+    await run(t, patch, 'team.withdraw', note || policy.text, `已取消「${t.name}」的報名，退費 NT$ ${amount.toLocaleString()}`);
+  }
+
+  function withdrawButtons(t) {
+    const div = divisionOf(t.divisionId);
+    return [
+      el('button', {
+        class: 'btn btn--lg', type: 'button', disabled: state.busy, dataset: { act: 'withdraw' },
+        onClick: () => doWithdraw(t, div, false)
+      }, iconText('close', '取消報名／退費')),
+      el('button', {
+        class: 'btn btn--lg', type: 'button', disabled: state.busy, dataset: { act: 'withdraw-fm' },
+        onClick: () => doWithdraw(t, div, true)
+      }, '不可抗力：全額退費')
+    ];
+  }
+
   function actions(t, r) {
     const status = t.status || 'draft';
+    if (status === 'withdrawn') {
+      return el('p', { class: 'adm__note', text: '已取消報名。要恢復請聯絡開發者（退費紀錄不會自動回復）。' });
+    }
     if (status === 'approved') {
       return el('div', { class: 'adm__actions' }, [
         el('p', { class: 'adm__note', text: '已通過，名單已鎖定。要改名單請先退回。' }),
         el('button', {
           class: 'btn btn--lg', type: 'button', disabled: state.busy,
           onClick: () => doReject(t, '（已通過後退回）')
-        }, '退回這支球隊')
+        }, '退回這支球隊'),
+        ...withdrawButtons(t)
       ]);
     }
     if (status === 'draft') {
@@ -224,7 +303,8 @@ export async function adminTeamsPage({ scope, view }) {
       el('button', {
         class: 'btn btn--lg', type: 'button', disabled: state.busy,
         onClick: () => doReject(t)
-      }, '退回補件')
+      }, '退回補件'),
+      ...withdrawButtons(t)
     ]);
   }
 
@@ -275,7 +355,12 @@ export async function adminTeamsPage({ scope, view }) {
       await data.writeAudit({
         action, targetType: 'team', targetId: t.teamId,
         before: { status: t.status ?? null, rosterLocked: t.rosterLocked ?? false },
-        after: { status: patch.status, rosterLocked: patch.rosterLocked },
+        after: {
+          status: patch.status,
+          rosterLocked: patch.rosterLocked ?? t.rosterLocked ?? false,
+          // 取消報名時把退費依據與金額留在紀錄上
+          ...(patch.refund ? { refund: { rule: patch.refund.rule, amount: patch.refund.amount, suggested: patch.refund.suggested } } : {})
+        },
         reason
       });
       toast(okMsg, 'success');

@@ -51,11 +51,12 @@ export async function adminExportPage({ scope, view }) {
 
   async function load() {
     try {
-      const [players, challenges] = await Promise.all([
-        data.getPlayers(), data.getChallenges()
+      const [players, challenges, contacts] = await Promise.all([
+        data.getPlayers(), data.getChallenges(), data.getPlayerContacts()
       ]);
       state.players = players;
       state.challengeTotal = challenges.length;
+      state.contacts = contacts;
     } catch (err) {
       state.error = err;
       state.players = [];
@@ -64,7 +65,7 @@ export async function adminExportPage({ scope, view }) {
   }
 
   function rows() {
-    return luckyDrawRows(state.players ?? []);
+    return luckyDrawRows(state.players ?? [], { contacts: state.contacts ?? {} });
   }
 
   /**

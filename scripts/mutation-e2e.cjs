@@ -114,11 +114,23 @@ const MUTANTS = [
       ));`,
     to: `        collectionGroup(db(), 'members')
       ));`
+  },
+  {
+    name: '#E16 ⭐ 逾時的申訴不先講後果就受理（規章第二十條的 30 分鐘在畫面上形同虛設）',
+    file: 'js/modules/admin/match.js',
+    from: `    if (w.ready && !w.withinWindow) {`,
+    to: `    if (false) {`
+  },
+  {
+    name: '#E17 ⭐ 沒有憑證的卡也畫聯絡方式表單（送出一定失敗，玩家以為系統壞了）',
+    file: 'js/modules/challenge/me.js',
+    from: `    const hasKey = !!pass.contactKey;`,
+    to: `    const hasKey = true;`
   }
 ];
 
 process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js --project=chromium-mobile --reporter=dot',
+  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js --project=chromium-mobile --reporter=dot',
   title: '前端時序｜E2E 變異測試'
 }));

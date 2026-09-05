@@ -51,9 +51,9 @@ const MUTANTS = [
     name: 'RU#6 隊長的欄位白名單多了 rosterLocked（送出後自己把鎖打開）',
     file: F,
     from: `                            'announcement', 'status', 'captainUid', 'captainName',
-                            'submittedAt', 'updatedAt', 'updatedBy'])`,
+                            'submittedAt', 'cancelRequest', 'updatedAt', 'updatedBy'])`,
     to: `                            'announcement', 'status', 'captainUid', 'captainName',
-                            'submittedAt', 'updatedAt', 'updatedBy', 'rosterLocked'])`
+                            'submittedAt', 'cancelRequest', 'updatedAt', 'updatedBy', 'rosterLocked'])`
   },
   {
     name: 'RU#7 凍結只看 rosterLocked，不看 status（送出後名單還能改）',
@@ -326,6 +326,37 @@ const MUTANTS = [
       allow read: if isAuth() && resource.data.guardianUid == uid();
     }`,
     to: ``
+  },
+  {
+    name: 'RU#40 ⭐ 申訴紀錄任何登入者都讀得到（事由、電話、保證金外洩）',
+    file: F,
+    from: `      match /appeals/{appealId} {
+        allow read:   if isAdmin();`,
+    to: `      match /appeals/{appealId} {
+        allow read:   if isAuth();`
+  },
+  {
+    name: 'RU#41 ⭐ 中獎聯絡電話任何人都讀得到',
+    file: F,
+    from: `      match /playerContacts/{playerId} {
+        allow read:  if isAdmin();`,
+    to: `      match /playerContacts/{playerId} {
+        allow read:  if true;`
+  },
+  {
+    name: 'RU#42 ⭐ 隊長自己把已核准的球隊改成 withdrawn（退費由主辦處理的閘門失守）',
+    file: F,
+    from: `            // 狀態不動的更新（例如已核准之後申請取消）：欄位仍由 captainTeamPatchOk 的白名單管
+            || from == to;`,
+    to: `            // 狀態不動的更新（例如已核准之後申請取消）：欄位仍由 captainTeamPatchOk 的白名單管
+            || from == to
+            || (from == 'approved'  && to == 'withdrawn');`
+  },
+  {
+    name: 'RU#43 ⭐ 家長不能補戴眼鏡與切結書（白名單少了兩個欄位，畫面可填、送出被擋）',
+    file: F,
+    from: `                            'kind', 'consent', 'glasses', 'glassesWaiver', 'updatedAt']);`,
+    to: `                            'kind', 'consent', 'updatedAt']);`
   }
 ];
 

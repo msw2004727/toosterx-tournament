@@ -163,6 +163,13 @@ export async function checkinPage({ params, scope, view }) {
         el('span', { class: 'chk__no num', text: m.jerseyNo != null ? String(m.jerseyNo) : '—' }),
         el('span', { class: 'chk__info' }, [
           el('strong', { class: 'chk__name', text: m.displayName || '（未填）' }),
+          // 配戴眼鏡上場（規章附件二）：切結書沒收到的要提醒裁判賽前檢查裝備
+          m.glasses
+            ? el('span', {
+                class: `chk__tag${m.glassesWaiver ? ' chk__tag--ok' : ''}`,
+                text: m.glassesWaiver ? '眼鏡・切結書已收' : '眼鏡・切結書未收'
+              })
+            : null,
           // 檢錄員拿證件對的就是這兩格，所以字要夠大、位置要固定。
           //
           // ⚠️ 「看球員個資」是獨立的一條權限（`member.read`）。主辦關掉之後

@@ -48,28 +48,44 @@
 </script>
 <link rel="manifest" href="/manifest.json">
 <!-- iOS 不看 manifest 的 icons，只認這一個標籤 -->
-<link rel="apple-touch-icon" href="/img/apple-touch-icon.png?v=0.20260905g">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png?v=0.20260905h">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="飛達盃">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="/css/tokens.css?v=0.20260905g">
-<link rel="stylesheet" href="/css/base.css?v=0.20260905g">
-<link rel="stylesheet" href="/css/components.css?v=0.20260905g">
-<link rel="stylesheet" href="/css/modules/staff.css?v=0.20260905g">
-<link rel="stylesheet" href="/css/modules/public.css?v=0.20260905g">
-<link rel="stylesheet" href="/css/modules/account.css?v=0.20260905g">
-<link rel="stylesheet" href="/css/modules/register.css?v=0.20260905g">
-<link rel="stylesheet" href="/css/modules/booth.css?v=0.20260905g">
-<link rel="stylesheet" href="/css/modules/challenge.css?v=0.20260905g">
-<link rel="stylesheet" href="/css/modules/admin.css?v=0.20260905g">
-<script>window.__APP_VERSION__ = '0.20260905g';</script>
+<link rel="stylesheet" href="/css/tokens.css?v=0.20260905h">
+<link rel="stylesheet" href="/css/base.css?v=0.20260905h">
+<link rel="stylesheet" href="/css/components.css?v=0.20260905h">
+<link rel="stylesheet" href="/css/modules/staff.css?v=0.20260905h">
+<link rel="stylesheet" href="/css/modules/public.css?v=0.20260905h">
+<link rel="stylesheet" href="/css/modules/account.css?v=0.20260905h">
+<link rel="stylesheet" href="/css/modules/register.css?v=0.20260905h">
+<link rel="stylesheet" href="/css/modules/booth.css?v=0.20260905h">
+<link rel="stylesheet" href="/css/modules/challenge.css?v=0.20260905h">
+<link rel="stylesheet" href="/css/modules/admin.css?v=0.20260905h">
+<script>window.__APP_VERSION__ = '0.20260905h';</script>
+<!-- 首屏效能（Lighthouse 2026-09-05）：先跟 Firebase 的兩個網域握手；核心模組並行預載，不要等 app.js 逐層發現 -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com">
+<link rel="modulepreload" href="/js/firebase-config.js">
+<link rel="modulepreload" href="/js/config.js">
+<link rel="modulepreload" href="/js/core/theme.js">
+<link rel="modulepreload" href="/js/core/appbar.js">
+<link rel="modulepreload" href="/js/core/install.js">
+<link rel="modulepreload" href="/js/core/icons.js">
+<link rel="modulepreload" href="/js/core/ui.js">
+<link rel="modulepreload" href="/js/core/firebase.js">
+<link rel="modulepreload" href="/js/core/router.js">
+<link rel="modulepreload" href="/js/core/store.js">
 </head>
 <body>
   <div id="demo-banner" hidden></div>
   <header id="app-header"></header>
-  <main id="app-view" aria-live="polite"></main>
+  <main id="app-view" aria-live="polite">
+    <!-- 載入中的靜態標題：JS 還沒到之前畫面就有東西（第一頁掛載時會被換掉） -->
+    <div class="boot-hero"><h1>FEDA CUP 2026｜飛達盃</h1><p>2026/10/9–10/11・太原足球場・賽程、比分、積分榜、足球挑戰區</p></div>
+  </main>
   <nav id="app-nav" aria-label="主要導覽"></nav>
   <div id="toast-root" aria-live="assertive"></div>
-  <script type="module" src="/app.js?v=0.20260905g"></script>
+  <script type="module" src="/app.js?v=0.20260905h"></script>
 </body>
 </html>

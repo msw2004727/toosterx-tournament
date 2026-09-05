@@ -165,3 +165,14 @@
   /* 窄機把成員的動作鈕換到下一行，才不會把姓名擠成兩個字 */
   .reg__member .reg__btnRow{flex:1 1 100%}
 }
+
+/* ── 眼鏡切結書／取消報名（2026-09-05）── */
+.reg__checkRow{display:flex;align-items:flex-start;gap:var(--sp-2);margin:var(--sp-3) 0;font-size:var(--fs-sm);line-height:1.5}
+.reg__checkRow input{margin-top:.2em;width:1.2em;height:1.2em;flex:none}
+.reg__waiver{font-size:var(--fs-sm);line-height:1.7}
+.reg__waiver h2{font-size:var(--fs-lg);margin:var(--sp-4) 0 var(--sp-2)}
+.reg__waiver h3{font-size:var(--fs-md);margin:var(--sp-3) 0 var(--sp-1)}
+.reg__waiver ol{padding-left:1.4em}
+.reg__signRow{display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-3)}
+.reg__signRow span{flex:1 1 12rem;border-bottom:1px solid var(--border-strong);padding:var(--sp-3) 0 var(--sp-1)}
+@media print{.appbar,.reg__back,.btn,.reg__noPrint{display:none!important}.reg__card{box-shadow:none;border:0}}

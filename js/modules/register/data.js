@@ -150,7 +150,9 @@ export async function patchTeam(teamId, patch) {
  * 送出加入申請。**一定是 pending**——隊長同意才是閘門（§3.3），
  * rules 也只放行 pending（R56）。
  */
-export async function applyMember(teamId, { name, birthDate, idLast4, jerseyNo, position, kind, isSelf }) {
+export async function applyMember(teamId, {
+  name, birthDate, idLast4, jerseyNo, position, kind, isSelf, glasses = false, glassesConsent = false
+}) {
   const { doc, setDoc, serverTimestamp } = sdk();
   const memberId = `m-${makeInviteCode().toLowerCase()}`;
   await setDoc(doc(db(), 'events', EVENT_ID, 'teams', teamId, 'members', memberId), {
@@ -160,6 +162,11 @@ export async function applyMember(teamId, { name, birthDate, idLast4, jerseyNo, 
     jerseyNo: typeof jerseyNo === 'number' ? jerseyNo : null,
     position: position || null,
     kind: kind || 'player', role: kind || 'player',
+    // 配戴眼鏡上場（規章附件二）：本人／家長在畫面上勾「已閱讀並同意切結書」就是簽署，存下證據
+    glasses: glasses === true,
+    glassesWaiver: glasses === true && glassesConsent === true
+      ? { signed: true, at: serverTimestamp(), byUid: uid(), by: isSelf === true ? 'self' : 'guardian' }
+      : null,
     status: 'pending',
     appliedAt: serverTimestamp(), decidedAt: null, decidedBy: null,
     note: '',
@@ -187,7 +194,9 @@ export async function applyMember(teamId, { name, birthDate, idLast4, jerseyNo, 
  * @param {string} teamId
  * @param {object} m { name, birthDate(西元 ISO), idLast4, jerseyNo, position, kind }
  */
-export async function addMemberByCoach(teamId, { name, birthDate, idLast4, jerseyNo, position, kind }) {
+export async function addMemberByCoach(teamId, {
+  name, birthDate, idLast4, jerseyNo, position, kind, glasses = false, glassesWaiverReceived = false
+}) {
   const { doc, setDoc, serverTimestamp } = sdk();
   const memberId = `m-${makeInviteCode().toLowerCase()}`;
   await setDoc(doc(db(), 'events', EVENT_ID, 'teams', teamId, 'members', memberId), {
@@ -201,6 +210,11 @@ export async function addMemberByCoach(teamId, { name, birthDate, idLast4, jerse
     jerseyNo: typeof jerseyNo === 'number' ? jerseyNo : null,
     position: position || null,
     kind: kind || 'player', role: kind || 'player',
+    // 配戴眼鏡上場（規章附件二）：切結書是家長紙本親簽，教練記「收到了沒」
+    glasses: glasses === true,
+    glassesWaiver: glasses === true && glassesWaiverReceived === true
+      ? { signed: true, at: serverTimestamp(), byUid: uid(), by: 'teamLead' }
+      : null,
     status: 'approved',
     appliedAt: serverTimestamp(), decidedAt: serverTimestamp(), decidedBy: uid(),
     note: '',
@@ -213,7 +227,9 @@ export async function addMemberByCoach(teamId, { name, birthDate, idLast4, jerse
 }
 
 /** 教練改自己填的那一筆。rules 只放行 source === 'coach' 的文件（R69）。 */
-export async function editMemberByCoach(teamId, memberId, { name, birthDate, idLast4, jerseyNo, position, kind }) {
+export async function editMemberByCoach(teamId, memberId, {
+  name, birthDate, idLast4, jerseyNo, position, kind, glasses = false, glassesWaiverReceived = false
+}) {
   const { doc, updateDoc, serverTimestamp } = sdk();
   await updateDoc(doc(db(), 'events', EVENT_ID, 'teams', teamId, 'members', memberId), {
     name,
@@ -222,7 +238,23 @@ export async function editMemberByCoach(teamId, memberId, { name, birthDate, idL
     jerseyNo: typeof jerseyNo === 'number' ? jerseyNo : null,
     position: position || null,
     kind: kind || 'player', role: kind || 'player',
+    glasses: glasses === true,
+    glassesWaiver: glasses === true && glassesWaiverReceived === true
+      ? { signed: true, at: serverTimestamp(), byUid: uid(), by: 'teamLead' }
+      : null,
     updatedAt: serverTimestamp()
+  });
+}
+
+/**
+ * 隊長申請取消報名（規章第二十七條）。只寫 cancelRequest，狀態不動——
+ * 取消與退費由主辦在報名審核頁處理，rules 也只放行這幾個欄位（R136）。
+ */
+export async function requestCancel(teamId, { reason }) {
+  const { doc, updateDoc, serverTimestamp } = sdk();
+  await updateDoc(doc(db(), 'events', EVENT_ID, 'teams', teamId), {
+    cancelRequest: { reason: String(reason ?? '').trim().slice(0, 500), byUid: uid(), status: 'requested', at: serverTimestamp() },
+    updatedAt: serverTimestamp(), updatedBy: uid()
   });
 }
 

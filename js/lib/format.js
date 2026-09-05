@@ -189,3 +189,10 @@ export const pad2 = n => String(n).padStart(2, '0');
 function strictNum(v) {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
+
+/** 申訴狀態的顯示文字（規章第二十條）。公開端與後台都用這一份；引擎只存代碼 */
+export const APPEAL_STATUS_LABEL = {
+  filed: '申訴審理中',
+  upheld: '申訴成立',
+  dismissed: '申訴不成立'
+};

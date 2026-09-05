@@ -519,3 +519,41 @@ test('⭐ 公開首頁最上面有挑戰區入口 @challenge', async ({ page }) 
   await entry.click();
   await expect(page).toHaveURL(/#\/challenge$/);
 });
+
+// ── 中獎聯絡方式（docs/06 §7.2）────────────────────────────
+const withKeyPass = (page, playerId, contactKey) => page.addInitScript(([id, k]) => {
+  try { localStorage.setItem('feda:gamePass', JSON.stringify({ playerId: id, nickname: '阿哲', contactKey: k })); } catch { /* ignore */ }
+}, [playerId, contactKey]);
+const contactCalls = page => page.evaluate(() => (window.__FAKE_CALLS || []).filter(c => c.name === 'setPlayerContact'));
+
+test('⭐ 中獎聯絡方式：走 Function、帶這支手機的憑證、號碼正規化 @challenge @contact', async ({ page }) => {
+  await stub(page, { players: { 'FEDA-0182': player({ playerId: 'FEDA-0182', contactKeyHash: 'x'.repeat(64) }) } });
+  await withKeyPass(page, 'FEDA-0182', 'k-secret-secret-secret');
+  await page.goto('/#/challenge/me');
+  await boot(page);
+  await page.locator('#contact-phone').fill('0912-345-678');
+  await page.locator('#contact-save').click();
+  await expect.poll(async () => (await contactCalls(page))[0]?.payload, { timeout: 10_000 })
+    .toMatchObject({ playerId: 'FEDA-0182', key: 'k-secret-secret-secret', phone: '0912345678' });
+  await expect(page.locator('.chal__card--contact')).toContainText('0912***678');
+});
+
+test('⭐ 找回的卡沒有憑證：說要到攤位登記，不畫一個會失敗的表單 @challenge @contact', async ({ page }) => {
+  await stub(page, { players: { 'FEDA-0182': player({ playerId: 'FEDA-0182' }) } });
+  await withPass(page, 'FEDA-0182');
+  await page.goto('/#/challenge/me');
+  await boot(page);
+  await expect(page.locator('.chal__card--contact')).toContainText('攤位登記');
+  await expect(page.locator('#contact-phone')).toHaveCount(0);
+});
+
+test('手機格式不對留在畫面上，不送出 @challenge @contact', async ({ page }) => {
+  await stub(page, { players: { 'FEDA-0182': player({ playerId: 'FEDA-0182', contactKeyHash: 'x'.repeat(64) }) } });
+  await withKeyPass(page, 'FEDA-0182', 'k-secret-secret-secret');
+  await page.goto('/#/challenge/me');
+  await boot(page);
+  await page.locator('#contact-phone').fill('02-2345-6789');
+  await page.locator('#contact-save').click();
+  await expect(page.locator('.chal__contactErr')).toContainText('09 開頭');
+  expect(await contactCalls(page)).toHaveLength(0);
+});

@@ -585,3 +585,43 @@ export async function getChallenges() {
   ));
   return snap.docs.map(d => ({ challengeId: d.id, ...d.data() }));
 }
+
+// ── 直播設定（docs/03 §5，#/admin/stream）──────────────────
+/** 場地整日直播：整包 stream map 寫回（updateDoc 對巢狀 map 是整包取代，欄位要寫齊） */
+export async function saveVenueStream(venueId, stream) {
+  const { doc, updateDoc, serverTimestamp } = sdk();
+  await updateDoc(doc(db(), 'events', EVENT_ID, 'venues', venueId), {
+    stream, updatedAt: serverTimestamp(), updatedBy: uid()
+  });
+}
+
+// ── 申訴（規章第二十條，#/admin/match/:matchId）─────────────
+export async function getAppealsOf(matchId) {
+  const { collection, getDocs, query, where } = sdk();
+  const snap = await getDocs(query(
+    collection(db(), 'events', EVENT_ID, 'appeals'), where('matchId', '==', matchId)
+  ));
+  return snap.docs.map(d => ({ appealId: d.id, ...d.data() }));
+}
+
+/** 登記：id 是 場次-隊伍（R-ID-007：doc(id).set()，不用 add） */
+export async function saveAppeal(appealId, doc_) {
+  const { doc, setDoc, serverTimestamp } = sdk();
+  await setDoc(doc(db(), 'events', EVENT_ID, 'appeals', appealId), {
+    ...doc_, receivedAt: serverTimestamp(), createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+  });
+}
+
+export async function decideAppeal(appealId, patch) {
+  const { doc, updateDoc, serverTimestamp } = sdk();
+  await updateDoc(doc(db(), 'events', EVENT_ID, 'appeals', appealId), {
+    ...patch, decidedAt: serverTimestamp(), updatedAt: serverTimestamp()
+  });
+}
+
+// ── 抽獎中獎聯絡方式（只有管理員讀得到；寫入走 Function）──────
+export async function getPlayerContacts() {
+  const { collection, getDocs } = sdk();
+  const snap = await getDocs(collection(db(), 'events', EVENT_ID, 'playerContacts'));
+  return Object.fromEntries(snap.docs.map(d => [d.id, d.data()]));
+}

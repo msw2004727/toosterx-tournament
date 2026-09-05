@@ -543,3 +543,15 @@ test('看板真的有內容時就用看板（效能最佳化仍然有效）@publ
   await go(page, '/#/');
   await expect(page.getByText('看板主隊').first()).toBeVisible();
 });
+
+// ── 申訴徽章（規章第二十條）────────────────────────────────
+test('⭐ 申訴中的場次在比賽頁掛徽章：只有狀態與哪一隊 @public @appeal', async ({ page }) => {
+  const seed = full();
+  const m = liveMatch({ status: 'finished' });
+  m.appeal = { status: 'filed', teamId: m.home.teamId };
+  seed[`events/${EVENT}/matches/${MATCH}`] = m;
+  await stub(page, seed);
+  await go(page, `/#/match/${MATCH}`);
+  await expect(page.locator('.psb__appeal')).toContainText('申訴審理中');
+  await expect(page.locator('.psb__appeal')).toContainText(m.home.name);
+});

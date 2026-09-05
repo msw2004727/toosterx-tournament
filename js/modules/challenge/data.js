@@ -13,7 +13,7 @@
  *    畫面就照實說「連不上，等一下再試」。
  */
 
-import { db, sdk } from '../../core/firebase.js';
+import { db, sdk, callFunction } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { EVENT_ID } from '../../config.js';
 import { newPlayerDoc } from '../../engine/challenge.js';
@@ -95,7 +95,7 @@ export async function getRewards() {
  * @param {() => string} nextId 產生下一組候選編號
  * @returns {Promise<{playerId: string}>}
  */
-export async function createPass({ nextId, nickname, ageBand = null, tries = 5 }) {
+export async function createPass({ nextId, nickname, ageBand = null, contactKeyHash = null, tries = 5 }) {
   const { doc, setDoc, serverTimestamp } = sdk();
   let last = null;
   for (let i = 0; i < tries; i++) {
@@ -103,7 +103,7 @@ export async function createPass({ nextId, nickname, ageBand = null, tries = 5 }
     try {
       await setDoc(doc(db(), 'events', EVENT_ID, 'players', playerId), {
         // 欄位形狀只有 engine 的 newPlayerDoc 一份（rules 用 hasOnly 逐項列）
-        ...newPlayerDoc({ playerId, eventId: EVENT_ID, nickname, ageBand, createdVia: 'self' }),
+        ...newPlayerDoc({ playerId, eventId: EVENT_ID, nickname, ageBand, createdVia: 'self', contactKeyHash }),
         createdAt: serverTimestamp(),
         lastActiveAt: serverTimestamp()
       });
@@ -115,6 +115,15 @@ export async function createPass({ nextId, nickname, ageBand = null, tries = 5 }
     }
   }
   throw last ?? new Error('配號失敗');
+}
+
+/**
+ * 中獎聯絡方式（docs/06 §7.2）：走 Function，帶建卡時留在手機上的憑證本體。
+ * ⚠️ callable 會 reject（跟 sync.track 相反），離線時直接失敗——呼叫端要接住並留在畫面上。
+ * @returns {Promise<{playerId:string, maskedPhone:string}>}
+ */
+export async function setContact({ playerId, key, phone }) {
+  return callFunction('setPlayerContact', { eventId: EVENT_ID, playerId, key, phone });
 }
 
 /** 把錯誤碼翻成玩家看得懂的話 */

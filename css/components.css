@@ -299,3 +299,8 @@
 
 /* ── 版面寬度：手機優先，桌機置中不拉寬 ─────────────── */
 #app-view{max-width:var(--page-max);margin:0 auto;width:100%}
+
+/* ── 載入中的靜態標題（index.html，第一頁掛載時會被換掉）── */
+.boot-hero{padding:var(--sp-6,32px) var(--sp-4,16px);text-align:center}
+.boot-hero h1{margin:0 0 var(--sp-2,8px);font-size:clamp(24px,6vw,32px);line-height:1.2;font-weight:800;color:var(--text-primary)}
+.boot-hero p{margin:0;color:var(--text-muted);font-size:var(--fs-sm)}

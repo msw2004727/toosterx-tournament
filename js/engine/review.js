@@ -138,6 +138,19 @@ export function reviewTeam({ team, members = [], division, limits }) {
     }
   }
 
+  // ── 配戴眼鏡上場的切結書（規章附件二）───────────────────
+  // 切結書是紙本親簽的，系統只記「這位球員戴眼鏡、切結書收到了沒」。
+  // 沒有切結書不擋核准（裁判賽前可以要求換裝備或不下場），但主辦要在核准前看到。
+  const glasses = players.filter(m => m?.glasses === true);
+  const noWaiver = glasses.filter(m => m?.glassesWaiver?.signed !== true);
+  if (noWaiver.length) {
+    add('warn', 'GLASSES_WAIVER_MISSING',
+      `${noWaiver.length} 位球員配戴眼鏡上場但還沒有切結書：${nameList(noWaiver)}。裁判賽前會檢查裝備。`,
+      '規章附件二');
+  } else if (glasses.length) {
+    add('ok', 'GLASSES_WAIVER', `${glasses.length} 位配戴眼鏡的球員都有切結書`, '規章附件二');
+  }
+
   return {
     findings,
     canApprove: !findings.some(f => f.level === 'error'),

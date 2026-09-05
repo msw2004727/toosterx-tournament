@@ -26,6 +26,12 @@ import { hold } from '../../core/store.js';
 import { hhmm, dateLabelFromYmd, STATUS_LABEL } from '../../lib/format.js';
 import { normalizeAudit, describeAudit } from '../../engine/audit.js';
 import {
+  APPEAL_ROLES, appealWindow, buildAppealDoc, buildAppealDecision, matchAppealFlag
+} from '../../engine/appeal.js';
+import { APPEAL_RULES } from '../../engine/formats.js';
+import { toMillis, APPEAL_STATUS_LABEL } from '../../lib/format.js';
+import { parseYoutubeId } from '../../lib/youtube.js';
+import {
   canConfirm, canReopen, canOverride, canWalkover,
   buildConfirmPatch, buildReopenPatch, buildOverridePatch,
   buildWalkoverPatch, buildStatusPatch, consequencesOf, scoreOf, resultOf
@@ -45,12 +51,18 @@ export async function adminMatchPage({ scope, view, params }) {
     audits: [],
     // 改判比分的草稿
     draft: null,
+    // 申訴（規章第二十條）：這一場的申訴紀錄、登記表單、裁決意見
+    appeals: null,
+    appealForm: null,
+    decisionNote: '',
+    // 單場直播覆蓋（docs/03 §5）
+    streamInput: null, streamError: null,
     busy: '', error: null
   };
 
   hold(scope, onAuth(() => render()), 'auth:admin-match');
 
-  if (!can('match.score.override') && !can('match.confirm') && !can('match.reopen')) {
+  if (!can('match.score.override') && !can('match.confirm') && !can('match.reopen') && !can('appeal.manage')) {
     mount(root, adminHead('場次改判'), denied('場次改判', '管理員'));
     return;
   }
@@ -59,10 +71,19 @@ export async function adminMatchPage({ scope, view, params }) {
     state.match = m;
     // 伺服器的比分變了就重建草稿——但只在自己沒有在編輯時
     if (!state.draft) state.draft = draftFrom(m);
+    if (state.streamInput === null) state.streamInput = m?.stream?.videoId ?? '';
     render();
   }, err => { state.error = err; state.match = null; render(); });
 
   data.getMatchAudits(matchId).then(rows => { state.audits = rows; render(); }).catch(() => {});
+  loadAppeals();
+
+  async function loadAppeals() {
+    if (!can('appeal.manage')) { state.appeals = []; return; }
+    try { state.appeals = await data.getAppealsOf(matchId); }
+    catch (err) { console.warn('[admin-match] 讀不到申訴', err); state.appeals = []; }
+    render();
+  }
 
   // ── 具名函式（會被提升）───────────────────────────────────
 
@@ -179,6 +200,121 @@ export async function adminMatchPage({ scope, view, params }) {
   }
 
   const sideName = side => (side === 'home' ? state.match?.home?.name : state.match?.away?.name) ?? side;
+
+  // ── 申訴（規章第二十條）─────────────────────────────────
+
+  /** 完賽的時間：賽務台送出完賽的那一刻。沒有就算不出 30 分鐘 */
+  function matchEndedAtMs() {
+    const m = state.match;
+    return toMillis(m?.scoreSubmittedAt) ?? toMillis(m?.lock?.lockedAt) ?? null;
+  }
+
+  function newAppealForm() {
+    const m = state.match;
+    return { teamId: m?.home?.teamId ?? '', role: 'leader', name: '', phone: '', reason: '', depositPaid: false };
+  }
+
+  function teamNameOf(teamId) {
+    const m = state.match;
+    if (m?.home?.teamId === teamId) return m.home.name ?? teamId;
+    if (m?.away?.teamId === teamId) return m.away.name ?? teamId;
+    return teamId;
+  }
+
+  async function doFileAppeal() {
+    const f = state.appealForm;
+    const nowMs = Date.now();
+    const w = appealWindow({ matchEndedAtMs: matchEndedAtMs(), filedAtMs: nowMs });
+    let late = false;
+    if (w.ready && !w.withinWindow) {
+      // 規章不受理逾時的申訴。主辦要破例，先講清楚、再確認，而且文件上會記 late
+      const ok = await confirmDialog({
+        title: `已超過賽後 ${APPEAL_RULES.windowMin} 分鐘`,
+        body: `這一場在 ${Math.round(w.minutesAfter)} 分鐘前結束。規章第二十條：申訴應於賽後三十分鐘內提出，` +
+              '逾時不受理。你確定要破例受理嗎？紀錄上會標記「逾時受理」。',
+        confirmText: '破例受理', tone: 'danger'
+      });
+      if (!ok) return;
+      late = true;
+    }
+    let built;
+    try {
+      built = buildAppealDoc({
+        match: state.match, teamId: f.teamId, role: f.role, filerName: f.name, phone: f.phone,
+        reason: f.reason, filedAtMs: nowMs, matchEndedAtMs: matchEndedAtMs(),
+        depositPaid: f.depositPaid, late, actorUid: user()?.uid ?? null
+      });
+    } catch (err) { toast(err.message, 'warn'); return; }
+
+    state.busy = 'appeal'; render();
+    try {
+      await data.saveAppeal(built.appealId, built.doc);
+      // 公開端的徽章：只放狀態與隊伍，不放事由與電話
+      await data.patchMatch(matchId, { appeal: matchAppealFlag(built.doc) });
+      await data.writeAudit({
+        action: 'appeal.filed', targetType: 'match', targetId: matchId,
+        before: null,
+        after: { appealId: built.appealId, teamId: f.teamId, role: f.role, late, minutesAfter: built.doc.minutesAfter },
+        reason: built.doc.reason
+      });
+      state.appealForm = null;
+      toast('已登記申訴，公開端會顯示「申訴審理中」');
+      await loadAppeals();
+    } catch (err) {
+      toast(data.explain(err, '沒有登記成功。'), 'error');
+    } finally { state.busy = ''; render(); }
+  }
+
+  async function doDecideAppeal(a, upheld) {
+    let patch;
+    try { patch = buildAppealDecision({ upheld, note: state.decisionNote, actorUid: user()?.uid ?? null }); }
+    catch (err) { toast(err.message, 'warn'); return; }
+    const ok = await confirmDialog({
+      title: upheld ? '申訴成立？' : '申訴不成立？',
+      body: upheld
+        ? `保證金新台幣 ${APPEAL_RULES.deposit.toLocaleString()} 元退還申訴單位。比分若要改，請用上面的改判功能。`
+        : `保證金新台幣 ${APPEAL_RULES.deposit.toLocaleString()} 元不予發還（規章第二十條）。以本會之判決為終決。`,
+      confirmText: upheld ? '申訴成立' : '申訴不成立', tone: upheld ? 'default' : 'danger'
+    });
+    if (!ok) return;
+    state.busy = 'appeal'; render();
+    try {
+      await data.decideAppeal(a.appealId, patch);
+      await data.patchMatch(matchId, { appeal: matchAppealFlag({ ...a, ...patch }) });
+      await data.writeAudit({
+        action: 'appeal.decided', targetType: 'match', targetId: matchId,
+        before: { appealId: a.appealId, status: a.status },
+        after: { appealId: a.appealId, status: patch.status, depositReturned: patch.decision.depositReturned },
+        reason: patch.decision.note
+      });
+      state.decisionNote = '';
+      toast(upheld ? '已記錄：申訴成立，退還保證金' : '已記錄：申訴不成立，保證金不予發還');
+      await loadAppeals();
+    } catch (err) {
+      toast(data.explain(err, '沒有記錄成功。'), 'error');
+    } finally { state.busy = ''; render(); }
+  }
+
+  // ── 單場直播覆蓋（docs/03 §5）──────────────────────────────
+  async function doSaveStream() {
+    const raw = String(state.streamInput ?? '').trim();
+    const videoId = raw ? parseYoutubeId(raw) : null;
+    if (raw && !videoId) { state.streamError = '看不出這是 YouTube 影片：請貼影片網址或 11 碼的影片 ID'; render(); return; }
+    state.streamError = null;
+    const stream = videoId ? { provider: 'youtube', videoId, status: 'live' } : { provider: 'youtube', videoId: null, status: 'off' };
+    state.busy = 'stream'; render();
+    try {
+      await data.patchMatch(matchId, { stream });
+      await data.writeAudit({
+        action: 'stream.update', targetType: 'match', targetId: matchId,
+        before: state.match?.stream ?? null, after: stream, reason: null
+      });
+      state.streamInput = null;    // 下一筆快照重建
+      toast(videoId ? `這一場改用影片 ${videoId}` : '已清掉單場直播，改用場地設定');
+    } catch (err) {
+      toast(data.explain(err, '沒有儲存成功。'), 'error');
+    } finally { state.busy = ''; render(); }
+  }
 
   // ── 畫面 ─────────────────────────────────────────────────
 
@@ -319,6 +455,146 @@ export async function adminMatchPage({ scope, view, params }) {
     ].filter(Boolean));
   }
 
+  function appealBox() {
+    if (!can('appeal.manage')) return null;
+    const m = state.match;
+    const list = state.appeals;
+    const endedMs = matchEndedAtMs();
+    const w = appealWindow({ matchEndedAtMs: endedMs, filedAtMs: Date.now() });
+    const windowText = !w.ready
+      ? w.reason
+      : w.withinWindow
+        ? `賽後 ${Math.max(0, Math.round(w.minutesAfter))} 分鐘，還在 ${APPEAL_RULES.windowMin} 分鐘內`
+        : `賽後 ${Math.round(w.minutesAfter)} 分鐘，已超過 ${APPEAL_RULES.windowMin} 分鐘（規章不受理，破例要確認）`;
+
+    const items = (list ?? []).map(a => el('div', { class: 'adm__box adm__appeal', dataset: { status: a.status } }, [
+      el('strong', { text: `${teamNameOf(a.teamId)}：${APPEAL_STATUS_LABEL[a.status] ?? a.status}` }),
+      el('p', { class: 'adm__note', text:
+        `${APPEAL_ROLES[a.filedBy?.role] ?? a.filedBy?.role ?? ''} ${a.filedBy?.name ?? ''}` +
+        (a.filedBy?.phone ? `・${a.filedBy.phone}` : '') +
+        `・賽後 ${a.minutesAfter ?? '?'} 分鐘提出${a.late ? '（逾時受理）' : ''}` +
+        `・保證金 ${Number(a.deposit ?? APPEAL_RULES.deposit).toLocaleString()} 元${a.depositPaid ? '已收' : '未收'}` }),
+      el('p', { class: 'adm__note', text: `事由：${a.reason ?? ''}` }),
+      a.decision
+        ? el('p', { class: 'adm__permNote', text:
+            `裁決：${a.decision.note ?? ''}・保證金${a.decision.depositReturned ? '退還' : '不予發還'}` })
+        : el('div', { class: 'adm__field' }, [
+            el('label', { class: 'adm__fieldLabel', for: 'ap-note', text: '紀律委員會裁決意見（必填）' }),
+            el('textarea', {
+              class: 'adm__textarea', id: 'ap-note', rows: '3', value: state.decisionNote,
+              placeholder: '例：錄影顯示進球前無越位，維持原判',
+              onInput: e => { state.decisionNote = e.target.value; }
+            }),
+            el('div', { class: 'adm__actions' }, [
+              el('button', {
+                class: 'btn btn--lg btn--primary', type: 'button', disabled: !!state.busy,
+                onClick: () => doDecideAppeal(a, true)
+              }, iconText('check', '申訴成立（退還保證金）')),
+              el('button', {
+                class: 'btn btn--lg', type: 'button', disabled: !!state.busy,
+                onClick: () => doDecideAppeal(a, false)
+              }, iconText('close', '申訴不成立（保證金沒收）'))
+            ])
+          ])
+    ]));
+
+    const f = state.appealForm;
+    const teams = [m.home, m.away].filter(t => t?.teamId);
+    const canFile = teams.length === 2 && !(list ?? []).some(a => a.status === 'filed');
+    const form = f ? el('div', { class: 'adm__box' }, [
+      el('p', { class: 'adm__note', text: `規章第二十條：領隊或總教練於賽後 ${APPEAL_RULES.windowMin} 分鐘內書面提出，並繳納保證金新台幣 ${APPEAL_RULES.deposit.toLocaleString()} 元。這裡登記的是紙本申訴書（附件三）的收件。` }),
+      el('p', { class: 'adm__permNote', text: windowText }),
+      el('div', { class: 'adm__field' }, [
+        el('label', { class: 'adm__fieldLabel', for: 'ap-team', text: '申訴單位' }),
+        el('select', { class: 'adm__search', id: 'ap-team', value: f.teamId,
+          onChange: e => { f.teamId = e.target.value; } },
+          teams.map(t => el('option', { value: t.teamId, text: t.name ?? t.teamId, selected: t.teamId === f.teamId })))
+      ]),
+      el('div', { class: 'adm__field' }, [
+        el('label', { class: 'adm__fieldLabel', for: 'ap-role', text: '申訴人職稱' }),
+        el('select', { class: 'adm__search', id: 'ap-role', value: f.role,
+          onChange: e => { f.role = e.target.value; } },
+          Object.entries(APPEAL_ROLES).map(([k, v]) => el('option', { value: k, text: v, selected: k === f.role })))
+      ]),
+      el('div', { class: 'adm__field' }, [
+        el('label', { class: 'adm__fieldLabel', for: 'ap-name', text: '申訴人姓名（申訴書上親簽的那一位）' }),
+        el('input', { class: 'adm__search', id: 'ap-name', type: 'text', value: f.name, maxlength: '30',
+          onInput: e => { f.name = e.target.value; } })
+      ]),
+      el('div', { class: 'adm__field' }, [
+        el('label', { class: 'adm__fieldLabel', for: 'ap-phone', text: '聯絡電話' }),
+        el('input', { class: 'adm__search', id: 'ap-phone', type: 'tel', value: f.phone, maxlength: '20',
+          onInput: e => { f.phone = e.target.value; } })
+      ]),
+      el('div', { class: 'adm__field' }, [
+        el('label', { class: 'adm__fieldLabel', for: 'ap-reason', text: '申訴事由與事實陳述' }),
+        el('textarea', { class: 'adm__textarea', id: 'ap-reason', rows: '4', value: f.reason,
+          placeholder: '爭議發生的時間點、相關球員／裁判、具體爭議事實',
+          onInput: e => { f.reason = e.target.value; } })
+      ]),
+      el('label', { class: 'adm__checkRow' }, [
+        el('input', { type: 'checkbox', id: 'ap-deposit', checked: f.depositPaid,
+          onChange: e => { f.depositPaid = e.target.checked; } }),
+        el('span', { text: `已收到保證金新台幣 ${APPEAL_RULES.deposit.toLocaleString()} 元（規章第二十條，未收不受理）` })
+      ]),
+      el('div', { class: 'adm__actions' }, [
+        el('button', {
+          class: 'btn btn--lg btn--primary', type: 'button', disabled: !!state.busy, id: 'ap-file',
+          onClick: () => doFileAppeal()
+        }, iconText('check', '登記申訴')),
+        el('button', {
+          class: 'btn btn--lg', type: 'button', disabled: !!state.busy,
+          onClick: () => { state.appealForm = null; render(); }
+        }, '取消')
+      ])
+    ]) : null;
+
+    return el('div', { class: 'adm__appeals' }, [
+      el('h3', { class: 'adm__sectionHead', text: `申訴（${(list ?? []).length}）` }),
+      list === null ? skeleton(1) : null,
+      ...items,
+      form,
+      !f && canFile
+        ? el('div', { class: 'adm__actions' }, [
+            el('button', {
+              class: 'btn btn--lg', type: 'button', disabled: !!state.busy || !endedMs, id: 'ap-new',
+              onClick: () => { state.appealForm = newAppealForm(); render(); }
+            }, iconText('note', '登記申訴'))
+          ])
+        : null,
+      !endedMs && !f ? el('p', { class: 'adm__permNote', text: '這一場還沒送出完賽，申訴要等完賽之後才登記得了。' }) : null
+    ].filter(Boolean));
+  }
+
+  function streamBox() {
+    if (!can('stream.manage')) return null;
+    const m = state.match;
+    const cur = m?.stream?.videoId ?? null;
+    return el('div', {}, [
+      el('h3', { class: 'adm__sectionHead', text: '這一場的直播' }),
+      el('div', { class: 'adm__box' }, [
+        el('p', { class: 'adm__note', text: cur
+          ? `目前這一場用影片 ${cur}（覆蓋場地設定）。`
+          : '目前跟著場地的直播設定（#/admin/stream）。要讓這一場用不同的影片，貼網址或影片 ID。' }),
+        el('div', { class: 'adm__field' }, [
+          el('label', { class: 'adm__fieldLabel', for: 'st-video', text: '影片網址或 ID（留空＝跟著場地）' }),
+          el('input', {
+            class: 'adm__search', id: 'st-video', type: 'text', value: state.streamInput ?? '',
+            placeholder: 'https://youtu.be/…',
+            onInput: e => { state.streamInput = e.target.value; state.streamError = null; }
+          }),
+          state.streamError ? el('p', { class: 'adm__permNote adm__permNote--err', text: state.streamError }) : null
+        ].filter(Boolean)),
+        el('div', { class: 'adm__actions' }, [
+          el('button', {
+            class: 'btn btn--lg', type: 'button', disabled: state.busy === 'stream', id: 'st-save',
+            onClick: () => doSaveStream()
+          }, iconText('check', '儲存直播設定'))
+        ])
+      ])
+    ]);
+  }
+
   function auditsBox() {
     if (!state.audits.length) return null;
     // 還沒同步的（at 是 null）排最後：Firestore 的 null 最小，而且那一筆
@@ -359,6 +635,8 @@ export async function adminMatchPage({ scope, view, params }) {
         '這一頁的每一個動作都會寫進稽核紀錄，而且公開端會立刻看到結果。' }),
       scoreEditor(),
       actionsBox(),
+      appealBox(),
+      streamBox(),
       auditsBox()
     );
   }

@@ -338,3 +338,9 @@
 .pub__challengeMain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .pub__challengeSub { font-size: var(--fs-xs); color: var(--text-secondary); }
 .pub__challengeGo { flex: none; color: var(--accent); }
+
+/* ── 申訴徽章（規章第二十條）── */
+.psb__appeal{font-weight:600}
+.psb__appeal[data-status="filed"]{color:var(--warn-text)}
+.psb__appeal[data-status="upheld"]{color:var(--success)}
+.psb__appeal[data-status="dismissed"]{color:var(--text-muted)}

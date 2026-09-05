@@ -777,6 +777,72 @@ const MUTANTS = [
     to: `  const rows = (Array.isArray(members) ? members : []).filter(m => teamsById[m?.data?.teamId ?? teamIdOfPath(m?.path)]).map(m => {`
   },
   {
+    name: '#AP1 ⭐ 逾時的申訴不用主辦確認就受理（規章第二十條的 30 分鐘形同虛設）',
+    file: 'js/engine/appeal.js',
+    from: `  if (!w.withinWindow && late !== true) {`,
+    to: `  if (false) {`
+  },
+  {
+    name: '#AP2 ⭐ 申訴不成立也退還保證金（規章：不成立不予發還）',
+    file: 'js/engine/appeal.js',
+    from: `      depositReturned: upheld            // 成立退還；不成立不予發還`,
+    to: `      depositReturned: true            // 成立退還；不成立不予發還`
+  },
+  {
+    name: '#AP3 ⭐ 保證金沒收到也受理',
+    file: 'js/engine/appeal.js',
+    from: `  if (depositPaid !== true) {`,
+    to: `  if (false) {`
+  },
+  {
+    name: '#RF1 ⭐ 活動日前 15 天內照樣退費（規章第二十七條）',
+    file: 'js/engine/refund.js',
+    from: `  if (requestedAtMs >= cutoffMs) {`,
+    to: `  if (false) {`
+  },
+  {
+    name: '#RF2 ⭐ 不可抗力不全額退',
+    file: 'js/engine/refund.js',
+    from: `  if (forceMajeure === true) {`,
+    to: `  if (false) {`
+  },
+  {
+    name: '#RF3 ⭐ 金額跟規章算的不一樣也不用寫原因',
+    file: 'js/engine/refund.js',
+    from: `  if (amount !== suggested && !noteText) throw new Error('退費金額跟規章算出來的不一樣，請寫原因');`,
+    to: ``
+  },
+  {
+    name: '#YT1 ⭐ 任何字串都當成影片 ID（整串網址存進去，embed 壞掉不報錯）',
+    file: 'js/lib/youtube.js',
+    from: `const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;`,
+    to: `const VIDEO_ID = /^.+$/;`
+  },
+  {
+    name: '#A12 ⭐ 配戴眼鏡沒有切結書不提醒（規章附件二）',
+    file: 'js/engine/review.js',
+    from: `  const noWaiver = glasses.filter(m => m?.glassesWaiver?.signed !== true);`,
+    to: `  const noWaiver = [];`
+  },
+  {
+    name: '#CT1 ⭐ 手機號碼不檢查 09 開頭（市話也收，通知打不到）',
+    file: 'js/engine/challenge.js',
+    from: '  return /^09\\d{8}$/.test(d) ? d : null;',
+    to: '  return /^\\d{10}$/.test(d) ? d : null;'
+  },
+  {
+    name: '#CT2 ⭐ 遮罩把整支號碼印出來',
+    file: 'js/engine/challenge.js',
+    from: '  return d.length >= 7 ? `${d.slice(0, 4)}***${d.slice(-3)}` : (d ? \'***\' : \'\');',
+    to: '  return d;'
+  },
+  {
+    name: '#CT3 ⭐ Game Pass 丟掉聯絡憑證雜湊（沒有人填得了聯絡方式）',
+    file: 'js/engine/challenge.js',
+    from: `    contactKeyHash: typeof contactKeyHash === 'string' && contactKeyHash ? contactKeyHash : null,`,
+    to: `    contactKeyHash: null,`
+  },
+  {
     name: '#B1 ⭐ 可指派身分多列一個 super_admin（介面上點兩下就有第二個大總管）',
     file: 'js/engine/assign.js',
     from: `export const ASSIGNABLE_ROLES = STAFF_CHAIN.slice(0, -1);`,
@@ -1563,20 +1629,20 @@ const MUTANTS = [
   {
     name: '#GP1 ⭐ localStorage 丟例外時不接住（無痕視窗一開頁面就整片空白）',
     file: 'js/modules/challenge/pass.js',
-    from: '    const raw = localStorage.getItem(KEY);\n    if (!raw) return null;\n    const o = JSON.parse(raw);\n    const playerId = normalizePlayerId(o?.playerId);\n    return playerId ? { playerId, nickname: o?.nickname ?? null } : null;\n  } catch {\n    return null;\n  }',
-    to: '    const raw = localStorage.getItem(KEY);\n    if (!raw) return null;\n    const o = JSON.parse(raw);\n    const playerId = normalizePlayerId(o?.playerId);\n    return playerId ? { playerId, nickname: o?.nickname ?? null } : null;\n  } catch (e) {\n    throw e;\n  }'
+    from: '      : null;\n  } catch {\n    return null;\n  }',
+    to: '      : null;\n  } catch (e) {\n    throw e;\n  }'
   },
   {
     name: '#GP2 ⭐ 存不進去就丟例外（存不進去不算失敗，ID 仍然有效）',
     file: 'js/modules/challenge/pass.js',
-    from: '    localStorage.setItem(KEY, JSON.stringify({ playerId, nickname }));\n    return true;\n  } catch {\n    return false;\n  }',
-    to: '    localStorage.setItem(KEY, JSON.stringify({ playerId, nickname }));\n    return true;\n  } catch (e) {\n    throw e;\n  }'
+    from: '    localStorage.setItem(KEY, JSON.stringify({ playerId, nickname, contactKey, contactMasked }));\n    return true;\n  } catch {\n    return false;\n  }',
+    to: '    localStorage.setItem(KEY, JSON.stringify({ playerId, nickname, contactKey, contactMasked }));\n    return true;\n  } catch (e) {\n    throw e;\n  }'
   },
   {
     name: '#GP3 ⭐ 存了不成格式的代號也照用（後面每一次查詢都會落空）',
     file: 'js/modules/challenge/pass.js',
-    from: '    const playerId = normalizePlayerId(o?.playerId);\n    return playerId ? { playerId, nickname: o?.nickname ?? null } : null;',
-    to: '    return { playerId: o?.playerId, nickname: o?.nickname ?? null };'
+    from: '    const playerId = normalizePlayerId(o?.playerId);\n    return playerId\n      ? {',
+    to: '    const playerId = o?.playerId;\n    return playerId\n      ? {'
   },
   {
     name: '#GP4 ⭐ 配號的範圍少了 9999（一萬組變九千九百九十九組）',

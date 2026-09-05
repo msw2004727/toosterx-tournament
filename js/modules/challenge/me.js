@@ -25,7 +25,7 @@ import { el, mount, toast, skeleton } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
 import { qrSvg } from '../../lib/qr-render.js';
-import { formatScore, drawEntries } from '../../engine/challenge.js';
+import { formatScore, drawEntries, normalizePhone, maskPhone } from '../../engine/challenge.js';
 import * as data from './data.js';
 import { savedPass, savePass, clearPass } from './pass.js';
 
@@ -43,6 +43,8 @@ export async function challengeMePage({ scope, view }) {
     challenges: [],
     bests: [],
     rewards: null,
+    // 中獎聯絡方式（docs/06 §7.2）：遮罩後的號碼留在本機，整支號碼只有主辦看得到
+    contact: { phone: '', masked: pass.contactMasked ?? null, editing: false, busy: false, error: null },
     error: null
   };
 
@@ -183,9 +185,69 @@ export async function challengeMePage({ scope, view }) {
       qrCard(),
       progressCard(),
       drawCard(),
+      contactCard(),
       el('button', {
         class: 'btn chal__back', type: 'button', onClick: () => navigate('/')
       }, iconText('back', '回賽事首頁'))
     );
+  }
+
+  // ── 中獎聯絡方式（docs/06 §7.2）────────────────────────────
+  //
+  // 選填，只用來通知中獎。電話不放在任何人都讀得到的 players 文件上，
+  // 走 Function 寫進只有主辦讀得到的地方；身分靠建卡時留在這支手機的憑證。
+  // 找回的卡（別的裝置建的）沒有憑證——說清楚要到攤位登記，不畫一個會失敗的表單。
+  function contactCard() {
+    const c = state.contact;
+    const hasKey = !!pass.contactKey;
+    const body = [];
+    if (c.masked && !c.editing) {
+      body.push(el('p', { class: 'chal__hint', text: `已填：${c.masked}（只用來通知中獎，不會公開）` }));
+      body.push(el('button', {
+        class: 'btn btn--sm', type: 'button',
+        onClick: () => { c.editing = true; c.error = null; render(); }
+      }, '修改'));
+    } else if (!hasKey) {
+      body.push(el('p', { class: 'chal__hint', text:
+        '這張卡是在別的裝置建立或由攤位代建的，這裡填不了聯絡方式。中獎要通知的話，請到任一攤位登記手機號碼。' }));
+    } else {
+      body.push(el('p', { class: 'chal__hint', text: '選填。抽獎時若中獎，主辦用這支手機通知你。不填的話現場唱名。' }));
+      body.push(el('div', { class: 'chal__contact' }, [
+        el('input', {
+          class: 'chal__input', id: 'contact-phone', type: 'tel', inputmode: 'tel',
+          placeholder: '09xx-xxx-xxx', maxlength: '20', value: c.phone,
+          'aria-label': '手機號碼',
+          onInput: e => { c.phone = e.target.value; }
+        }),
+        el('button', {
+          class: 'btn btn--primary', type: 'button', id: 'contact-save', disabled: c.busy,
+          onClick: () => saveContact()
+        }, c.busy ? '儲存中…' : iconText('check', '儲存'))
+      ]));
+      if (c.error) body.push(el('p', { class: 'chal__contactErr', role: 'alert', text: c.error }));
+    }
+    return el('div', { class: 'chal__card chal__card--contact' }, [
+      el('div', { class: 'chal__cardHead' }, [el('strong', {}, iconText('person', '中獎聯絡方式'))]),
+      ...body
+    ]);
+  }
+
+  async function saveContact() {
+    const c = state.contact;
+    const phone = normalizePhone(c.phone);
+    if (!phone) { c.error = '手機號碼要是 09 開頭的 10 碼，例如 0912-345-678'; render(); return; }
+    c.busy = true; c.error = null; render();
+    try {
+      const r = await data.setContact({ playerId: state.playerId, key: pass.contactKey, phone });
+      c.masked = r?.maskedPhone ?? maskPhone(phone);
+      c.editing = false;
+      savePass({ ...pass, contactMasked: c.masked });
+      toast('已儲存聯絡方式');
+    } catch (err) {
+      // 錯誤留在畫面上：callable 離線會直接失敗，跳一個會消失的提示等於沒說
+      c.error = data.explain(err, '沒有儲存成功，請再試一次。');
+    } finally {
+      c.busy = false; render();
+    }
   }
 }

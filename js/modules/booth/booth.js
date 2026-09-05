@@ -28,7 +28,7 @@ import { now as serverNow } from '../../core/clock.js';
 import { hold } from '../../core/store.js';
 import { hhmm } from '../../lib/format.js';
 import {
-  formatScore, normalizePlayerId, pickBest, attemptQuota, myRank
+  formatScore, normalizePlayerId, pickBest, attemptQuota, myRank, normalizePhone, maskPhone
 } from '../../engine/challenge.js';
 import {
   inputModeOf, resolveScore, isDuplicate, buildAttempt, submitFeedback,
@@ -276,14 +276,44 @@ export async function boothPage({ scope, view, params }) {
       q.exhausted
         ? el('p', { class: 'booth__warn' }, iconText('warn', q.note))
         : null,
+      // 中獎聯絡手機（docs/06 §7.2）：攤位代建的卡沒有憑證，只能在這裡替玩家登記
+      el('div', { class: 'booth__contact' }, [
+        el('input', {
+          class: 'booth__id', id: 'booth-phone', type: 'tel', inputmode: 'tel', autocomplete: 'off',
+          placeholder: '中獎聯絡手機（選填）', maxlength: '20', 'aria-label': '中獎聯絡手機',
+          value: state.contactInput ?? '',
+          onInput: e => { state.contactInput = e.target.value; }
+        }),
+        el('button', {
+          class: 'btn btn--sm', type: 'button', id: 'booth-phone-save', disabled: !!state.contactBusy,
+          onClick: () => saveContact()
+        }, state.contactBusy ? '登記中…' : '登記手機')
+      ]),
+      state.contactNote ? el('p', { class: 'booth__note', id: 'booth-phone-note', text: state.contactNote }) : null,
       el('button', {
         class: 'booth__clear', type: 'button',
         onClick: () => {
-          Object.assign(state, { playerId: null, player: null, attempts: [], value: null, detail: null, result: null, idInput: '' });
+          Object.assign(state, { playerId: null, player: null, attempts: [], value: null, detail: null, result: null, idInput: '', contactInput: '', contactNote: null });
           render();
         }
       }, iconText('close', '換一位'))
     ].filter(Boolean));
+  }
+
+  /** 替玩家登記中獎聯絡手機。錯誤留在畫面上（callable 離線會直接失敗） */
+  async function saveContact() {
+    const phone = normalizePhone(state.contactInput);
+    if (!phone) { state.contactNote = '手機號碼要是 09 開頭的 10 碼'; render(); return; }
+    state.contactBusy = true; state.contactNote = null; render();
+    try {
+      const r = await data.setContactByStaff(state.playerId, phone);
+      state.contactNote = `已登記 ${r?.maskedPhone ?? maskPhone(phone)}（只用來通知中獎）`;
+      state.contactInput = '';
+    } catch (err) {
+      state.contactNote = data.explain(err, '沒有登記成功，請再試一次。');
+    } finally {
+      state.contactBusy = false; render();
+    }
   }
 
   // ── 四種輸入介面（docs/06 §4.2）──────────────────────────

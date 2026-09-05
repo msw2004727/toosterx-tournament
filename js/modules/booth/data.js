@@ -5,7 +5,7 @@
  * 挑戰攤位跟賽務台一樣，現場網路不能假設得到（docs/06 §10）。
  */
 
-import { db, sdk, user } from '../../core/firebase.js';
+import { db, sdk, user, callFunction } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { track } from '../../core/sync.js';
 import { EVENT_ID } from '../../config.js';
@@ -131,6 +131,14 @@ export function createPlayer({ playerId, nickname, ageBand }, label) {
 }
 
 /** 把錯誤碼翻成攤位人員看得懂的話 */
+/**
+ * 攤位替玩家登記中獎聯絡手機（docs/06 §7.2）。走 Function：登入的攤位身分不用憑證，
+ * 攤位代建的卡只有這一條路。⚠️ callable 會 reject（離線直接失敗），呼叫端要接住並留在畫面上。
+ */
+export async function setContactByStaff(playerId, phone) {
+  return callFunction('setPlayerContact', { eventId: EVENT_ID, playerId, phone });
+}
+
 export function explain(err, fallback = '沒有成功，請再試一次。') {
   const code = err?.code || '';
   if (code === 'permission-denied') {

@@ -22,7 +22,7 @@ const staffDoc = (roles) => ({
   assignment: { eventId: EVENT, date: '2026-10-09', venueIds: ['venue-a'], divisionIds: [], challengeIds: [] }
 });
 
-const seed = ({ roles = ['checkin'] } = {}) => ({
+const seed = ({ roles = ['checkin'], memberOver = {} } = {}) => ({
   [`events/${EVENT}`]: { eventId: EVENT, name: 'FEDA CUP 2026' },
   'config/env': { env: 'demo', allowSelfServeStaff: true },
   'staff/u-e2e': staffDoc(roles),
@@ -46,7 +46,7 @@ const seed = ({ roles = ['checkin'] } = {}) => ({
   //    生日與身分證後四碼只存在這一份文件上。
   [`events/${EVENT}/teams/t-101/members/m-1`]: {
     memberId: 'm-1', name: '小豆子', nameKind: 'nickname', jerseyNo: 7,
-    kind: 'player', status: 'approved', birthDate: '2017-03-05', idLast4: '1234', source: 'coach'
+    kind: 'player', status: 'approved', birthDate: '2017-03-05', idLast4: '1234', source: 'coach', ...memberOver
   },
   [`events/${EVENT}/teams/t-101/members/m-2`]: {
     memberId: 'm-2', name: '阿光', nameKind: 'nickname', jerseyNo: 9,
@@ -207,4 +207,17 @@ test('⭐ 離線也能一路勾完（不 await Firestore 的 Promise）@staff @c
   // 畫面必須立刻反應，不能等網路
   await expect(page.locator('.chk__row.is-present')).toHaveCount(2);
   await expect(page.locator('.chk__footer')).toContainText('2 / 2');
+});
+
+// ── 配戴眼鏡上場（規章附件二）────────────────────────────
+test('⭐ 配戴眼鏡的球員標出切結書收了沒，檢錄員好提醒裁判檢查裝備 @staff @checkin @glasses', async ({ page }) => {
+  await stub(page, { memberOver: { glasses: true, glassesWaiver: null } });
+  await go(page);
+  await expect(page.locator('.chk__tag').first()).toContainText('切結書未收');
+});
+
+test('切結書收到了就標已收 @staff @checkin @glasses', async ({ page }) => {
+  await stub(page, { memberOver: { glasses: true, glassesWaiver: { signed: true, byUid: 'u-cap', by: 'teamLead' } } });
+  await go(page);
+  await expect(page.locator('.chk__tag--ok').first()).toContainText('切結書已收');
 });

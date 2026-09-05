@@ -35,7 +35,7 @@ const match = (over = {}) => ({
   ...over
 });
 
-const seed = ({ roles = ['admin'], m = match(), perms = null } = {}) => {
+const seed = ({ roles = ['admin'], m = match(), perms = null, extra = null } = {}) => {
   const s = {
     [`events/${EVENT}`]: { eventId: EVENT, name: 'FEDA CUP 2026' },
     'config/env': { env: 'demo' },
@@ -47,6 +47,7 @@ const seed = ({ roles = ['admin'], m = match(), perms = null } = {}) => {
     [`events/${EVENT}/matches/${MATCH}`]: m
   };
   if (perms) for (const [role, p] of Object.entries(perms)) s[`rolePermissions/${role}`] = { role, perms: p };
+  if (extra) Object.assign(s, extra);
   return s;
 };
 
@@ -236,4 +237,134 @@ test('⭐ 320px 不出現橫向捲軸 @adminmatch @narrow', async ({ page }) => 
     return d.scrollWidth <= d.clientWidth ? null : { scroll: d.scrollWidth, client: d.clientWidth };
   });
   expect(over).toBeNull();
+});
+
+// ── 申訴（規章第二十條）────────────────────────────────────
+const T = ms => ({ seconds: Math.floor(ms / 1000), nanoseconds: 0 });
+const finishedAgo = min => match({ scoreSubmittedAt: T(Date.now() - min * 60_000) });
+const appealOf = async page => (await dump(page))[`events/${EVENT}/appeals/${MATCH}-t-1`];
+const filedAppeal = () => ({
+  appealId: `${MATCH}-t-1`, matchId: MATCH, matchNo: 5, divisionId: 'adult-open',
+  teamId: 't-1', opponentTeamId: 't-2',
+  filedBy: { role: 'leader', name: '王領隊', phone: null },
+  minutesAfter: 10, withinWindow: true, late: false, deposit: 2000, depositPaid: true,
+  reason: '第 60 分鐘的進球越位在先', status: 'filed', decision: null, createdBy: UID
+});
+
+async function fillAppeal(page) {
+  await page.locator('#ap-new').click();
+  await page.locator('#ap-name').fill('王領隊');
+  await page.locator('#ap-phone').fill('0912-345-678');
+  await page.locator('#ap-reason').fill('第 60 分鐘的進球越位在先');
+}
+
+test('⭐ 完賽 10 分鐘內登記申訴：寫 appeals、場次掛徽章、留痕 @adminmatch @appeal', async ({ page }) => {
+  await stub(page, { m: finishedAgo(10) });
+  await go(page);
+  await ready(page);
+  await fillAppeal(page);
+  await expect(page.locator('.adm__appeals')).toContainText('還在 30 分鐘內');
+  await page.locator('#ap-deposit').check();
+  await page.locator('#ap-file').click();
+
+  await expect.poll(async () => (await appealOf(page))?.status, { timeout: 15_000 }).toBe('filed');
+  expect(await appealOf(page)).toMatchObject({
+    teamId: 't-1', opponentTeamId: 't-2', deposit: 2000, depositPaid: true,
+    withinWindow: true, late: false, filedBy: { role: 'leader', name: '王領隊', phone: '0912-345-678' }
+  });
+  expect((await matchOf(page)).appeal).toEqual({ status: 'filed', teamId: 't-1' });
+  expect((await auditsOf(page)).some(a => a.action === 'appeal.filed')).toBe(true);
+  await expect(page.locator('.adm__appeal')).toContainText('申訴審理中');
+});
+
+test('⭐ 保證金沒收到不受理（規章第二十條）@adminmatch @appeal', async ({ page }) => {
+  await stub(page, { m: finishedAgo(10) });
+  await go(page);
+  await ready(page);
+  await fillAppeal(page);
+  await page.locator('#ap-file').click();
+  await expect(page.locator('.toast').last()).toContainText('保證金');
+  expect(await appealOf(page)).toBeUndefined();
+});
+
+test('⭐ 逾時的申訴要先講後果、明確確認，文件上記 late @adminmatch @appeal', async ({ page }) => {
+  await stub(page, { m: finishedAgo(45) });
+  await go(page);
+  await ready(page);
+  await fillAppeal(page);
+  await expect(page.locator('.adm__appeals')).toContainText('已超過 30 分鐘');
+  await page.locator('#ap-deposit').check();
+  await page.locator('#ap-file').click();
+  await expect(page.locator('.modal')).toContainText('賽後三十分鐘內');
+  await page.locator('.modal').getByRole('button', { name: /破例受理/ }).click();
+  await expect.poll(async () => (await appealOf(page))?.late, { timeout: 15_000 }).toBe(true);
+  expect(await appealOf(page)).toMatchObject({ withinWindow: false, minutesAfter: 45 });
+});
+
+test('還沒完賽登記不了申訴 @adminmatch @appeal', async ({ page }) => {
+  await stub(page, { m: match({ status: 'live', scoreSubmittedAt: null, lock: { locked: false, lockedAt: null, lockedBy: null } }) });
+  await go(page);
+  await ready(page);
+  await expect(page.locator('#ap-new')).toBeDisabled();
+  await expect(page.locator('.adm__appeals')).toContainText('還沒送出完賽');
+});
+
+test('⭐ 裁決不成立：保證金不予發還、徽章跟著變、留痕 @adminmatch @appeal', async ({ page }) => {
+  await stub(page, {
+    m: match({ appeal: { status: 'filed', teamId: 't-1' } }),
+    extra: { [`events/${EVENT}/appeals/${MATCH}-t-1`]: filedAppeal() }
+  });
+  await go(page);
+  await ready(page);
+  await expect(page.locator('.adm__appeal')).toContainText('申訴審理中');
+  await page.locator('#ap-note').fill('錄影顯示進球前無越位，維持原判');
+  await page.getByRole('button', { name: /申訴不成立/ }).click();
+  await expect(page.locator('.modal')).toContainText('不予發還');
+  await page.locator('.modal').getByRole('button', { name: /申訴不成立/ }).click();
+  await expect.poll(async () => (await appealOf(page))?.status, { timeout: 15_000 }).toBe('dismissed');
+  expect((await appealOf(page)).decision).toMatchObject({ upheld: false, depositReturned: false });
+  expect((await matchOf(page)).appeal).toEqual({ status: 'dismissed', teamId: 't-1' });
+  expect((await auditsOf(page)).some(a => a.action === 'appeal.decided' && a.after?.depositReturned === false)).toBe(true);
+});
+
+test('⭐ 裁決成立：退還保證金 @adminmatch @appeal', async ({ page }) => {
+  await stub(page, {
+    m: match({ appeal: { status: 'filed', teamId: 't-1' } }),
+    extra: { [`events/${EVENT}/appeals/${MATCH}-t-1`]: filedAppeal() }
+  });
+  await go(page);
+  await ready(page);
+  await page.locator('#ap-note').fill('進球前確有越位');
+  await page.getByRole('button', { name: /申訴成立/ }).click();
+  await page.locator('.modal').getByRole('button', { name: /申訴成立/ }).click();
+  await expect.poll(async () => (await appealOf(page))?.status, { timeout: 15_000 }).toBe('upheld');
+  expect((await appealOf(page)).decision.depositReturned).toBe(true);
+});
+
+test('裁決意見沒填就不給送 @adminmatch @appeal', async ({ page }) => {
+  await stub(page, {
+    m: match({ appeal: { status: 'filed', teamId: 't-1' } }),
+    extra: { [`events/${EVENT}/appeals/${MATCH}-t-1`]: filedAppeal() }
+  });
+  await go(page);
+  await ready(page);
+  await page.getByRole('button', { name: /申訴成立/ }).click();
+  await expect(page.locator('.toast').last()).toContainText('裁決意見');
+  expect((await appealOf(page)).status).toBe('filed');
+});
+
+// ── 單場直播覆蓋（docs/03 §5）──────────────────────────────
+test('⭐ 貼網址存成影片 ID；認不出來的不存 @adminmatch @stream', async ({ page }) => {
+  await stub(page);
+  await go(page);
+  await ready(page);
+  await page.locator('#st-video').fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=5s');
+  await page.locator('#st-save').click();
+  await expect.poll(async () => (await matchOf(page))?.stream?.videoId, { timeout: 15_000 }).toBe('dQw4w9WgXcQ');
+  expect((await matchOf(page)).stream.status).toBe('live');
+
+  await page.locator('#st-video').fill('https://vimeo.com/1234');
+  await page.locator('#st-save').click();
+  await expect(page.locator('.adm__permNote--err')).toContainText('看不出這是 YouTube');
+  expect((await matchOf(page)).stream.videoId).toBe('dQw4w9WgXcQ');
 });

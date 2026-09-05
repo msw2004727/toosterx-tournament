@@ -155,3 +155,7 @@
   .booth__numValue{font-size:2rem}
   .booth__voidNote{max-width:6.5rem}
 }
+
+/* ── 攤位替玩家登記中獎聯絡手機（docs/06 §7.2）── */
+.booth__contact{display:flex;gap:var(--sp-2);align-items:center;margin-top:var(--sp-2)}
+.booth__contact input{flex:1 1 8rem;min-width:0}

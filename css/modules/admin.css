@@ -299,3 +299,12 @@
 /* 兩顆按鈕不縮：320px 上點不到的箭頭等於沒有這個功能（R-UI-006） */
 .adm__tieMove{flex:none;display:flex;gap:4px}
 .adm__tieMove .btn{padding:var(--sp-1) var(--sp-2)}
+
+/* ── 申訴／直播／取消（2026-09-05）── */
+.adm__checkRow{display:flex;align-items:flex-start;gap:var(--sp-2);margin:var(--sp-3) 0;font-size:var(--fs-sm);line-height:1.5}
+.adm__checkRow input{margin-top:.2em;width:1.2em;height:1.2em;flex:none}
+.adm__permNote--err{color:var(--danger)}
+.adm__appeal[data-status="upheld"]{border-color:var(--ok-border)}
+.adm__appeal[data-status="dismissed"]{border-color:var(--border-strong)}
+.adm__appeal[data-status="filed"]{border-color:var(--warn-border)}
+.adm__stream .adm__field{margin-top:var(--sp-3)}

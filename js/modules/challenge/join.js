@@ -22,7 +22,7 @@ import { iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
 import * as data from './data.js';
 import {
-  savedPass, savePass, newPlayerId, parsePlayerId, checkNickname, AGE_BANDS
+  savedPass, savePass, newPlayerId, parsePlayerId, checkNickname, AGE_BANDS, newContactKey, sha256Hex
 } from './pass.js';
 
 export async function challengeJoinPage({ view }) {
@@ -52,12 +52,15 @@ export async function challengeJoinPage({ view }) {
 
     state.busy = true; state.error = null; render();
     try {
+      // 填聯絡方式用的憑證：本體留在這支手機，只把 sha256 送上去（docs/06 §7.2）
+      const contactKey = newContactKey();
+      const contactKeyHash = await sha256Hex(contactKey);
       const { playerId } = await data.createPass({
-        nextId: newPlayerId, nickname: n.nickname, ageBand: state.ageBand
+        nextId: newPlayerId, nickname: n.nickname, ageBand: state.ageBand, contactKeyHash
       });
       // 存不進去不算失敗（無痕視窗）——ID 仍然有效，只是下次要自己輸入。
       // 所以下一頁一定會把代號印得很大。
-      savePass({ playerId, nickname: n.nickname });
+      savePass({ playerId, nickname: n.nickname, contactKey });
       navigate('/challenge/me');
     } catch (err) {
       state.error = err;
