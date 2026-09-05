@@ -92,8 +92,12 @@ const snapOf = path => ({
 });
 
 function querySnapOf(w) {
+  // collectionGroup('members')：任何深度底下、倒數第二段叫 members 的文件都算
+  //（真的 Firestore 就是這樣：只看集合名，不看在哪一棵樹底下）
+  const inGroup = p => { const s = p.split('/'); return s.length >= 2 && s[s.length - 2] === w.group; };
+  const inCollection = p => p.startsWith(w.prefix + '/') && p.slice(w.prefix.length + 1).split('/').length === 1;
   let rows = [...store.entries()]
-    .filter(([p]) => p.startsWith(w.prefix + '/') && p.slice(w.prefix.length + 1).split('/').length === 1)
+    .filter(([p]) => (w.group ? inGroup(p) : inCollection(p)))
     .map(([p, d]) => ({ id: p.split('/').pop(), data: () => structuredClone(d), ref: { path: p } }));
   for (const c of w.clauses || []) {
     if (c.kind === 'where') {
@@ -192,6 +196,8 @@ export function doc(dbOrRef, ...segs) {
   return { __doc: true, path: segs.join('/'), id: segs[segs.length - 1] };
 }
 export function collection(_db, ...segs) { return { __col: true, path: segs.join('/') }; }
+/** 跨球隊查名單用（#/my 的「我報名的球員」）。path 只是給人看的，比對用 __group */
+export function collectionGroup(_db, name) { return { __col: true, __group: name, path: `(group:${name})` }; }
 
 export function query(ref, ...clauses) { return { ...ref, clauses }; }
 export const where = (field, op, value) => ({ kind: 'where', field, op, value });
@@ -199,11 +205,11 @@ export const orderBy = (field, dir = 'asc') => ({ kind: 'orderBy', field, dir })
 export const limit = n => ({ kind: 'limit', n });
 
 export async function getDoc(ref) { S.stats.getDoc += 1; return snapOf(ref.path); }
-export async function getDocs(ref) { S.stats.getDocs += 1; return querySnapOf({ prefix: ref.path, clauses: ref.clauses }); }
+export async function getDocs(ref) { S.stats.getDocs += 1; return querySnapOf({ prefix: ref.path, group: ref.__group, clauses: ref.clauses }); }
 
 export function onSnapshot(ref, a, b, c) {
   const cb = typeof a === 'function' ? a : b;
-  const w = ref.__doc ? { path: ref.path, cb } : { prefix: ref.path, clauses: ref.clauses, cb };
+  const w = ref.__doc ? { path: ref.path, cb } : { prefix: ref.path, group: ref.__group, clauses: ref.clauses, cb };
   watchers.add(w);
   try { cb(ref.__doc ? snapOf(ref.path) : querySnapOf(w)); } catch (e) { console.error(e); }
   return () => watchers.delete(w);

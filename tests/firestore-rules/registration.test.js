@@ -8,7 +8,9 @@
  *   ③ 名單凍結是真的凍結——隊長不能自己把鎖打開
  */
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, setDoc, updateDoc, deleteDoc, getDoc, Timestamp } from 'firebase/firestore';
+import {
+  doc, setDoc, updateDoc, deleteDoc, getDoc, getDocs, collectionGroup, query, where, Timestamp
+} from 'firebase/firestore';
 import { makeEnv, seedBaseline, asAdminSdk, authed, guest, EVENT } from './helpers.js';
 
 let env;
@@ -527,5 +529,48 @@ describe('R133 球員最多 15 人（規章第十二條，伺服器端強制）'
       newTeamDoc({ teamId: 't-cheat', playerCount: -5 })));
     await assertSucceeds(setDoc(teamRef(authed(env, CAP), 't-ok'),
       newTeamDoc({ teamId: 't-ok', playerCount: 0 })));
+  });
+});
+
+describe('R134 我的球員：collectionGroup(members) 只讀得到自己報的（docs/10 §1.3，M4-d）', () => {
+  // 家長替兩個小孩報不同隊：t-new 的 m-1、t-2 的 m-2；t-2 還有別人家的 m-3
+  async function seedTwoTeams() {
+    await seedTeam();
+    await seedMember();                                        // m-1，PARENT
+    await asAdminSdk(env, async db => {
+      await setDoc(teamRef(db, 't-2'), newTeamDoc({ teamId: 't-2', name: '第二隊', captainUid: 'u-cap2' }));
+      await setDoc(memberRef(db, 'm-2', 't-2'), newMemberDoc({ memberId: 'm-2', name: '王小華', status: 'approved' }));
+      await setDoc(memberRef(db, 'm-3', 't-2'), newMemberDoc({ memberId: 'm-3', name: '別人家的', guardianUid: 'u-other' }));
+      await setDoc(memberRef(db, 'm-c', 't-2'), coachMemberDoc({ memberId: 'm-c' }));   // 教練填的，沒有 guardianUid
+    });
+  }
+  const mine = (db, who) => query(collectionGroup(db, 'members'), where('guardianUid', '==', who));
+
+  test('R134 ⭐ 家長跨球隊查得到自己報的兩筆，別人家的與教練填的不在裡面', async () => {
+    await seedTwoTeams();
+    const snap = await assertSucceeds(getDocs(mine(authed(env, PARENT), PARENT)));
+    expect(snap.docs.map(d => d.id).sort()).toEqual(['m-1', 'm-2']);
+  });
+
+  test('R134b ⭐ 查別人的 guardianUid 整個查詢被擋（不是回空的）', async () => {
+    await seedTwoTeams();
+    await assertFails(getDocs(mine(authed(env, PARENT), 'u-other')));
+  });
+
+  test('R134c ⭐ 沒有帶 where guardianUid 整個查詢被擋', async () => {
+    await seedTwoTeams();
+    await assertFails(getDocs(collectionGroup(authed(env, PARENT), 'members')));
+  });
+
+  test('R134d 未登入不能查', async () => {
+    await seedTwoTeams();
+    await assertFails(getDocs(mine(guest(env), PARENT)));
+  });
+
+  test('R134e 賽務要看名單走球隊底下那條，不走這一條（這裡只認 guardianUid 是自己）', async () => {
+    await seedTwoTeams();
+    await assertFails(getDocs(mine(authed(env, 'u-scorer'), PARENT)));
+    // 直接讀單一文件仍然可以（R63 的邊界沒有變）
+    await assertSucceeds(getDoc(memberRef(authed(env, 'u-scorer'), 'm-1')));
   });
 });

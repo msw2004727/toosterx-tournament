@@ -214,8 +214,9 @@ test('⭐ 一次導頁只掛載一次頁面，不會重複讀同一份資料 @ac
   await expect(page.locator('.acct__uidValue')).toHaveText(UID);
   await page.waitForTimeout(500);
 
-  // 「我的」只查一次自己帶的球隊
-  expect(await page.evaluate(() => window.__fake.__stats.getDocs)).toBe(1);
+  // 「我的」查一次自己帶的球隊、一次自己報名的球員（跨球隊的 collectionGroup）。
+  // 重複掛載會變成 4，不是 2。
+  expect(await page.evaluate(() => window.__fake.__stats.getDocs)).toBe(2);
 });
 
 test('⭐ 名稱取自 users/{uid}，不是 Firebase 使用者（custom token 不帶名字）@account', async ({ page }) => {

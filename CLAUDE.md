@@ -181,7 +181,8 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       ・總管仍由 `scripts/grant-super-admin.mjs` 建立（Admin SDK，不經 rules）
 - [x] M4-c＋ 場次改判 `#/admin/match/:matchId`（覆核／重開／改判／棄賽，見下方章節）
 - [x] M4-c＋ 人工裁定同分 `#/admin/standings`（抽籤／裁定／解除，見下方章節）
-- [ ] M4-d   「我的球員」（需要 members 的 collectionGroup 索引與規則）
+- [x] M4-d   「我的球員」：`#/my` 跨球隊列出自己報的球員（collectionGroup 規則 R134、T53、
+      E2E、變異 #MP1–#MP4／#E15／RU#38–#39，見下方「我報名的球員」）
 - [x] M4-b④  依競賽規章校正設定＋未成年組教練管理名單＋檢錄台
 - [x] M4-b⑤  資訊架構重整：角色階層（向上包含）＋權限矩陣＋專屬首頁＋
       常駐頁首（登入／我的）＋主題只留圖示＋移除關注功能
@@ -193,12 +194,12 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 1065 全綠（41 個 suite） |
-| `npm run test:mutation` | ✅ 266 / 266 全被抓到 |
-| `npm run test:mutation:e2e` | ✅ 14 / 14 全被抓到（畫面層時序、權限與替身語意） |
-| `npm run test:e2e` | ✅ 975 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 213 全綠（…、R129–R132 改判、R17b–R17d Game Pass、R133 球員上限） |
-| `npm run test:mutation:rules` | ✅ 36 / 36 全被抓到 |
+| `npm run test:unit` | ✅ 1074 全綠（42 個 suite） |
+| `npm run test:mutation` | ✅ 270 / 270 全被抓到 |
+| `npm run test:mutation:e2e` | ✅ 15 / 15 全被抓到（畫面層時序、權限與替身語意） |
+| `npm run test:e2e` | ✅ 981 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:rules` | ✅ 218 全綠（…、R129–R132 改判、R17b–R17d Game Pass、R133 球員上限、R134 我的球員） |
+| `npm run test:mutation:rules` | ✅ 38 / 38 全被抓到 |
 | `npm run test:fn` | ✅ 79 全綠（F01–F15j 結果管線與同分裁定、FR01–FR15e 報名／登入／規章第十二條、FC01–FC14c 挑戰） |
 | `npm run test:mutation:fn` | ✅ 25 / 25 全被抓到 |
 
@@ -363,8 +364,7 @@ R-TEST-001 的重點是鑑別力，但報告上的紅字要先分清楚是哪一
 1. **正式站上線**（2026-09-05 進行中）：merge main → `deploy:rules:prod` →
    `deploy:fn:prod` → 小麥授權 signBlob → `bootstrap-prod.mjs` → 小麥 LINE 登入 →
    `grant-super-admin.mjs` → 開報名。步驟在 docs/11 §5。
-2. **M4-d「我的球員」** —— `members` 的 collectionGroup 索引已經有了（跨隊查重用），
-   剩 rules 與畫面。
+2. ~~M4-d「我的球員」~~ ✅ 2026-09-05 完成。
 3. **M7 彩排（10/6–10/7）**。
 
 CI 曾在 2026-09-04 18:19 到 09-05 之間完全沒有跑（私有倉庫的 Actions 分鐘用完、
@@ -1566,6 +1566,31 @@ js/modules/account/
 
 `#/my` 會把 uid 顯示出來而且可以複製：那是跨專案對帳唯一的鍵
 （飛達盃的 uid 必須等於 FC-Football 的 uid，docs/10 §8.5），出問題第一個要對它。
+
+## 我報名的球員（`#/my`，M4-d）
+
+```
+js/modules/account/my-players.js   純邏輯：路徑 → teamId、配隊、排序、標題人數
+js/modules/account/my.js           loadPlayers()：collectionGroup('members') ＋ 逐隊讀隊名
+firestore.rules                    根層級 match /{path=**}/members/{memberId}（只開 read）
+```
+
+一個 LINE 帳號可以對應多個球員，分在不同隊（docs/10 §1.3），所以要**跨球隊**查。
+四件容易做錯的：
+
+1. **巢狀路徑的規則吃不到 collectionGroup 查詢**，要在根層級另開一條（跟 timeline 一樣）。
+   少了它，畫面永遠是 PERMISSION_DENIED（變異 RU#39）。
+2. **`where('guardianUid', '==', 自己)` 不是過濾，是門票。** rules 對查詢是看條件能不能
+   證明每一筆都通過，沒帶的話整個查詢被擋（R134c）。替身 SDK 沒有 rules，所以 E2E 直接
+   盯「別人家的小孩不能出現」（變異 #E15）。這份文件上有生日與身分證後四碼。
+3. **規則裡不用 `.get('guardianUid', '')` 給預設值。** 教練填的小球員沒有 guardianUid，
+   本來就不該從這條路讀到；欄位缺漏時求值失敗＝拒絕，正是要的方向。
+   賽務要看名單走球隊底下那條（R134e）。
+4. **查不到球隊文件的那一筆仍然要列**，隊名退回 id（變異 #MP4）。整列消失會讓家長
+   以為報名不見了。標題的人數只算「等同意」與「在名單上」的（#MP3）。
+
+`tests/e2e/fake-firebase.js` 的 `collectionGroup()` 是這一輪加的：任何深度底下、
+倒數第二段叫那個名字的文件都算——真的 Firestore 就是這樣，不看在哪一棵樹底下。
 
 ## 報名端（M4-b②）
 

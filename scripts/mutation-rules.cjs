@@ -308,6 +308,24 @@ const MUTANTS = [
     file: F,
     from: "                      && ( request.resource.data.status != 'approved'\n                           || resource.data.status == 'approved'\n                           || playerRoomLeft(tid, resource.data.get('kind', 'player')) ) ) );",
     to: "                      ) );"
+  },
+  {
+    name: 'RU#38 ⭐ 我的球員的 collection-group 規則對任何登入者放行（查別人的 guardianUid 也拿得到生日與後四碼）',
+    file: F,
+    from: `    match /{path=**}/members/{memberId} {
+      allow read: if isAuth() && resource.data.guardianUid == uid();
+    }`,
+    to: `    match /{path=**}/members/{memberId} {
+      allow read: if isAuth();
+    }`
+  },
+  {
+    name: 'RU#39 ⭐ 少了 members 的 collection-group 規則（#/my 的「我報名的球員」永遠 PERMISSION_DENIED）',
+    file: F,
+    from: `    match /{path=**}/members/{memberId} {
+      allow read: if isAuth() && resource.data.guardianUid == uid();
+    }`,
+    to: ``
   }
 ];
 

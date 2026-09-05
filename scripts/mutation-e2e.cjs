@@ -105,6 +105,15 @@ const MUTANTS = [
     file: 'js/modules/admin/registration.js',
     from: `    restoreFocus(focusId, caret);`,
     to: ``
+  },
+  {
+    name: '#E15 ⭐ 我報名的球員少了 where guardianUid（替身會列出別人家的小孩；真的 Firestore 整個查詢被擋）',
+    file: 'js/modules/account/my.js',
+    from: `        collectionGroup(db(), 'members'),
+        where('guardianUid', '==', u.uid)
+      ));`,
+    to: `        collectionGroup(db(), 'members')
+      ));`
   }
 ];
 

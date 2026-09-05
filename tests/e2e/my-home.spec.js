@@ -16,7 +16,7 @@ const FAKE = fs.readFileSync(path.join(process.cwd(), 'tests/e2e/fake-firebase.j
 const EVENT = 'feda-cup-2026';
 const UID = 'U7774e1410479bafff4997f51b2c47b95';
 
-const seed = ({ roles = null, perms = null } = {}) => {
+const seed = ({ roles = null, perms = null, members = [], teams = {} } = {}) => {
   const s = {
     [`events/${EVENT}`]: { eventId: EVENT, name: 'FEDA CUP 2026' },
     'config/env': { env: 'demo' },
@@ -26,6 +26,9 @@ const seed = ({ roles = null, perms = null } = {}) => {
       captainUid: UID, status: 'draft', memberCount: 3
     }
   };
+  for (const [id, t] of Object.entries(teams)) s[`events/${EVENT}/teams/${id}`] = t;
+  // 我報名的球員：members 在各自的球隊底下（collectionGroup 查）
+  for (const m of members) s[`events/${EVENT}/teams/${m.team}/members/${m.memberId}`] = { ...m, team: undefined };
   if (roles) {
     s[`staff/${UID}`] = {
       uid: UID, name: '金小麥', roles, active: true,
@@ -71,6 +74,43 @@ test('⭐ 一般使用者只看到球隊與登出，沒有功能區 @my', async 
   await expect(page.locator('.acct')).toContainText('大甲金剛足球隊');
   await expect(page.getByRole('button', { name: '登出' })).toBeVisible();
   await expect(page.locator('.acct__card', { hasText: '我的功能' })).toHaveCount(0);
+});
+
+test('⭐ 「我報名的球員」跨球隊列出自己報的，別人報的不列 @my', async ({ page }) => {
+  // docs/10 §1.3：一個 LINE 帳號對應多個球員，分在不同隊。
+  // 第三筆是別人家的：查詢少了 where('guardianUid' == 自己) 它就會漏出來
+  //（真的 Firestore 會把整個查詢擋掉，替身沒有 rules，所以這裡直接盯結果）。
+  await stub(page, {
+    teams: { 't-2': { teamId: 't-2', name: '龍井白鯊', divisionId: 'u8', captainUid: 'U-other', status: 'approved', memberCount: 5 } },
+    members: [
+      { team: 't-1', memberId: 'm-a', name: '王小明', guardianUid: UID, status: 'approved', kind: 'player', jerseyNo: 7 },
+      { team: 't-2', memberId: 'm-b', name: '王小華', guardianUid: UID, status: 'pending', kind: 'player', jerseyNo: 4 },
+      { team: 't-2', memberId: 'm-r', name: '被婉拒的', guardianUid: UID, status: 'rejected', kind: 'player', jerseyNo: 5 },
+      { team: 't-2', memberId: 'm-x', name: '別人家的', guardianUid: 'U-other', status: 'approved', kind: 'player', jerseyNo: 9 }
+    ]
+  });
+  await go(page);
+  const card = page.locator('.acct__card', { hasText: '我報名的球員' });
+  await expect(card).toContainText('我報名的球員（2）');       // 被婉拒的不算
+  await expect(card).toContainText('王小明');
+  await expect(card).toContainText('大甲金剛足球隊 · #7');
+  await expect(card).toContainText('已在名單上');
+  await expect(card).toContainText('王小華');
+  await expect(card).toContainText('龍井白鯊 · #4');
+  await expect(card).toContainText('等隊長同意');
+  await expect(card).toContainText('被婉拒的');
+  await expect(card).not.toContainText('別人家的');
+  // 還在名單上的排前面，被婉拒的排最後
+  const names = await card.locator('.acct__rowMain').allTextContents();
+  expect(names).toEqual(['王小華', '王小明', '被婉拒的']);
+});
+
+test('沒有報名任何球員時說清楚，不放一張空表 @my', async ({ page }) => {
+  await stub(page);
+  await go(page);
+  const card = page.locator('.acct__card', { hasText: '我報名的球員' });
+  await expect(card).toContainText('你還沒有替自己或小孩送出報名');
+  await expect(card.locator('.acct__row')).toHaveCount(0);
 });
 
 test('⭐ 「我帶的球隊」已改名為「我的球隊」@my', async ({ page }) => {

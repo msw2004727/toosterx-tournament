@@ -752,6 +752,31 @@ const MUTANTS = [
     to: '  if (/^\\d{4}$/.test(id4)) keys.push(`id:${id4}:${bd}`);'
   },
   {
+    name: '#MP1 ⭐ 我的球員從路徑取錯一段（每一筆都配到錯的隊）',
+    file: 'js/modules/account/my-players.js',
+    from: `  return i >= 0 && seg[i + 1] ? seg[i + 1] : null;`,
+    to: `  return i >= 0 && seg[i + 2] ? seg[i + 2] : null;`
+  },
+  {
+    name: '#MP2 ⭐ 我的球員不依狀態排序（已移除的排在還在名單上的前面）',
+    file: 'js/modules/account/my-players.js',
+    from: `    (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9)
+    || a.teamName.localeCompare(b.teamName, 'zh-Hant')`,
+    to: `    a.teamName.localeCompare(b.teamName, 'zh-Hant')`
+  },
+  {
+    name: '#MP3 ⭐ 標題人數把被婉拒／移除的也算進去（家長以為小孩還在名單上）',
+    file: 'js/modules/account/my-players.js',
+    from: `  return (rows ?? []).filter(r => r.status === 'pending' || r.status === 'approved').length;`,
+    to: `  return (rows ?? []).length;`
+  },
+  {
+    name: '#MP4 ⭐ 查不到球隊文件的那一筆整列消失（家長以為報名不見了）',
+    file: 'js/modules/account/my-players.js',
+    from: `  const rows = (Array.isArray(members) ? members : []).map(m => {`,
+    to: `  const rows = (Array.isArray(members) ? members : []).filter(m => teamsById[m?.data?.teamId ?? teamIdOfPath(m?.path)]).map(m => {`
+  },
+  {
     name: '#B1 ⭐ 可指派身分多列一個 super_admin（介面上點兩下就有第二個大總管）',
     file: 'js/engine/assign.js',
     from: `export const ASSIGNABLE_ROLES = STAFF_CHAIN.slice(0, -1);`,

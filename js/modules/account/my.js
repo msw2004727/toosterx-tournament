@@ -28,6 +28,10 @@ import { hold } from '../../core/store.js';
 import { logoutLine } from '../../core/liff.js';
 import { EVENT_ID, roleLabel, topRole, FEATURES } from '../../config.js';
 import { needLogin } from './login.js';
+import { buildMyPlayerRows, teamIdOfPath, countActive } from './my-players.js';
+
+// 成員狀態 → 徽章樣式（沿用球隊徽章的四種顏色，不另外開）
+const MEMBER_BADGE = { pending: 'submitted', approved: 'approved', rejected: 'rejected', removed: 'withdrawn' };
 
 const TEAM_STATUS = {
   draft: '草稿', submitted: '待主辦審核', approved: '已通過',
@@ -38,7 +42,7 @@ export async function myPage({ scope, view }) {
   const root = el('div', { class: 'acct' });
   mount(view, root);
 
-  const state = { teams: null, profile: null, loading: true };
+  const state = { teams: null, profile: null, players: null, playersError: false, loading: true };
 
   // ⚠️ 不可以寫成「掛載時如果已登入就讀一次」。
   //    onAuth 的第一次回呼可能在頁面掛載**之後**才到（Firebase 要先還原
@@ -49,10 +53,47 @@ export async function myPage({ scope, view }) {
 
   async function ensureTeams() {
     const u = user();
-    if (!u) { state.teams = null; state.profile = null; loadedFor = null; return; }
+    if (!u) { state.teams = null; state.profile = null; state.players = null; loadedFor = null; return; }
     if (loadedFor === u.uid) return;         // 同一個人不重複讀
     loadedFor = u.uid;
-    await Promise.all([loadTeams(), loadProfile()]);
+    await Promise.all([loadTeams(), loadProfile(), loadPlayers()]);
+  }
+
+  /**
+   * 我報名的球員：跨球隊查 members（docs/10 §1.3，M4-d）。
+   *
+   * ⚠️ where('guardianUid', '==', 自己) **不是過濾，是門票**：firestore.rules 對
+   *    collectionGroup 查詢是看條件能不能證明每一筆都通過，沒帶的話整個查詢
+   *    被擋（R134c），畫面會變成「讀不到」而不是「列出全部」。
+   *    這一筆文件上有生日與身分證後四碼，本來就只能讀自己的。
+   */
+  async function loadPlayers() {
+    try {
+      const { collectionGroup, getDocs, query, where, doc, getDoc } = sdk();
+      const u = user();
+      const snap = await getDocs(query(
+        collectionGroup(db(), 'members'),
+        where('guardianUid', '==', u.uid)
+      ));
+      const members = snap.docs.map(d => ({ id: d.id, path: d.ref.path, data: d.data() }));
+
+      // 每一筆配上自己那一隊的隊名（teams 是公開可讀的）。查不到的隊仍然要列，
+      // 隊名退回 id——整列消失會讓家長以為報名不見了。
+      const teamIds = [...new Set(members.map(m => teamIdOfPath(m.path)).filter(Boolean))];
+      const teamsById = {};
+      await Promise.all(teamIds.map(async id => {
+        try {
+          const t = await getDoc(doc(db(), 'events', EVENT_ID, 'teams', id));
+          if (t.exists()) teamsById[id] = t.data();
+        } catch (err) { console.warn('[my] 讀不到球隊', id, err); }
+      }));
+      state.players = buildMyPlayerRows({ members, teamsById });
+      state.playersError = false;
+    } catch (err) {
+      console.warn('[my] 讀不到我報名的球員', err);
+      state.players = null;
+      state.playersError = true;
+    }
   }
 
   /**
@@ -215,16 +256,44 @@ export async function myPage({ scope, view }) {
   }
 
   // ── 我報名的球員 ────────────────────────────────────────
+  //
+  // 一個 LINE 帳號可以對應多個球員（docs/10 §1.3）：家長替兩個小孩報名，
+  // 兩個小孩在不同球隊，這裡都要列出來。點一列到那一隊的公開頁。
+  // 標題的人數只算「等同意」與「在名單上」的——被婉拒／移除的列在後面
+  // 但不算數，不然家長會以為小孩還在名單上。
   function playersCard() {
-    // 一個 LINE 帳號可以對應多個球員（docs/10 §1.3）：家長替兩個小孩報名，
-    // 兩個小孩在不同球隊，這裡都要列出來。
-    //
-    // 需要 members 的 collectionGroup 查詢（跨球隊），而那需要一條
-    // collection-group 索引與對應的 rules，兩者都還沒開。
-    // 在開之前**誠實說還沒有**，不要放一張空表讓人以為自己沒報名成功。
+    const rows = state.players;
+    const title = rows?.length ? `我報名的球員（${countActive(rows)}）` : '我報名的球員';
     return el('section', { class: 'acct__card' }, [
-      el('h2', { class: 'acct__cardHead' }, iconText('person', '我報名的球員')),
-      el('p', { class: 'acct__note', text: '報名流程開放後，你替小孩（或自己）送出的報名會列在這裡。' })
+      el('h2', { class: 'acct__cardHead' }, iconText('person', title)),
+      state.loading && rows === null && !state.playersError
+        ? skeleton(2)
+        : state.playersError
+          ? el('p', { class: 'acct__note', text: '讀不到你報名的球員，請稍後再試一次。' })
+          : !rows?.length
+            ? el('div', { class: 'acct__empty' }, [
+                el('p', { class: 'acct__note', text: '你還沒有替自己或小孩送出報名。拿到隊長給的邀請碼之後，到報名頁輸入就可以加入。' }),
+                el('button', {
+                  class: 'btn btn--lg', type: 'button',
+                  onClick: () => navigate('/register')
+                }, iconText('forward', '前往報名頁', { trailing: true }))
+              ])
+            : el('ul', { class: 'acct__list' }, rows.map(r => el('li', {}, [
+                el('button', {
+                  class: 'acct__row', type: 'button',
+                  onClick: () => r.teamId && navigate(`/team/${encodeURIComponent(r.teamId)}`)
+                }, [
+                  el('span', { class: 'acct__rowMain', text: r.name }),
+                  el('span', {
+                    class: `acct__badge acct__badge--${MEMBER_BADGE[r.status] || 'draft'}`,
+                    text: r.statusLabel
+                  }),
+                  el('span', {
+                    class: 'acct__rowSub',
+                    text: r.jerseyNo != null ? `${r.teamName} · #${r.jerseyNo}` : r.teamName
+                  })
+                ])
+              ])))
     ]);
   }
 

@@ -572,6 +572,20 @@ service cloud.firestore {
       allow read: if true;
     }
 
+    // ── 我的球員：collectionGroup('members') ──────────────────
+    // 家長／本人在 #/my 看「我報名的球員」要**跨球隊**查（docs/10 §1.3：
+    // 一個 LINE 帳號可以對應多個球員，分在不同隊）。跟上面的 timeline 一樣，
+    // 巢狀路徑的規則吃不到 collectionGroup 查詢，要另外開這一條。
+    //
+    // 只開 read，而且只開「guardianUid 是自己」——這份文件上有生日與身分證後四碼。
+    // 查詢**一定要帶** where('guardianUid', '==', 自己的 uid)：rules 對查詢是看
+    // 條件能不能證明每一筆都通過，沒帶的話整個查詢被擋（R134c）。
+    // 刻意不用 .get('guardianUid', '') 給預設值：教練填的小球員沒有 guardianUid，
+    // 本來就不該從這條路讀到；欄位缺漏時求值失敗＝拒絕，正是要的方向。
+    match /{path=**}/members/{memberId} {
+      allow read: if isAuth() && resource.data.guardianUid == uid();
+    }
+
     // 報名開關收到**總管**，其餘設定維持管理員。
     //
     // `PERMISSIONS` 裡 `registration.manage` 的 minRole 是 super_admin，
