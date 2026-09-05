@@ -324,6 +324,10 @@ export const getFunctions = () => ({ __fake: true });
  * spec 可以用 window.__FAKE_CALL_ERROR 讓呼叫失敗，測失敗的顯示。
  */
 export const httpsCallable = (_fns, name) => async (payload) => {
+  // 呼叫紀錄留給 spec 檢查送出去的參數。替身沒辦法真的執行 Function，
+  // 所以「裁定之後積分榜長什麼樣」只能靠 test:fn 守——這裡守的是
+  // 「畫面有沒有把正確的東西送出去」。
+  (window.__FAKE_CALLS ||= []).push({ name, payload });
   if (window.__FAKE_CALL_ERROR) throw new Error(window.__FAKE_CALL_ERROR);
   if (name === 'lineLogin') {
     return {

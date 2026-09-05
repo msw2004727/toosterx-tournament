@@ -180,6 +180,7 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       - [x] 挑戰攤位 `#/booth`（M6-b，見下方章節）
       ・總管仍由 `scripts/grant-super-admin.mjs` 建立（Admin SDK，不經 rules）
 - [x] M4-c＋ 場次改判 `#/admin/match/:matchId`（覆核／重開／改判／棄賽，見下方章節）
+- [x] M4-c＋ 人工裁定同分 `#/admin/standings`（抽籤／裁定／解除，見下方章節）
 - [ ] M4-d   「我的球員」（需要 members 的 collectionGroup 索引與規則）
 - [x] M4-b④  依競賽規章校正設定＋未成年組教練管理名單＋檢錄台
 - [x] M4-b⑤  資訊架構重整：角色階層（向上包含）＋權限矩陣＋專屬首頁＋
@@ -191,13 +192,13 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 887 全綠（37 個 suite） |
-| `npm run test:mutation` | ✅ 216 / 216 全被抓到 |
+| `npm run test:unit` | ✅ 917 全綠（38 個 suite） |
+| `npm run test:mutation` | ✅ 226 / 226 全被抓到 |
 | `npm run test:mutation:e2e` | ✅ 12 / 12 全被抓到（畫面層時序、權限與替身語意） |
-| `npm run test:e2e` | ✅ 796 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:e2e` | ✅ 855 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 203 全綠（…、R118–R125 賽程、R126–R128 攤位、R129–R132 改判） |
 | `npm run test:mutation:rules` | ✅ 32 / 32 全被抓到 |
-| `npm run test:fn` | ✅ 54 全綠（F01–F14 結果管線、FR01–FR13 報名與登入、FC01–FC13 挑戰） |
+| `npm run test:fn` | ✅ 64 全綠（F01–F15j 結果管線與同分裁定、FR01–FR13 報名與登入、FC01–FC13 挑戰） |
 | `npm run test:mutation:fn` | ✅ 21 / 21 全被抓到 |
 
 ### 「變異漏掉」有三種原因，不是只有一種
@@ -301,20 +302,18 @@ R-TEST-001 的重點是鑑別力，但報告上的紅字要先分清楚是哪一
 
 ### 下一個里程碑
 
-**M4-c 七項全部完成**，加上場次改判。主辦在 demo 上可以走完一整條線：
+**M4-c 七項全部完成**，加上場次改判與人工裁定同分。
+主辦在 demo 上可以走完一整條線：
 報名 → 審核 → 抽籤 → 產生賽程 → 排定時間 → 發布 → 檢錄 → 記分 →
-積分榜 → **覆核／改判** → 挑戰攤位登錄。
+積分榜 → **裁定同分** → 晉級 → 最終排名 → **覆核／改判** → 挑戰攤位登錄。
 
 接下來依序是：
 
 1. **M6-c 玩家端 `#/challenge`** —— Game Pass（免註冊）、我的 QR、進度、排行榜。
    沒有它，挑戰區的抽獎資格與排行榜對玩家不存在。
-2. **`standing.manual` 人工裁定同分**（docs/05 §7.2）—— 引擎會標
-   `hasUnresolvedTie` 等主辦裁定，但**目前沒有地方可以裁定**。
-   規章第十九條第 5 順位是抽籤，抽完要有地方回填。
-3. **M6-d 抽獎名單 CSV** ＋ `export` 匯出資料（規格 §7.3 說 MVP 只要匯出）。
-4. **M4-d「我的球員」** —— 要先建 `members` 的 collectionGroup 索引與規則。
-5. **M7 彩排（10/6–10/7）→ 上線**。
+2. **M6-d 抽獎名單 CSV** ＋ `export` 匯出資料（規格 §7.3 說 MVP 只要匯出）。
+3. **M4-d「我的球員」** —— 要先建 `members` 的 collectionGroup 索引與規則。
+4. **M7 彩排（10/6–10/7）→ 上線**。
 
 規章有、系統還沒有的：每人限報乙隊的跨隊檢查、球員人數上限的伺服器端強制、
 申訴（賽後 30 分鐘＋保證金 2000）、眼鏡切結書、退費機制。
@@ -715,6 +714,76 @@ Firestore Console 改資料。入口在賽程管理頁——已開打的那幾�
 ⚠️ 重開之後，**已經解出來的晉級名單不會自動回捲**：`canResolve` 要求該階段
 全部完賽，重開之後條件不成立，所以要等這一場重新完賽才會重解。下游若還沒開打
 就會被正確覆寫，這件事寫在確認框裡。
+
+### 人工裁定同分（`#/admin/standings`）
+
+```
+js/modules/admin/standing-actions.js  純邏輯：同分群、上下移、抽籤、pins
+js/modules/admin/standings.js         畫面
+functions/pipeline.js                 setManualRankingFor / clearManualRankingFor
+functions/index.js                    callable `setManualRanking`
+```
+
+⭐ **這是「完全同分」唯一的出口。** 規章第十九條列了五個順位，第五項是抽籤，
+而引擎依 R-ENG-004 不擲骰子——它只標 `hasUnresolvedTie` 等人回填。
+在這一頁出現之前那個標記是**死路**：
+
+```
+hasUnresolvedTie: true
+  → explainTeamSource 回 miss
+  → 晉級永遠解不開（冠軍賽的隊伍停在「A組第1名」）
+  → 最終排名算不出來
+  → 那一組打不完，而且不會有任何錯誤訊息
+```
+
+U6 只有 3 隊、女子組 5 隊，全部同分的機率不是零（F15 用「六場全部 1:1」
+在模擬器上重現了一次）。
+
+#### 引擎早就準備好了，缺的只有入口
+
+`buildStanding({ ..., manualPins })`、`applyManualRanking`、`manualPinsOf`、
+`standing.manualOverride` 從 M2 就在，T21 也一直綠著——但
+`functions/index.js` 那一行是 `unimplemented('setManualRanking', 'M4')`，
+所以**引擎算得再對也沒有任何東西呼叫它**（跟 M3.9 之前的積分榜同一個形狀）。
+
+#### 五件不可協商
+
+1. **一定要走 callable，前端不直接寫 `standings/`**（雖然 rules 對 admin 放行）。
+   名次要由 `buildStanding` 重算，而重算需要 `rankingRule`、`cardEvents`、
+   `withdrawnTeamIds`、`mercyRule`——前端自己拼一份 opts 遲早會跟管線分岔，
+   而分岔的症狀是「積分榜的數字對不上」，不會有任何錯誤訊息。
+   而且直接寫的話晉級不會被解算，那正是這個功能存在的理由（F15b）。
+2. **名次用原本那一群佔的名次，不是 1、2、3**（變異 #SR1）。第 3、4 名同分時
+   裁定的是「誰第 3 誰第 4」；寫成 1、2 的話 `applyManualRanking` 不會抱怨，
+   它只是照著釘——然後那兩隊會被搬到榜首。
+3. **抽籤要留下種子**（變異 #SR7、R-ENG-004）。規章要的是抽籤，而抽籤的價值
+   在於事後重放得出來。種子由畫面產生（`newSeed()` 是唯一碰 `Math.random()`
+   的地方，它刻意**不在引擎裡**），寫進 `audits` 與 `manualOverride.drawSeed`。
+   洗牌直接用 `js/engine/schedule.js` 的 `drawOrder`，不寫第二份。
+4. **旗標要寫在重算之前。** `recalcStandingForGroup` 裡是整份
+   `tx.set(ref, {...doc})`（不是 merge），而 `doc.manualOverride` 是從交易內
+   讀到的 prev 抄過來的——先重算再補旗標的話，中間那一瞬間只要有另一個
+   `onMatchWritten` 進來就會讀到 `enabled: false` 而把裁定沖掉。
+5. **解除裁定之後「待裁定」會變回來——那是對的**（F15e）。條件真的用盡了，
+   系統不該假裝排得出來。
+
+#### 兩個 fail-closed
+
+・**積分榜還沒算過就不准裁定**（F15i）。旗標是用 `merge` 寫的，不擋的話會憑空
+　生出一份只有 `manualOverride`、沒有 `rows` 的 standing——公開端的積分榜
+　會變成一張空表而且不會報錯。
+・**不屬於這一組的隊伍不准釘**（F15g）、名次不准重複、原因不准空白。
+
+#### 跟 docs/05 §7.2 的差異
+
+規格畫的是「抽籤 / 主辦裁定」單選 ＋ 拖曳排序。這一版是**兩顆按鈕＋上下移**：
+抽完想改一格不必先切換模式，而 320px 的觸控拖曳既難做對也難測
+（跟賽程管理同一個決定）。
+
+⚠️ E2E 只守得到「畫面把正確的東西送出去」——替身的 `httpsCallable` 沒辦法
+真的執行 Function。「裁定之後積分榜長什麼樣、晉級有沒有解開」由
+`test:fn` 的 F15–F15j 用真的模擬器守。替身現在會把呼叫記進
+`window.__FAKE_CALLS`，spec 檢查的就是那一份。
 
 ### 挑戰攤位（`#/booth`、`js/engine/challenge.js`）
 
@@ -1214,7 +1283,7 @@ js/modules/register/
 `data.explain()` 把 `permission-denied` 翻成「可能是報名已截止，或名單已送審凍結」
 ——對報名的家長來說，「權限不足」四個字毫無幫助。
 
-### ⚠️ 頁面模組的順序陷阱（已經踩過四次）
+### ⚠️ 頁面模組的順序陷阱（已經踩過七次）
 
 頁面模組的共同結構是「先啟動監聽 → 再宣告 helper → render()」。
 但 **`onSnapshot` 的第一筆快照可能同步送達**（替身 SDK 會，本機快取命中時也很早），
@@ -1228,8 +1297,15 @@ ReferenceError: Cannot access 'isCaptain' before initialization
 
 > **規矩：`render()` 會用到的東西一律寫成具名函式**（會被提升），
 > 不要用 `const foo = () => …`。已經在 `home.js`（M5）、`schedule.js`、
-> `division.js`、`match.js`、`register/home.js`、`register/manage.js` 上各中一次。
+> `division.js`、`match.js`、`register/home.js`、`register/manage.js`、
+> `admin/standings.js` 上各中一次。
 > E2E 抓得到——每一頁都要有一條「頁面畫得出來」的案例。
+>
+> ⚠️ **一行小小的 `const keyOf = (s, g) => …` 也算。** 2026-09-05 在
+> `admin/standings.js` 上又中一次：那是一支兩行的 key 產生器，看起來完全
+> 不像會出事的東西，但它被 `tieCard()` 用到，而 `tieCard()` 在第一筆快照
+> 同步送達時就跑了。症狀一樣是整頁空白 ＋ `Cannot access 'keyOf' before
+> initialization`——單元測試 30 條全綠，E2E 第一條就紅。
 
 ## 公開端（M5）
 

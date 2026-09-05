@@ -558,7 +558,7 @@ Region 一律 `asia-east1`。Runtime `nodejs22`。**ESM**（`functions/package.j
 | `scheduleMatches` | `{ divisionId, timing }` | `{ conflicts[] }` | admin | 排定時間與場地 |
 | `recalcStanding` | `{ divisionId, stageId, groupId? }` | `{ version, hasUnresolvedTie }` | admin | 強制重算 |
 | `resolveAdvancement` | `{ divisionId, stageId }` | `{ resolved[] }` | admin | 解算晉級 |
-| `setManualRanking` | `{ standingId, order[], reason }` | `{ ok }` | admin | 人工裁定名次 |
+| `setManualRanking` | `{ divisionId, stageId, groupId, pins[], reason, drawSeed?, clear? }` | `{ standingId, version, hasUnresolvedTie, downstream[] }` | admin | 人工裁定名次；`clear: true` 為解除 |
 | `computeFinalRanking` | `{ divisionId }` | `{ ranking[] }` | admin | 解算最終排名 |
 | `publishFinalRanking` | `{ divisionId }` | `{ ok }` | admin | 對公開端發布 |
 | `mergePlayers` | `{ keepId, mergeId }` | `{ ok }` | admin | 合併重複 Game Pass |

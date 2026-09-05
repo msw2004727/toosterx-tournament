@@ -26,7 +26,7 @@ import {
   resolveAdvancementForStage, computeFinalRankingFor, publishFinalRankingFor,
   rebuildBoardsFor, reconcileMatchScore,
   syncRosterFor, recountTeamMembers, recountUserTeams, rejectDuplicateApplication,
-  onAttemptSubmitted
+  onAttemptSubmitted, setManualRankingFor, clearManualRankingFor
 } from './pipeline.js';
 import { writeAudit } from './store.js';
 import { loginWithLine } from './line.js';
@@ -275,6 +275,42 @@ export const rebuildBoards = onCall(async (req) => {
   return ok(await rebuildBoardsFor({ eventId, divisionId }));
 });
 
+/**
+ * 人工裁定同分（競賽規章第十九條第 5 順位：抽籤）。
+ *
+ * ⚠️ **一定要走 Function，不可以讓前端直接寫 `standings/`。**
+ *    名次要由 `buildStanding` 重算一次，而重算需要 `rankingRule`、`cardEvents`、
+ *    `withdrawnTeamIds`、`mercyRule`——前端自己拼一份 opts，遲早會跟管線分岔，
+ *    而分岔的症狀是「積分榜的數字對不上」，不會有任何錯誤訊息。
+ *
+ * `pins` 是 `[{teamId, rank}]`；`clear: true` 則是解除裁定。
+ */
+export const setManualRanking = onCall(async (req) => {
+  await requireStaff(req, ADMIN);
+  const { eventId, divisionId, stageId, groupId, pins, reason, drawSeed = null, clear = false } = req.data || {};
+  if (!eventId || !divisionId || !stageId || !groupId) {
+    fail('invalid-argument', '需要 eventId / divisionId / stageId / groupId');
+  }
+  try {
+    if (clear === true) {
+      return ok(await clearManualRankingFor({
+        eventId, divisionId, stageId, groupId, reason, actorUid: req.auth.uid
+      }));
+    }
+    const r = await setManualRankingFor({
+      eventId, divisionId, stageId, groupId, pins, reason,
+      drawSeed: Number.isInteger(drawSeed) ? drawSeed : null,
+      actorUid: req.auth.uid
+    });
+    logger.info('[setManualRanking]', { by: req.auth.uid, standingId: r.standingId, drawSeed });
+    return ok(r);
+  } catch (err) {
+    // 參數錯誤要回 invalid-argument 而不是 internal——前端的錯誤翻譯靠 code 分流，
+    // 一律 internal 的話「名次重複」會顯示成「系統發生錯誤」。
+    fail('invalid-argument', err.message);
+  }
+});
+
 // ── 尚未實作（回錯誤，不回假成功）──────────────────────────
 /**
  * LINE 登入（docs/07 §3.2）。公開端點——還沒登入的人才會呼叫它。
@@ -295,7 +331,6 @@ export const revokePlayerQr   = onCall(unimplemented('revokePlayerQr', 'M6'));
 export const verifyCheckin    = onCall(unimplemented('verifyCheckin', 'M6'));
 export const generateSchedule = onCall(unimplemented('generateSchedule', 'M4'));
 export const scheduleMatches  = onCall(unimplemented('scheduleMatches', 'M4'));
-export const setManualRanking = onCall(unimplemented('setManualRanking', 'M4'));
 export const mergePlayers     = onCall(unimplemented('mergePlayers', 'M6'));
 export const exportCsv        = onCall(unimplemented('exportCsv', 'M7'));
 export const exportPdf        = onCall(unimplemented('exportPdf', 'M7'));

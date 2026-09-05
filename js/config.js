@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20260905d';
+export const CACHE_VERSION = '0.20260905e';
 
 /** 本次活動。未來要辦第二場時，這裡改成從路由或設定讀取。 */
 export const EVENT_ID = 'feda-cup-2026';
@@ -180,7 +180,7 @@ export const PERMISSIONS = [
   { code: 'match.reopen',      label: '重開已鎖定的場次', group: '管理', minRole: 'admin', destructive: true },
   { code: 'match.score.override', label: '改判比分',    group: '管理', minRole: 'admin', destructive: true },
   { code: 'schedule.manage',   label: '編排賽程與場次', group: '管理', minRole: 'admin', destructive: true },
-  { code: 'standing.manual',   label: '人工裁定同分',   group: '管理', minRole: 'admin', destructive: true, pending: true },
+  { code: 'standing.manual',   label: '人工裁定同分',   group: '管理', minRole: 'admin', destructive: true },
   { code: 'team.manage',       label: '審核報名與球隊', group: '管理', minRole: 'admin', destructive: true },
   { code: 'audit.read',        label: '查看稽核紀錄',   group: '管理', minRole: 'admin' },
   { code: 'export',            label: '匯出資料',       group: '管理', minRole: 'admin', pending: true },
@@ -257,6 +257,7 @@ export const FEATURES = [
   { code: 'challenge.attempt.write', label: '挑戰攤位', hint: '挑戰區成績登錄',      route: '/booth', icon: 'goal' },
   { code: 'team.manage',      label: '報名審核',   hint: '審核球隊報名與名單',       route: '/admin/teams', icon: 'check' },
   { code: 'schedule.manage',  label: '賽程管理',   hint: '產生對戰、排定時間與場地',  route: '/admin/schedule', icon: 'table' },
+  { code: 'standing.manual',  label: '人工裁定同分', hint: '完全同分時由主辦裁定或抽籤', route: '/admin/standings', icon: 'shuffle' },
   { code: 'audit.read',       label: '稽核紀錄',   hint: '誰在什麼時候改了什麼',      route: '/admin/audits', icon: 'note' },
   { code: 'staff.assign',     label: '身分授權',   hint: '指派管理員／賽務／檢錄員',  route: '/admin/staff', icon: 'person' },
   { code: 'perms.manage',     label: '權限開關',   hint: '逐條調整每個身分能做的事',  route: '/admin/perms', icon: 'more' },

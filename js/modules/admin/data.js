@@ -5,7 +5,7 @@
  * 畫面上的 can() 只是為了不要畫出按了會失敗的按鈕。
  */
 
-import { db, sdk, user } from '../../core/firebase.js';
+import { db, sdk, user, callFunction } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { EVENT_ID } from '../../config.js';
 
@@ -524,4 +524,36 @@ export async function getScheduleBounds() {
   } catch {
     return { firstMatchDate: null };
   }
+}
+
+// ── 人工裁定同分 ─────────────────────────────────────────────
+
+/**
+ * 監聽全部積分榜。
+ *
+ * 用監聽而不是一次性讀取：主辦裁定完之後，同一頁上的「待裁定」清單
+ * 要立刻少一列。裁定是低頻操作，一份監聽的成本可以接受。
+ */
+export function watchStandings(scope, cb, onError) {
+  const { collection, onSnapshot } = sdk();
+  const unsub = onSnapshot(collection(db(), 'events', EVENT_ID, 'standings'),
+    snap => cb(snap.docs.map(d => ({ standingId: d.id, ...d.data() }))),
+    err => onError?.(err));
+  return hold(scope, unsub, 'admin:standings');
+}
+
+/**
+ * 送出裁定。
+ *
+ * ⚠️ **不可以直接寫 `standings/`**（雖然 rules 對 admin 是放行的）。
+ *    名次要由 `buildStanding` 重算一次，而重算需要 rankingRule、cardEvents、
+ *    withdrawnTeamIds、mercyRule——前端自己拼一份 opts 遲早會跟管線分岔，
+ *    而分岔的症狀是「積分榜的數字對不上」，不會有任何錯誤訊息。
+ *    而且直接寫的話晉級不會被解算，那正是這個功能存在的理由。
+ *
+ * ⚠️ 這一支**會 reject**：callable 沒有離線佇列（跟 sync.track 相反）。
+ *    呼叫端一定要接住並把原因留在畫面上。
+ */
+export async function setManualRanking(payload) {
+  return callFunction('setManualRanking', { eventId: EVENT_ID, ...payload });
 }

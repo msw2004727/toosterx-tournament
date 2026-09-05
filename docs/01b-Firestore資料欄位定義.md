@@ -381,11 +381,19 @@ id 格式：`${divisionId}__${stageId}__${groupId}`，例如 `adult-open__group_
   computedBy: 'fn:recalcStanding',
   version: 12,                          // 每次重算 +1
   hasUnresolvedTie: false,              // 需人工裁定時為 true
-  manualOverride: {                     // Admin 手動排序時
-    enabled: false, by: null, at: null, reason: null
+  manualOverride: {                     // Admin 人工裁定時（#/admin/standings）
+    enabled: false, by: null, at: null, reason: null,
+    drawSeed: null                      // 用抽籤決定時的亂數種子，要能重放
   }
 }
 ```
+
+⚠️ `rows[].locked === true` 是「這一列被釘住」。重算時 `buildStanding` 會依
+`manualOverride.enabled` 沿用那幾列（`manualPinsOf`），所以裁定撐得過
+下一次 `onMatchWritten`——少了這個機制，改一次比分就把主辦的裁定沖掉了。
+
+⚠️ 寫入只走 `setManualRanking` 這支 callable。前端直接寫 `standings/`
+（rules 對 admin 是放行的）會讓數字跟管線分岔，而且晉級不會被解算。
 
 ### 1.10 `venues/{venueId}`
 

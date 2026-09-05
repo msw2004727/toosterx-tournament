@@ -16,7 +16,8 @@ import { FORMATS, RANKING_RULES } from '../../js/engine/formats.js';
 import {
   recalcStandingForMatch, recalcStandingsForStage, resolveDownstreamOf,
   resolveAdvancementForStage, computeFinalRankingFor, publishFinalRankingFor,
-  rebuildBoardsFor, reconcileMatchScore
+  rebuildBoardsFor, reconcileMatchScore,
+  setManualRankingFor, clearManualRankingFor
 } from '../../functions/pipeline.js';
 
 const E = 'feda-cup-2026';
@@ -450,5 +451,174 @@ describe('F13 看板', () => {
 
     const rows = (await db.doc(`events/${E}/boards/scorers`).get()).data().rows;
     expect(rows.some(r => r.divisionId === 'adult-open' && r.playerId === 'x-1')).toBe(true);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+describe('F15 人工裁定同分（規章第十九條第 5 順位）', () => {
+  /**
+   * 讓 4 隊在規章的四項條件下**完全相同**。
+   *
+   * 六場全部 1:1：每隊 3 場、3 平、3 分、進 3 失 3、淨 0，對戰關係也全平。
+   * 引擎排到最後一項（被進球數少）仍然分不出來 → hasUnresolvedTie。
+   */
+  async function playAllDraws() {
+    for (const [id] of GROUP_MATCHES) await play(id, 1, 1);
+  }
+
+  test('F15 ⭐ 完全同分時晉級解不開——這就是這個功能存在的理由', async () => {
+    await playAllDraws();
+    const st = await standing();
+    expect(st.hasUnresolvedTie).toBe(true);
+
+    const out = await resolveDownstreamOf({ eventId: E, divisionId: DIV, stageId: 'group' });
+    expect(out[0].ready).toBe(false);
+    expect(out[0].applied).toEqual([]);
+    // 冠軍賽永遠停在佔位符：主辦看不到任何錯誤訊息，那一組就打不完了
+    expect((await matchRef('F1').get()).data().home.teamId).toBeNull();
+  });
+
+  test('F15b ⭐ 裁定之後晉級立刻解得開，冠軍賽填上裁定的前兩名', async () => {
+    await playAllDraws();
+
+    const r = await setManualRankingFor({
+      eventId: E, divisionId: DIV, stageId: 'group', groupId: 'A',
+      pins: [
+        { teamId: 't3', rank: 1 }, { teamId: 't1', rank: 2 },
+        { teamId: 't4', rank: 3 }, { teamId: 't2', rank: 4 }
+      ],
+      reason: '依競賽規章第十九條抽籤決定', drawSeed: 20260905, actorUid: 'u-admin'
+    });
+
+    expect(r.hasUnresolvedTie).toBe(false);
+    const st = await standing();
+    expect(st.rows.map(x => x.teamId)).toEqual(['t3', 't1', 't4', 't2']);
+    expect(st.rows.every(x => x.locked === true)).toBe(true);
+    expect(st.manualOverride.enabled).toBe(true);
+    expect(st.manualOverride.drawSeed).toBe(20260905);
+
+    // 這一句是整個功能的重點：裁定完，晉級要在同一次呼叫裡解出來
+    const f1 = (await matchRef('F1').get()).data();
+    expect([f1.home.teamId, f1.away.teamId]).toEqual(['t3', 't1']);
+    expect(f1.status).toBe('ready');
+  });
+
+  test('F15c ⭐ 裁定要撐得住下一次重算（不然改一次比分就被沖掉）', async () => {
+    await playAllDraws();
+    await setManualRankingFor({
+      eventId: E, divisionId: DIV, stageId: 'group', groupId: 'A',
+      pins: [{ teamId: 't4', rank: 1 }, { teamId: 't3', rank: 2 }],
+      reason: '抽籤', actorUid: 'u-admin'
+    });
+    expect((await standing()).rows.slice(0, 2).map(x => x.teamId)).toEqual(['t4', 't3']);
+
+    // 賽務端改了另一場的比分 → onMatchWritten 會重算一次整組
+    await play('g1', 1, 1);
+    const st = await standing();
+    expect(st.rows.slice(0, 2).map(x => x.teamId)).toEqual(['t4', 't3']);
+    expect(st.manualOverride.enabled).toBe(true);
+  });
+
+  test('F15d 只釘一部分名次時，其餘的照系統排序遞補', async () => {
+    await playAllDraws();
+    await setManualRankingFor({
+      eventId: E, divisionId: DIV, stageId: 'group', groupId: 'A',
+      pins: [{ teamId: 't4', rank: 1 }],
+      reason: '抽籤', actorUid: 'u-admin'
+    });
+    const st = await standing();
+    expect(st.rows[0].teamId).toBe('t4');
+    expect(st.rows[0].locked).toBe(true);
+    expect(st.rows.slice(1).every(x => x.locked === false)).toBe(true);
+    expect(st.rows.map(x => x.rank)).toEqual([1, 2, 3, 4]);
+  });
+
+  test('F15e ⭐ 解除裁定會讓「待裁定」變回來——那是對的，條件真的用盡了', async () => {
+    await playAllDraws();
+    await setManualRankingFor({
+      eventId: E, divisionId: DIV, stageId: 'group', groupId: 'A',
+      pins: [{ teamId: 't4', rank: 1 }, { teamId: 't3', rank: 2 }],
+      reason: '抽籤', actorUid: 'u-admin'
+    });
+    expect((await standing()).hasUnresolvedTie).toBe(false);
+
+    const r = await clearManualRankingFor({
+      eventId: E, divisionId: DIV, stageId: 'group', groupId: 'A',
+      reason: '抽籤結果作廢', actorUid: 'u-admin'
+    });
+    expect(r.hasUnresolvedTie).toBe(true);
+    const st = await standing();
+    expect(st.manualOverride.enabled).toBe(false);
+    expect(st.rows.every(x => x.locked !== true)).toBe(true);
+  });
+
+  test('F15f 留痕：裁定留一筆稽核，帶得出原因與種子', async () => {
+    await playAllDraws();
+    await setManualRankingFor({
+      eventId: E, divisionId: DIV, stageId: 'group', groupId: 'A',
+      pins: [{ teamId: 't4', rank: 1 }],
+      reason: '主辦當場抽籤', drawSeed: 42, actorUid: 'u-admin'
+    });
+    const rows = (await db.collection(`events/${E}/audits`).get()).docs.map(d => d.data());
+    const a = rows.find(x => x.action === 'standing.manualRanking');
+    expect(a).toBeTruthy();
+    expect(a.reason).toBe('主辦當場抽籤');
+    expect(a.after.drawSeed).toBe(42);
+    expect(a.entityId).toBe(`${DIV}__group__A`);
+    // before 要留得下「裁定前是什麼樣」——申訴時要比對的就是這個
+    expect(a.before.hasUnresolvedTie).toBe(true);
+  });
+
+  test('F15g ⭐ fail-closed：不屬於這一組的隊伍不准釘', async () => {
+    await playAllDraws();
+    await expect(setManualRankingFor({
+      eventId: E, divisionId: DIV, stageId: 'group', groupId: 'A',
+      pins: [{ teamId: 't99', rank: 1 }], reason: '抽籤'
+    })).rejects.toThrow(/不屬於這一組/);
+    // 一個欄位都不准寫
+    expect((await standing()).manualOverride.enabled).toBe(false);
+  });
+
+  test('F15h fail-closed：沒填原因、名次重複、小組不存在都要擋下來', async () => {
+    await playAllDraws();
+    const base = { eventId: E, divisionId: DIV, stageId: 'group', groupId: 'A' };
+
+    await expect(setManualRankingFor({ ...base, pins: [{ teamId: 't1', rank: 1 }], reason: '  ' }))
+      .rejects.toThrow(/原因/);
+    await expect(setManualRankingFor({
+      ...base, pins: [{ teamId: 't1', rank: 1 }, { teamId: 't2', rank: 1 }], reason: '抽籤'
+    })).rejects.toThrow(/兩隊/);
+    await expect(setManualRankingFor({ ...base, pins: [], reason: '抽籤' }))
+      .rejects.toThrow(/至少一筆/);
+    await expect(setManualRankingFor({
+      ...base, groupId: 'ZZ', pins: [{ teamId: 't1', rank: 1 }], reason: '抽籤'
+    })).rejects.toThrow(/找不到小組/);
+  });
+
+  test('F15i ⭐ 還沒有積分榜就不准裁定（不可以憑空生出一份沒有 rows 的積分榜）', async () => {
+    await expect(setManualRankingFor({
+      eventId: E, divisionId: DIV, stageId: 'group', groupId: 'A',
+      pins: [{ teamId: 't1', rank: 1 }], reason: '抽籤'
+    })).rejects.toThrow(/還沒有積分榜/);
+    expect((await db.doc(`events/${E}/standings/${DIV}__group__A`).get()).exists).toBe(false);
+  });
+
+  test('F15j 裁定完最終排名算得出來（整條線通到底）', async () => {
+    await playAllDraws();
+    await setManualRankingFor({
+      eventId: E, divisionId: DIV, stageId: 'group', groupId: 'A',
+      pins: [
+        { teamId: 't3', rank: 1 }, { teamId: 't1', rank: 2 },
+        { teamId: 't4', rank: 3 }, { teamId: 't2', rank: 4 }
+      ],
+      reason: '抽籤', actorUid: 'u-admin'
+    });
+    await play('F1', 2, 0, { recalc: false });   // t3 勝 t1
+    await play('F3', 1, 0, { recalc: false });   // t4 勝 t2
+
+    const fr = await computeFinalRankingFor({ eventId: E, divisionId: DIV });
+    expect(fr.complete).toBe(true);
+    expect(fr.ranking.map(x => [x.rank, x.teamId]))
+      .toEqual([[1, 't3'], [2, 't1'], [3, 't4'], [4, 't2']]);
   });
 });

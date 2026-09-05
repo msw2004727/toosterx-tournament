@@ -1396,6 +1396,66 @@ const MUTANTS = [
     file: 'js/modules/admin/match-actions.js',
     from: "  return {\n    status,\n    clock: { running: false, periodStartedAt: null, elapsedSecAtPause: 0, addedTimeSec: 0 },\n    updatedBy: uid\n  };",
     to: "  return {\n    status,\n    score: { home: 0, away: 0 },\n    result: null,\n    clock: { running: false, periodStartedAt: null, elapsedSecAtPause: 0, addedTimeSec: 0 },\n    updatedBy: uid\n  };"
+  },
+  {
+    name: '#SR1 ⭐ pinsFrom 從 1 開始編號（第 3、4 名的裁定把兩隊釘到榜首）',
+    file: 'js/modules/admin/standing-actions.js',
+    from: '  return orderedTeamIds.map((teamId, i) => ({ teamId, rank: slots[i] }));',
+    to: '  return orderedTeamIds.map((teamId, i) => ({ teamId, rank: i + 1 }));'
+  },
+  {
+    name: '#SR2 ⭐ pinsFrom 不檢查隊數（少排一隊就默默少釘一個名次）',
+    file: 'js/modules/admin/standing-actions.js',
+    from: "  if (orderedTeamIds.length !== slots.length) {\n    throw new Error('排序的隊數跟名次數對不上');\n  }",
+    to: '  if (false) { throw new Error(0); }'
+  },
+  {
+    name: '#SR3 ⭐ 同分群只看 tiedWith，不看 hasUnresolvedTie（分得出勝負的兩隊也被列成待裁定）',
+    file: 'js/modules/admin/standing-actions.js',
+    from: "    if (r.hasUnresolvedTie !== true || seen.has(r.teamId)) continue;",
+    to: '    if (seen.has(r.teamId)) continue;'
+  },
+  {
+    name: '#SR4 ⭐ 一隊也算一群（畫出一張裁不了的卡）',
+    file: 'js/modules/admin/standing-actions.js',
+    from: '    if (members.length < 2) continue;',
+    to: '    if (members.length < 1) continue;'
+  },
+  {
+    name: '#SR5 ⭐ needsRuling 只看旗標，不看真的湊不湊得出同分群',
+    file: 'js/modules/admin/standing-actions.js',
+    from: "export const needsRuling = standing =>\n  standing?.hasUnresolvedTie === true && tieGroupsOf(standing).length > 0;",
+    to: 'export const needsRuling = standing => standing?.hasUnresolvedTie === true;'
+  },
+  {
+    name: '#SR6 ⭐ 上下移會繞回去（第一名往上會掉到最後）',
+    file: 'js/modules/admin/standing-actions.js',
+    from: '  if (idx < 0 || idx >= next.length || to < 0 || to >= next.length) return next;',
+    to: '  if (idx < 0 || idx >= next.length) return next;'
+  },
+  {
+    name: '#SR7 ⭐ 抽籤自己生種子（抽完就再也證明不了那一次抽了什麼，R-ENG-004）',
+    file: 'js/modules/admin/standing-actions.js',
+    from: 'export const drawTieOrder = (teamIds, seed) => drawOrder(teamIds, seed);',
+    to: 'export const drawTieOrder = (teamIds, seed) =>\n  drawOrder(teamIds, Number.isInteger(seed) ? seed : Math.floor(Math.random() * 1e9));'
+  },
+  {
+    name: '#SR8 ⭐ isRuled 只看 manualOverride，不看 rows 上的 locked',
+    file: 'js/modules/admin/standing-actions.js',
+    from: "export const isRuled = standing =>\n  standing?.manualOverride?.enabled === true ||\n  (standing?.rows || []).some(r => r.locked === true);",
+    to: 'export const isRuled = standing => standing?.manualOverride?.enabled === true;'
+  },
+  {
+    name: '#SR9 ⭐ 按下去之前不講「晉級會被解算」',
+    file: 'js/modules/admin/standing-actions.js',
+    from: "  if (hasDownstream) out.push('晉級會在裁定完成後立刻解算，下一階段的隊伍會被填進去。');",
+    to: '  if (false) out.push(0);'
+  },
+  {
+    name: '#SR10 ⭐ 隊名查不到時顯示空白（讓人以為紀錄壞了）',
+    file: 'js/modules/admin/standing-actions.js',
+    from: "  teamIds.map(id => teamsById?.[id]?.name ?? id).join('、');",
+    to: "  teamIds.map(id => teamsById?.[id]?.name ?? '').join('、');"
   }
 ];
 

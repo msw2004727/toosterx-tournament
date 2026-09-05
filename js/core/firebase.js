@@ -208,6 +208,22 @@ export async function signInWithLine(idToken) {
   return signInWithCustomToken(ctx.auth, payload.customToken);
 }
 
+/**
+ * 呼叫一支 callable Function，回傳信封裡的 `data`。
+ *
+ * ⚠️ 拆兩層 `data` 的邏輯**只能有一份**（上面那段註解的坑）。
+ *    每個呼叫端各自 `res.data.data` 的話，遲早有人寫成 `res.data`，
+ *    而症狀是「永遠 undefined」而不是錯誤。
+ *
+ * ⚠️ 這一支**會 reject**（跟 `sync.track()` 相反）：callable 是同步的
+ *    請求／回應，離線時它會失敗而不是排隊。呼叫端要自己接住並顯示原因。
+ */
+export async function callFunction(name, payload = {}) {
+  const { httpsCallable } = ctx.sdk;
+  const res = await httpsCallable(ctx.sdk._fns, name)(payload);
+  return res?.data?.data ?? res?.data ?? null;
+}
+
 export async function signOutStaff() {
   const { signOut } = ctx.sdk;
   await signOut(ctx.auth);

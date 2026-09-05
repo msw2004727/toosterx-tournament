@@ -59,7 +59,7 @@ function optsOf({ division, rule, teams, cardEvents }) {
  *
  * @returns {{standingId, version, hasUnresolvedTie, changed, diff, skipped?:true}}
  */
-export async function recalcStandingForGroup({ eventId, divisionId, stageId, groupId, teamIds }) {
+export async function recalcStandingForGroup({ eventId, divisionId, stageId, groupId, teamIds, manualPins = null }) {
   const division = await loadDivision(eventId, divisionId);
   const rule = await loadRankingRule(division.rankingRuleId);
 
@@ -90,7 +90,9 @@ export async function recalcStandingForGroup({ eventId, divisionId, stageId, gro
       eventId, divisionId, stageId, groupId,
       teamIds, matches, rule,
       opts: optsOf({ division, rule, teams, cardEvents }),
-      prev
+      prev,
+      // 有裁定就套用；沒有的話 buildStanding 會沿用 prev 裡鎖住的那幾列
+      manualPins
     });
 
     // 交易內 prev 是最新的，version 必定是 prev+1，所以這一條理論上不會成立。
@@ -687,4 +689,131 @@ export async function playerProgress({ eventId, playerId }) {
     completedCount: completed.length,
     draw: drawEntries({ completedChallengeIds: completed, challengeTotal: challenges.length, rewards })
   };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  人工裁定同分（docs/05 §7.2；競賽規章第十九條第 5 順位）
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * 主辦裁定同分的名次。
+ *
+ * ⭐ **這是「完全同分」唯一的出口。** 規章第十九條把抽籤列為第 5 順位，
+ *    而引擎依 R-ENG-004 不會自己擲骰子——它只標 `hasUnresolvedTie` 等人回填。
+ *    在這一支出現之前，兩隊每一項條件都相同時：
+ *      `hasUnresolvedTie: true` → `explainTeamSource` 回 miss
+ *      → 晉級永遠解不開 → 冠軍賽的隊伍永遠是「A組第1名」
+ *      → 最終排名算不出來 → **整個組別打不完**。
+ *
+ * ⚠️ 名次由 `buildStanding` 重算一次（帶 manualPins），**不是**直接改 rows：
+ *    直接改的話，rows 上的統計數字與 `version` 會跟管線分岔，
+ *    而下一次 `onMatchWritten` 重算就把裁定沖掉了。
+ *
+ * ⚠️ `reason` 必填。規章寫的是抽籤，但實際是誰、依什麼、在什麼時候決定的，
+ *    只有稽核紀錄留得住——申訴時要拿得出來。
+ *
+ * @param {object} o
+ * @param {Array<{teamId:string, rank:number}>} o.pins 裁定後的名次
+ * @param {string} o.reason 必填
+ * @param {number|null} [o.drawSeed] 用抽籤決定時的亂數種子（要能重放）
+ */
+export async function setManualRankingFor({
+  eventId, divisionId, stageId, groupId, pins, reason, actorUid = null, drawSeed = null
+}) {
+  if (!eventId || !divisionId || !stageId || !groupId) {
+    throw new Error('需要 eventId / divisionId / stageId / groupId');
+  }
+  if (!Array.isArray(pins) || !pins.length) throw new Error('需要至少一筆裁定名次');
+  if (!String(reason ?? '').trim()) throw new Error('裁定一定要填原因');
+
+  const groups = await loadGroups(eventId, divisionId, stageId);
+  const group = groups.find(g => g.groupId === groupId);
+  // fail-closed：小組讀不到就不要拿 pins 裡出現過的隊伍硬湊名單，
+  // 那會讓沒被裁定到的隊伍從積分榜上消失（R-ENG-005）
+  if (!group) throw new Error(`找不到小組設定：${divisionId}/${stageId}/${groupId}`);
+
+  const known = new Set(group.teamIds || []);
+  const stray = pins.filter(p => !known.has(p.teamId));
+  if (stray.length) {
+    throw new Error(`裁定裡有不屬於這一組的隊伍：${stray.map(p => p.teamId).join('、')}`);
+  }
+  const ranks = pins.map(p => p.rank);
+  if (new Set(ranks).size !== ranks.length) throw new Error('同一個名次被指派給兩隊');
+
+  const standingId = standingIdOf(divisionId, stageId, groupId);
+  const beforeSnap = await standingRef(eventId, standingId).get();
+  // fail-closed：積分榜還沒算過就沒有東西可以裁定。這裡先擋住是因為下一步
+  // 會用 merge 寫旗標——那會憑空生出一份只有 manualOverride、沒有 rows 的
+  // standing，公開端的積分榜會變成一張空表而且不會報錯（R-ENG-005）。
+  if (!beforeSnap.exists) throw new Error(`這一組還沒有積分榜可以裁定：${standingId}`);
+  const before = beforeSnap.data();
+
+  // ⚠️ 旗標一定要寫在重算**之前**。`recalcStandingForGroup` 裡是整份
+  //    `tx.set(ref, {...doc})`（不是 merge），而 `doc.manualOverride` 是從
+  //    交易內讀到的 prev 抄過來的——先重算再寫旗標的話，順序是
+  //    「set 把 enabled:false 寫進去 → merge 再補成 true」，中間那一瞬間
+  //    只要有另一個 onMatchWritten 進來重算，就會讀到 enabled:false
+  //    而把裁定沖掉。寫在前面則旗標本來就在 prev 上，怎麼重算都帶得過去。
+  await standingRef(eventId, standingId).set({
+    manualOverride: {
+      enabled: true,
+      by: actorUid,
+      at: FieldValue.serverTimestamp(),
+      reason: String(reason).trim().slice(0, 500),
+      drawSeed: Number.isInteger(drawSeed) ? drawSeed : null
+    }
+  }, { merge: true });
+
+  const result = await recalcStandingForGroup({
+    eventId, divisionId, stageId, groupId,
+    teamIds: group.teamIds || [],
+    manualPins: pins
+  });
+
+  await writeAudit(eventId, {
+    entity: 'standing', entityId: standingId, action: 'standing.manualRanking',
+    before: { rows: rankSnapshot(before), hasUnresolvedTie: before?.hasUnresolvedTie ?? null },
+    after: { pins, drawSeed: Number.isInteger(drawSeed) ? drawSeed : null },
+    reason: String(reason).trim()
+  });
+
+  // 裁定之後晉級就解得開了——這正是這一支存在的理由，所以要立刻試一次
+  const downstream = await resolveDownstreamOf({ eventId, divisionId, stageId, actorUid });
+
+  return { ...result, downstream };
+}
+
+/**
+ * 解除裁定，回到系統自己算的名次。
+ *
+ * ⚠️ 解除之後 `hasUnresolvedTie` 可能會**變回 true**——那是對的：
+ *    條件真的用盡了，系統不該假裝排得出來。
+ */
+export async function clearManualRankingFor({ eventId, divisionId, stageId, groupId, reason, actorUid = null }) {
+  const groups = await loadGroups(eventId, divisionId, stageId);
+  const group = groups.find(g => g.groupId === groupId);
+  if (!group) throw new Error(`找不到小組設定：${divisionId}/${stageId}/${groupId}`);
+
+  const standingId = standingIdOf(divisionId, stageId, groupId);
+  await standingRef(eventId, standingId).set({
+    manualOverride: { enabled: false, by: actorUid, at: FieldValue.serverTimestamp(), reason: reason ?? null, drawSeed: null }
+  }, { merge: true });
+
+  // 傳空陣列而不是 null：null 會讓 buildStanding 去沿用 prev 裡 locked 的那幾列，
+  // 而我們要的正是「不要沿用」
+  const result = await recalcStandingForGroup({
+    eventId, divisionId, stageId, groupId, teamIds: group.teamIds || [], manualPins: []
+  });
+
+  await writeAudit(eventId, {
+    entity: 'standing', entityId: standingId, action: 'standing.clearManual',
+    after: { hasUnresolvedTie: result?.hasUnresolvedTie ?? null },
+    reason: reason ?? '解除人工裁定'
+  });
+  return result;
+}
+
+/** 稽核用的名次快照：只留 teamId 與 rank，不要把整份 rows 塞進紀錄 */
+function rankSnapshot(standing) {
+  return (standing?.rows || []).map(r => ({ teamId: r.teamId, rank: r.rank, locked: r.locked === true }));
 }
