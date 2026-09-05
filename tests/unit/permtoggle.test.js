@@ -49,10 +49,21 @@ describe('T37-A 調得動與調不動', () => {
     // ⚠️ **不要在這裡寫死某一條權限碼。** 功能一上線那條的 pending 就會被
     //    拿掉，這條測試就跟著紅——但它要守的是「pending 會讓開關鎖住」
     //    這個行為，不是某一條權限的狀態。提醒拿掉旗標是 T42-8 的職責。
-    //    （`schedule.manage` 與 `challenge.attempt.write` 各讓這裡紅過一次。）
-    const pending = PERMISSIONS.filter(p => p.pending === true && p.minRole !== 'super_admin');
-    expect(pending.length).toBeGreaterThan(0);      // 全部上線了就該改寫這條測試
-    for (const p of pending) {
+    //    （`schedule.manage`、`challenge.attempt.write`、`match.confirm` 與
+    //    `export` 各讓這裡紅過一次。）
+    //
+    // ⚠️ 2026-09-05：`export` 上線之後，PERMISSIONS 裡**一條 pending 都不剩了**。
+    //    原本這裡有一句 `expect(pending.length).toBeGreaterThan(0)`，
+    //    它的用意是「別讓迴圈在空陣列上空轉」，但它把測試綁在「專案剛好還有
+    //    未完成的功能」這個狀態上——功能全部做完反而讓測試紅。
+    //    改法：**用一個合成的權限物件**驗那條規則，不依賴專案現在有沒有
+    //    pending 的項目；真的還有 pending 的話再一併驗一次。
+    const synthetic = { code: 'not.built.yet', label: '還沒做的功能', minRole: 'admin', pending: true };
+    const sr = editableRole(synthetic, 'admin');
+    expect(sr.ok).toBe(false);
+    expect(sr.reason).toContain('還沒上線');
+
+    for (const p of PERMISSIONS.filter(p => p.pending === true && p.minRole !== 'super_admin')) {
       const r = editableRole(p, p.minRole);
       expect(r.ok).toBe(false);
       expect(r.reason).toContain('還沒上線');

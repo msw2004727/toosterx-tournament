@@ -185,18 +185,18 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 - [x] M4-b④  依競賽規章校正設定＋未成年組教練管理名單＋檢錄台
 - [x] M4-b⑤  資訊架構重整：角色階層（向上包含）＋權限矩陣＋專屬首頁＋
       常駐頁首（登入／我的）＋主題只留圖示＋移除關注功能
-- [ ] M6 Challenge 挑戰系統（a 引擎與管線 ✅、b 攤位端 ✅、
-      c 玩家端 ✅（QR 產生器／Game Pass／首頁／排行榜）、d 抽獎匯出⏳）
+- [x] M6 Challenge 挑戰系統（a 引擎與管線、b 攤位端、
+      c 玩家端＝QR 產生器／Game Pass／首頁／排行榜、d 抽獎名單 CSV）
 - [ ] M7 彩排 → 上線
 
 ## 現在的狀態（2026-09-05）
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 1026 全綠（40 個 suite） |
-| `npm run test:mutation` | ✅ 252 / 252 全被抓到 |
+| `npm run test:unit` | ✅ 1059 全綠（41 個 suite） |
+| `npm run test:mutation` | ✅ 264 / 264 全被抓到 |
 | `npm run test:mutation:e2e` | ✅ 12 / 12 全被抓到（畫面層時序、權限與替身語意） |
-| `npm run test:e2e` | ✅ 945 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:e2e` | ✅ 972 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 206 全綠（…、R118–R125 賽程、R129–R132 改判、R17b–R17d Game Pass） |
 | `npm run test:mutation:rules` | ✅ 34 / 34 全被抓到 |
 | `npm run test:fn` | ✅ 67 全綠（F01–F15j 結果管線與同分裁定、FR01–FR13 報名與登入、FC01–FC14c 挑戰） |
@@ -331,18 +331,22 @@ R-TEST-001 的重點是鑑別力，但報告上的紅字要先分清楚是哪一
 
 ### 下一個里程碑
 
-**M4-c 七項全部完成**，加上場次改判與人工裁定同分。
+**M4-c 七項全部完成**，加上場次改判、人工裁定同分，以及 **M6 挑戰系統全部完成**
+（引擎／管線／攤位端／玩家端／抽獎名單 CSV）。
 主辦在 demo 上可以走完一整條線：
 報名 → 審核 → 抽籤 → 產生賽程 → 排定時間 → 發布 → 檢錄 → 記分 →
 積分榜 → **裁定同分** → 晉級 → 最終排名 → **覆核／改判** → 挑戰攤位登錄。
 
 接下來依序是：
 
-1. **M6-c 玩家端 `#/challenge`** —— Game Pass（免註冊）、我的 QR、進度、排行榜。
-   沒有它，挑戰區的抽獎資格與排行榜對玩家不存在。
-2. **M6-d 抽獎名單 CSV** ＋ `export` 匯出資料（規格 §7.3 說 MVP 只要匯出）。
-3. **M4-d「我的球員」** —— 要先建 `members` 的 collectionGroup 索引與規則。
-4. **M7 彩排（10/6–10/7）→ 上線**。
+1. **M4-d「我的球員」** —— 要先建 `members` 的 collectionGroup 索引與規則。
+2. **M7 彩排（10/6–10/7）→ 上線**。
+
+⚠️ **CI 從 2026-09-04 18:19 之後就沒有真的跑過**：GitHub Actions 的工作
+根本沒有啟動（`The job was not started because recent account payments have
+failed or your spending limit needs to be increased`）。本機全綠，但 CI 跑
+Linux，專門抓 CRLF、路徑大小寫這類本機看不到的問題。要去 GitHub 的
+Billing & plans 處理。
 
 規章有、系統還沒有的：每人限報乙隊的跨隊檢查、球員人數上限的伺服器端強制、
 申訴（賽後 30 分鐘＋保證金 2000）、眼鏡切結書、退費機制。
@@ -826,6 +830,49 @@ U6 只有 3 隊、女子組 5 隊，全部同分的機率不是零（F15 用「�
 真的執行 Function。「裁定之後積分榜長什麼樣、晉級有沒有解開」由
 `test:fn` 的 F15–F15j 用真的模擬器守。替身現在會把呼叫記進
 `window.__FAKE_CALLS`，spec 檢查的就是那一份。
+
+### 匯出資料（`#/admin/export`、`js/engine/csv.js`、M6-d）
+
+MVP 只做**匯出抽獎名單**（企劃書第二十六章明示；抽獎工具是 P2）。
+
+#### ⭐ CSV 公式注入
+
+暱稱是玩家自己取的，而且 `players` 的暱稱**連未登入的人都改得動**
+（docs/06 §5.1 的取捨）。`=1+1`、`+A1`、`-2`、`@SUM(…)` 這些開頭在
+Excel／Google 試算表裡會被**執行**——主辦打開抽獎名單的那一刻就中了。
+
+`sanitizeCell` 在危險開頭前面加一個單引號。`	` 與 `` 也要擋：
+它們可以夾帶在公式前面繞過只看 `= + - @` 的檢查（變異 #CSV2）。
+
+#### 另外三件錯了不會有錯誤訊息的事
+
+| | 少了會怎樣 |
+|---|---|
+| UTF-8 BOM | Excel 在中文 Windows 上用 CP950 解讀，整份亂碼（#CSV3）|
+| CRLF 行尾 | 舊版 Excel 把整份檔案讀成一列（#CSV4）|
+| 逗號／雙引號逸出 | 那一列後面每一欄往左移一格，看起來像資料錯亂（#CSV5、#CSV6）|
+
+⚠️ **驗 BOM 要驗位元組，不是字元。** `Blob.text()` 依規範會把開頭的 BOM
+吃掉（UTF-8 decode 的行為），所以 E2E 只看文字永遠會得到「沒有 BOM」的
+錯誤結論。要 `blob.arrayBuffer()` 看前三個位元組是不是 `EF BB BF`。
+
+#### 三件不可協商
+
+1. **張數用 `player.luckyDrawEntries`（Function 寫的權威值）**，不在前端
+   重算（#CSV11）。重算要讀 `config/challengeRewards` 與關卡總數，跟管線
+   分岔的話「名單上的張數」跟「玩家手機上看到的」會不一樣——那是在抽獎
+   現場才會吵起來的事。
+2. **0 張的人不進名單**（#CSV8）。要主辦自己在試算表裡篩一次，漏篩就等於
+   把沒有資格的人放進抽獎箱。
+3. **排序穩定**（張數多的在前，同張數依代號，#CSV9）。主辦重匯一次要拿到
+   同一份名單，不然沒辦法比對。
+
+⚠️ 全破人數依 `challengeTotal` 算，**不可以寫死 5**（#CSV10）——這個系統
+一個 `challengeId` 都沒有寫死（驗收 C08），在這裡寫死等於「加了第六關
+之後全破人數永遠是錯的」。
+
+⚠️ 「聯絡方式」欄目前一定是空的：表單還沒做，而 rules 也不放行訪客寫
+（見上面 `contact` 那一段）。欄位留著是為了讓檔案格式從頭到尾一致。
 
 ### 挑戰區玩家端（`#/challenge/*`、M6-c）
 

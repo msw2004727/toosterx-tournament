@@ -54,6 +54,8 @@ export function registerAdminRoutes() {
     { title: '賽程管理', guard: requireLogin });
   route('/admin/standings', page('../admin/standings.js', m => m.adminStandingsPage),
     { title: '人工裁定同分', guard: requireLogin });
+  route('/admin/export', page('../admin/export.js', m => m.adminExportPage),
+    { title: '匯出資料', guard: requireLogin });
   route('/admin/audits', page('../admin/audits.js', m => m.adminAuditsPage),
     { title: '稽核紀錄', guard: requireLogin });
   route('/admin/registration', page('../admin/registration.js', m => m.adminRegistrationPage),

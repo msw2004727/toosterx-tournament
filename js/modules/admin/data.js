@@ -557,3 +557,31 @@ export function watchStandings(scope, cb, onError) {
 export async function setManualRanking(payload) {
   return callFunction('setManualRanking', { eventId: EVENT_ID, ...payload });
 }
+
+// ── 匯出（M6-d）────────────────────────────────────────────
+
+/**
+ * 全部 Game Pass。
+ *
+ * 一次性讀取而不是監聽：匯出是「按下去的那一刻拍一張快照」，
+ * 中途被新資料蓋掉反而讓主辦搞不清楚下載到的是哪一份。
+ *
+ * ⚠️ 沒有分頁。現場規模是幾百人，一次讀回來沒有問題；
+ *    真的破千再處理——分頁會讓「匯出的是同一個時間點」這件事變複雜。
+ */
+export async function getPlayers() {
+  const { collection, getDocs, query, orderBy } = sdk();
+  const snap = await getDocs(query(
+    collection(db(), 'events', EVENT_ID, 'players'), orderBy('playerId', 'asc')
+  ));
+  return snap.docs.map(d => ({ playerId: d.id, ...d.data() }));
+}
+
+/** 關卡設定。只為了知道「幾關算全破」——不可以在畫面裡寫死 5 */
+export async function getChallenges() {
+  const { collection, getDocs, query, orderBy } = sdk();
+  const snap = await getDocs(query(
+    collection(db(), 'events', EVENT_ID, 'challenges'), orderBy('order', 'asc')
+  ));
+  return snap.docs.map(d => ({ challengeId: d.id, ...d.data() }));
+}

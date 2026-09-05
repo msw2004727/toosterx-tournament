@@ -1612,6 +1612,78 @@ const MUTANTS = [
     file: 'js/engine/challenge.js',
     from: '  if (ta == null) return 1;\n  if (tb == null) return -1;\n  return ta - tb;',
     to: '  if (ta == null) return -1;\n  if (tb == null) return 1;\n  return ta - tb;'
+  },
+  {
+    name: '#CSV1 ⭐ 不擋公式注入（主辦的 Excel 幫玩家執行一段公式）',
+    file: 'js/engine/csv.js',
+    from: "  if (s.length && FORMULA_LEAD.includes(s[0])) s = `'${s}`;",
+    to: '  if (false) s = s;'
+  },
+  {
+    name: '#CSV2 ⭐ 公式開頭只擋 = （+ - @ 照樣執行）',
+    file: 'js/engine/csv.js',
+    from: "const FORMULA_LEAD = ['=', '+', '-', '@', '\\t', '\\r'];",
+    to: "const FORMULA_LEAD = ['='];"
+  },
+  {
+    name: '#CSV3 ⭐ 沒有 BOM（Excel 在中文 Windows 上整份亂碼）',
+    file: 'js/engine/csv.js',
+    from: 'export function toCsv(columns, rows, { bom = true } = {}) {',
+    to: 'export function toCsv(columns, rows, { bom = false } = {}) {'
+  },
+  {
+    name: '#CSV4 ⭐ 行尾用 LF（舊版 Excel 把整份檔案讀成一列）',
+    file: 'js/engine/csv.js',
+    from: "  return (bom ? BOM : '') + [head, ...body].join('\\r\\n') + '\\r\\n';",
+    to: "  return (bom ? BOM : '') + [head, ...body].join('\\n') + '\\n';"
+  },
+  {
+    name: '#CSV5 ⭐ 逗號不逸出（那一列後面每一欄都往左移一格）',
+    file: 'js/engine/csv.js',
+    from: '  if (/[",\\r\\n]/.test(s)) s = `"${s.replace(/"/g, \'""\')}"`;',
+    to: '  if (/["\\r\\n]/.test(s)) s = `"${s.replace(/"/g, \'""\')}"`;'
+  },
+  {
+    name: '#CSV6 ⭐ 雙引號不加倍（RFC 4180；那一格之後的解析全錯）',
+    file: 'js/engine/csv.js',
+    from: '  if (/[",\\r\\n]/.test(s)) s = `"${s.replace(/"/g, \'""\')}"`;',
+    to: '  if (/[",\\r\\n]/.test(s)) s = `"${s}"`;'
+  },
+  {
+    name: '#CSV7 ⭐ null 印成 "null"（主辦會以為那個人的暱稱叫 null）',
+    file: 'js/engine/csv.js',
+    from: "  if (v == null) return '';",
+    to: '  if (false) return 0;'
+  },
+  {
+    name: '#CSV8 ⭐ 0 張的人也進抽獎名單（沒資格的人被放進抽獎箱）',
+    file: 'js/engine/csv.js',
+    from: '    .filter(r => r.entries > 0)',
+    to: '    .filter(r => r.entries >= 0)'
+  },
+  {
+    name: '#CSV9 ⭐ 抽獎名單排序不穩定（重匯一次拿到不同的名單，沒辦法比對）',
+    file: 'js/engine/csv.js',
+    from: '    .sort((a, b) => (b.entries - a.entries) || String(a.playerId).localeCompare(String(b.playerId)));',
+    to: '    .sort((a, b) => b.entries - a.entries);'
+  },
+  {
+    name: '#CSV10 ⭐ 全破人數寫死成 5 關（新增第六關之後永遠是錯的，驗收 C08）',
+    file: 'js/engine/csv.js',
+    from: '  const allDone = challengeTotal > 0\n    ? rows.filter(r => r.completedCount >= challengeTotal).length\n    : null;',
+    to: '  const allDone = rows.filter(r => r.completedCount >= 5).length;'
+  },
+  {
+    name: '#CSV11 ⭐ 張數在這裡重算而不是用 Function 寫的權威值',
+    file: 'js/engine/csv.js',
+    from: '      entries: Number.isInteger(p.luckyDrawEntries) ? p.luckyDrawEntries : 0,',
+    to: '      entries: Array.isArray(p.completedChallengeIds) ? p.completedChallengeIds.length : 0,'
+  },
+  {
+    name: '#CSV12 ⭐ 檔名的日期不檢查格式（生出一個看起來正常的爛檔名）',
+    file: 'js/engine/csv.js',
+    from: "  const d = typeof isoDate === 'string' && /^\\d{4}-\\d{2}-\\d{2}/.test(isoDate)\n    ? isoDate.slice(0, 10) : 'unknown';",
+    to: '  const d = String(isoDate).slice(0, 10);'
   }
 ];
 
