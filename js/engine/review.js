@@ -20,7 +20,37 @@ import { checkAge, isYouthDivision } from './eligibility.js';
 /** @typedef {{level:'error'|'warn'|'ok', code:string, message:string, source:string}} Finding */
 
 const ACTIVE = ['approved'];
-const isPlayer = m => (m?.kind ?? m?.role ?? 'player') === 'player';
+/**
+ * 這一筆算不算「球員」（規章第十二條的 15 人上限只數球員，不數隊職員）。
+ * ⚠️ 只有這一份定義：審核頁、Function 的 playerCount、rules 的 15 人檢查
+ *    都要用同一個判斷，不然「畫面說 15 人、伺服器說 16 人」。
+ */
+export const isPlayer = m => (m?.kind ?? m?.role ?? 'player') === 'player';
+
+/**
+ * 一位成員的「這是誰」鍵——「每人限報乙隊」（規章第十二條）靠它跨隊比對。
+ *
+ * 系統對未成年球員刻意**不存真名**（R-PRIV-002），暱稱又不可靠，
+ * 所以能辨識一個人的只有：
+ *   ・`身分證後四碼 ＋ 出生年月日`——兩個都有才算（少一個就撞不到，
+ *     寧可漏擋也不要把不同的人當成同一個）
+ *   ・本人用自己的帳號報名時（`isSelf`），那個 uid 就是他
+ *
+ * 家長的 uid **不算**：一位家長替兩個小孩報名是合法的（FR07），
+ * 用家長 uid 比對會把兄弟姊妹判成同一個人。
+ *
+ * @returns {string[]} 可能是空陣列——那代表「這一筆沒有可比對的身分」
+ */
+export function personKeysOf(member) {
+  const keys = [];
+  const id4 = typeof member?.idLast4 === 'string' ? member.idLast4.trim() : '';
+  const bd = typeof member?.birthDate === 'string' ? member.birthDate.trim() : '';
+  if (/^\d{4}$/.test(id4) && /^\d{4}-\d{2}-\d{2}$/.test(bd)) keys.push(`id:${id4}:${bd}`);
+  if (member?.isSelf === true && typeof member?.guardianUid === 'string' && member.guardianUid) {
+    keys.push(`uid:${member.guardianUid}`);
+  }
+  return keys;
+}
 
 /**
  * 檢核一支球隊的名單。

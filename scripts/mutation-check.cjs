@@ -740,6 +740,18 @@ const MUTANTS = [
     to: `  const roster = (Array.isArray(members) ? members : []);`
   },
   {
+    name: '#A10 ⭐ 跨隊查重把家長的 uid 也當成「同一個人」（一位家長替兩個小孩報不同隊，第二個被退件）',
+    file: 'js/engine/review.js',
+    from: `  if (member?.isSelf === true && typeof member?.guardianUid === 'string' && member.guardianUid) {`,
+    to: `  if (typeof member?.guardianUid === 'string' && member.guardianUid) {`
+  },
+  {
+    name: '#A11 ⭐ 跨隊查重只看後四碼、不看生日（同後四碼的兩個孩子被當成同一個人）',
+    file: 'js/engine/review.js',
+    from: '  if (/^\\d{4}$/.test(id4) && /^\\d{4}-\\d{2}-\\d{2}$/.test(bd)) keys.push(`id:${id4}:${bd}`);',
+    to: '  if (/^\\d{4}$/.test(id4)) keys.push(`id:${id4}:${bd}`);'
+  },
+  {
     name: '#B1 ⭐ 可指派身分多列一個 super_admin（介面上點兩下就有第二個大總管）',
     file: 'js/engine/assign.js',
     from: `export const ASSIGNABLE_ROLES = STAFF_CHAIN.slice(0, -1);`,

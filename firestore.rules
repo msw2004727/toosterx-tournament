@@ -186,7 +186,11 @@ service cloud.firestore {
             && ( onlyChanged(['note', 'updatedAt'])
                  || ( !rosterFrozen(tid)
                       && captainMemberTransition(resource.data.status,
-                                                 request.resource.data.status) ) );
+                                                 request.resource.data.status)
+                      // 同意一位球員的申請＝多一位球員，第 16 位不給同意
+                      && ( request.resource.data.status != 'approved'
+                           || resource.data.status == 'approved'
+                           || playerRoomLeft(tid, resource.data.get('kind', 'player')) ) ) );
       }
       function captainMemberTransition(from, to) {
         return (from == 'pending'  && to in ['pending', 'approved', 'rejected'])
@@ -209,6 +213,21 @@ service cloud.firestore {
             && request.resource.data.get('addedBy', '') == uid()
             && request.resource.data.status == 'approved'
             && request.resource.data.get('guardianUid', null) == null;
+      }
+
+      // 球員最多 15 人（競賽規章第十二條）。
+      //
+      // rules 沒辦法 count 子集合，所以看的是 Function 維護在球隊文件上的
+      // `playerCount`（只數已核准的球員，不含隊職員——跟審核頁同一份 isPlayer）。
+      // 這個數字是**事後**算的：兩位教練同一秒各加一人，兩筆都會過；
+      // 權威在 Function 的 enforceRosterCap，超過的那幾筆會被退件。
+      // 這裡擋的是「第 16 位一按下去就知道不行」，不是最後一道。
+      //
+      // ⚠️ 15 這個數字跟 js/engine/formats.js 的 REGISTRATION_LIMITS.maxPlayers
+      //    要一致，tests/unit/regulation-parity.test.js 盯著。
+      function playerRoomLeft(tid, kind) {
+        return kind != 'player'
+            || get(teamPath(tid)).data.get('playerCount', 0) < 15;
       }
 
       // 隊長改自己填的那幾筆。改別人（家長）填的一律擋掉。
@@ -285,6 +304,7 @@ service cloud.firestore {
                       && request.resource.data.status == 'draft'
                       && request.resource.data.get('rosterLocked', false) == false
                       && request.resource.data.get('memberCount', 0) == 0
+                      && request.resource.data.get('playerCount', 0) == 0
                       && regOpen();
 
         allow update: if isAdmin()
@@ -323,8 +343,10 @@ service cloud.firestore {
                              // (A) 家長／本人用邀請碼申請 → 一定是 pending
                              ( request.resource.data.get('guardianUid', '') == uid()
                                && request.resource.data.status == 'pending' )
-                             // (B) 隊長直接新增（學童組的流程）→ 直接進名單
-                             || ( isCaptainOf(teamId) && coachAddedMemberOk() )
+                             // (B) 隊長直接新增（學童組的流程）→ 直接進名單。
+                             //     直接進名單＝直接算進 15 人，所以這裡就要看得到還有沒有位子
+                             || ( isCaptainOf(teamId) && coachAddedMemberOk()
+                                  && playerRoomLeft(teamId, request.resource.data.get('kind', 'player')) )
                            );
 
           allow update: if isAdmin()

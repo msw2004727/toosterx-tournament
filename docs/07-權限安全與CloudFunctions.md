@@ -570,8 +570,8 @@ Region 一律 `asia-east1`。Runtime `nodejs22`。**ESM**（`functions/package.j
 
 | 名稱 | 排程 | 動作 |
 |---|---|---|
-| `refreshBoards` | 每分鐘（活動三日） | 保底重建 `boards/live`、`boards/today`，避免 trigger 漏掉 |
-| `detectAnomalies` | 每 5 分鐘 | 掃描 `00` §異常規則，寫入 `boards/alerts` |
+| ~~`refreshBoards`~~ | ~~每分鐘~~ | **2026-09-05 拿掉**：從 M3.9 起一直是空的 stub，卻部署在 demo 上每分鐘白跑。看板由 `onMatchWritten` 在完賽時重建；要做保底時再加回來，而且要有內容 |
+| ~~`detectAnomalies`~~ | ~~每 5 分鐘~~ | **2026-09-05 拿掉**：同上，`boards/alerts` 從來沒有人寫過 |
 | `nightlyBackup` | 每日 03:00 | Firestore export 到 GCS |
 
 ### 3.4 Callable 共通約定

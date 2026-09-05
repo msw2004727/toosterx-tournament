@@ -101,8 +101,8 @@ const MUTANTS = [
   {
     name: 'RU#13 教練直接新增不檢查是不是隊長（任何人都能塞人進別人的名單）',
     file: F,
-    from: `                             || ( isCaptainOf(teamId) && coachAddedMemberOk() )`,
-    to: `                             || ( isAuth() && coachAddedMemberOk() )`
+    from: `                             || ( isCaptainOf(teamId) && coachAddedMemberOk()`,
+    to: `                             || ( isAuth() && coachAddedMemberOk()`
   },
   {
     name: 'RU#14 教練新增的那筆不檢查 addedBy（可冒他人名義新增）',
@@ -296,6 +296,18 @@ const MUTANTS = [
         allow delete: if isAdmin();`,
     to: `        allow update: if true;
         allow delete: if isAdmin();`
+  },
+  {
+    name: "RU#36 ⭐ 第 16 位球員照樣加得進去（15 人上限沒有伺服器端強制）",
+    file: F,
+    from: "      function playerRoomLeft(tid, kind) {\n        return kind != 'player'\n            || get(teamPath(tid)).data.get('playerCount', 0) < 15;\n      }",
+    to: "      function playerRoomLeft(tid, kind) {\n        return true;\n      }"
+  },
+  {
+    name: "RU#37 ⭐ 隊長同意第 16 位的申請不受上限約束（成人組等於沒有上限）",
+    file: F,
+    from: "                      && ( request.resource.data.status != 'approved'\n                           || resource.data.status == 'approved'\n                           || playerRoomLeft(tid, resource.data.get('kind', 'player')) ) ) );",
+    to: "                      ) );"
   }
 ];
 

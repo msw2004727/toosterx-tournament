@@ -10,7 +10,7 @@
  *      等於系統替主辦訂了一條規章沒有的規則
  */
 
-import { reviewTeam, buildApprovePatch, buildRejectPatch } from '../../js/engine/review.js';
+import { reviewTeam, buildApprovePatch, buildRejectPatch, personKeysOf } from '../../js/engine/review.js';
 import { DIVISIONS, REGISTRATION_LIMITS as L } from '../../js/engine/formats.js';
 
 const byId = Object.fromEntries(DIVISIONS.map(d => [d.divisionId, d]));
@@ -193,5 +193,44 @@ describe('T43-6 核准與退回要寫的欄位', () => {
   test('⭐ 不自己填時間戳（R-ENG-004，由寫入層填 serverTimestamp）', () => {
     expect(buildApprovePatch('u').reviewedAt).toBeUndefined();
     expect(buildRejectPatch('u', 'r').reviewedAt).toBeUndefined();
+  });
+});
+
+describe('T43-7 personKeysOf：跨隊查重的「同一個人」（規章第十二條，每人限報乙隊）', () => {
+  test('後四碼＋生日兩個都有才算', () => {
+    expect(personKeysOf({ idLast4: '1234', birthDate: '2017-03-05' })).toEqual(['id:1234:2017-03-05']);
+  });
+
+  test('⭐ 只有後四碼、沒有生日 → 不可比對（寧可漏擋，也不把不同的人當成同一個）', () => {
+    // 後四碼只有一萬種，一個組別裡撞到同後四碼的兩個孩子並不稀奇
+    expect(personKeysOf({ idLast4: '1234' })).toEqual([]);
+    expect(personKeysOf({ idLast4: '1234', birthDate: null })).toEqual([]);
+    expect(personKeysOf({ birthDate: '2017-03-05' })).toEqual([]);
+  });
+
+  test('格式不對的不算（後四碼要四位數字、生日要 ISO）', () => {
+    expect(personKeysOf({ idLast4: 'abcd', birthDate: '2017-03-05' })).toEqual([]);
+    expect(personKeysOf({ idLast4: '1234', birthDate: '106-03-05' })).toEqual([]);   // 民國年混進來（R-REG-002）
+    expect(personKeysOf({ idLast4: ' 1234 ', birthDate: ' 2017-03-05 ' })).toEqual(['id:1234:2017-03-05']);
+  });
+
+  test('本人用自己的帳號報名時，uid 就是他', () => {
+    expect(personKeysOf({ isSelf: true, guardianUid: 'U-me' })).toEqual(['uid:U-me']);
+    expect(personKeysOf({ isSelf: true, guardianUid: 'U-me', idLast4: '1234', birthDate: '1990-01-01' }))
+      .toEqual(['id:1234:1990-01-01', 'uid:U-me']);
+  });
+
+  test('⭐ 家長的 uid 不算——一位家長替兩個小孩報不同隊是合法的（FR07）', () => {
+    expect(personKeysOf({ isSelf: false, guardianUid: 'U-parent' })).toEqual([]);
+    expect(personKeysOf({ guardianUid: 'U-parent' })).toEqual([]);
+    const a = personKeysOf({ guardianUid: 'U-parent', idLast4: '1111', birthDate: '2018-05-05' });
+    const b = personKeysOf({ guardianUid: 'U-parent', idLast4: '2222', birthDate: '2020-07-07' });
+    expect(a.filter(k => b.includes(k))).toEqual([]);   // 兄弟姊妹沒有任何一把共同的鍵
+  });
+
+  test('沒有資料時回空陣列，不丟例外', () => {
+    expect(personKeysOf(null)).toEqual([]);
+    expect(personKeysOf({})).toEqual([]);
+    expect(personKeysOf({ isSelf: true, guardianUid: '' })).toEqual([]);
   });
 });

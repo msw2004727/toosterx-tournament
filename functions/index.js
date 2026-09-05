@@ -18,7 +18,6 @@
 import { setGlobalOptions, logger } from 'firebase-functions/v2';
 import { onDocumentWritten, onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { ensureApp, db } from './admin.js';
 
 import {
@@ -26,6 +25,7 @@ import {
   resolveAdvancementForStage, computeFinalRankingFor, publishFinalRankingFor,
   rebuildBoardsFor, reconcileMatchScore,
   syncRosterFor, recountTeamMembers, recountUserTeams, rejectDuplicateApplication,
+  rejectCrossTeamDuplicate, enforceRosterCap,
   onAttemptSubmitted, setManualRankingFor, clearManualRankingFor
 } from './pipeline.js';
 import { writeAudit } from './store.js';
@@ -149,8 +149,8 @@ export const onMemberWritten = onDocumentWritten(
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
 
-    // 只有「新建立的待審申請」需要查重複。改動既有那筆不必再查一次，
-    // 否則隊長按同意時又會跑一輪查詢。
+    // 只有「新建立的那一筆」需要查重複。改動既有那筆不必再查一次，
+    // 否則隊長按同意時又會跑一輪查詢（退件那次寫入也是 update，不會成環）。
     if (!before && after?.status === 'pending') {
       const rejected = await rejectDuplicateApplication({
         eventId, teamId, memberId, member: after
@@ -160,10 +160,27 @@ export const onMemberWritten = onDocumentWritten(
         return;                    // 退件那次寫入會再觸發一次，投影與計數交給它
       }
     }
+    // 每人限報乙隊（規章第十二條）：待審或已核准的新成員都要跨隊查一次。
+    // 教練直接新增的學童（status 一開始就是 approved）也在這裡被擋。
+    if (!before && after && ['pending', 'approved'].includes(after.status)) {
+      const cross = await rejectCrossTeamDuplicate({ eventId, teamId, memberId, member: after });
+      if (cross) {
+        logger.info('[onMemberWritten] 跨隊重複已退件', { teamId, memberId, otherTeamId: cross.otherTeamId });
+        return;
+      }
+    }
 
     const r = await syncRosterFor({ eventId, teamId, memberId });
     const c = await recountTeamMembers({ eventId, teamId });
-    logger.info('[onMemberWritten]', { teamId, memberId, projected: r.projected, memberCount: c.memberCount });
+    logger.info('[onMemberWritten]', { teamId, memberId, projected: r.projected, memberCount: c.memberCount, playerCount: c.playerCount });
+
+    // 球員最多 15 人（規章第十二條）。rules 用 playerCount 擋在前面，
+    // 但那個數字是上面才剛算好的——兩位教練同一秒各加一人時兩筆都會過，
+    // 所以這裡才是權威：超過的那幾筆退件。
+    if (after?.status === 'approved') {
+      const cap = await enforceRosterCap({ eventId, teamId });
+      if (cap.rejected.length) logger.warn('[onMemberWritten] 超過球員上限，已退件', { teamId, rejected: cap.rejected });
+    }
   });
 
 /**
@@ -340,10 +357,9 @@ export const sendAnnouncement = onCall(unimplemented('sendAnnouncement', 'M5'));
 //  排程
 // ══════════════════════════════════════════════════════════════
 
-export const refreshBoards = onSchedule('every 1 minutes', async () => {
-  // TODO(M5): 保底重建 boards/live、boards/today，避免 trigger 漏掉
-});
-
-export const detectAnomalies = onSchedule('every 5 minutes', async () => {
-  // TODO(M5): 掃描 docs/00 的異常規則，寫入 boards/alerts
-});
+// ⚠️ 2026-09-05 拿掉了 refreshBoards（每 1 分鐘）與 detectAnomalies（每 5 分鐘）。
+//    兩支從 M3.9 起一直是**空的**，卻部署在 demo 上每分鐘白跑一次——
+//    留著會讓人以為看板有保底重建、異常有人在掃，其實都沒有（docs/07 §3.1 已註記）。
+//    看板由 onMatchWritten 在完賽時重建；要做保底時再加回來，而且要有內容。
+//    ⚠️ 從雲端刪除要另外跑 `firebase functions:delete refreshBoards detectAnomalies`，
+//       部署不會自動刪（非互動模式會直接中止）。

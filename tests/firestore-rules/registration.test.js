@@ -474,3 +474,58 @@ describe('R93–R98 報名審核（docs/05 §8.2、docs/10 §3）', () => {
     await assertFails(deleteDoc(auditRef(authed(env, 'u-super'))));
   });
 });
+
+// ══════════════════════════════════════════════════════════════
+describe('R133 球員最多 15 人（規章第十二條，伺服器端強制）', () => {
+  /**
+   * rules 看的是 Function 維護在球隊文件上的 `playerCount`（只數已核准的球員）。
+   * 這裡直接把那一格設成 15，模擬「名單已經滿了」。
+   */
+  test('⭐ R133 名單已有 15 位球員時，教練再加第 16 位會被擋', async () => {
+    await seedTeam({ playerCount: 15 });
+    await assertFails(setDoc(memberRef(authed(env, CAP), 'm-c16'), coachMemberDoc({ memberId: 'm-c16' })));
+  });
+
+  test('R133b 14 位時還加得進去', async () => {
+    await seedTeam({ playerCount: 14 });
+    await assertSucceeds(setDoc(memberRef(authed(env, CAP), 'm-c15'), coachMemberDoc({ memberId: 'm-c15' })));
+  });
+
+  test('⭐ R133c 上限只數球員：15 位球員滿了，隊職員照樣加得進去', async () => {
+    // 規章第十二條：球員 15 人、隊職員 3 人是兩個上限。把教練也算進 15 人，
+    // 一支滿編的隊就沒辦法登記領隊——那是比賽當天才會發現的事
+    await seedTeam({ playerCount: 15 });
+    await assertSucceeds(setDoc(memberRef(authed(env, CAP), 'm-coach'),
+      coachMemberDoc({ memberId: 'm-coach', kind: 'coach', role: 'coach' })));
+  });
+
+  test('⭐ R133d 隊長「同意」第 16 位球員的申請也會被擋', async () => {
+    // 成人組走邀請碼：家長申請是 pending，隊長按同意才算進名單。
+    // 只擋教練直接新增、不擋同意的話，上限在成人組等於沒有
+    await seedTeam({ playerCount: 15 });
+    await seedMember({ memberId: 'm-p16', status: 'pending' });
+    await assertFails(updateDoc(memberRef(authed(env, CAP), 'm-p16'),
+      { status: 'approved', decidedAt: null, decidedBy: CAP }));
+  });
+
+  test('R133e 同意第 15 位可以', async () => {
+    await seedTeam({ playerCount: 14 });
+    await seedMember({ memberId: 'm-p15', status: 'pending' });
+    await assertSucceeds(updateDoc(memberRef(authed(env, CAP), 'm-p15'),
+      { status: 'approved', decidedAt: null, decidedBy: CAP }));
+  });
+
+  test('R133f 隊長婉拒不受上限影響（滿了還是可以退件）', async () => {
+    await seedTeam({ playerCount: 15 });
+    await seedMember({ memberId: 'm-p16', status: 'pending' });
+    await assertSucceeds(updateDoc(memberRef(authed(env, CAP), 'm-p16'),
+      { status: 'rejected', decidedAt: null, decidedBy: CAP }));
+  });
+
+  test('⭐ R133g 隊長建隊時不能自己帶一個 playerCount（那格只有 Function 寫）', async () => {
+    await assertFails(setDoc(teamRef(authed(env, CAP), 't-cheat'),
+      newTeamDoc({ teamId: 't-cheat', playerCount: -5 })));
+    await assertSucceeds(setDoc(teamRef(authed(env, CAP), 't-ok'),
+      newTeamDoc({ teamId: 't-ok', playerCount: 0 })));
+  });
+});

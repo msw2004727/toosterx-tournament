@@ -149,6 +149,30 @@ const MUTANTS = [
     file: 'functions/pipeline.js',
     from: `  const challenge = await loadChallenge(eventId, challengeId);`,
     to: `  const challenge = await loadChallenge(eventId, challengeId).catch(() => ({ rankingRule: 'higher' }));`
+  },
+  {
+    name: "FN#22 ⭐ 跨隊查重只看後四碼、不看生日（不同的人被當成同一個而退件）",
+    file: 'functions/pipeline.js',
+    from: "      hit = snap.docs.find(d => otherTeam(d) && live(d) && d.data().birthDate === b) ?? null;",
+    to: "      hit = snap.docs.find(d => otherTeam(d) && live(d)) ?? null;"
+  },
+  {
+    name: "FN#23 ⭐ 跨隊查重把已移除／已退回的也算進去（換隊變成不可能）",
+    file: 'functions/pipeline.js',
+    from: "  const live = d => ['pending', 'approved'].includes(d.data().status);",
+    to: "  const live = d => true;"
+  },
+  {
+    name: "FN#24 ⭐ 人數上限把隊職員也算成球員（滿編的隊登記不了領隊）",
+    file: 'functions/pipeline.js',
+    from: "  const players = snap.docs.filter(d => isPlayer(d.data()));\n  if (players.length <= maxPlayers) return { rejected: [] };",
+    to: "  const players = snap.docs;\n  if (players.length <= maxPlayers) return { rejected: [] };"
+  },
+  {
+    name: "FN#25 ⭐ playerCount 數的是全部已核准的人（rules 會提早擋掉隊職員）",
+    file: 'functions/pipeline.js',
+    from: "  const playerCount = snap.docs.filter(d => isPlayer(d.data())).length;",
+    to: "  const playerCount = snap.size;"
   }
 ];
 

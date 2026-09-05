@@ -128,7 +128,10 @@
   // 名單控制
   rosterLocked: true,
   rosterLockedAt: Timestamp,
-  memberCount: { player: 14, staff: 3 },
+  memberCount: 17,                      // 已核准人數（Function 維護，含隊職員）
+  playerCount: 14,                      // 已核准的**球員**數（Function 維護）。
+                                        // rules 靠它擋第 16 位（規章第十二條）；
+                                        // 隊長寫不動這一格，建隊時只能是 0
   // 賽事狀態
   seed: 3,                             // 種子序（可空）
   groupId: 'A',                        // 分組賽所屬小組

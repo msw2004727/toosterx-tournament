@@ -24,6 +24,8 @@ import { resolveStage, canResolve, computeFinalRanking as computeFinalRankingPur
 import { computeScorers, computeFairPlayBoard, countedMatchIdsOf } from './engine/awards.js';
 import { reconcileScore } from './engine/timeline.js';
 import { rosterProjection } from './engine/privacy.js';
+import { isPlayer, personKeysOf } from './engine/review.js';
+import { REGISTRATION_LIMITS } from './engine/formats.js';
 import {
   db, evRef, loadRankingRule, loadFormat, loadDivision, loadGroups,
   loadDivisionMatches, loadStageMatchesTx, loadCardEvents, loadTeams, loadTimeline,
@@ -453,11 +455,18 @@ export async function recountTeamMembers({ eventId, teamId }) {
     .collection('members').where('status', '==', 'approved').get();
   const teamRef = evRef(eventId).collection('teams').doc(teamId);
   const cur = (await teamRef.get()).data();
-  if (!cur) return { memberCount: 0, skipped: '球隊不存在' };
-  if (cur.memberCount === snap.size) return { memberCount: snap.size, changed: false };
+  if (!cur) return { memberCount: 0, playerCount: 0, skipped: '球隊不存在' };
 
-  await teamRef.update({ memberCount: snap.size, updatedAt: FieldValue.serverTimestamp() });
-  return { memberCount: snap.size, changed: true };
+  // playerCount 只數球員（規章第十二條的 15 人上限不含隊職員）。
+  // firestore.rules 靠這一格擋第 16 位——rules 沒辦法 count 子集合，
+  // 所以這個數字要由這裡維護，而且用的是跟審核頁同一份 isPlayer。
+  const playerCount = snap.docs.filter(d => isPlayer(d.data())).length;
+  if (cur.memberCount === snap.size && cur.playerCount === playerCount) {
+    return { memberCount: snap.size, playerCount, changed: false };
+  }
+
+  await teamRef.update({ memberCount: snap.size, playerCount, updatedAt: FieldValue.serverTimestamp() });
+  return { memberCount: snap.size, playerCount, changed: true };
 }
 
 /**
@@ -819,4 +828,111 @@ export async function clearManualRankingFor({ eventId, divisionId, stageId, grou
 /** 稽核用的名次快照：只留 teamId 與 rank，不要把整份 rows 塞進紀錄 */
 function rankSnapshot(standing) {
   return (standing?.rows || []).map(r => ({ teamId: r.teamId, rank: r.rank, locked: r.locked === true }));
+}
+
+// ══════════════════════════════════════════════════════════════
+//  規章第十二條：每人限報乙隊、球員最多 15 人（伺服器端強制）
+// ══════════════════════════════════════════════════════════════
+
+/** 從 members 文件的路徑取 teamId：events/{e}/teams/{t}/members/{m} */
+const teamIdOfRef = ref => ref.parent.parent.id;
+
+/**
+ * 每人限報乙隊——跨隊查重。
+ *
+ * 新建立的一筆（待審或已核准）若跟**別的球隊**上一筆待審／已核准的成員
+ * 是同一個人，就把新的這一筆退件。「同一個人」的判斷在
+ * `js/engine/review.js` 的 `personKeysOf`：身分證後四碼＋生日，或本人的 uid。
+ *
+ * ⚠️ 查的是 `members` 的 collection group。`idLast4` 與 `guardianUid` 兩個欄位
+ *    在 `firestore.indexes.json` 有 collection-group 的 fieldOverride——
+ *    少了它正式站會直接丟 FAILED_PRECONDITION，而模擬器上不會（模擬器不查索引）。
+ *
+ * ⚠️ 只擋**別隊**。同一隊裡的重複由 `rejectDuplicateApplication` 管
+ *    （那是「同一帳號對同一隊兩筆待審」，語意不同）。
+ *
+ * @returns {Promise<false|{otherTeamId:string}>}
+ */
+export async function rejectCrossTeamDuplicate({ eventId, teamId, memberId, member }) {
+  const keys = personKeysOf(member);
+  if (!keys.length) return false;
+
+  const group = db().collectionGroup('members');
+  const prefix = `events/${eventId}/teams/`;
+  const live = d => ['pending', 'approved'].includes(d.data().status);
+  const otherTeam = d => d.ref.path.startsWith(prefix) && teamIdOfRef(d.ref) !== teamId;
+
+  let hit = null;
+  for (const key of keys) {
+    const [kind, a, b] = key.split(':');
+    let snap;
+    if (kind === 'id') {
+      snap = await group.where('idLast4', '==', a).get();
+      hit = snap.docs.find(d => otherTeam(d) && live(d) && d.data().birthDate === b) ?? null;
+    } else {
+      snap = await group.where('guardianUid', '==', a).get();
+      hit = snap.docs.find(d => otherTeam(d) && live(d) && d.data().isSelf === true) ?? null;
+    }
+    if (hit) break;
+  }
+  if (!hit) return false;
+
+  const otherTeamId = teamIdOfRef(hit.ref);
+  const other = (await evRef(eventId).collection('teams').doc(otherTeamId).get()).data();
+  const otherName = other?.name ?? otherTeamId;
+
+  await evRef(eventId).collection('teams').doc(teamId).collection('members').doc(memberId).update({
+    status: 'rejected',
+    rejectReason: `每人限報乙隊（競賽規章第十二條）：這位球員已經在「${otherName}」的名單上。要換隊請先請原球隊移除。`,
+    decidedAt: FieldValue.serverTimestamp(),
+    decidedBy: 'fn:onePlayerOneTeam'
+  });
+  await writeAudit(eventId, {
+    entity: 'member', entityId: `${teamId}/${memberId}`, action: 'member.crossTeamRejected',
+    after: { otherTeamId, keys },
+    reason: '每人限報乙隊（規章第十二條）'
+  });
+  return { otherTeamId };
+}
+
+/**
+ * 球員最多 15 人——超過的那幾筆退件。
+ *
+ * rules 用 `teams.playerCount < 15` 擋在前面，但那個數字是這裡**事後**維護的：
+ * 兩位教練同一秒各加一人，兩筆都會過。所以這裡是權威：已核准的球員
+ * 依核准時間排序，第 16 位起一律退件，晚核准的先退。
+ *
+ * ⚠️ 上限來自 `REGISTRATION_LIMITS.maxPlayers`（規章的權威在 formats.js），
+ *    這裡不寫 15。
+ *
+ * @returns {Promise<{rejected:string[]}>}
+ */
+export async function enforceRosterCap({ eventId, teamId, maxPlayers = REGISTRATION_LIMITS.maxPlayers }) {
+  const col = evRef(eventId).collection('teams').doc(teamId).collection('members');
+  const snap = await col.where('status', '==', 'approved').get();
+  const players = snap.docs.filter(d => isPlayer(d.data()));
+  if (players.length <= maxPlayers) return { rejected: [] };
+
+  const ms = v => (v?.toMillis ? v.toMillis() : (typeof v === 'number' ? v : 0));
+  // 早核准的留下，晚的退——排序穩定（同時間依 id），重跑結果一樣
+  players.sort((a, b) =>
+    (ms(a.data().decidedAt) - ms(b.data().decidedAt)) || a.id.localeCompare(b.id));
+  const extra = players.slice(maxPlayers);
+
+  const batch = db().batch();
+  for (const d of extra) {
+    batch.update(d.ref, {
+      status: 'rejected',
+      rejectReason: `球員最多 ${maxPlayers} 人（競賽規章第十二條）。這一筆是第 ${maxPlayers + 1} 位之後才核准的，已自動退回。`,
+      decidedAt: FieldValue.serverTimestamp(),
+      decidedBy: 'fn:rosterCap'
+    });
+  }
+  await batch.commit();
+  await writeAudit(eventId, {
+    entity: 'team', entityId: teamId, action: 'member.capRejected',
+    after: { maxPlayers, rejected: extra.map(d => d.id) },
+    reason: `球員超過 ${maxPlayers} 人上限（規章第十二條）`
+  });
+  return { rejected: extra.map(d => d.id) };
 }

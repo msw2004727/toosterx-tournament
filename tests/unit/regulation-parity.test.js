@@ -160,6 +160,15 @@ describe('T37-4 棄權（規章第十八條第 6 款）', () => {
 describe('T37-5 報名限制（規章第十二條）', () => {
   test('⭐ 球員最多 15 人、隊職員 3 人', () => {
     expect(REGISTRATION_LIMITS.maxPlayers).toBe(REG.maxPlayers);
+
+    // ⭐ firestore.rules 沒辦法 import formats.js，那條「第 16 位不給加」的規則
+    //    只能把數字寫死。這裡逐字對照：規則裡的數字一改，或規章的數字一改，
+    //    兩邊分岔的那一刻就紅——分岔的症狀是「畫面說 15、伺服器擋在 14」，
+    //    而那要到報名期間才會有人回報。
+    const rules = read('firestore.rules');
+    const m = /function playerRoomLeft\([\s\S]*?get\('playerCount', 0\) < (\d+);/.exec(rules);
+    expect(m).toBeTruthy();
+    expect(Number(m[1])).toBe(REGISTRATION_LIMITS.maxPlayers);
     expect(REGISTRATION_LIMITS.maxStaff).toBe(REG.maxStaff);
   });
 

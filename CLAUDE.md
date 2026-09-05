@@ -193,14 +193,14 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 1059 全綠（41 個 suite） |
-| `npm run test:mutation` | ✅ 264 / 264 全被抓到 |
+| `npm run test:unit` | ✅ 1065 全綠（41 個 suite） |
+| `npm run test:mutation` | ✅ 266 / 266 全被抓到 |
 | `npm run test:mutation:e2e` | ✅ 12 / 12 全被抓到（畫面層時序、權限與替身語意） |
 | `npm run test:e2e` | ✅ 972 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 206 全綠（…、R118–R125 賽程、R129–R132 改判、R17b–R17d Game Pass） |
-| `npm run test:mutation:rules` | ✅ 34 / 34 全被抓到 |
-| `npm run test:fn` | ✅ 67 全綠（F01–F15j 結果管線與同分裁定、FR01–FR13 報名與登入、FC01–FC14c 挑戰） |
-| `npm run test:mutation:fn` | ✅ 21 / 21 全被抓到 |
+| `npm run test:rules` | ✅ 213 全綠（…、R129–R132 改判、R17b–R17d Game Pass、R133 球員上限） |
+| `npm run test:mutation:rules` | ✅ 36 / 36 全被抓到 |
+| `npm run test:fn` | ✅ 79 全綠（F01–F15j 結果管線與同分裁定、FR01–FR15e 報名／登入／規章第十二條、FC01–FC14c 挑戰） |
+| `npm run test:mutation:fn` | ✅ 25 / 25 全被抓到 |
 
 ### 「變異漏掉」有四種原因，不是只有一種
 
@@ -339,8 +339,12 @@ R-TEST-001 的重點是鑑別力，但報告上的紅字要先分清楚是哪一
 
 接下來依序是：
 
-1. **M4-d「我的球員」** —— 要先建 `members` 的 collectionGroup 索引與規則。
-2. **M7 彩排（10/6–10/7）→ 上線**。
+1. **正式站上線**（2026-09-05 進行中）：merge main → `deploy:rules:prod` →
+   `deploy:fn:prod` → 小麥授權 signBlob → `bootstrap-prod.mjs` → 小麥 LINE 登入 →
+   `grant-super-admin.mjs` → 開報名。步驟在 docs/11 §5。
+2. **M4-d「我的球員」** —— `members` 的 collectionGroup 索引已經有了（跨隊查重用），
+   剩 rules 與畫面。
+3. **M7 彩排（10/6–10/7）**。
 
 ⚠️ **CI 從 2026-09-04 18:19 之後就沒有真的跑過**：GitHub Actions 的工作
 根本沒有啟動（`The job was not started because recent account payments have
@@ -348,8 +352,8 @@ failed or your spending limit needs to be increased`）。本機全綠，但 CI 
 Linux，專門抓 CRLF、路徑大小寫這類本機看不到的問題。要去 GitHub 的
 Billing & plans 處理。
 
-規章有、系統還沒有的：每人限報乙隊的跨隊檢查、球員人數上限的伺服器端強制、
-申訴（賽後 30 分鐘＋保證金 2000）、眼鏡切結書、退費機制。
+規章有、系統還沒有的：申訴（賽後 30 分鐘＋保證金 2000）、眼鏡切結書、退費機制。
+（每人限報乙隊的跨隊檢查、球員人數上限的伺服器端強制：2026-09-05 已做，見「規章第十二條」那一節。）
 
 ## 變異測試的殘留（R-TEST-002，2026-09-03 出過事）
 
@@ -458,8 +462,61 @@ CI 跑 Linux，永遠不會重現。
 
 ### 規章有、系統還沒有的
 
-每人限報乙隊的跨隊檢查、球員人數上限的伺服器端強制、
 申訴（賽後 30 分鐘＋保證金 2000）、眼鏡切結書、退費機制。
+每人限報乙隊與 15 人上限的伺服器端強制 **2026-09-05 已做**（見下一節）。
+
+### 規章第十二條的伺服器端強制（2026-09-05）
+
+```
+js/engine/review.js      isPlayer（唯一定義）、personKeysOf（「這是誰」的鍵）
+functions/pipeline.js    recountTeamMembers（多維護 playerCount）、
+                         rejectCrossTeamDuplicate、enforceRosterCap
+firestore.rules          playerRoomLeft(tid, kind)：擋第 16 位的建立與同意
+firestore.indexes.json   members 的 collection-group fieldOverride（idLast4、guardianUid）
+```
+
+**球員最多 15 人**是兩層：
+
+| 層 | 做什麼 | 為什麼還需要另一層 |
+|---|---|---|
+| rules | 看球隊文件上的 `playerCount < 15`，第 16 位一按下去就被擋 | 那個數字是 Function **事後**算的，兩位教練同一秒各加一人兩筆都會過 |
+| Function | `enforceRosterCap`：已核准的球員依核准時間排序，第 16 位起退件 | 權威。rules 只是讓人不用等一秒才知道不行 |
+
+⚠️ **只數球員**（`isPlayer`，跟審核頁同一份）。把教練也算進 15 人，一支滿編的隊
+就登記不了領隊——那是比賽當天才會發現的事（R133c、FR15d、FN#24）。
+
+⚠️ rules 裡的 `15` 是寫死的（rules 進不了 formats.js）。
+`tests/unit/regulation-parity.test.js` 逐字對照 `REGISTRATION_LIMITS.maxPlayers`。
+
+**每人限報乙隊**只在 Function（rules 查不到別隊的名單）。「同一個人」的判斷在
+`personKeysOf`：身分證後四碼＋生日**兩個都有**才算，或本人用自己帳號報名的 uid。
+**家長的 uid 不算**——一位家長替兩個小孩報不同隊是合法的（FR07、FR14f）。
+
+⚠️ 查的是 `members` 的 **collection group**。`idLast4` 與 `guardianUid` 在
+`firestore.indexes.json` 有 collection-group 的 fieldOverride，**正式站沒部署索引
+會直接 FAILED_PRECONDITION，而模擬器不會**（模擬器不查索引）。`deploy:rules:*` 會一起部署。
+
+### 正式站的設定怎麼進去（`scripts/bootstrap-prod.mjs`）
+
+種子腳本依 R-SEED-001 只准對 demo 跑，而後台沒有建立組別／場地／關卡的介面——
+所以正式站的設定由這一支灌：用**同一份** `scripts/seed/build.js` 的 builder，
+只留設定類的 34 筆（組別、場地、五關、抽獎規則、賽程參數、LINE、報名開關、
+角色權限、空排行榜），1198 筆假隊伍與比賽整批丟掉。
+
+三條規矩：**只補不存在的、永遠不覆蓋**（重跑不會把總管調過的東西打回去）；
+對正式專案要 `--yes`；路徑白名單以外一筆都不寫。`seedData` 旗標一律拿掉——
+`seed.js --reset` 是依那個旗標刪文件的。
+
+```bash
+node scripts/bootstrap-prod.mjs --project feda-cup-2026 --dry-run
+node scripts/bootstrap-prod.mjs --project feda-cup-2026 --yes
+```
+
+### 拿掉的兩支排程 Function（2026-09-05）
+
+`refreshBoards`（每 1 分鐘）與 `detectAnomalies`（每 5 分鐘）從 M3.9 起一直是空的
+stub，卻部署在 demo 上每分鐘白跑。已從程式與 demo 雲端刪除（docs/07 §3.1 已註記）。
+要做保底重建時再加回來，而且要有內容。
 
 ### 組別的兩個名字（R-REG-001）
 
