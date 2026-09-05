@@ -191,7 +191,8 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 - [x] 規章補齊（2026-09-05）：申訴登記與裁決、眼鏡切結書、取消報名／退費、
       直播設定、中獎聯絡方式、三張教學卡、Lighthouse 首次量測與首屏修正
 - [x] 驗收整合修正（2026-09-06）：兩份外部驗收報告的 D-01…D-15＋C-01 逐條核實，
-      15 條屬實全部修掉（D-05 已不成立），T58 ＋ audit-fixes.spec ＋ 變異 #AF1–#AF15／#E18–#E31。
+      15 條屬實全部修掉（D-05 已不成立），實地驗證再抓到 D-01b（檢錄名單缺複合索引）。
+      T58 ＋ audit-fixes.spec ＋ 變異 #AF1–#AF16／#E18–#E32。
       見下方「驗收整合修正」一節與 docs/13
 - [ ] M7 彩排 → 上線
 
@@ -199,10 +200,10 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 1148 全綠（47 個 suite） |
-| `npm run test:mutation` | ✅ 296 / 296 全被抓到 |
-| `npm run test:mutation:e2e` | ✅ 31 / 31 全被抓到（畫面層時序、權限、替身語意與驗收修正） |
-| `npm run test:e2e` | ✅ 1128 全綠（mobile / desktop / 320px 三種寬度） |
+| `npm run test:unit` | ✅ 1150 全綠（47 個 suite） |
+| `npm run test:mutation` | ✅ 297 / 297 全被抓到 |
+| `npm run test:mutation:e2e` | ✅ 32 / 32 全被抓到（畫面層時序、權限、替身語意與驗收修正） |
+| `npm run test:e2e` | ✅ 1131 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 229 全綠（…、R133 球員上限、R134 我的球員、R135 申訴、R136 取消退費、R137 聯絡方式、R138 眼鏡切結書、R139 憑證雜湊） |
 | `npm run test:mutation:rules` | ✅ 42 / 42 全被抓到 |
 | `npm run test:fn` | ✅ 84 全綠（F01–F15j 結果管線與同分裁定、FR01–FR15e 報名／登入／規章第十二條、FC01–FC15f 挑戰與聯絡方式） |
@@ -227,6 +228,11 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 4. **onSnapshot 的 onError 不可以是空函式。** 攤位「最近登錄」缺複合索引，正式站回
    FAILED_PRECONDITION、模擬器不會——而錯誤被 `() => {}` 吞掉，整區靜靜消失、作廢鈕永遠不出現。
    替身 SDK 現在有 `__FAKE_SNAPSHOT_FAIL` 可以模擬這種錯誤（變異 #E21）。
+5. **修完一定要在真站走一次，而且要硬重新整理。** D-01 修好之後檢錄名單的查詢**第一次真的執行**，
+   立刻撞到第二層：`members(status, jerseyNo)` 的複合索引從來沒有建過（D-01b）。模擬器、替身、
+   單元測試全部不查索引，只有正式資料庫會回 `failed-precondition`。而且 SPA 的 hash 導覽不會重載
+   模組——索引建好之後畫面仍是舊狀態，要 F5 才看得到。缺索引的症狀一律是「看起來沒有資料」，
+   所以讀不到名單的畫面現在必須說「讀不到」，不能說「還沒有名單」。
 
 ### 「變異漏掉」有四種原因，不是只有一種
 
