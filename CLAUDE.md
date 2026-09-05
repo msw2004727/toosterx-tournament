@@ -319,15 +319,27 @@ R-TEST-001 的重點是鑑別力，但報告上的紅字要先分清楚是哪一
 > 逐步操作手冊在 **`docs/11-上線前設定步驟.md`**（含每一項的驗證方法）。
 > 換一台電腦接手看 **`docs/12-換設備接手指引.md`**。
 
+**正式站已於 2026-09-05 第一次完整部署**：`main` = demo（0aa9184）、rules／索引、
+22 支 Functions、34 筆設定文件（`scripts/bootstrap-prod.mjs`）、signBlob 授權、
+映像檔清理政策（asia-east1，3 天）。煙霧測試 14 項全過（免登入 REST 打 rules）。
+
 1. ~~Blaze 升級~~ ✅　~~兩組 LIFF Channel~~ ✅　~~報名截止日~~ ✅（demo，截止 10/8 00:00）
    ⚠️ 截止日仍建議提前到 9/28 或 10/1——彩排排在 10/6–10/7，
    10/8 才截止的話彩排時名單還沒定案
-2. ~~授權 `signBlob`~~ ✅ demo 已完成。
-   ⚠️ **正式站的那一份要等第一次 `deploy:fn:prod` 之後才做得了**——
-   `{編號}-compute@developer.gserviceaccount.com` 是部署 Functions 時才被建立的，
-   現在對 `feda-cup-2026` 跑會得到 `NOT_FOUND: Unknown service account`（docs/11 §1.5）
+2. ~~授權 `signBlob`~~ ✅ demo 與正式站都已完成（正式站 2026-09-05，在第一次 `deploy:fn:prod` 之後）
 3. ~~Cloudflare Browser Cache TTL~~ ✅ 已完成，兩個網域實測都回我們自己的標頭
-4. **Functions 映像檔清理政策**（`npx firebase functions:artifacts:setpolicy`）
+4. ~~Functions 映像檔清理政策~~ ✅ 兩個專案都設好（要帶 `--location asia-east1`，
+   不帶的話它去找 us-central1 然後說「請先部署 Functions」）
+5. **GitHub Actions 帳務**——CI 自 2026-09-04 起每次 3–4 秒就紅，不是程式壞了。
+   修好之前所有測試只能在本機跑
+6. **LINE Developers**：LIFF `2011382367` 的 Endpoint URL 要是 `https://cup.toosterx.com`
+7. **正式站用 LINE 登入一次拿 uid** → `node scripts/grant-super-admin.mjs --project feda-cup-2026 --uid U… --name 名字`
+8. **正式站 `#/admin/registration` 開放報名並設截止日**（需要 7 先完成）
+
+> 第一次對新專案部署 Firestore 觸發器會拿到
+> `Permission denied while using the Eventarc Service Agent`（HTTP 400）——
+> 不是設定錯，是 Eventarc 服務代理的權限還在傳播。等兩三分鐘再對那幾支重跑
+> `firebase deploy --only functions:onMatchWritten,… --project prod` 就好。2026-09-05 就是這樣過的。
 
 ### 下一個里程碑
 
