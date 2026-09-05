@@ -1604,7 +1604,7 @@ js/lib/format.js         APPEAL_STATUS_LABEL（公開端不 import 引擎，狀�
 ### 教學卡與 Lighthouse
 
 `docs/cards/{scorer,checkin,booth}.html` → `node scripts/make-cards.mjs` 產生 PDF（用專案的 Playwright Chromium）。
-`docs/lighthouse/` 放量測報告（`mobile.report.*` 是修改前的正式站、`demo-mobile.report.*` 是修改後的 demo）。
+`docs/lighthouse/` 放量測報告（`mobile.report.*` 修改前的正式站 66、`demo-mobile.report.*` 修改後的 demo 96、`mobile-after.report.*` 修改後的正式站 87）。
 2026-09-05 首次量測手機版效能 **66**：LCP 7.1 秒，是等 Firebase SDK 載完才畫的空狀態文字。
 兩步修到 **96**（FCP／LCP 1.7 秒）：
 1. `index.html` 加 preconnect（gstatic、firestore）、十個核心模組的 modulepreload、載入中的靜態標題（`.boot-hero`）→ 80
