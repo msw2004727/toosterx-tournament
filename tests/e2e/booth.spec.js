@@ -272,6 +272,8 @@ test('⭐ C07 十分鐘內可以作廢自己送的那一筆 @booth', async ({ pa
 
   await page.getByRole('button', { name: /作廢/ }).first().click();
   await page.locator('.modal').getByRole('button', { name: /^作廢$/ }).click();
+  // 作廢一定要選原因（docs/06 §6.3；2026-09-06 驗收 B-5）
+  await page.locator('.sheet__opt', { hasText: '成績輸錯' }).click();
 
   await expect.poll(async () => (await attemptsOf(page))[0]?.voided, { timeout: 15_000 }).toBe(true);
   // 紀錄仍然留著，只是標記作廢（永不刪除）
@@ -371,4 +373,26 @@ test('⭐ 三態燈在攤位頁的淺色底上看得到（不是白字）@booth'
   await ready(page);
   const color = await page.locator('.sync').first().evaluate(el => getComputedStyle(el).color);
   expect(color).not.toBe('rgb(255, 255, 255)');
+});
+
+// ── 2026-09-06 主辦驗收 B-5：作廢時沒有跳出原因視窗（原因被寫死成「攤位作廢」）──
+test('⭐ B-5 作廢要選原因，原因寫進紀錄；沒選就不作廢 @booth', async ({ page }) => {
+  await stub(page);
+  await go(page);
+  await ready(page);
+  await lookup(page);
+  await page.getByRole('button', { name: /送出成績/ }).click();
+  await expect(page.getByRole('button', { name: /作廢/ }).first()).toBeVisible({ timeout: 15_000 });
+  // 第一次：確認之後在原因面板按取消 → 不作廢
+  await page.getByRole('button', { name: /作廢/ }).first().click();
+  await page.locator('.modal').getByRole('button', { name: /^作廢$/ }).click();
+  await expect(page.locator('.sheet')).toBeVisible();
+  await page.locator('.sheet__close').click();
+  await expect.poll(async () => (await attemptsOf(page)).filter(a => a.voided === true).length).toBe(0);
+  // 第二次：選「掃錯玩家」→ 作廢，原因留在紀錄上
+  await page.getByRole('button', { name: /作廢/ }).first().click();
+  await page.locator('.modal').getByRole('button', { name: /^作廢$/ }).click();
+  await page.locator('.sheet__opt', { hasText: '掃錯玩家' }).click();
+  await expect.poll(async () => (await attemptsOf(page)).find(a => a.voided === true)?.voidReason ?? null, { timeout: 15_000 })
+    .toBe('掃錯玩家');
 });

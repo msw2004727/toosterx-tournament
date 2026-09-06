@@ -314,6 +314,13 @@ const MUTANTS = [
     return;`
   },
   {
+    name: '#E47 ⭐ 作廢不問原因、寫死「攤位作廢」（事後查不出是掃錯人還是輸錯；B-5）',
+    file: 'js/modules/booth/booth.js',
+    from: `    const reason = await askVoidReason();
+    if (!reason) return;`,
+    to: `    const reason = '攤位作廢';`
+  },
+  {
     name: '#E46 ⭐ 「我的球隊」又連回公開球隊頁（隊長找不到審核鈕；R-5／R-6／R-11）',
     file: 'js/modules/account/my.js',
     from: `                onClick: () => navigate(\`/team/\${encodeURIComponent(t.teamId)}/manage\`)`,

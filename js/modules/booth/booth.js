@@ -21,7 +21,7 @@
  * ⚠️ 頁面模組的順序陷阱（CLAUDE.md）：render() 會用到的東西一律具名函式。
  */
 
-import { el, mount, toast, skeleton, emptyState, confirmDialog } from '../../core/ui.js';
+import { el, mount, toast, skeleton, emptyState, confirmDialog, sheet } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { can, staff, user, onAuth } from '../../core/firebase.js';
 import { now as serverNow } from '../../core/clock.js';
@@ -274,8 +274,31 @@ export async function boothPage({ scope, view, params, query }) {
       confirmText: '作廢', tone: 'danger'
     });
     if (!ok) return;
-    data.voidAttempt(a.attemptId, '攤位作廢', `作廢 ${a.attemptId}`);
+    // 作廢＝voided ＋ 原因（docs/06 §6.3）。第一版把原因寫死成「攤位作廢」，
+    // 事後查不出是掃錯人還是輸錯（2026-09-06 驗收 B-5：「沒有跳出原因視窗」）
+    const reason = await askVoidReason();
+    if (!reason) return;
+    data.voidAttempt(a.attemptId, reason, `作廢 ${a.attemptId}`);
     toast('已作廢');
+  }
+
+  /** 作廢的原因：兩個常見的一鍵選，其他自己填；沒選就不作廢 */
+  async function askVoidReason() {
+    const pick = await sheet({
+      title: '作廢的原因（會留在紀錄上）',
+      columns: 1,
+      options: [
+        { value: '掃錯玩家', label: '掃錯玩家', note: '成績記到別人身上' },
+        { value: '成績輸錯', label: '成績輸錯', note: '數字打錯、按錯排' },
+        { value: '__other', label: '其他', note: '自己填一句' }
+      ]
+    });
+    if (!pick) return null;
+    if (pick !== '__other') return pick;
+    const typed = window.prompt('作廢的原因（必填，會留在紀錄上）：');
+    const text = String(typed ?? '').trim();
+    if (!text) { toast('必須填原因', 'warn'); return null; }
+    return text.slice(0, 200);
   }
 
   // ── 畫面 ─────────────────────────────────────────────────

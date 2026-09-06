@@ -19,7 +19,8 @@ const EVENT = 'feda-cup-2026';
 const UID = 'U7774e1410479bafff4997f51b2c47b95';
 
 /** 4 隊的成人公開組——最小但完整（單循環＋冠亞軍賽＝8 場） */
-const TEAMS = ['野狼', '猛虎', '獵鷹', '晨星'];
+// 預設只用前 4 隊（F4 單組）；要測兩組的分組互動時給 teamCount: 6（沒有 6 隊的範本 → 通用兩組範本）
+const TEAMS = ['野狼', '猛虎', '獵鷹', '晨星', '雷鳥', '飛馬'];
 
 const seed = ({ roles = ['admin'], teamCount = 4, matches = {}, division = {} } = {}) => {
   const s = {
@@ -351,13 +352,26 @@ test('真的沒打過的取消場次不擋重產 @admin', async ({ page }) => {
 
 // ── 2026-09-06 主辦驗收 M-3：「好像不能手動對調隊伍」——有場次開打之後本來就不能，但按鈕沒有關、也沒有說 ──
 test('⭐ 有場次開打之後，分組的按鈕關掉並說明原因 @admin', async ({ page }) => {
-  await stub(page, { matches: { 'AO-G-A-01': match({ status: 'finished', score: { home: 1, away: 0 }, lock: { locked: true, lockedAt: null, lockedBy: 'u' } }) } });
+  // ⚠️ 要用兩組的賽制（6 隊 → 通用範本兩組）：單一組別的按鈕本來就是灰的，
+  //    拿掉守衛也照樣灰，測不出來（變異 #E44 第一次就是這樣逃掉的）
+  await stub(page, {
+    teamCount: 6,
+    matches: { 'AO-G-A-01': match({ status: 'finished', score: { home: 1, away: 0 }, lock: { locked: true, lockedAt: null, lockedBy: 'u' } }) }
+  });
   await go(page);
   await ready(page);
   await expect(page.locator('#draw-swap-note')).toContainText('分組已經定案');
   const chips = page.locator('.adm__chip');
-  await expect(chips.first()).toBeDisabled();
+  await expect(chips).toHaveCount(6);
+  for (let i = 0; i < 6; i++) await expect(chips.nth(i)).toBeDisabled();
   await expect(page.getByRole('button', { name: /抽籤/ })).toBeDisabled();
+});
+
+test('單一組別寫明「沒有分組可以調整」，不是一排灰按鈕不說話 @admin', async ({ page }) => {
+  await stub(page);
+  await go(page);
+  await ready(page);
+  await expect(page.locator('#draw-swap-note')).toContainText('只有一個小組');
 });
 
 test('⭐ 開賽時間是文字格、24 小時制：打 930 存成 09:30 @admin', async ({ page }) => {

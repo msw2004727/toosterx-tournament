@@ -551,7 +551,8 @@ export async function adminSchedulePage({ scope, view }) {
           ? el('p', { class: 'adm__permNote', id: 'draw-swap-note', text: state.picked
               ? '再點另一組的一隊就會對調。'
               : '要調整分組：點一隊，再點另一組的一隊，兩隊對調。（只能對調，不能單獨搬走——兩組隊數不等的話，名次賽會少一個對手。）' })
-          : null
+          // 單一組別：按鈕本來就是灰的，但一排灰按鈕不說話會被當成壞掉（2026-09-06 驗收 M-3）
+          : el('p', { class: 'adm__permNote', id: 'draw-swap-note', text: '這一組只有一個小組，沒有分組可以調整；名次由積分榜直接決定。' })
     ].filter(Boolean));
   }
 
