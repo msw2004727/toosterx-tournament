@@ -284,15 +284,18 @@ const MUTANTS = [
     name: 'RU#35 ⭐ 聯絡方式也開放訪客改（中獎人的聯絡方式誰都能覆寫）',
     file: F,
     from: `        allow update: if isAdmin()
-                      || onlyChanged(['nickname', 'lastActiveAt']);`,
+                      || ( isAuth() && ownsPass(playerId)
+                           && onlyChanged(['nickname', 'lastActiveAt']) );`,
     to: `        allow update: if isAdmin()
-                      || onlyChanged(['nickname', 'lastActiveAt', 'contact']);`
+                      || ( isAuth() && ownsPass(playerId)
+                           && onlyChanged(['nickname', 'lastActiveAt', 'contact']) );`
   },
   {
     name: 'RU#34 ⭐ Game Pass 也放行整份覆寫（撞號時後來的人把先來的人蓋掉）',
     file: F,
     from: `        allow update: if isAdmin()
-                      || onlyChanged(['nickname', 'lastActiveAt']);
+                      || ( isAuth() && ownsPass(playerId)
+                           && onlyChanged(['nickname', 'lastActiveAt']) );
         allow delete: if isAdmin();`,
     to: `        allow update: if true;
         allow delete: if isAdmin();`
@@ -351,6 +354,20 @@ const MUTANTS = [
     to: `            // 狀態不動的更新（例如已核准之後申請取消）：欄位仍由 captainTeamPatchOk 的白名單管
             || from == to
             || (from == 'approved'  && to == 'withdrawn');`
+  },
+  {
+    name: 'RU#44 ⭐ 訪客又能自己建挑戰卡（配發改綁 LINE 之後，這條路要關）',
+    file: F,
+    from: `        allow create: if isBooth()
+                      && request.resource.data.keys().hasOnly([`,
+    to: `        allow create: if request.resource.data.keys().hasOnly([`
+  },
+  {
+    name: 'RU#45 ⭐ 暱稱誰都改得動（綁 LINE 之後要收到卡主身上）',
+    file: F,
+    from: `                      || ( isAuth() && ownsPass(playerId)
+                           && onlyChanged(['nickname', 'lastActiveAt']) );`,
+    to: `                      || onlyChanged(['nickname', 'lastActiveAt']);`
   },
   {
     name: 'RU#43 ⭐ 家長不能補戴眼鏡與切結書（白名單少了兩個欄位，畫面可填、送出被擋）',

@@ -56,6 +56,10 @@ service cloud.firestore {
     // ── 指派範圍 ─────────────────────────────────────────────
     // 只有非 admin 才會走到 myAssignment()，此時 staff 文件必定存在
     function myAssignment() { return get(staffPath()).data.assignment; }
+    // 挑戰卡的主人：users/{uid}.gamePassId 指到這一張（users 是私密的，公開的 players 上不放 uid）
+    function ownsPass(pid) {
+      return get(/databases/$(db)/documents/users/$(uid())).data.gamePassId == pid;
+    }
     function assignedVenue(venueId) {
       return myRoles().hasAny(['admin', 'super_admin'])
         || myAssignment().venueIds.size() == 0
@@ -495,8 +499,10 @@ service cloud.firestore {
 
       match /players/{playerId} {
         allow read: if true;
-        // 任何人可建立自己的 Game Pass，但欄位與初始值受限
-        allow create: if request.resource.data.keys().hasOnly([
+        // 挑戰卡由 Function 綁 LINE 帳號配發（Admin SDK 不經 rules）；玩家不能再自己建
+        // （主辦 2026-09-06 決定）。這裡只留攤位代建那一條，欄位與初始值仍受限。
+        allow create: if isBooth()
+                      && request.resource.data.keys().hasOnly([
                           'playerId', 'eventId', 'nickname', 'avatarSeed', 'ageBand',
                           'qrCode', 'createdAt', 'createdVia', 'completedChallengeIds',
                           'luckyDrawEntries', 'linkedTeamId', 'lastActiveAt', 'contact',
@@ -519,7 +525,8 @@ service cloud.firestore {
         //    （或另外設計一組只有本人知道的憑證）。在那之前收在這裡最便宜：
         //    今天沒有任何一行程式在更新 contact，拿掉不會壞任何東西。
         allow update: if isAdmin()
-                      || onlyChanged(['nickname', 'lastActiveAt']);
+                      || ( isAuth() && ownsPass(playerId)
+                           && onlyChanged(['nickname', 'lastActiveAt']) );
         allow delete: if isAdmin();
       }
 

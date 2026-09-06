@@ -372,6 +372,22 @@ export const httpsCallable = (_fns, name) => async (payload) => {
   // 「畫面有沒有把正確的東西送出去」。
   (window.__FAKE_CALLS ||= []).push({ name, payload });
   if (window.__FAKE_CALL_ERROR) throw new Error(window.__FAKE_CALL_ERROR);
+  if (name === 'issuePlayerQr') {
+    // 綁 LINE 帳號配發：沒登入就拒絕；有登入就配（固定 FEDA-0182，spec 可用 __FAKE_PASS_ID 換）
+    const u = S.currentUser;
+    if (!u || u.isAnonymous === true) throw Object.assign(new Error('請先用 LINE 登入'), { code: 'functions/unauthenticated' });
+    const eventId = payload?.eventId || 'feda-cup-2026';
+    const pid = window.__FAKE_PASS_ID || 'FEDA-0182';
+    const path = `events/${eventId}/players/${pid}`;
+    if (!store.has(path)) {
+      await setDoc({ path, __doc: true }, {
+        playerId: pid, eventId, nickname: u.displayName || '玩家', avatarSeed: pid.slice(-4), ageBand: null,
+        completedChallengeIds: [], luckyDrawEntries: 0, createdVia: 'line', createdAt: new Date().toISOString()
+      });
+    }
+    await setDoc({ path: `users/${u.uid}`, __doc: true }, { uid: u.uid, gamePassId: pid }, { merge: true });
+    return { data: { ok: true, data: { playerId: pid, nickname: store.get(path)?.nickname ?? null, created: true } } };
+  }
   if (name === 'lineLogin') {
     return {
       data: {

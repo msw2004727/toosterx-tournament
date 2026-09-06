@@ -200,13 +200,13 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 1156 全綠（47 個 suite） |
+| `npm run test:unit` | ✅ 1158 全綠（48 個 suite） |
 | `npm run test:mutation` | ✅ 297 / 297 全被抓到 |
 | `npm run test:mutation:e2e` | ✅ 32 / 32 全被抓到（畫面層時序、權限、替身語意與驗收修正） |
 | `npm run test:e2e` | ✅ 1131 全綠（mobile / desktop / 320px 三種寬度） |
-| `npm run test:rules` | ✅ 229 全綠（…、R133 球員上限、R134 我的球員、R135 申訴、R136 取消退費、R137 聯絡方式、R138 眼鏡切結書、R139 憑證雜湊） |
+| `npm run test:rules` | ✅ 228 全綠（…、R133 球員上限、R134 我的球員、R135 申訴、R136 取消退費、R137 聯絡方式、R138 眼鏡切結書、R139 憑證雜湊） |
 | `npm run test:mutation:rules` | ✅ 42 / 42 全被抓到 |
-| `npm run test:fn` | ✅ 84 全綠（F01–F15j 結果管線與同分裁定、FR01–FR15e 報名／登入／規章第十二條、FC01–FC15f 挑戰與聯絡方式） |
+| `npm run test:fn` | ✅ 91 全綠（F01–F15j 結果管線與同分裁定、FR01–FR15e 報名／登入／規章第十二條、FC01–FC15f 挑戰與聯絡方式） |
 | `npm run test:mutation:fn` | ✅ 27 / 27 全被抓到 |
 
 ### 驗收整合修正（2026-09-06）
@@ -1013,10 +1013,19 @@ js/modules/challenge/board.js  #/challenge/board/:challengeId　排行榜
 現場立牌的 QR 掃進來就是首頁，而掃立牌的人多半是路過想玩遊戲的，
 不是來看比分的——藏在最底下的話攤位就沒有人。E2E 會量它的 Y 座標。
 
-**這一端完全免登入，路由上沒有守衛。** 掛一個 `requireLogin` 上去就等於把
-「免註冊」整個推翻掉。身分是 localStorage 裡的一組 `FEDA-0182`。
+**2026-09-06 主辦修訂：挑戰卡綁 LINE 帳號、由系統配發。** 玩家用 LINE 登入，
+callable `issuePlayerQr`（`functions/pipeline.js` 的 `issueGamePassFor`）在交易裡配代號、
+寫 `users/{uid}.gamePassId`，暱稱先用 LINE 名稱。一個帳號一張，換手機登入就是同一張，
+沒有「找回」。公開的 `players` 上**不放 uid**（代號掃得完，放了等於公布 uid 名冊）；
+規則用 `ownsPass()` 查 users 決定誰能改暱稱。localStorage 只是快取（離線也畫得出 QR）。
+排行榜與五關的資訊仍免登入可看；攤位代建（沒有 LINE 的小朋友）保留。
 
-#### 配號：隨機 ＋ 伺服器擋碰撞（不是計數器）
+#### 配號：在 Function 的交易裡隨機配，撞到就換（2026-09-06 起）
+
+前端不再抽號。`issueGamePassFor` 在交易內讀候選代號、沒人用才寫，同一個帳號重複叫拿同一張
+（FC16 系列、變異 #FN28）。攤位代建仍從客戶端寫，所以下面那條 rules 的撞號保護還在（R17）。
+
+#### （舊）配號：隨機 ＋ 伺服器擋碰撞（不是計數器）
 
 `newPlayerId()` 抽一個四位數，**唯一性完全靠 `firestore.rules`**：
 `players` 只放行 `create`，撞到已存在的文件時 `setDoc` 會被當成 `update`

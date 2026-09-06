@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20260906f';
+export const CACHE_VERSION = '0.20260906g';
 
 /**
  * PWA 安裝入口。主辦 2026-09-06 決定關閉：頁首不畫「安裝」，Chrome 自己的安裝橫幅也在

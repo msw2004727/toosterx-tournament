@@ -185,6 +185,20 @@ const MUTANTS = [
     file: 'functions/pipeline.js',
     from: "  if (!normalized) throw new Error('手機號碼要是 09 開頭的 10 碼');",
     to: ""
+  },
+  {
+    name: '#FN28 ⭐ 配發挑戰卡不看帳號已經有的那一張（同一個人每登入一次多一張卡）',
+    file: 'functions/pipeline.js',
+    from: `    if (existing) {
+      const p = await tx.get(playerRef(eventId, existing));`,
+    to: `    if (false) {
+      const p = await tx.get(playerRef(eventId, existing));`
+  },
+  {
+    name: '#FN29 ⭐ 聯絡方式不檢查卡主（知道代號的登入者就能改別人的電話）',
+    file: 'functions/pipeline.js',
+    from: `    if (!u.exists || u.data().gamePassId !== id) throw new Error('這張卡不是你的：請用領卡時的 LINE 帳號登入');`,
+    to: `    if (false) throw new Error('這張卡不是你的：請用領卡時的 LINE 帳號登入');`
   }
 ];
 

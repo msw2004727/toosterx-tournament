@@ -28,7 +28,7 @@ import {
   rejectCrossTeamDuplicate, enforceRosterCap,
   onAttemptSubmitted, setManualRankingFor, clearManualRankingFor
 } from './pipeline.js';
-import { setPlayerContactFor } from './pipeline.js';
+import { setPlayerContactFor, issueGamePassFor } from './pipeline.js';
 import { writeAudit } from './store.js';
 import { loginWithLine } from './line.js';
 
@@ -347,10 +347,18 @@ export const setPlayerContact = onCall(async (req) => {
   if (!eventId || !playerId) fail('invalid-argument', '需要 eventId / playerId');
   // 登入的攤位工作人員可以替玩家登記（攤位代建的卡沒有憑證）。
   // 沒登入的就是玩家本人，要帶建卡時留在手機上的憑證。
+  // 登入的人：攤位以上的工作人員可以替玩家登記；一般 LINE 使用者是替自己（要是這張卡的主人）。
+  // 沒登入的（舊的自建卡）要帶建卡時留在手機上的憑證。
   let staffUid = null;
-  if (req.auth) { await requireStaff(req, BOOTH); staffUid = req.auth.uid; }
+  let ownerUid = null;
+  if (req.auth) {
+    const snap = await db().doc(`staff/${req.auth.uid}`).get();
+    const s = snap.data();
+    if (snap.exists && s.active === true && BOOTH.some(r => (s.roles || []).includes(r))) staffUid = req.auth.uid;
+    else ownerUid = req.auth.uid;
+  }
   try {
-    return ok(await setPlayerContactFor({ eventId, playerId, key, phone, staffUid }));
+    return ok(await setPlayerContactFor({ eventId, playerId, key, phone, staffUid, ownerUid }));
   } catch (err) {
     fail('invalid-argument', err.message);
   }
@@ -364,7 +372,21 @@ export const lineLogin = onCall(async (req) => {
     fail('unauthenticated', err.message);
   }
 });
-export const issuePlayerQr    = onCall(unimplemented('issuePlayerQr', 'M6'));
+/**
+ * 配發挑戰卡（docs/06 §5.1，2026-09-06 主辦修訂：綁 LINE 帳號，由系統配發）。
+ * 要登入，而且不能是匿名身分（demo 的切換身分是匿名登入，那不是一個人）。
+ */
+export const issuePlayerQr = onCall(async (req) => {
+  if (!req.auth) fail('unauthenticated', '請先用 LINE 登入');
+  if (req.auth.token?.firebase?.sign_in_provider === 'anonymous') fail('permission-denied', '匿名身分不能領挑戰卡，請用 LINE 登入');
+  const { eventId } = req.data || {};
+  if (!eventId) fail('invalid-argument', '需要 eventId');
+  try {
+    return ok(await issueGamePassFor({ eventId, uid: req.auth.uid, displayName: req.auth.token?.name ?? null }));
+  } catch (err) {
+    fail('failed-precondition', err.message);
+  }
+});
 export const revokePlayerQr   = onCall(unimplemented('revokePlayerQr', 'M6'));
 export const verifyCheckin    = onCall(unimplemented('verifyCheckin', 'M6'));
 export const generateSchedule = onCall(unimplemented('generateSchedule', 'M4'));

@@ -122,10 +122,10 @@ const MUTANTS = [
     to: `    if (false) {`
   },
   {
-    name: '#E17 ⭐ 沒有憑證的卡也畫聯絡方式表單（送出一定失敗，玩家以為系統壞了）',
+    name: '#E17 ⭐ 沒登入也畫聯絡方式表單（送出一定失敗，玩家以為系統壞了）',
     file: 'js/modules/challenge/me.js',
-    from: `    const hasKey = !!pass.contactKey;`,
-    to: `    const hasKey = true;`
+    from: `    } else if (!state.owner) {`,
+    to: `    } else if (false) {`
   },
 
   // ══ 驗收整合修正（2026-09-06）：tests/e2e/audit-fixes.spec.js ＋ admin-match ＋ admin-schedule ══
@@ -231,6 +231,12 @@ const MUTANTS = [
     file: 'js/modules/booth/booth.js',
     from: `    autoLookup: !!query?.get('id'),`,
     to: `    autoLookup: false,`
+  },
+  {
+    name: '#E35 ⭐ 沒登入也配卡（挑戰卡綁 LINE 的閘門在畫面上失守）',
+    file: 'js/modules/challenge/join.js',
+    from: `    if (data.isLineUser(u)) { if (!started) { started = true; issue(); } return; }`,
+    to: `    if (true) { if (!started) { started = true; issue(); } return; }`
   },
   {
     name: '#E31 ⭐ 出場名單給隊職員畫先發／替補鈕（D-08）',

@@ -12,7 +12,7 @@
  *    FC08 專門測重放。
  */
 import { db as adminDb } from '../../functions/admin.js';
-import { onAttemptSubmitted, playerProgress, setPlayerContactFor } from '../../functions/pipeline.js';
+import { onAttemptSubmitted, playerProgress, setPlayerContactFor, issueGamePassFor } from '../../functions/pipeline.js';
 import { createHash } from 'node:crypto';
 import { rankInLadder } from '../../js/engine/challenge.js';
 
@@ -362,5 +362,63 @@ describe('FC15 ⭐ 中獎聯絡方式（docs/06 §7.2）：憑證對得上才寫
     const r = await setPlayerContactFor({ eventId: E, playerId: 'FEDA-0002', phone: '0987654321', staffUid: 'u-booth' });
     expect(r.maskedPhone).toBe('0987***321');
     expect(await contact('FEDA-0002')).toMatchObject({ phone: '0987654321', via: 'booth', byUid: 'u-booth' });
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+describe('FC16 ⭐ 配發挑戰卡（綁 LINE 帳號；主辦 2026-09-06 決定）', () => {
+  const user = uid => db.doc(`users/${uid}`).get().then(s => (s.exists ? s.data() : null));
+
+  test('FC16 ⭐ 第一次：配一組新代號、暱稱用 LINE 名稱、users 記下 gamePassId、公開文件上沒有 uid', async () => {
+    await db.doc('users/U-a').set({ uid: 'U-a', displayName: '阿哲' });
+    const r = await issueGamePassFor({ eventId: E, uid: 'U-a' });
+    expect(r.created).toBe(true);
+    expect(r.playerId).toMatch(/^FEDA-\d{4}$/);
+    expect(r.nickname).toBe('阿哲');
+    const p = await player(r.playerId);
+    expect(p).toMatchObject({ playerId: r.playerId, nickname: '阿哲', createdVia: 'line', luckyDrawEntries: 0, completedChallengeIds: [] });
+    expect(JSON.stringify(p)).not.toContain('U-a');
+    expect((await user('U-a')).gamePassId).toBe(r.playerId);
+  });
+
+  test('FC16b ⭐ 同一個帳號再叫一次拿到同一張，不會多配', async () => {
+    await db.doc('users/U-a').set({ uid: 'U-a', displayName: '阿哲' });
+    const a = await issueGamePassFor({ eventId: E, uid: 'U-a' });
+    const b = await issueGamePassFor({ eventId: E, uid: 'U-a' });
+    expect(b.playerId).toBe(a.playerId);
+    expect(b.created).toBe(false);
+    const all = await db.collection(`events/${E}/players`).where('createdVia', '==', 'line').get();
+    expect(all.size).toBe(1);
+  });
+
+  test('FC16c 兩個帳號拿到不同的代號', async () => {
+    const a = await issueGamePassFor({ eventId: E, uid: 'U-a', displayName: 'A' });
+    const b = await issueGamePassFor({ eventId: E, uid: 'U-b', displayName: 'B' });
+    expect(a.playerId).not.toBe(b.playerId);
+  });
+
+  test('FC16d 沒有 LINE 名稱就叫「玩家」；名稱超過 12 字截斷', async () => {
+    const a = await issueGamePassFor({ eventId: E, uid: 'U-noname' });
+    expect(a.nickname).toBe('玩家');
+    const b = await issueGamePassFor({ eventId: E, uid: 'U-long', displayName: '一二三四五六七八九十十一十二十三' });
+    expect(b.nickname).toBe('一二三四五六七八九十十一');
+  });
+
+  test('FC16e 帳號指到的卡已經不存在時重配一張', async () => {
+    await db.doc('users/U-a').set({ uid: 'U-a', gamePassId: 'FEDA-4242' });
+    const r = await issueGamePassFor({ eventId: E, uid: 'U-a' });
+    expect(r.created).toBe(true);
+    expect(r.playerId).not.toBe('FEDA-4242');
+    expect((await user('U-a')).gamePassId).toBe(r.playerId);
+  });
+
+  test('FC16f ⭐ 卡主用登入身分填聯絡方式（不用憑證）；別人的帳號不行', async () => {
+    const r = await issueGamePassFor({ eventId: E, uid: 'U-a', displayName: '阿哲' });
+    const ok = await setPlayerContactFor({ eventId: E, playerId: r.playerId, phone: '0912-345-678', ownerUid: 'U-a' });
+    expect(ok.maskedPhone).toBe('0912***678');
+    const c = await db.doc(`events/${E}/playerContacts/${r.playerId}`).get();
+    expect(c.data()).toMatchObject({ phone: '0912345678', via: 'self', byUid: 'U-a' });
+    await expect(setPlayerContactFor({ eventId: E, playerId: r.playerId, phone: '0912345678', ownerUid: 'U-b' }))
+      .rejects.toThrow('不是你的');
   });
 });

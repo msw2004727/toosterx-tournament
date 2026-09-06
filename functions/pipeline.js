@@ -26,7 +26,7 @@ import { reconcileScore } from './engine/timeline.js';
 import { rosterProjection } from './engine/privacy.js';
 import { isPlayer, personKeysOf } from './engine/review.js';
 import { REGISTRATION_LIMITS } from './engine/formats.js';
-import { normalizePhone, maskPhone } from './engine/challenge.js';
+import { normalizePhone, maskPhone, newPlayerDoc, formatPlayerId } from './engine/challenge.js';
 import { createHash } from 'node:crypto';
 import {
   db, evRef, loadRankingRule, loadFormat, loadDivision, loadGroups,
@@ -949,7 +949,47 @@ export async function enforceRosterCap({ eventId, teamId, maxPlayers = REGISTRAT
  *   ・電話寫進 `playerContacts/{playerId}`（只有管理員讀得到，匯出抽獎名單時合併）
  * 攤位代建的卡沒有憑證，只能到攤位登記（畫面會這樣說）。
  */
-export async function setPlayerContactFor({ eventId, playerId, key, phone, staffUid = null }) {
+/**
+ * 配發挑戰卡（綁 LINE 帳號；主辦 2026-09-06 決定：不讓玩家自己生成）。
+ *
+ * 一個 LINE 帳號一張卡：users/{uid}.gamePassId ↔ players/{id}。同一個人再叫一次拿到同一張，
+ * 帳號指到的卡若已不存在就重配。代號在交易內配（隨機四位數，撞到就換）——
+ * 隨機留在這裡而不進引擎（R-ENG-004）。users 是私密文件，公開的 players 上**不放 uid**
+ * （代號空間只有一萬組、掃得完，放了等於公布一份 LINE uid 名冊）。
+ *
+ * @returns {Promise<{playerId:string, nickname:string|null, created:boolean}>}
+ */
+export async function issueGamePassFor({ eventId, uid, displayName = null }) {
+  if (!eventId || !uid) throw new Error('需要 eventId 與登入身分');
+  const fsdb = playerRef(eventId, 'FEDA-0000').firestore;
+  const userRef = fsdb.doc(`users/${uid}`);
+  return fsdb.runTransaction(async tx => {
+    const userSnap = await tx.get(userRef);
+    const existing = userSnap.exists ? userSnap.data().gamePassId : null;
+    if (existing) {
+      const p = await tx.get(playerRef(eventId, existing));
+      if (p.exists) return { playerId: existing, nickname: p.data().nickname ?? null, created: false };
+    }
+    // 交易裡的讀要全部在寫之前：先把候選代號查完再寫
+    let playerId = null;
+    for (let i = 0; i < 12 && !playerId; i++) {
+      const cand = formatPlayerId(Math.floor(Math.random() * 10000));
+      const s = await tx.get(playerRef(eventId, cand));
+      if (!s.exists) playerId = cand;
+    }
+    if (!playerId) throw new Error('配號失敗，請再試一次');
+    const name = String(userSnap.data()?.displayName ?? displayName ?? '').trim().slice(0, 12) || '玩家';
+    tx.set(playerRef(eventId, playerId), {
+      ...newPlayerDoc({ playerId, eventId, nickname: name, ageBand: null, createdVia: 'line' }),
+      createdAt: FieldValue.serverTimestamp(),
+      lastActiveAt: FieldValue.serverTimestamp()
+    });
+    tx.set(userRef, { uid, gamePassId: playerId, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    return { playerId, nickname: name, created: true };
+  });
+}
+
+export async function setPlayerContactFor({ eventId, playerId, key, phone, staffUid = null, ownerUid = null }) {
   const id = String(playerId ?? '').trim().toUpperCase();
   if (!/^FEDA-\d{4}$/.test(id)) throw new Error('代號格式不對');
   const normalized = normalizePhone(phone);
@@ -960,7 +1000,11 @@ export async function setPlayerContactFor({ eventId, playerId, key, phone, staff
 
   // 攤位工作人員（已登入、有 booth 以上身分，由 callable 驗過）可以替玩家登記——
   // 攤位代建的卡沒有憑證，只有這條路。留下是誰登記的。
-  if (!staffUid) {
+  if (!staffUid && ownerUid) {
+    // 用 LINE 登入的卡主（主辦 2026-09-06 起的配發方式）：users/{uid}.gamePassId 要指到這一張
+    const u = await playerRef(eventId, id).firestore.doc(`users/${ownerUid}`).get();
+    if (!u.exists || u.data().gamePassId !== id) throw new Error('這張卡不是你的：請用領卡時的 LINE 帳號登入');
+  } else if (!staffUid) {
     const k = String(key ?? '');
     if (k.length < 16) throw new Error('這支手機上沒有這張卡的憑證');
     const hash = snap.data()?.contactKeyHash;
@@ -972,7 +1016,7 @@ export async function setPlayerContactFor({ eventId, playerId, key, phone, staff
 
   await evRef(eventId).collection('playerContacts').doc(id).set({
     playerId: id, eventId, phone: normalized,
-    via: staffUid ? 'booth' : 'self', byUid: staffUid,
+    via: staffUid ? 'booth' : 'self', byUid: staffUid ?? ownerUid ?? null,
     updatedAt: FieldValue.serverTimestamp()
   });
   return { playerId: id, maskedPhone: maskPhone(normalized) };

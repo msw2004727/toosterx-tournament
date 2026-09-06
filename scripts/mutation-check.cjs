@@ -1649,26 +1649,14 @@ const MUTANTS = [
   {
     name: '#GP2 ⭐ 存不進去就丟例外（存不進去不算失敗，ID 仍然有效）',
     file: 'js/modules/challenge/pass.js',
-    from: '    localStorage.setItem(KEY, JSON.stringify({ playerId, nickname, contactKey, contactMasked }));\n    return true;\n  } catch {\n    return false;\n  }',
-    to: '    localStorage.setItem(KEY, JSON.stringify({ playerId, nickname, contactKey, contactMasked }));\n    return true;\n  } catch (e) {\n    throw e;\n  }'
+    from: '    localStorage.setItem(KEY, JSON.stringify({ playerId, nickname, contactMasked }));\n    return true;\n  } catch {\n    return false;\n  }',
+    to: '    localStorage.setItem(KEY, JSON.stringify({ playerId, nickname, contactMasked }));\n    return true;\n  } catch (e) {\n    throw e;\n  }'
   },
   {
     name: '#GP3 ⭐ 存了不成格式的代號也照用（後面每一次查詢都會落空）',
     file: 'js/modules/challenge/pass.js',
     from: '    const playerId = normalizePlayerId(o?.playerId);\n    return playerId\n      ? {',
     to: '    const playerId = o?.playerId;\n    return playerId\n      ? {'
-  },
-  {
-    name: '#GP4 ⭐ 配號的範圍少了 9999（一萬組變九千九百九十九組）',
-    file: 'js/modules/challenge/pass.js',
-    from: '  return formatPlayerId(Math.floor(Math.random() * 10000));',
-    to: '  return formatPlayerId(Math.floor(Math.random() * 9999));'
-  },
-  {
-    name: '#GP5 ⭐ 配號寫死成同一組（現場所有人都拿到 FEDA-0001）',
-    file: 'js/modules/challenge/pass.js',
-    from: '  return formatPlayerId(Math.floor(Math.random() * 10000));',
-    to: '  return formatPlayerId(1);'
   },
   {
     name: '#GP6 ⭐ 暱稱上限放寬成 20（畫面說可以、送出被 rules 擋掉）',

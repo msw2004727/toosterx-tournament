@@ -9,7 +9,7 @@
  */
 
 import {
-  savedPass, savePass, clearPass, newPlayerId, parsePlayerId, checkNickname, AGE_BANDS
+  savedPass, savePass, clearPass, parsePlayerId, checkNickname, AGE_BANDS
 } from '../../js/modules/challenge/pass.js';
 
 const KEY = 'feda:gamePass';
@@ -37,7 +37,7 @@ describe('T51-1 存與讀', () => {
   test('存進去讀得回來', () => {
     useStorage();
     expect(savePass({ playerId: 'FEDA-0182', nickname: '阿哲' })).toBe(true);
-    expect(savedPass()).toEqual({ playerId: 'FEDA-0182', nickname: '阿哲', contactKey: null, contactMasked: null });
+    expect(savedPass()).toEqual({ playerId: 'FEDA-0182', nickname: '阿哲', contactMasked: null });
   });
 
   test('沒存過就是 null（呼叫端會把人導去建立頁）', () => {
@@ -93,30 +93,7 @@ describe('T51-2 ⭐ 壞掉的環境不可以讓整頁白掉', () => {
   });
 });
 
-describe('T51-3 配號', () => {
-  test('產出來的一定是 FEDA-四位數', () => {
-    for (let i = 0; i < 200; i++) expect(newPlayerId()).toMatch(/^FEDA-\d{4}$/);
-  });
-
-  test('⭐ 涵蓋得到 0000 與 9999 兩個邊界（不是 1..9998）', () => {
-    // ESM 的 suite 沒有全域 jest，直接換掉 Math.random 再還原
-    const real = Math.random;
-    try {
-      Math.random = () => 0;
-      expect(newPlayerId()).toBe('FEDA-0000');
-      Math.random = () => 0.99999;
-      expect(newPlayerId()).toBe('FEDA-9999');
-    } finally {
-      Math.random = real;
-    }
-  });
-
-  test('會抽到不只一組（寫死一個常數的話現場所有人都同一個號）', () => {
-    const seen = new Set();
-    for (let i = 0; i < 200; i++) seen.add(newPlayerId());
-    expect(seen.size).toBeGreaterThan(50);
-  });
-});
+// T51-3（前端配號）已移除：配號改在 Cloud Function 的交易裡做（FC16），前端不再抽號。
 
 describe('T51-4 手動輸入的代號', () => {
   test.each([

@@ -13,7 +13,7 @@
  *    畫面就照實說「連不上，等一下再試」。
  */
 
-import { db, sdk, callFunction } from '../../core/firebase.js';
+import { db, sdk, callFunction, user } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { EVENT_ID } from '../../config.js';
 import { newPlayerDoc } from '../../engine/challenge.js';
@@ -85,45 +85,25 @@ export async function getRewards() {
 }
 
 /**
- * 建立 Game Pass。
- *
- * ⚠️ **撞號由伺服器擋，不是由前端查。** 先讀一次「這個 ID 在不在」再寫，
- *    中間那一瞬間仍然可能被別人插隊（現場幾十支手機同時在建）。
- *    rules 的 `players` 只放行 `create`，撞到已存在的文件會變成 `update`
- *    而被擋下——所以這裡把 `permission-denied` 當成「換一組再試」。
- *
- * @param {() => string} nextId 產生下一組候選編號
- * @returns {Promise<{playerId: string}>}
- */
-export async function createPass({ nextId, nickname, ageBand = null, contactKeyHash = null, tries = 5 }) {
-  const { doc, setDoc, serverTimestamp } = sdk();
-  let last = null;
-  for (let i = 0; i < tries; i++) {
-    const playerId = nextId();
-    try {
-      await setDoc(doc(db(), 'events', EVENT_ID, 'players', playerId), {
-        // 欄位形狀只有 engine 的 newPlayerDoc 一份（rules 用 hasOnly 逐項列）
-        ...newPlayerDoc({ playerId, eventId: EVENT_ID, nickname, ageBand, createdVia: 'self', contactKeyHash }),
-        createdAt: serverTimestamp(),
-        lastActiveAt: serverTimestamp()
-      });
-      return { playerId };
-    } catch (err) {
-      last = err;
-      // 撞號才重試。其他錯誤（離線、規則不合）重試幾次也一樣，直接往上丟
-      if (err?.code !== 'permission-denied') throw err;
-    }
-  }
-  throw last ?? new Error('配號失敗');
-}
-
-/**
  * 中獎聯絡方式（docs/06 §7.2）：走 Function，帶建卡時留在手機上的憑證本體。
  * ⚠️ callable 會 reject（跟 sync.track 相反），離線時直接失敗——呼叫端要接住並留在畫面上。
  * @returns {Promise<{playerId:string, maskedPhone:string}>}
  */
-export async function setContact({ playerId, key, phone }) {
-  return callFunction('setPlayerContact', { eventId: EVENT_ID, playerId, key, phone });
+export async function setContact({ playerId, phone }) {
+  return callFunction('setPlayerContact', { eventId: EVENT_ID, playerId, phone });
+}
+
+/**
+ * 配發挑戰卡（綁 LINE 帳號，一人一張；再叫一次拿到同一張）。要登入。
+ * @returns {Promise<{playerId:string, nickname:string|null, created:boolean}>}
+ */
+export async function issuePass() {
+  return callFunction('issuePlayerQr', { eventId: EVENT_ID });
+}
+
+/** 用 LINE 登入的人（demo 的「切換身分」是匿名登入，不算） */
+export function isLineUser(u = user()) {
+  return !!u && u.isAnonymous !== true;
 }
 
 /** 把錯誤碼翻成玩家看得懂的話 */

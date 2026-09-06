@@ -72,11 +72,11 @@ export async function challengeHomePage({ scope, view }) {
     if (!pass) {
       return el('div', { class: 'chal__card' }, [
         el('strong', { text: '還沒有挑戰卡？' }),
-        el('p', { class: 'chal__hint', text: '取一個暱稱就可以開始，不用註冊也不用手機號碼。' }),
+        el('p', { class: 'chal__hint', text: '用 LINE 登入就會配發一張專屬挑戰卡，一個帳號一張。' }),
         el('button', {
           class: 'btn btn--lg btn--primary chal__go', type: 'button',
           onClick: () => navigate('/challenge/join')
-        }, iconText('play', '開始挑戰'))
+        }, iconText('person', '用 LINE 領挑戰卡'))
       ]);
     }
 

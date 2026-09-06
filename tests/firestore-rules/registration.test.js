@@ -667,9 +667,9 @@ describe('R139 Game Pass 帶聯絡憑證雜湊', () => {
     qrCode: null, linkedTeamId: null, contact: { phone: null, lineUserId: null },
     completedChallengeIds: [], luckyDrawEntries: 0, createdVia: 'self', ...over
   });
-  test('R139 ⭐ 自建的卡可以帶 contactKeyHash；帶了電話本身就擋', async () => {
-    await assertSucceeds(setDoc(playerRef(guest(env), 'FEDA-0900'), pass({ contactKeyHash: 'ab'.repeat(32) })));
-    await assertFails(setDoc(playerRef(guest(env), 'FEDA-0901'), pass({ playerId: 'FEDA-0901', phone: '0912345678' })));
+  test('R139 ⭐ 攤位代建的卡可以帶 contactKeyHash；帶了電話本身就擋（玩家自建已改由 Function 配發）', async () => {
+    await assertSucceeds(setDoc(playerRef(authed(env, 'u-booth'), 'FEDA-0900'), pass({ contactKeyHash: 'ab'.repeat(32), createdVia: 'staff' })));
+    await assertFails(setDoc(playerRef(authed(env, 'u-booth'), 'FEDA-0901'), pass({ playerId: 'FEDA-0901', phone: '0912345678', createdVia: 'staff' })));
   });
   test('R139b 建立之後 contactKeyHash 改不動（換憑證等於搶走這張卡的聯絡權）', async () => {
     await asAdminSdk(env, db => setDoc(playerRef(db, 'FEDA-0902'), pass({ playerId: 'FEDA-0902', contactKeyHash: 'a'.repeat(64) })));
