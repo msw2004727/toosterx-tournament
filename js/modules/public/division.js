@@ -130,7 +130,7 @@ export async function publicDivision({ params, scope, view, query }) {
               class: `${r.qualified ? 'is-qualified' : ''} ${r.unresolved ? 'is-unresolved' : ''}`
             }, [
               el('td', { class: 'num', text: r.unresolved ? '—' : String(r.rank ?? '') }),
-              el('td', {}, el('button', {
+              el('td', { class: 'is-left' }, el('button', {
                 class: 'ptable__team', type: 'button',
                 onClick: () => r.teamId && navigate(`/team/${encodeURIComponent(r.teamId)}`)
               }, r.name || r.teamId || '')),

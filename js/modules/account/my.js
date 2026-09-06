@@ -26,7 +26,7 @@ import { navigate } from '../../core/router.js';
 import { user, staff, onAuth, signOutStaff, db, sdk, can, myRoles } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { logoutLine } from '../../core/liff.js';
-import { EVENT_ID, roleLabel, topRole, FEATURES } from '../../config.js';
+import { EVENT_ID, roleLabel, topRole, FEATURES, CACHE_VERSION } from '../../config.js';
 import { needLogin } from './login.js';
 import { buildMyPlayerRows, teamIdOfPath, countActive } from './my-players.js';
 
@@ -180,7 +180,9 @@ export async function myPage({ scope, view }) {
           class: 'btn btn--sm', type: 'button', 'aria-label': '複製 ID',
           onClick: () => copy(u.uid)
         }, iconText('list', '複製'))
-      ])
+      ]),
+      // 跟 uid 放在一起：回報問題時這兩個一起截圖就夠了
+      el('p', { class: 'acct__fine', text: `系統版本 ${CACHE_VERSION}` })
     ]);
   }
 

@@ -62,7 +62,9 @@
 .pcard .empty{padding:var(--sp-4) var(--sp-2)}
 
 /* ── 場次列 ─────────────────────────────────────────────── */
-.plist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.plist{list-style:none;margin:0;padding:0 var(--sp-3);display:flex;flex-direction:column}
+/* 卡片裡的清單已經有卡片的內距，不要疊兩層（首頁、組別頁、球隊頁） */
+.pcard .plist{padding:0}
 .prow{display:flex;align-items:stretch;gap:var(--sp-2);border-top:1px solid var(--border)}
 .prow:first-child{border-top:0}
 /* 未定隊伍（排名階段還沒解算）：虛線框 ＋ 斜體，一眼看得出「還不確定」 */
@@ -126,6 +128,8 @@
 }
 .psponsor__label{font-size:var(--fs-xs);color:var(--text-muted)}
 .psponsor__name{font-size:var(--fs-sm);font-weight:700;color:var(--text-secondary)}
+/* 版號：回報問題時要唸得出來（驗收 P-1） */
+.pver{margin:var(--sp-2) var(--sp-3) 0;text-align:center;font-size:var(--fs-xs);color:var(--text-muted);font-variant-numeric:tabular-nums}
 
 /* ── LIVE 比賽頁 ────────────────────────────────────────── */
 .psb{
@@ -199,7 +203,7 @@
 .ptable{width:100%;border-collapse:collapse;min-width:460px}
 .ptable th,.ptable td{padding:6px 4px;font-size:var(--fs-sm);text-align:center;white-space:nowrap}
 .ptable thead th{font-size:var(--fs-xs);color:var(--text-muted);font-weight:700}
-.ptable th.is-left{text-align:left}
+.ptable th.is-left,.ptable td.is-left{text-align:left}
 .ptable tbody tr{border-top:1px solid var(--border)}
 .ptable td{font-variant-numeric:tabular-nums}
 .ptable__team{font-weight:700;font-size:var(--fs-sm);text-align:left;
@@ -207,8 +211,12 @@
 /* 隊名可以點進球隊頁：整顆按鈕都是觸控目標，高度不得低於 --tap（驗收 D-15） */
 button.ptable__team{
   display:inline-flex;align-items:center;min-height:var(--tap);
-  padding:0 4px;margin:-6px 0;border:0;background:none;color:inherit;font:inherit;
+  padding:0 4px;margin:-6px 0;border:0;background:none;font:inherit;
+  /* 看得出可以按：粗體、主色、細底線（不只靠顏色） */
+  font-weight:700;color:var(--accent);cursor:pointer;
+  text-decoration:underline;text-decoration-color:var(--border-strong);text-underline-offset:3px;
 }
+button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-color:var(--accent)}
 .ptable__pts{font-weight:700}
 /* 晉級區：底色 ＋ 左邊條，兩個訊號不只靠顏色 */
 .ptable tbody tr.is-qualified{background:var(--ok-bg)}

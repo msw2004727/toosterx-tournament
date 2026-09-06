@@ -126,7 +126,7 @@ const takeNext = () => {
  */
 export function hasLineRedirect() {
   const q = new URLSearchParams(location.search);
-  return q.has('liff.state') || q.has('liffClientId') || (q.has('code') && q.has('state'));
+  return q.has('liff.state') || q.has('liffClientId') || (q.has('code') && q.has('state')) || q.has('error');
 }
 
 /**
@@ -138,6 +138,17 @@ export async function completeLineRedirect(alreadySignedIn = false) {
   if (!hasLineRedirect()) return { done: false, next: null, error: null };
 
   const next = takeNext() || '/my';
+
+  // LINE 那一側拒絕或使用者取消時，導回來的是 error／error_description，不是 code。
+  // 原因要留給登入頁（例如使用者按了取消、或頻道還在 Developing 只讓開發者登入），
+  // 只說「沒有完成」的話，回報上來的永遠是「登入失敗」四個字（驗收反饋 P-2）。
+  const q0 = new URLSearchParams(location.search);
+  if (q0.has('error')) {
+    const why = q0.get('error_description') || q0.get('error');
+    cleanUrl();
+    return { done: false, next, error: `LINE 沒有完成授權：${why}` };
+  }
+
   try {
     const liff = await initLiff();          // init 會消化掉網址上的 code
     cleanUrl();

@@ -176,6 +176,18 @@ test('⭐ 換發失敗時錯誤要留在畫面上，不是跳一下就消失 @ac
   await expect(page.getByRole('button', { name: /再試一次/ })).toBeVisible();
 });
 
+test('⭐ LINE 拒絕或取消時，LINE 給的原因要留在登入頁上（不是只寫「沒有完成」）@account', async ({ page }) => {
+  // 頻道還在 Developing 狀態、或使用者在 LINE 那邊按取消，LINE 會帶 error／error_description 導回。
+  // 這句原因是主辦唯一能拿來判斷的線索。
+  await stub(page);
+  await page.goto('/?error=access_denied&error_description=The+user+cancelled+the+login&state=x#/login');
+  await page.waitForFunction(() => !!window.__fake, null, { timeout: 30_000 });
+  await expect(page.locator('.acct__box--warn')).toContainText('登入沒有完成', { timeout: 15_000 });
+  await expect(page.locator('.acct')).toContainText('LINE 沒有完成授權');
+  await expect(page.locator('.acct')).toContainText('The user cancelled the login');
+  expect(await page.evaluate(() => location.search)).toBe('');     // 一次性參數要抹掉，重新整理才不會再跑一次
+});
+
 test('⭐ 從 LINE 導回時落在首頁也要完成登入（hash 會在導轉中被丟掉）@account', async ({ page }) => {
   // 這是實機上真正發生的那個 bug：liff.login() 走 OAuth 導轉，
   // 網址 `#/login` 那一段回不來，使用者落在公開首頁。

@@ -15,7 +15,7 @@ import { navigate } from '../../core/router.js';
 import { icon, iconText } from '../../core/icons.js';
 import { startTicker, now } from '../../core/clock.js';
 import { dateLabelFromYmd, hhmm } from '../../lib/format.js';
-import { EVENT } from '../../config.js';
+import { EVENT, CACHE_VERSION } from '../../config.js';
 import * as data from './data.js';
 import { splitHomeSections, isLiveMatch, hiddenScorerDivisions, publishedMatches, hasBoardContent } from './selectors.js';
 import { matchRow, sectionCard, empty, pageHead, statusBadge } from './bits.js';
@@ -194,7 +194,9 @@ export async function publicHome({ scope, view, query }) {
       ) : null,
 
       scorerCard(),
-      sponsorCard()
+      sponsorCard(),
+      // 版號印在最底下：回報問題時第一句就是「你看到的版號是多少」（驗收 P-1）
+      el('p', { class: 'pver', text: `系統版本 ${CACHE_VERSION}` })
     );
     paintMinutes();
   }
