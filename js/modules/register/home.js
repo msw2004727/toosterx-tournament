@@ -15,8 +15,9 @@ import { hold } from '../../core/store.js';
 import { EVENT } from '../../config.js';
 import * as data from './data.js';
 import { ymdLabel, deadlineLabel } from './bits.js';
+import { showRegisterGuide, guideSeen } from './tutorial.js';
 
-export async function registerHome({ scope, view }) {
+export async function registerHome({ scope, view, query }) {
   const root = el('div', { class: 'reg' });
   mount(view, root);
   mount(root, skeleton(3));
@@ -34,11 +35,49 @@ export async function registerHome({ scope, view }) {
   state.divisions = divisions;
   state.loaded = true;
   render();
+  maybeOpenGuide();
 
   function render() {
     // 「我有邀請碼」放在建立球隊**之前**：一支球隊只有一個隊長，
     // 但會有十幾個隊友掃碼進來——多數人來這一頁是要加入，不是建隊。
-    mount(root, hero(), joinCard(), statusCard(), stepsCard(), divisionsCard());
+    mount(root, hero(), guideCard(), joinCard(), statusCard(), stepsCard(), divisionsCard());
+  }
+
+  /** 建隊的去處：沒登入先去登入，登入完自動回來（教學的最後一步也走這裡） */
+  function goCreate() {
+    navigate(user() ? '/register/new' : '/login?next=' + encodeURIComponent('/register/new'));
+  }
+
+  // ── 圖文教學 ────────────────────────────────────────────
+  //
+  // 第一次進來（這台裝置沒看過）而且報名開放中才自動跳；關掉就記住。
+  // `?guide=1`／`?guide=youth` 一律打開——那是主辦貼在 LINE 群組的連結，
+  // 點的人就是要看教學。報名關著就不自動跳：現在報不了，教了也沒用。
+  function maybeOpenGuide() {
+    const g = query?.get('guide');
+    if (g == null && (guideSeen() || !state.reg?.open)) return;
+    // 資料載入期間使用者可能已經換頁；容器離開文件就不要再彈
+    if (!view.isConnected) return;
+    openGuide(g === 'youth' ? 'youth' : 'adult');
+  }
+
+  function openGuide(flow) {
+    const close = showRegisterGuide({ flow, onStart: goCreate });
+    // 換頁時 router 會呼叫它把彈窗收掉；close() 本身冪等
+    hold(scope, close, 'reg-guide');
+  }
+
+  function guideCard() {
+    return el('div', { class: 'reg__guide' }, [
+      el('div', { class: 'reg__guideText' }, [
+        el('strong', { text: '第一次報名？' }),
+        el('span', { text: '一步一步的圖文教學，成人組與學童組都有。' })
+      ]),
+      el('button', {
+        class: 'btn btn--lg btn--ghost reg__guideBtn', type: 'button', id: 'reg-guide',
+        onClick: () => openGuide('adult')
+      }, iconText('info', '看圖文教學'))
+    ]);
   }
 
   function hero() {
@@ -71,7 +110,7 @@ export async function registerHome({ scope, view }) {
       closesAt ? el('p', { class: 'reg__note', text: `截止時間：${deadlineLabel(closesAt)}` }) : null,
       el('button', {
         class: 'btn btn--xl btn--primary', type: 'button',
-        onClick: () => navigate(user() ? '/register/new' : '/login?next=' + encodeURIComponent('/register/new'))
+        onClick: () => goCreate()
       }, iconText('team', '我要建立球隊')),
       user()
         ? null
@@ -112,7 +151,13 @@ export async function registerHome({ scope, view }) {
     return el('section', { class: 'reg__card' }, [
       el('h2', { class: 'reg__cardHead' }, iconText('list', '報名怎麼進行')),
       list('學童三組（幼稚園／低年級／中年級）', youth),
-      list('成人三組（女子公開／男子興趣／男子公開）', adult)
+      list('成人三組（女子公開／男子興趣／男子公開）', adult),
+      el('div', { class: 'reg__btnRow' }, [
+        el('button', { class: 'btn btn--lg', type: 'button', dataset: { guide: 'youth' }, onClick: () => openGuide('youth') },
+          iconText('info', '學童組圖文教學')),
+        el('button', { class: 'btn btn--lg', type: 'button', dataset: { guide: 'adult' }, onClick: () => openGuide('adult') },
+          iconText('info', '成人組圖文教學'))
+      ])
     ]);
   }
 

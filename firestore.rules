@@ -293,10 +293,16 @@ service cloud.firestore {
 
       // 隊長走得到的狀態轉換只有「送出」與「撤回」，以及被退回之後重新編輯。
       // approved / rejected / withdrawn 一律只有 Admin 設得了（docs/10 §3）。
+      //
+      // ⚠️ 被退回的球隊要能**直接**再送出（rejected → submitted）。管理頁在退回
+      //    狀態畫的就是「送出報名」那顆鈕；第一版這裡只放行 rejected → draft，
+      //    於是隊長改完按送出，本機快照先變成「待主辦審核」、下一秒被規則打回來，
+      //    畫面只說「可能是報名已經截止」——被退回的球隊永遠送不出去
+      //    （2026-09-06 在 demo 實測抓到，R98c／RU#46）。
       function captainTeamTransition(from, to) {
         return (from == 'draft'     && to in ['draft', 'submitted'])
             || (from == 'submitted' && to in ['submitted', 'draft'])
-            || (from == 'rejected'  && to in ['rejected', 'draft'])
+            || (from == 'rejected'  && to in ['rejected', 'draft', 'submitted'])
             // 狀態不動的更新（例如已核准之後申請取消）：欄位仍由 captainTeamPatchOk 的白名單管
             || from == to;
       }

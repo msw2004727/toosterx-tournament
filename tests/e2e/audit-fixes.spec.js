@@ -302,3 +302,43 @@ test('⭐ D-03 「最近登錄」讀不到時要說出來，不是靜靜消失�
   await expect(page.locator('#booth-recent-error')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('#booth-recent-error')).toContainText('沒辦法作廢');
 });
+
+/* ══════════════════════════════════════════════════════════════
+   報名流程（2026-09-06 在 demo 實測抓到）
+   ══════════════════════════════════════════════════════════════ */
+
+const regSeed = () => base({ extra: {
+  'config/registration': { open: true, opensAt: Date.now() - 86_400_000, closesAt: Date.now() + 86_400_000 },
+  [`events/${EVENT}/teams/t-reg`]: {
+    teamId: 't-reg', name: '台中小飛達', divisionId: 'u10', captainUid: UID,
+    status: 'draft', rosterLocked: false, memberCount: 0, inviteCode: 'REGREG', announcement: { text: null }
+  }
+} });
+
+test('⭐ R-1 生日只打了年就按加入：擋下之後年份還在，補完月日就能送 @audit @register @youth', async ({ page }) => {
+  // 驗證失敗會整張表單重畫。沒把打到一半的三格帶回去的話，「請填出生年月日」
+  // 出現的同時，剛打的「106」就被清掉了——教練要重打一次，而且不知道為什麼。
+  await stub(page, regSeed());
+  await go(page, '/#/team/t-reg/manage');
+  await page.getByRole('button', { name: /新增一位球員/ }).click();
+  await page.locator('#m-name').fill('小豆子');
+  await page.locator('#m-birth').fill('106');
+  await page.locator('#m-id4').fill('1234');
+  await page.getByRole('button', { name: /加入名單/ }).click();
+
+  await expect(page.locator('.reg__hint--err')).toContainText('出生年月日');
+  await expect(page.locator('#m-birth')).toHaveValue('106');
+
+  await page.locator('#m-birth-m').fill('3');
+  await page.locator('#m-birth-d').fill('5');
+  await page.getByRole('button', { name: /加入名單/ }).click();
+  await expect.poll(async () => Object.entries(await dump(page))
+    .find(([k]) => k.includes('/teams/t-reg/members/'))?.[1]?.birthDate ?? null, { timeout: 15_000 }).toBe('2017-03-05');
+});
+
+test('R-2 學童組的管理頁在組別讀到之前不畫「邀請隊友」（不要先閃一下錯的卡）@audit @register @youth', async ({ page }) => {
+  await stub(page, regSeed());
+  await go(page, '/#/team/t-reg/manage');
+  await expect(page.getByRole('button', { name: /新增一位球員/ })).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.reg')).not.toContainText('邀請隊友');
+});

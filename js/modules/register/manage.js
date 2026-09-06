@@ -34,6 +34,9 @@ export async function managePage({ params, scope, view }) {
 
   const state = {
     team: null, members: [], reg: null, division: null,
+    // 組別讀到了沒（讀不到也算「讀過」）：讀到之前不畫名單模式的卡片，
+    // 不然學童組會先閃一下「邀請隊友」再換成「新增球員」
+    divisionLoaded: false,
     loaded: false, busy: false, error: null,
     // 教練直接新增／編輯用的暫存表單。null = 沒有在編輯
     form: null, formErrors: {}
@@ -46,7 +49,10 @@ export async function managePage({ params, scope, view }) {
     state.loaded = true;
     // 組別設定只讀一次：資格門檻與「走不走邀請碼」都靠它
     if (t?.divisionId && state.division?.divisionId !== t.divisionId) {
-      data.getDivision(t.divisionId).then(d => { state.division = d; render(); });
+      state.divisionLoaded = false;
+      data.getDivision(t.divisionId).then(d => { state.division = d; state.divisionLoaded = true; render(); });
+    } else if (!t?.divisionId) {
+      state.divisionLoaded = true;
     }
     render();
   }, err => fail('讀不到這支球隊', err));
@@ -117,7 +123,8 @@ export async function managePage({ params, scope, view }) {
       statusCard(),
       // 學童組：教練自己新增，不發邀請碼（家長沒有帳號也填不了）
       // 成人組：邀請碼 ＋ 逐筆同意
-      ...(youth() ? [addMemberCard()] : [inviteCard(), pendingCard()]),
+      // 組別還沒讀到就先放骨架：這一格畫錯再換掉，教練會以為自己選錯組
+      ...(!state.divisionLoaded ? [skeleton(2)] : youth() ? [addMemberCard()] : [inviteCard(), pendingCard()]),
       rosterCard(),
       announcementCard()
     );
@@ -259,6 +266,9 @@ export async function managePage({ params, scope, view }) {
       memberId: m?.memberId ?? null,
       name: m?.name ?? '',
       birthDate: m?.birthDate ?? '',
+      // 打到一半的民國年三格。表單會因為驗證失敗或勾眼鏡而重畫，
+      // 只靠 birthDate（不完整時是空字串）重建的話，剛打的「106」會被清掉
+      birthParts: null,
       idLast4: m?.idLast4 ?? '',
       jerseyNo: m?.jerseyNo != null ? String(m.jerseyNo) : '',
       kind: m?.kind ?? 'player',
@@ -287,7 +297,12 @@ export async function managePage({ params, scope, view }) {
       err('name'),
 
       f.kind === 'player' ? field('m-birth', '出生年月日（民國年）',
-        rocDateInput('m-birth', { value: f.birthDate, onChange: iso => { f.birthDate = iso || ''; } }),
+        // ⚠️ parts 一定要傳（見 rocDateInput 的說明）：驗證失敗會整張表單重畫，
+        //    沒帶 parts 的話「請填出生年月日」出現的同時，剛打的年份就不見了
+        rocDateInput('m-birth', {
+          value: f.birthDate, parts: f.birthParts,
+          onChange: (iso, parts) => { f.birthDate = iso || ''; f.birthParts = parts; }
+        }),
         { required: true, hint: birthHint() }) : null,
       f.kind === 'player' ? err('birthDate') : null,
 

@@ -466,6 +466,21 @@ describe('R93–R98 報名審核（docs/05 §8.2、docs/10 §3）', () => {
     await assertSucceeds(updateDoc(teamRef(authed(env, CAP)), { status: 'draft' }));
   });
 
+  test('R98c ⭐ 被退回的球隊改完可以直接再送出（rejected → submitted，不必先退回草稿）', async () => {
+    // 管理頁在「已退回」狀態畫的就是「送出報名」——那顆鈕寫的是 submitted。
+    // 只放行 rejected → draft 的話，隊長按下去會被規則打回來，而且畫面先顯示
+    // 「待主辦審核」再消失（本機快照的假成功）。2026-09-06 在 demo 實測抓到。
+    await seedTeam({ status: 'rejected', rosterLocked: false, rejectReason: '請補背號' });
+    await assertSucceeds(updateDoc(teamRef(authed(env, CAP)), {
+      status: 'submitted', submittedAt: new Date()
+    }));
+  });
+
+  test('R98d 被退回的球隊仍然不能由隊長自己改成 approved', async () => {
+    await seedTeam({ status: 'rejected', rosterLocked: false });
+    await assertFails(updateDoc(teamRef(authed(env, CAP)), { status: 'approved' }));
+  });
+
   test('R98b ⭐ 稽核紀錄只能新增，改不動也刪不掉（R-SEC-002）', async () => {
     const auditRef = db => doc(db, 'events', EVENT, 'audits', 'a-1');
     await assertSucceeds(setDoc(auditRef(authed(env, 'u-admin')), {

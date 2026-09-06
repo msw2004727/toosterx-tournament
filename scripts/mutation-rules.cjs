@@ -374,6 +374,12 @@ const MUTANTS = [
     file: F,
     from: `                            'kind', 'consent', 'glasses', 'glassesWaiver', 'updatedAt']);`,
     to: `                            'kind', 'consent', 'updatedAt']);`
+  },
+  {
+    name: 'RU#46 ⭐ 被退回的球隊送不出去（rejected 只能回 draft，管理頁的送出鈕按了被規則打回）',
+    file: F,
+    from: `            || (from == 'rejected'  && to in ['rejected', 'draft', 'submitted'])`,
+    to: `            || (from == 'rejected'  && to in ['rejected', 'draft'])`
   }
 ];
 

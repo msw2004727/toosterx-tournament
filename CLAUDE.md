@@ -1740,6 +1740,48 @@ ReferenceError: Cannot access 'isCaptain' before initialization
 > 同步送達時就跑了。症狀一樣是整頁空白 ＋ `Cannot access 'keyOf' before
 > initialization`——單元測試 30 條全綠，E2E 第一條就紅。
 
+### 2026-09-06 在 demo 真站走完整條報名線抓到的兩個缺陷
+
+用 Playwright 對 cup-demo 走：訪客看報名頁 → 隊長建成人組球隊 → 隊友用邀請碼申請
+→ 隊長同意、送出 → 主辦核准 → 公開名單 → 申請取消／退費；再走學童組：教練填名單
+→ 送出 → 撤回 → 再送 → 主辦退回 → 教練修改 → 再送 → 核准（65 項檢查，腳本與截圖
+在 docs/13 §8）。畫面層 44 條 E2E 全綠的情況下，還是有兩件只有真站才看得到：
+
+1. **被退回的球隊永遠送不出去**（高）。`captainTeamTransition` 只放行
+   `rejected → draft`，管理頁在「已退回」畫的卻是「送出報名」（寫 `submitted`）。
+   本機快照先變成「待主辦審核」、下一秒被規則打回來，畫面只說「可能是報名已經截止」。
+   **E2E 全綠是因為替身沒有規則**——這一類「畫面與規則對不起來」只有 `test:rules`
+   或真站抓得到。修法是規則放行 `rejected → submitted`（R98c／R98d、RU#46）。
+2. **教練表單驗證失敗會清掉打到一半的民國年**（中）。`rocDateInput` 沒帶 `parts`，
+   `saveMember` 失敗後整張表單重畫，「請填出生年月日」出現的同時「106」就不見了。
+   CLAUDE.md 上面那段寫「`register/manage.js` 的球員生日不重畫，所以沒事」——
+   **錯了**：它不在 `onChange` 裡重畫，但在驗證失敗與勾眼鏡時會。現在一律傳 `parts`
+   （E2E R-1、變異 #E36）。
+
+順手修的：學童組管理頁在組別讀到之前先放骨架，不再閃一下「邀請隊友」；`join.js`
+的 `isYouthDivision` 改用引擎那一份（原本自己看 `scorerBoard`，跟管理頁是兩份定義）。
+
+### 報名圖文教學（`#/register` 的彈窗）
+
+```
+js/modules/register/guide-steps.js  內容（純資料）：兩條流程 × 9 步、截圖名、標記框座標
+js/modules/register/tutorial.js     彈窗：分頁／SVG 進度圖／截圖＋SVG 標記／上一步下一步
+img/tutorial/*.png                  390×560 的 2 倍截圖（在 demo 用 Playwright 截的）
+```
+
+・**第一次進來自動跳**（這台裝置沒看過、而且報名開放中），關掉就記在 localStorage；
+　`#/register?guide=1`／`?guide=youth` 一律打開——那是主辦貼在 LINE 群組的連結。
+・截圖是 390×560，標記框的座標就是那張圖的 CSS 像素，用 SVG viewBox 疊上去，
+　所以縮到 320px 也對得準。T63-3 讀 PNG 的 IHDR 盯著尺寸：換一張別的尺寸進來，
+　框會靜靜地圈到錯的地方。
+・圖一次只畫目前這一步，但預載下一張。少一張圖不會有錯誤訊息（只是一個空框），
+　所以 T63-2 對 `img/tutorial/`、E2E 逐步驗 `naturalWidth`。
+・E2E 的 `stub()` 預設把「看過了」寫進 localStorage，不然自動跳出的彈窗會蓋住
+　其他測試要按的按鈕；要測自動跳的那幾條傳 `freshGuide: true`。
+・要重截圖：`scratchpad` 的 reg-verify.mjs（docs/13 §8 有說明）會把每一步截成
+　同樣的尺寸並印出標記框座標；截完把座標抄進 guide-steps.js，事後用 reg-cleanup.mjs
+　清掉測試球隊。
+
 ## 公開端（M5）
 
 ```

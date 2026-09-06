@@ -243,6 +243,12 @@ const MUTANTS = [
     file: 'js/modules/staff/sheet.js',
     from: `      if (!isPlayerRow(p)) {`,
     to: `      if (false) {`
+  },
+  {
+    name: '#E36 ⭐ 教練表單重畫時丟掉打到一半的民國年（驗證失敗一次，年份就得重打；R-1）',
+    file: 'js/modules/register/manage.js',
+    from: `          value: f.birthDate, parts: f.birthParts,`,
+    to: `          value: f.birthDate, parts: null,`
   }
 ];
 

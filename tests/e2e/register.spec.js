@@ -59,7 +59,11 @@ const member = (id, over = {}) => ({
   }
 });
 
-async function stub(page, seed, user = null) {
+/**
+ * @param {{freshGuide?:boolean}} o  freshGuide：這台裝置「沒看過」圖文教學。
+ *   預設當成看過——報名首頁第一次進來會自動跳教學，會蓋住其他測試要按的按鈕。
+ */
+async function stub(page, seed, user = null, { freshGuide = false } = {}) {
   await page.route('https://www.gstatic.com/firebasejs/**', r =>
     r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: FAKE }));
   await page.route('https://firestore.googleapis.com/**', r =>
@@ -67,9 +71,10 @@ async function stub(page, seed, user = null) {
   await page.route('https://static.line-scdn.net/**', r =>
     r.fulfill({ status: 200, contentType: 'text/javascript',
       body: 'window.liff={init:()=>Promise.resolve(),isInClient:()=>false,isLoggedIn:()=>false,login:()=>{},getIDToken:()=>null,logout:()=>{}};' }));
-  await page.addInitScript(({ s, u }) => {
+  await page.addInitScript(({ s, u, seen }) => {
     window.__FAKE_SEED = s; window.__seedData = s; window.__FAKE_USER = u;
-  }, { s: seed, u: user });
+    if (seen) { try { localStorage.setItem('feda:regGuideSeen', '1'); } catch {} }
+  }, { s: seed, u: user, seen: !freshGuide });
 }
 
 async function go(page, hash) {
@@ -546,4 +551,112 @@ test('⭐ 已核准的球隊：隊長可以申請取消，狀態留給主辦改 
   expect(t.status).toBe('approved');
   expect(t.cancelRequest.reason).toBe('球員受傷太多');
   await expect(page.locator('#team-cancel-pending')).toContainText('等主辦處理');
+});
+
+/* ══════════════════════════════════════════════════════════════
+   報名圖文教學（入口頁的彈窗，2026-09-06）
+   ══════════════════════════════════════════════════════════════ */
+
+test('⭐ 第一次進報名頁會自動跳出圖文教學；關掉之後不再自動跳 @register @guide', async ({ page }) => {
+  await stub(page, base(), null, { freshGuide: true });
+  await go(page, '/#/register');
+  await expect(page.locator('.tut')).toBeVisible();
+  await expect(page.locator('.tut__count')).toHaveText('1 / 9');
+  await page.locator('.tut__close').click();
+  await expect(page.locator('.tut')).toHaveCount(0);
+
+  await page.goto('/#/');
+  await expect(page.locator('.pub')).toBeVisible();
+  await page.goto('/#/register');
+  await expect(page.locator('.reg__hero')).toBeVisible();
+  await expect(page.locator('#reg-guide')).toBeVisible();
+  await expect(page.locator('.tut')).toHaveCount(0);
+});
+
+test('報名關閉時不自動跳教學（現在報不了，教了也沒用）@register @guide', async ({ page }) => {
+  await stub(page, base({ open: false }), null, { freshGuide: true });
+  await go(page, '/#/register');
+  await expect(page.locator('.reg__box--warn')).toBeVisible();
+  await expect(page.locator('.tut')).toHaveCount(0);
+});
+
+test('⭐ 圖文教學：兩條流程、逐步切換、每一張圖都載得出來、每一步都有標記 @register @guide', async ({ page }) => {
+  await stub(page, base());
+  await go(page, '/#/register');
+  await expect(page.locator('.reg__hero')).toBeVisible();
+  await expect(page.locator('.tut')).toHaveCount(0);            // 看過了就不自動跳
+  await page.locator('#reg-guide').click();
+  await expect(page.locator('.tut')).toBeVisible();
+
+  for (const flow of ['adult', 'youth']) {
+    await page.locator(`.tut__tab[data-flow="${flow}"]`).click();
+    await expect(page.locator('.tut__tab.is-on')).toHaveAttribute('data-flow', flow);
+    for (let i = 1; i <= 9; i++) {
+      await expect(page.locator('.tut__count')).toHaveText(`${i} / 9`);
+      // 圖真的載得出來（少一張圖不會有錯誤訊息，只是一個空框）
+      await expect.poll(() => page.locator('.tut__img').evaluate(img => img.complete ? img.naturalWidth : 0),
+        { timeout: 15_000 }).toBe(780);
+      await expect(page.locator('.tut__mark').first()).toBeAttached();
+      await expect(page.locator('.tut__stepTitle')).not.toBeEmpty();
+      if (i < 9) await page.locator('[data-act="next"]').click();
+    }
+    await expect(page.locator('[data-act="start"]')).toBeVisible();
+  }
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.tut')).toHaveCount(0);
+});
+
+test('教學最後一步的「我要建立球隊」：沒登入會先帶去登入 @register @guide', async ({ page }) => {
+  await stub(page, base());
+  await go(page, '/#/register?guide=1');
+  await expect(page.locator('.tut')).toBeVisible();
+  for (let i = 0; i < 8; i++) await page.locator('[data-act="next"]').click();
+  await page.locator('[data-act="start"]').click();
+  await expect(page).toHaveURL(/login/);
+  await expect(page.locator('.tut')).toHaveCount(0);
+});
+
+test('?guide=youth 直接打開學童組（給主辦貼在 LINE 群組的連結用），看過也照樣跳 @register @guide @youth', async ({ page }) => {
+  await stub(page, base());
+  await go(page, '/#/register?guide=youth');
+  await expect(page.locator('.tut')).toBeVisible();
+  await expect(page.locator('.tut__tab.is-on')).toContainText('學童組');
+  await expect(page.locator('.tut__stepTitle')).toContainText('我要建立球隊');
+  await page.locator('[data-act="next"]').click();
+  await expect(page.locator('.tut__stepTitle')).toContainText('學童組');
+});
+
+test('步驟卡底下的兩顆按鈕各開各的流程 @register @guide', async ({ page }) => {
+  await stub(page, base());
+  await go(page, '/#/register');
+  await page.locator('[data-guide="youth"]').click();
+  await expect(page.locator('.tut__tab.is-on')).toContainText('學童組');
+  await page.locator('.tut__close').click();
+  await page.locator('[data-guide="adult"]').click();
+  await expect(page.locator('.tut__tab.is-on')).toContainText('成人組');
+});
+
+test('⭐ 320px 的教學彈窗不出現橫向捲軸，下一步在畫面裡按得到 @register @guide @narrow', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await stub(page, base());
+  await go(page, '/#/register?guide=1');
+  await expect(page.locator('.tut')).toBeVisible();
+  const over = await page.evaluate(() => {
+    const d = document.documentElement;
+    return d.scrollWidth <= d.clientWidth ? null : d.scrollWidth;
+  });
+  expect(over).toBeNull();
+  await expect(page.locator('[data-act="next"]')).toBeInViewport();
+  await page.locator('[data-act="next"]').click();
+  await expect(page.locator('.tut__count')).toHaveText('2 / 9');
+});
+
+test('換頁時教學彈窗跟著收掉（不會留在別的頁面上）@register @guide', async ({ page }) => {
+  await stub(page, base());
+  await go(page, '/#/register?guide=1');
+  await expect(page.locator('.tut')).toBeVisible();
+  await page.goto('/#/');
+  await expect(page.locator('.pub')).toBeVisible();
+  await expect(page.locator('.tut')).toHaveCount(0);
 });

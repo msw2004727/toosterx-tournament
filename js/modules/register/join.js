@@ -17,9 +17,9 @@ import { hold } from '../../core/store.js';
 import * as data from './data.js';
 import { pageHead, field, textInput, selectInput, errorBox, iconText, TEAM_STATUS } from './bits.js';
 import { needLogin } from '../account/login.js';
-
-/** 兒童組：預設是「家長替小孩報名」。判斷依據是組別設定，不是把 id 寫死。 */
-const isYouthDivision = div => div?.display?.scorerBoard === false;
+// 兒童組：預設是「家長替小孩報名」。判斷跟管理頁同一份（有沒有年齡門檻），
+// 不在這裡另寫一份看 scorerBoard 的——兩份定義遲早分岔，而且不會報錯
+import { isYouthDivision } from '../../engine/eligibility.js';
 
 export async function joinPage({ params, scope, view }) {
   const code = String(params.inviteCode || '').toUpperCase();
