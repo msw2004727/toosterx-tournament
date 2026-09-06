@@ -37,9 +37,11 @@
   .field input,.field select{min-height:36px;padding:0 10px;border:1px solid var(--line-2);border-radius:8px;
     background:var(--card);color:var(--ink);font:inherit;font-size:var(--fs-sm)}
   .field input[type=search]{min-width:160px}
-  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  /* 手機上黏在頂端的工具列不能太高：身分圓鈕改成一列橫向捲動 */
+  .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
   .chip{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line-2);background:var(--card);
-    color:var(--ink-2);font:inherit;font-size:var(--fs-sm);cursor:pointer}
+    color:var(--ink-2);font:inherit;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;flex:none}
   .chip.is-on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
   .prog{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;font-size:var(--fs-xs);color:var(--ink-2)}
   .prog__track{height:10px;border-radius:999px;background:#e6e6dc;overflow:hidden;display:flex}
