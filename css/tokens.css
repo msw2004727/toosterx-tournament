@@ -13,7 +13,9 @@
 /* ── 與主題無關的尺寸／字體 ─────────────────────────── */
 :root{
   --font-sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,-apple-system,sans-serif;
-  --font-num:"Roboto Mono","SF Mono",ui-monospace,monospace;
+  /* 數字用同一套無襯線字＋等寬數字。原本指定 Roboto Mono，但它從來沒有被載入，
+     Windows 退回 Courier New、Android 退回 Droid Sans Mono——比分看起來像打字機（2026-09-06 UI 檢視）。 */
+  --font-num:var(--font-sans);
 
   --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-8:48px;
   --r-sm:8px; --r-md:12px; --r-lg:16px; --r-full:999px;

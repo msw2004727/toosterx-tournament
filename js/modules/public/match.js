@@ -195,7 +195,7 @@ export async function publicMatch({ params, scope, view, query }) {
     return el('ul', { class: 'ptl' }, rows.map(e => el('li', {
       class: `ptl__item ptl__item--${e.side || 'none'}`
     }, [
-      el('span', { class: 'ptl__min num', text: displayMinute(e.clockSec ?? 0, e.periodId, dur()) }),
+      el('span', { class: 'ptl__min num', text: displayMinute(e.clockSec ?? 0, e.periodId, dur(), state.division?.periods ?? 2) }),
       // 黃牌與紅牌一定要看得出差別——這是家長掃時間軸時真正在找的東西
       el('span', { class: 'ptl__icon' }, icon(iconFor(e), {
         cls: e.type === 'card'
@@ -203,7 +203,8 @@ export async function publicMatch({ params, scope, view, query }) {
           : undefined
       })),
       el('span', { class: 'ptl__text', text: eventLine(e, state.division?.periods ?? 2) }),
-      el('span', { class: 'ptl__team', text: sideLabel(state.match, e.side) })
+      // 開賽／結束這類沒有隊伍的事件，右邊留白；印「待定」會讓人以為資料壞了
+      el('span', { class: 'ptl__team', text: e.side ? sideLabel(state.match, e.side) : '' })
     ])));
   }
 
@@ -255,7 +256,7 @@ export async function publicMatch({ params, scope, view, query }) {
     const m = state.match;
     if (!m || m.status !== 'live') return;
     const node = document.getElementById('pmatch-status');
-    if (node) node.textContent = displayMinute(elapsedSec(m.clock, now()), m.period, dur()) || STATUS_LABEL.live;
+    if (node) node.textContent = displayMinute(elapsedSec(m.clock, now()), m.period, dur(), state.division?.periods ?? 2) || STATUS_LABEL.live;
   }
 
   function bounceScore() {

@@ -76,7 +76,7 @@ export function matchRow({ match: m, onOpen, division }) {
       side('home', 'home'),
       el('span', { class: 'prow__nums num' }, [
         el('span', { class: 'prow__num', text: started ? sc.home : '' }),
-        el('span', { class: 'prow__dash', text: started ? '-' : 'vs' }),
+        el('span', { class: `prow__dash${started ? '' : ' is-vs'}`, text: started ? '-' : 'vs' }),
         el('span', { class: 'prow__num', text: started ? sc.away : '' })
       ]),
       side('away', 'away')

@@ -304,3 +304,8 @@
 .boot-hero{padding:var(--sp-6,32px) var(--sp-4,16px);text-align:center}
 .boot-hero h1{margin:0 0 var(--sp-2,8px);font-size:clamp(24px,6vw,32px);line-height:1.2;font-weight:800;color:var(--text-primary)}
 .boot-hero p{margin:0;color:var(--text-muted);font-size:var(--fs-sm)}
+
+
+/* ══ UI 打磨（2026-09-06 預覽版）═══════════════════════════════ */
+.card__head{color:var(--text-primary);font-weight:700}
+.card__head svg{color:var(--accent)}

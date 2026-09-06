@@ -188,9 +188,12 @@ export async function publicHome({ scope, view, query }) {
       state.divisions.length ? sectionCard('各組即時排名', 'table',
         el('div', { class: 'pchips' }, state.divisions.map(d =>
           el('button', {
-            class: 'chip', type: 'button',
+            class: 'chip pdiv', type: 'button', dataset: { div: d.divisionId },
             onClick: () => navigate(`/division/${encodeURIComponent(d.divisionId)}`)
-          }, d.name || d.divisionId)))
+          }, [
+            el('span', { class: 'pdiv__dot', 'aria-hidden': 'true' }),
+            el('span', { class: 'pdiv__name', text: d.name || d.divisionId })
+          ])))
       ) : null,
 
       scorerCard(),

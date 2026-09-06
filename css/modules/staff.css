@@ -70,7 +70,7 @@
   max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .sb__num-wrap{display:flex;align-items:center;gap:var(--sp-2);max-width:100%}
-.sb__num{font-size:var(--fs-score);font-weight:700;line-height:1;min-width:1.1em;text-align:center;
+.sb__num{font-size:var(--fs-score);font-weight:800;letter-spacing:-.02em;line-height:1;min-width:1.1em;text-align:center;
   font-variant-numeric:tabular-nums}
 .sb__step{
   display:inline-flex;align-items:center;justify-content:center;flex:none;
@@ -88,7 +88,7 @@
   background:var(--bg-card);border-bottom:1px solid var(--border);
 }
 .clockbox__period{font-size:var(--fs-sm);color:var(--text-muted);font-weight:700}
-.clockbox__time{font-size:var(--fs-2xl);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.clockbox__time{font-size:var(--fs-2xl);font-weight:800;letter-spacing:-.01em;line-height:1;font-variant-numeric:tabular-nums}
 .clockbox__minute{font-size:var(--fs-sm);color:var(--text-muted)}
 .clockbox__minute.is-added{color:var(--live);font-weight:700}
 .clockbox__btns{display:flex;gap:var(--sp-2);width:100%;margin-top:var(--sp-2)}
@@ -318,3 +318,8 @@
 }
 .chk__error strong{display:block;margin-bottom:var(--sp-1)}
 .chk__error p{margin:0}
+
+
+/* ══ UI 打磨（2026-09-06 預覽版）═══════════════════════════════ */
+/* 檢錄的「有問題」在 390px 會斷成兩行 */
+.chk__row .btn--sm{white-space:nowrap;flex:none}

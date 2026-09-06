@@ -136,6 +136,10 @@ test('⭐ D-07 單節組別的比賽頁：沒有「半場」，事件寫「比�
       [`events/${EVENT}/matches/${MATCH}/timeline/0002-goal`]: {
         timelineId: '0002-goal', matchId: MATCH, type: 'goal', side: 'home', seq: 2,
         clockSec: 320, periodId: 'h1', playerName: '小豆子', jerseyNo: 7, voided: false
+      },
+      [`events/${EVENT}/matches/${MATCH}/timeline/0003-goal`]: {
+        timelineId: '0003-goal', matchId: MATCH, type: 'goal', side: 'away', seq: 3,
+        clockSec: 1330, periodId: 'h1', playerName: '小龍', jerseyNo: 11, voided: false
       }
     }
   }), { user: null });
@@ -144,6 +148,11 @@ test('⭐ D-07 單節組別的比賽頁：沒有「半場」，事件寫「比�
   await expect(page.locator('.ptl__text', { hasText: '比賽 開始' })).toBeVisible();
   await expect(page.locator('.psb__ht')).toHaveCount(0);
   await expect(page.locator('.ptl__text', { hasText: '上半場' })).toHaveCount(0);
+  // 單節 25 分鐘：第 1330 秒的球印 22'，不能用半場算法印成 13+9'
+  await expect(page.locator('.ptl__min', { hasText: '22' })).toHaveCount(1);
+  await expect(page.locator('.ptl__min', { hasText: '+' })).toHaveCount(0);
+  // 開賽／結束這種沒有隊伍的事件右邊留白，不印「待定」
+  await expect(page.locator('.ptl__team', { hasText: '待定' })).toHaveCount(0);
 });
 
 // ── D-08 名冊順序與隊職員 ─────────────────────────────────

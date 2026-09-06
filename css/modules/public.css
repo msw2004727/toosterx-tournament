@@ -366,3 +366,30 @@ button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-colo
 .psb__appeal[data-status="filed"]{color:var(--warn-text)}
 .psb__appeal[data-status="upheld"]{color:var(--success)}
 .psb__appeal[data-status="dismissed"]{color:var(--text-muted)}
+
+
+/* ══ UI 打磨（2026-09-06 預覽版）═══════════════════════════════ */
+/* 頁首：標題再大一級，並在黏頂時跟內容分得開 */
+.phead{box-shadow:0 2px 10px rgba(9,16,14,.18)}
+.phead__title strong{font-size:var(--fs-lg);letter-spacing:.01em}
+/* 卡片標題：主文字色＋主色圖示，原本整行都是灰的，跟內容分不出層次 */
+.pcard__head{color:var(--text-primary);font-weight:700}
+.pcard__head svg{color:var(--accent)}
+/* 還沒開打的「vs」：小字、大寫、字距，不要跟比分用同一種樣子 */
+.prow__dash.is-vs{font-size:var(--fs-xs);font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted)}
+.prow__num{font-weight:800}
+/* 記分板：數字是這一頁的主角 */
+.psb__num{font-weight:800;letter-spacing:-.02em}
+.psb__dash{font-weight:400}
+/* 首頁「各組即時排名」：兩欄的組別磚，帶組別色點，不再是一排灰色小膠囊 */
+.pchips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2)}
+.pdiv{
+  justify-content:flex-start;gap:var(--sp-2);min-height:var(--tap);
+  border-radius:var(--r-md);background:var(--bg-elevated);font-weight:700;white-space:nowrap;overflow:hidden;
+}
+.pdiv__dot{width:10px;height:10px;border-radius:50%;background:var(--div,var(--accent));flex:none}
+.pdiv__name{overflow:hidden;text-overflow:ellipsis}
+.pdiv[data-div="u6"]{--div:var(--div-u6)} .pdiv[data-div="u8"]{--div:var(--div-u8)} .pdiv[data-div="u10"]{--div:var(--div-u10)}
+.pdiv[data-div="women"]{--div:var(--div-women)} .pdiv[data-div="adult-fun"]{--div:var(--div-fun)} .pdiv[data-div="adult-open"]{--div:var(--div-open)}
+/* 射手榜：名次淡、進球數重 */
+.ptop__val{font-size:var(--fs-md)}
