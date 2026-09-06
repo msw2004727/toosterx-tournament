@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>飛達盃 2026 手動驗收流程</title>
+<meta name="description" content="FEDA CUP 2026 賽事系統的手動驗收清單：依身分列出驗收項目、操作步驟與預期結果，結果存在這支手機上，可匯出成文字貼到 LINE。">
+<style>
+  :root{
+    --bg:#f5f4ef; --card:#ffffff; --ink:#1d2419; --ink-2:#55604e; --ink-3:#8a9383;
+    --line:#dcdcd2; --line-2:#c7c9bd;
+    --accent:#1f6b3a; --accent-ink:#ffffff; --accent-bg:#e5f1e8;
+    --pass:#1f6b3a; --pass-bg:#e5f1e8; --fail:#a83a2c; --fail-bg:#f8e7e3; --skip:#7a6b2f; --skip-bg:#f4eed6;
+    --warn-bg:#fff5db; --warn-ink:#6b4c00; --warn-line:#e8cf8a;
+    --r:10px; --tap:44px;
+    --fs-xs:12px; --fs-sm:14px; --fs:16px; --fs-lg:19px; --fs-xl:24px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:var(--fs)/1.6 -apple-system,"Segoe UI","PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif}
+  a{color:var(--accent)}
+  code{font:0.92em ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#eeeee6;padding:1px 5px;border-radius:5px;white-space:nowrap}
+  .wrap{max-width:900px;margin:0 auto;padding:0 14px 80px}
+
+  /* ── 頁首 ── */
+  .hero{padding:22px 0 10px;border-bottom:1px solid var(--line)}
+  .hero h1{margin:0 0 4px;font-size:var(--fs-xl);letter-spacing:.01em;text-wrap:balance}
+  .hero p{margin:0;color:var(--ink-2);font-size:var(--fs-sm)}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin:10px 0 0;font-size:var(--fs-xs);color:var(--ink-3)}
+
+  /* ── 工具列（黏在上面）── */
+  .bar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);
+    padding:10px 0;display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .field{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--ink-2)}
+  .field input,.field select{min-height:36px;padding:0 10px;border:1px solid var(--line-2);border-radius:8px;
+    background:var(--card);color:var(--ink);font:inherit;font-size:var(--fs-sm)}
+  .field input[type=search]{min-width:160px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line-2);background:var(--card);
+    color:var(--ink-2);font:inherit;font-size:var(--fs-sm);cursor:pointer}
+  .chip.is-on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  .prog{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;font-size:var(--fs-xs);color:var(--ink-2)}
+  .prog__track{height:10px;border-radius:999px;background:#e6e6dc;overflow:hidden;display:flex}
+  .prog__seg{height:100%}
+  .prog__seg--pass{background:var(--pass)} .prog__seg--fail{background:var(--fail)} .prog__seg--skip{background:#c9b86a}
+  .prog__nums{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .btn{min-height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--line-2);background:var(--card);
+    color:var(--ink);font:inherit;font-size:var(--fs-sm);cursor:pointer}
+  .btn--primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  .btn--ghost{background:transparent}
+
+  /* ── 導引 ── */
+  .guide{margin:14px 0 0;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);font-size:var(--fs-sm)}
+  .guide ul{margin:6px 0 0;padding-left:1.3em}
+  .guide li{margin:2px 0}
+
+  /* ── 章節 ── */
+  .sec{margin-top:26px}
+  .sec__head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    border-bottom:2px solid var(--ink);padding-bottom:6px}
+  .sec__head h2{margin:0;font-size:var(--fs-lg)}
+  .sec__count{font-size:var(--fs-xs);color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .sec__intro{margin:8px 0 0;color:var(--ink-2);font-size:var(--fs-sm)}
+  .sec[hidden]{display:none}
+
+  /* ── 項目卡 ── */
+  .item{background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-top:12px;overflow:hidden}
+  .item[hidden]{display:none}
+  .item__sum{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 12px;cursor:pointer;list-style:none}
+  .item__sum::-webkit-details-marker{display:none}
+  .item__id{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:var(--fs-xs);color:var(--ink-3);
+    border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap}
+  .item__title{font-weight:700;font-size:var(--fs-sm);line-height:1.4}
+  .item__tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+  .tag{font-size:var(--fs-xs);color:var(--ink-2);background:#f0f0e8;border-radius:5px;padding:0 6px;line-height:20px}
+  .tag--env{background:var(--warn-bg);color:var(--warn-ink)}
+  .tag--ref{background:#e8ecf5;color:#324a7a}
+  .state{font-size:var(--fs-xs);border-radius:999px;padding:2px 9px;white-space:nowrap;border:1px solid transparent;color:var(--ink-3);background:#f0f0e8}
+  .state[data-r=pass]{background:var(--pass-bg);color:var(--pass);border-color:#bcd9c5}
+  .state[data-r=fail]{background:var(--fail-bg);color:var(--fail);border-color:#e6bdb5}
+  .state[data-r=skip]{background:var(--skip-bg);color:var(--skip);border-color:#e0d3a0}
+  .item[data-r=fail]{border-color:#e0a89e} .item[data-r=pass]{border-color:#bcd9c5}
+  .item__body{padding:2px 12px 12px;border-top:1px solid var(--line)}
+  .item__body h4{margin:12px 0 4px;font-size:var(--fs-xs);color:var(--ink-3);letter-spacing:.06em;text-transform:uppercase}
+  .item__body ol,.item__body ul{margin:0;padding-left:1.4em;font-size:var(--fs-sm)}
+  .item__body li{margin:3px 0}
+  .why{margin:10px 0 0;padding:8px 10px;background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:8px;color:var(--warn-ink);font-size:var(--fs-xs);line-height:1.6}
+  .verdict{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;align-items:center}
+  .v{min-height:var(--tap);min-width:72px;padding:0 14px;border-radius:8px;border:1px solid var(--line-2);background:var(--card);font:inherit;font-size:var(--fs-sm);cursor:pointer;color:var(--ink-2)}
+  .v[data-v=pass].is-on{background:var(--pass);border-color:var(--pass);color:#fff}
+  .v[data-v=fail].is-on{background:var(--fail);border-color:var(--fail);color:#fff}
+  .v[data-v=skip].is-on{background:var(--skip);border-color:var(--skip);color:#fff}
+  .note{width:100%;margin-top:8px;min-height:44px;padding:8px 10px;border:1px solid var(--line-2);border-radius:8px;font:inherit;font-size:var(--fs-sm);resize:vertical;background:#fbfbf7}
+  .stamp{margin-top:4px;font-size:var(--fs-xs);color:var(--ink-3)}
+
+  /* ── 匯出 ── */
+  .export{margin-top:30px;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
+  .export textarea{width:100%;min-height:200px;margin-top:10px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;border:1px solid var(--line-2);border-radius:8px;padding:10px}
+  .empty{padding:30px 0;text-align:center;color:var(--ink-3);font-size:var(--fs-sm)}
+
+  @media (max-width:420px){
+    .item__sum{grid-template-columns:1fr auto}
+    .item__id{display:none}
+  }
+  @media print{
+    .bar,.verdict,.export,.guide,.btn{display:none!important}
+    .item{break-inside:avoid;border-color:#999}
+    .item__body{display:block!important}
+    details>summary{cursor:default}
+    body{background:#fff}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>飛達盃 2026 手動驗收流程</h1>
+    <p>依身分列出每一個功能的驗收項目、操作步驟與預期結果。結果只存在這支手機的瀏覽器裡，做完按「匯出結果」貼到 LINE 群組。</p>
+    <div class="meta">
+      <span>系統版本 0.20260906</span>
+      <span>demo：cup-demo.toosterx.com</span>
+      <span>正式：cup.toosterx.com</span>
+      <span>文件：docs/14（2026-09-06）</span>
+    </div>
+  </header>
+
+  <div class="bar" id="bar">
+    <div class="row">
+      <label class="field">測試人 <input id="tester" type="text" placeholder="你的名字" maxlength="20"></label>
+      <label class="field">環境
+        <select id="env">
+          <option value="demo">demo（可以亂測）</option>
+          <option value="prod">正式站（只做不會留資料的項目）</option>
+        </select>
+      </label>
+      <label class="field"><input id="q" type="search" placeholder="搜尋項目、路由、關鍵字"></label>
+      <button class="btn btn--ghost" id="expandAll" type="button">全部展開</button>
+      <button class="btn btn--ghost" id="collapseAll" type="button">全部收合</button>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="prog">
+      <div class="prog__track" id="track"></div>
+      <div class="prog__nums" id="nums"></div>
+    </div>
+  </div>
+
+  <div class="guide">
+    <strong>怎麼用</strong>
+    <ul>
+      <li>先選你的身分（上面的圓鈕），只會顯示那個身分要做的項目。「全部」是總管用的總表。</li>
+      <li>每一項都有「步驟」與「預期結果」。只要有一條預期結果沒出現就按「失敗」，並在備註寫下你看到的東西與時間。</li>
+      <li>demo 站可以放心亂寫；正式站只做標了「demo／正式皆可」的項目，其他的不要在正式站做，會留下真資料。</li>
+      <li>demo 站頁首橫幅的「切換身分」可以切成攤位、檢錄員、裁判、記錄員、管理員（切不成總管，那是刻意的）。正式站沒有這顆鈕，身分由總管在「身分授權」指派。</li>
+      <li>做到一半換手機不會帶著結果走，所以每個人用自己的手機做完就匯出一次。</li>
+    </ul>
+  </div>
+
+  <main id="main"></main>
+
+  <section class="export" id="exportBox">
+    <strong>匯出結果</strong>
+    <div class="row" style="margin-top:8px">
+      <button class="btn btn--primary" id="doExport" type="button">產生文字並複製</button>
+      <button class="btn btn--ghost" id="doReset" type="button">清掉這支手機上的所有結果</button>
+    </div>
+    <textarea id="out" readonly placeholder="按上面的按鈕，結果會出現在這裡並自動複製到剪貼簿。"></textarea>
+  </section>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   驗收項目資料。每一項：
+     id       編號（穩定，別改；結果用它存）
+     who      身分（篩選用）
+     env      'demo' 只在 demo 做／'both' demo 與正式站都可以做（不留資料）
+     ref      對應的規則或驗收缺陷編號（查 CLAUDE.md 或 docs/13）
+     steps    操作步驟
+     expect   預期結果（任何一條沒出現就算失敗）
+     why      為什麼這一條重要／容易看錯的地方
+   ═══════════════════════════════════════════════════════════════ */
+const ROLES = [
+  ['all','全部'],['prep','事前準備'],['guest','訪客／公開端'],['parent','家長／隊長'],['player','挑戰區玩家'],
+  ['booth','挑戰攤位'],['checkin','檢錄員'],['referee','裁判'],['scorer','記錄員'],['admin','管理員'],['super','總管'],['dev','開發者選測']
+];
+const ROLE_LABEL = Object.fromEntries(ROLES);
+
+const SECTIONS = [
+{ id:'P', who:'prep', title:'0. 事前準備（總管）', intro:'做任何驗收之前先確認環境、帳號與測試身分都在。',
+  items:[
+  { id:'P-1', title:'環境與版本', env:'both', ref:'R-REL-003',
+    steps:['手機開 https://cup-demo.toosterx.com（正式站是 https://cup.toosterx.com）','看頁面最底下的版號'],
+    expect:['版號是 0.20260906','demo 站最上面有一條「DEMO 展示環境・比分與名次皆為測試資料」橫幅，而且關不掉','正式站沒有那條橫幅'],
+    why:'看到舊版號代表瀏覽器抓到舊快取，先強制重新整理（Android Chrome：設定 → 網站設定 → 清除資料）再測。' },
+  { id:'P-2', title:'三位總管用 LINE 登入一次', env:'both', ref:'R-RULES-003',
+    steps:['頁首按「登入」→ 用 LINE 登入 → 授權','回到站上後開「我的」（#/my）'],
+    expect:['授權完自動回到「我的」，不必再按一次登入','「我的」顯示你的 LINE 名稱、uid（U 開頭 33 碼）與「總管」','「我的功能」列出 10 項（含身分授權、權限開關、報名開關）'],
+    why:'三位總管的 uid 已經用 Admin SDK 掛好（小麥、U2104…、U196b…）。名字要等第一次 LINE 登入之後才會出現在後台，登入前後台顯示的是 uid。' },
+  { id:'P-3', title:'demo 的切換身分', env:'demo', ref:'R-DEMO-001',
+    steps:['在 demo 站按橫幅上的「切換身分」','逐一看清單'],
+    expect:['清單有五種：挑戰攤位、檢錄員、裁判、記錄員、管理員，每一列寫明比上一階多了什麼','清單裡沒有「總管」','切換後「我的」立刻依新身分展開，不必重新整理','清單最後有「留在我的 LINE 身分」可以退回'],
+    why:'切得成總管等於任何人登入一次就能發身分給任何人，那整個權限模型就沒有意義了。' },
+  { id:'P-4', title:'測試資料就位（demo）', env:'demo', ref:'R-SEED-001',
+    steps:['開首頁看 10/9 到 10/11 三天','開 #/schedule 看六個組別'],
+    expect:['六個組別都有球隊與場次（38 隊、75 場）','各組積分榜看得到球隊'],
+    why:'demo 上的資料是種子資料，正式站是空的（等報名核准與賽程產生）。正式站的驗收只做「不留資料」的項目。' }
+]},
+
+{ id:'A', who:'guest', title:'1. 訪客／公開端（免登入）', intro:'用未登入的瀏覽器（無痕視窗）做。這一區在正式站也可以做，因為只有讀取。',
+  items:[
+  { id:'A-1', title:'首頁 #/', env:'both', ref:'docs/03 §2',
+    steps:['開首頁','往下捲到底'],
+    expect:['最上面是「足球挑戰區」入口（現場立牌的 QR 掃進來就是這裡，路過的人要先看到遊戲）','三天日期分頁 10/9、10/10、10/11','「接下來」列出待進行的場次；沒有的話寫「這個日期沒有待進行的場次」','各組即時排名六個組別','射手榜（比賽開始前寫「整理中」）','贊助合作夥伴'],
+    why:'挑戰區入口藏在最底下，攤位就沒有人。' },
+  { id:'A-2', title:'日期切換不重載', env:'both',
+    steps:['在首頁點 10/10，再點 10/11'],
+    expect:['場次整批更換，畫面沒有整頁重新載入（頁首不閃）','網址與分頁標題不變'] },
+  { id:'A-3', title:'賽程 #/schedule 與篩選', env:'both', ref:'docs/03 §3',
+    steps:['開 #/schedule','切換日期、組別、場地三組篩選','按手機的「上一頁」再回來'],
+    expect:['篩選條件寫進網址（重新整理後還在）','場次依時段分群','還沒解出來的淘汰賽顯示「A組第1名 vs B組第1名」這種佔位，不會假裝已經抽好'] },
+  { id:'A-4', title:'比賽頁 #/match/:id', env:'both', ref:'D-07',
+    steps:['從賽程點一場已完賽的比賽（demo 有）','看四個分頁：事件／直播／陣容／統計'],
+    expect:['記分板、狀態、組別・場地・輪次都有','事件列的期別文字是「比賽 開始」，不是「上半場」（六個組別都不分上下半場，規章第十八條）','記分板不顯示「半場 x-y」','直播分頁是「點了才載入」，沒點不會出現 YouTube 播放器','分頁標題是「隊名 比分 隊名｜FEDA CUP 2026」'] },
+  { id:'A-5', title:'組別頁 #/division/:id', env:'both', ref:'R-REG-001',
+    steps:['開六個組別各一次'],
+    expect:['標頭的人制與時間跟規章一致：U6／U8／U10／女子 5 人制 25 分鐘，成人興趣／公開 9 人制 30 分鐘','積分榜欄位：名、球隊、賽、勝、和、負、進、失、差、積分','晉級區的名次有底色與左邊條（不只靠顏色）','同分還沒裁定的球隊名次顯示「—」並寫「名次待主辦裁定」，不會自己編一個名次','隊名是一顆按鈕，點了進球隊頁；按鈕高度不小於 44px（拇指按得到）'] },
+  { id:'A-6', title:'球隊頁 #/team/:id 與球員頁', env:'both', ref:'R-CODE-002',
+    steps:['從積分榜點一隊','看名單分頁與賽程分頁','點一位球員'],
+    expect:['隊名、分組、統計、名單、賽程都有','球員頁只有背號、名字（或遮蔽名）、位置與統計','demo 有一隊隊名含 HTML 標籤的測試隊，隊名照字面印出，沒有被當成標記執行'] },
+  { id:'A-7', title:'名冊隱私（依年齡，不依組別）', env:'both', ref:'R-PRIV-001／R-PRIV-002',
+    steps:['開 U10 的球隊名單','開成人公開組的球隊名單','用瀏覽器的「搜尋頁面」找「生日」「後四碼」'],
+    expect:['學童組球員顯示的是暱稱，不遮蔽','成人組未滿 13 歲的球員（若有）顯示「王小＊」這種遮蔽名，成人顯示全名','公開端任何一頁都找不到生日與身分證後四碼'],
+    why:'遮蔽是看年齡不是看組別：兒童組偶爾有超齡的隨隊職員，成人組也可能有未滿 13 歲的球員。' },
+  { id:'A-8', title:'統計 #/stats', env:'both', ref:'docs/03 §9',
+    steps:['開 #/stats','切換組別篩選，最後選「全部組別」'],
+    expect:['只有兩張榜：射手榜、行為分榜，沒有助攻榜','U6／U8／U10 的球員不會出現在射手榜，連「全部組別」也不會'] },
+  { id:'A-9', title:'直播牆 #/live', env:'both',
+    steps:['開 #/live','點第一片場地的播放，再點第二片'],
+    expect:['每個場地一格','同時只有一個在播，點第二個時第一個停','沒點之前不載入 YouTube'] },
+  { id:'A-10', title:'找不到頁面', env:'both', ref:'D-14',
+    steps:['手動輸入 #/no-such-page'],
+    expect:['畫面寫「找不到這個頁面」並印出你輸入的路徑，有「回首頁」','瀏覽器分頁標題變成「找不到頁面｜FEDA CUP 2026」，不是上一頁的名字'] },
+  { id:'A-11', title:'未發布的賽程公開端看不到', env:'demo', ref:'#S14',
+    steps:['請管理員在 #/admin/schedule 把某一組設為「未發布」','回公開端看首頁、賽程、組別頁、球隊頁'],
+    expect:['那一組的場次在四個地方都消失','管理員重新發布後又出現'],
+    why:'這不是安全邊界：資料本身仍然讀得到，只是畫面不顯示。後台畫面上有寫這句話。' },
+  { id:'A-12', title:'頁首在每一頁都一樣', env:'both', ref:'R-NAV-001／R-NAV-002',
+    steps:['走訪首頁、賽程、比賽、組別、球隊、統計、直播牆、報名、挑戰區','未登入與登入後各看一次'],
+    expect:['每一頁都有：首頁／安裝／登入或我的／三個主題圖示','「首頁」永遠回公開首頁，就算你是總管','未登入顯示「登入」，登入後同一個位置變成「我的」'] },
+  { id:'A-13', title:'主題三態', env:'both', ref:'R-UI-005',
+    steps:['依序點三個主題圖示：跟隨系統、淺色、深色','選深色後重新整理','選淺色後把手機系統切成深色模式'],
+    expect:['三種都會立刻換色，重新整理後記得','手動選淺色之後系統轉深色不會被蓋掉','深色下每一頁文字都看得清楚，沒有白字白底或黑字黑底'] },
+  { id:'A-14', title:'窄機 320px 與觸控目標', env:'both', ref:'R-UI-006／D-15',
+    steps:['用最窄的手機（或 Chrome 開發者工具 320px）開首頁、賽程、組別頁、比賽頁','試著按頁首的主題圖示、首頁、登入'],
+    expect:['沒有橫向捲軸','主題圖示、頁首連結、積分榜隊名都按得到（不小於 44px 高）'] },
+  { id:'A-15', title:'安裝到主畫面（PWA）', env:'both', ref:'R-PWA-001',
+    steps:['Android Chrome 開首頁，看頁首有沒有「安裝」','iPhone Safari 開首頁，按「安裝」','從 LINE 聊天室點連結開站，按「安裝」'],
+    expect:['Android Chrome：出現「安裝」鈕，按了跳原生安裝框，裝完有正確圖示','iPhone Safari：顯示「分享 → 加入主畫面」的教學，不會有一顆按不動的按鈕','LINE 內建瀏覽器：說明這裡裝不了，教改用外部瀏覽器開'],
+    why:'沒接到安裝事件就不畫按鈕。按了沒反應是最難回報的故障。' }
+]},
+
+{ id:'R', who:'parent', title:'2. 家長／隊長（報名端）', intro:'需要兩個 LINE 帳號（一個當隊長、一個當隊員或家長）。在 demo 做，會留資料。',
+  items:[
+  { id:'R-1', title:'報名說明 #/register（免登入）', env:'both', ref:'R-REG-001',
+    steps:['未登入開 #/register'],
+    expect:['顯示「報名開放中」與截止時間（正式站：9/24 00:00）','六個組別兩個名字並列，例如「U10兒童組／規章：學童中年級」','兩條流程說明：成人組用邀請碼、學童組由教練直接填','邀請碼輸入框、建立球隊入口'] },
+  { id:'R-2', title:'LINE 登入與「我的」', env:'both', ref:'docs/10 §8.5',
+    steps:['按「登入」→ LINE 授權','回站上開「我的」','按 uid 旁邊的複製'],
+    expect:['授權完自動登入並回到「我的」，不必再按一次','顯示 LINE 名稱與頭像（來自 users 文件）','uid 可複製','已登入時再開 #/login 會直接被帶回「我的」，不會空白'] },
+  { id:'R-3', title:'建立成人組球隊', env:'demo', ref:'docs/10 §3',
+    steps:['#/register/new 選「成人公開組」，填隊名、聯絡方式','送出'],
+    expect:['進到球隊管理頁，狀態「草稿」','拿到一組邀請碼與可分享的連結','「我的」列出這支球隊，退出瀏覽器再回來也還在'] },
+  { id:'R-4', title:'隊員用邀請碼申請', env:'demo',
+    steps:['第二個 LINE 帳號開 #/join/邀請碼','填姓名、生日（民國年三格）、身分證後四碼、背號、位置','故意輸入一組錯的邀請碼再試一次'],
+    expect:['送出後狀態是「等隊長同意」，不會直接進名單','錯的邀請碼顯示「找不到這組邀請碼」並回聲你輸入的字，提醒跟隊長確認','民國年三格用數字鍵盤，不會跳西元日期選擇器'] },
+  { id:'R-5', title:'隊長審核申請', env:'demo', ref:'R65–R72',
+    steps:['隊長開 #/team/:id/manage','對剛才的申請按「同意」，再對另一筆按「婉拒」','試著編輯家長送來的那一筆'],
+    expect:['同意後進名單、婉拒後不在名單','家長送來的內容隊長改不動，只能同意或婉拒','隊長自己填的那幾筆（教練模式）可以編輯與移除'] },
+  { id:'R-6', title:'學童組：教練直接新增小球員', env:'demo', ref:'R-PRIV-002',
+    steps:['建一支 U10 球隊','在管理頁直接新增小球員：暱稱、身分證後四碼、民國年生日（三格）','試著不填後四碼或生日送出'],
+    expect:['學童組沒有邀請碼那一段，教練直接填','暱稱、後四碼、生日在學童組是必填，缺一個送不出去','不收小球員的真名'],
+    why:'小球員沒有 LINE，家長也不一定會操作。留一組沒有人用的邀請碼只會讓教練一直等。' },
+  { id:'R-7', title:'眼鏡切結書', env:'demo', ref:'規章附件二',
+    steps:['新增或編輯球員時勾「配戴眼鏡」','開 #/register/waiver'],
+    expect:['勾了之後要同意切結書才能送出','#/register/waiver 免登入可看、可列印全文','教練可以記「切結書已收」'] },
+  { id:'R-8', title:'送出報名與凍結', env:'demo', ref:'docs/10 §3.4',
+    steps:['名單齊了按「送出報名」','再用邀請碼連結開 #/join/:code','按「撤回」再看'],
+    expect:['送出後狀態「已送審」，名單凍結','加入頁直接說明已送審並收掉表單，不讓人填完才被擋','撤回後解凍，可以再改再送'] },
+  { id:'R-9', title:'每人限報乙隊、球員上限 15 人', env:'demo', ref:'規章第十二條',
+    steps:['同一個人（同身分證後四碼＋同生日）在第二支球隊申請並被同意','一支球隊試著讓第 16 位球員進名單'],
+    expect:['第二隊的那一筆在幾秒內被系統退件並寫明原因（每人限報乙隊）','第 16 位球員的建立或同意被擋下；教練與領隊不算在 15 人裡'],
+    why:'一位家長替兩個小孩報不同隊是合法的，判斷「同一個人」看的是後四碼＋生日，不是家長的帳號。' },
+  { id:'R-10', title:'我報名的球員（家長）', env:'demo', ref:'M4-d',
+    steps:['用家長帳號替兩支不同球隊各報一位小孩','開「我的」'],
+    expect:['「我報名的球員」跨球隊列出兩位，各自標隊名與狀態','別人家的小孩不會出現','查不到球隊文件的那一筆仍然列出，隊名退回代號'] },
+  { id:'R-11', title:'申請取消報名', env:'demo', ref:'規章第二十七條',
+    steps:['隊長在球隊頁按「申請取消」'],
+    expect:['球隊上出現取消申請，等主辦處理','隊長自己改不了狀態成已取消（只有管理員能）'] },
+  { id:'R-12', title:'報名截止後的畫面', env:'demo', ref:'R114',
+    steps:['請總管在 #/admin/registration 把截止時間改成過去','回 #/register 與建隊頁'],
+    expect:['#/register 顯示「已截止」，沒有一顆按下去會失敗的按鈕','建隊、加入都被擋在前面並說明原因','改回未來的時間後恢復開放'] }
+]},
+
+{ id:'G', who:'player', title:'3. 挑戰區玩家（Game Pass，免登入）', intro:'完全不用登入。用第二支手機當玩家最真實。',
+  items:[
+  { id:'G-1', title:'挑戰區首頁 #/challenge', env:'both', ref:'docs/06 §5',
+    steps:['從首頁最上面的入口進去'],
+    expect:['五個關卡各有名稱、攤位位置、規則','有「建立 Game Pass」與「找回」入口','已有卡的話顯示我的進度'] },
+  { id:'G-2', title:'建立 Game Pass', env:'demo', ref:'docs/06 §5.1',
+    steps:['#/challenge/join 填暱稱，建立','再用無痕視窗（或封鎖網站資料）開一次'],
+    expect:['拿到 FEDA-四位數 代號、QR、暱稱','代號印得很大，QR 旁邊一定有代號','無痕視窗也不會白頁，只是提醒下次要自己輸入代號'],
+    why:'無痕視窗連 localStorage 這個屬性都會丟例外，沒接住的話整頁空白。' },
+  { id:'G-3', title:'我的挑戰卡 #/challenge/me', env:'demo',
+    steps:['開 #/challenge/me','改暱稱','（攤位登錄成績後）再開一次'],
+    expect:['QR、代號、完成關卡、抽獎張數都在','暱稱改得動','攤位登錄後幾秒內完成關卡與抽獎張數更新'] },
+  { id:'G-4', title:'找回 Game Pass', env:'demo',
+    steps:['清掉網站資料或換手機','#/challenge/join 選「找回」輸入代號'],
+    expect:['找得回進度','找回的卡上「填寫聯絡方式」不是表單，而是說明「請到攤位登記」'],
+    why:'憑證只在建卡的那支手機，找回的卡沒有憑證，畫一個會失敗的表單只會讓人以為系統壞了。' },
+  { id:'G-5', title:'排行榜 #/challenge/board/:id', env:'both', ref:'#LB1／#LB2',
+    steps:['開任一關的排行榜','用一張成績在 50 名之外的卡開'],
+    expect:['前 50 名列表','自己不在前 50 時底部固定顯示自己那一列與名次','榜上看不到別人的代號'] },
+  { id:'G-6', title:'填寫中獎聯絡方式（自建的卡）', env:'demo', ref:'R137',
+    steps:['#/challenge/me 填手機號碼送出','輸入 0912-345-678 這種帶符號的'],
+    expect:['送出成功並顯示已登記','號碼被正規化成 0912345678','這支電話不會出現在任何公開頁'] }
+]},
+
+{ id:'B', who:'booth', title:'4. 挑戰攤位人員', intro:'demo 用「切換身分 → 挑戰攤位」。正式站要先由總管指派並填攤位（challengeIds）。',
+  items:[
+  { id:'B-1', title:'攤位頁 #/booth 與指派', env:'demo', ref:'docs/06 §4',
+    steps:['以攤位身分開 #/booth','以沒有身分的帳號開 #/booth'],
+    expect:['顯示指派的關卡與攤位位置；只有一關時不用選','沒指派攤位的人看到「你還沒有被指派到任何攤位」','沒有身分的人看得到原因，不是空白頁'] },
+  { id:'B-2', title:'查玩家與現場代建', env:'demo', ref:'D-04',
+    steps:['輸入玩家代號查詢（或掃 QR）','輸入一組不存在的代號 → 代建','輸入 abc 這種格式不對的'],
+    expect:['查得到的玩家顯示暱稱、這一關的次數與最佳','找不到時問「要現場代建一張 Game Pass 嗎」，代建後可以直接登錄','格式不對時提示正確格式（FEDA-0182），不送查詢'] },
+  { id:'B-3', title:'登錄成績（含 0 分）', env:'demo', ref:'C02／D-04',
+    steps:['查到玩家後直接按「送出成績」（不加分）','再登錄一次，用 ＋ 加到 2 再送出'],
+    expect:['0 分送得出去，包括剛代建的卡','從查到玩家到送出不超過 3 次點擊','送出後立刻顯示「成績已記錄」與個人最佳，不等伺服器'] },
+  { id:'B-4', title:'送出三態與離線', env:'demo', ref:'C06',
+    steps:['開飛航模式','登錄一筆成績','關飛航模式'],
+    expect:['離線時仍能送出，燈號顯示「待同步」與筆數','恢復連線後自動補送，燈號回到「已連線」','離線時不畫作廢鈕'],
+    why:'離線時伺服器認可的送出時間還不存在，畫一個 10 分鐘倒數就是假成功。' },
+  { id:'B-5', title:'作廢送錯的成績', env:'demo', ref:'D-03／C07',
+    steps:['線上登錄一筆','在「最近登錄」對它按作廢，填原因','等 10 分鐘後再看同一筆'],
+    expect:['10 分鐘內看得到作廢鈕，作廢後那一筆標記作廢','排行榜與玩家的完成關卡、抽獎張數跟著回退','超過 10 分鐘作廢鈕消失（要請管理員處理）','「最近登錄」讀不到時畫面會明說原因，不會靜靜消失'] },
+  { id:'B-6', title:'次數上限不硬擋', env:'demo', ref:'#BT8',
+    steps:['同一位玩家登錄到 3/3','再登錄第 4 次'],
+    expect:['顯示「已達上限（3/3）」','仍然可以由工作人員加場送出，來源標記為工作人員'] },
+  { id:'B-7', title:'結果管線（伺服器結算）', env:'demo', ref:'D-05',
+    steps:['登錄一筆新最佳','開 #/challenge/board/:id 與玩家的 #/challenge/me'],
+    expect:['幾秒內排行榜出現這筆（或名次更新）','玩家的完成關卡多一關、抽獎張數依規則增加','同一關再登錄更差的成績，最佳不變、張數不重複發'] },
+  { id:'B-8', title:'替玩家登記中獎聯絡手機', env:'demo', ref:'R137',
+    steps:['查到玩家後在聯絡方式欄填手機送出'],
+    expect:['送出成功','號碼正規化','管理員在匯出抽獎名單時看得到'] }
+]},
+
+{ id:'C', who:'checkin', title:'5. 檢錄員', intro:'demo 用「切換身分 → 檢錄員」。檢錄讀的是私密名單（生日、後四碼），公開端看不到這些。',
+  items:[
+  { id:'C-1', title:'賽務首頁 #/staff（檢錄員）', env:'demo', ref:'D-13',
+    steps:['以檢錄員開 #/staff'],
+    expect:['0 次額外點選就看到目前場次與「進入賽務台」','工具列只有「檢錄」，沒有「出場名單」','進入賽務台是唯讀：看得到時鐘與比分，沒有記分與完賽的按鈕'] },
+  { id:'C-2', title:'檢錄台名單 #/staff/checkin/:id', env:'demo', ref:'D-01／D-08',
+    steps:['從首頁按「檢錄」進到目前場次'],
+    expect:['兩隊隊名正確，各自一個分頁','球員依背號排在前面，隊職員排最後','每一位印出「生日（民國）」與「身分證後四碼」，字夠大','進度分母只算球員（例如 0／8），不算教練領隊','已移除的成員不出現'] },
+  { id:'C-3', title:'勾選、取消、標記有問題', env:'demo', ref:'R-UI-002',
+    steps:['勾一位球員「確認出賽」','取消勾選','對另一位按「有問題」'],
+    expect:['勾選立刻打勾，畫面不會卡住等伺服器','取消勾選是把結果清掉，紀錄還在（不是刪除）','「有問題」看得出來','右上角三態燈顯示已儲存'] },
+  { id:'C-4', title:'離線也能一路勾完', env:'demo', ref:'docs/04 §8',
+    steps:['開飛航模式','勾完整隊','關飛航模式'],
+    expect:['離線時每一個勾都立刻生效，燈號「離線 N」計數','恢復後全部補送，燈號回「已連線」'] },
+  { id:'C-5', title:'人數不足與完成檢錄', env:'demo', ref:'規章第十五條',
+    steps:['只勾 2 人就按「完成這一隊的檢錄」','勾到足夠人數再按一次'],
+    expect:['人數不足時說清楚差幾人，而且不叫檢錄員自己放行','人數夠時完成，場次進入檢錄完成狀態'] },
+  { id:'C-6', title:'眼鏡切結書狀態', env:'demo', ref:'規章附件二',
+    steps:['看名單上勾了「配戴眼鏡」的球員'],
+    expect:['標出切結書「已收」或「未收」，好提醒裁判檢查裝備'] },
+  { id:'C-7', title:'名單讀不到時的畫面', env:'demo', ref:'D-01b',
+    steps:['開飛航模式後用「沒開過」的場次進檢錄台'],
+    expect:['顯示「讀不到這一隊的名單」與原因，並要求先不要完成檢錄','不會顯示成「這一隊還沒有名單」'],
+    why:'缺索引、沒權限、離線無快取的症狀都一樣是「看起來沒資料」，畫面要分得出來。' },
+  { id:'C-8', title:'沒有檢錄權限的人', env:'demo', ref:'R-PERM-001',
+    steps:['切成挑戰攤位身分，手動輸入 #/staff/checkin/場次代號'],
+    expect:['看得到「你沒有檢錄的權限」與需要什麼身分，不是空白頁'] }
+]},
+
+{ id:'J', who:'referee', title:'6. 裁判', intro:'裁判在系統裡的職能是出場名單與檢錄，不記分。demo 用「切換身分 → 裁判」。',
+  items:[
+  { id:'J-1', title:'賽務首頁（裁判）', env:'demo', ref:'R-ROLE-002',
+    steps:['以裁判開 #/staff'],
+    expect:['工具列有「檢錄」與「出場名單」','進入賽務台是唯讀，沒有記分、時鐘、完賽鈕'] },
+  { id:'J-2', title:'出場名單 #/staff/sheet/:id', env:'demo', ref:'D-08／S02',
+    steps:['開目前場次的出場名單','對球員按「先發」與「替補」','看隊職員那幾列','只勾 1 位先發就按「確認出場名單」'],
+    expect:['球員依背號在前，隊職員在最後而且只標身分（教練／領隊），沒有先發／替補鈕','先發人數依組別顯示（U10 是 x／5，成人是 x／9）','人數不符時警示「目前先發 1 人，這個組別是 N 人制」，但可以「仍要確認」','確認後場次進入檢錄狀態，名單寫入'] },
+  { id:'J-3', title:'裁判不能記分', env:'demo', ref:'L8-3',
+    steps:['以裁判開 #/staff/match/:id'],
+    expect:['沒有進球、卡片、換人、完賽的按鈕','時鐘與比分看得到'] }
+]},
+
+{ id:'S', who:'scorer', title:'7. 記錄員（LIVE 賽務台）', intro:'demo 用「切換身分 → 記錄員」。這一區要做離線，準備好飛航模式。',
+  items:[
+  { id:'S-1', title:'賽務首頁（記錄員）與場地範圍', env:'demo', ref:'S01',
+    steps:['以記錄員開 #/staff'],
+    expect:['0 次額外點選看到目前場次、狀態、「進入賽務台」','只列指派場地的場次；標頭寫明場地','有「檢錄」「出場名單」兩顆鈕'] },
+  { id:'S-2', title:'開賽、時鐘、期別', env:'demo', ref:'規章第十八條第 2 款',
+    steps:['進入賽務台按「開始比賽」','暫停、繼續'],
+    expect:['期別框顯示「比賽」（單節），按鈕是「結束比賽」，不是上下半場','時鐘從 0:00 開始跑，暫停會停住','分鐘數依組別（25 或 30）'] },
+  { id:'S-3', title:'記一顆進球', env:'demo', ref:'S02／D-08',
+    steps:['按「進球」→ 選隊 → 選球員'],
+    expect:['最多 4 次點擊完成','球員選單只列球員，教練領隊不在裡面','比分 +1、事件列出現「進球　#7 王小明」','提示「已記錄」'] },
+  { id:'S-4', title:'卡片與離場', env:'demo', ref:'R-ENG-003',
+    steps:['對同一位球員記兩張黃牌','再按「進球」看選單'],
+    expect:['第二張黃牌時主動提示改記「兩黃換紅」','被罰離場的球員在選單標「已離場」不可選'] },
+  { id:'S-5', title:'換人上限', env:'demo', ref:'#BT8 同一條界線',
+    steps:['換人超過組別上限'],
+    expect:['警示超過上限，但不阻擋（現場彈性）'] },
+  { id:'S-6', title:'作廢事件（現場修正）', env:'demo',
+    steps:['對剛才記錯的事件按作廢'],
+    expect:['事件標記作廢、比分回退','事件不會被刪掉（留痕）'] },
+  { id:'S-7', title:'完賽送出、三分鐘自撤回、上鎖', env:'demo', ref:'docs/04 §5.7',
+    steps:['讓事件加總與比分不一致，按「完賽送出」','送出後看畫面','三分鐘內按「撤回」；再送出一次並等三分鐘'],
+    expect:['不一致時警示但允許送出','送出後顯示「x:xx 內可自行撤回」倒數，撤回後退回進行中、比分保留','三分鐘後倒數消失，場次鎖定，進入唯讀，改分要找管理員'] },
+  { id:'S-8', title:'離線記分與補送', env:'demo', ref:'S03',
+    steps:['開飛航模式','記兩顆球、一張牌','關飛航模式，等燈號','請另一支手機開公開比賽頁'],
+    expect:['離線時每一筆都立刻顯示「已記錄」，燈號「離線 N」','恢復後自動補送，燈號「已連線」，公開頁比分正確','離線時「線上送出後」的撤回倒數不會出現（改成「完賽還在待同步」）'] },
+  { id:'S-9', title:'寫入被拒要看得到', env:'demo', ref:'R-PERM-002',
+    steps:['請總管在 #/admin/perms 關掉記錄員的「送出完賽」','回賽務台'],
+    expect:['「完賽送出」按鈕消失，並說明「管理員、總管仍然可以」','其他操作照常'] },
+  { id:'S-10', title:'記錄員不能覆核', env:'demo', ref:'match.confirm',
+    steps:['以記錄員開 #/admin/match/場次代號'],
+    expect:['看到「你沒有場次改判的權限，需要管理員以上」'] }
+]},
+
+{ id:'M', who:'admin', title:'8. 管理員', intro:'demo 用「切換身分 → 管理員」。每一個會改結果的動作都要填原因、先講後果、留稽核。',
+  items:[
+  { id:'M-1', title:'「我的」功能入口', env:'demo', ref:'FEATURES',
+    steps:['以管理員開「我的」'],
+    expect:['功能 7 項：報名審核、賽程管理、場次改判、裁定同分、稽核紀錄、直播設定、匯出資料','沒有身分授權、權限開關、報名開關（總管專屬）','點總管專屬的路由會看到具名的無權限說明'] },
+  { id:'M-2', title:'報名審核 #/admin/teams', env:'demo', ref:'docs/05 §2',
+    steps:['開一支待審核的球隊','看檢核清單','核准一支、退回一支','處理一筆取消申請'],
+    expect:['檢核分 error 與 warn，每條寫來源（規章第十二條／第十一條／系統限制）','有 error 的只能退回補件，沒有 error 的才有核准','核准後名單上鎖；退回後解凍，隊長可以再改','取消報名時退費金額依規章計算（15 天內不退），改金額要寫原因','每一個動作都在稽核留痕'] },
+  { id:'M-3', title:'賽程管理 #/admin/schedule', env:'demo', ref:'docs/05 §6／D-09／D-10',
+    steps:['選一組還沒開打的組別：抽籤 → 產生對戰 → 排定時間 → 檢查衝突 → 發布','手動對調兩隊','選一組已經開打的組別'],
+    expect:['抽籤留下種子，畫面寫「同一個種子永遠得到同一組分組」','手動調整只能兩隊對調，不能單獨搬走','衝突檢查：error 擋發布（沒排時間、場地重疊、同隊撞場），warn 不擋（休息不足）','已開打的組別「重新產生」與「抽籤」都不能按，並說明原因；取消但已有結果的場次也算開打','發布之前公開端看不到；畫面寫明「未發布」不是安全邊界'] },
+  { id:'M-4', title:'場次改判 #/admin/match/:id', env:'demo', ref:'docs/05 §7／D-06／D-11／D-12',
+    steps:['從賽程頁已開打的場次進入','覆核一場已完賽的','重開它','改判比分（含 PK）','對另一場判棄賽','對第三場延期'],
+    expect:['覆核不必填原因；已覆核的不能再覆核','重開必填原因、先講三條後果；退回進行中、解鎖、比分與事件保留，期別是最後打過的那一期（單節就是「比賽」）','改判：result 跟著重算，PK 只在正規平手時才決勝，改判次數累加，非棄賽時棄賽方標記清掉','棄賽：不給填比分，依規章判 0:2，記棄賽方','延期／取消不清比分；已取消的場次棄賽鈕反灰並寫原因','每一個動作都在頁內的稽核列出，含前後值'] },
+  { id:'M-5', title:'申訴登記與裁決', env:'demo', ref:'規章第二十條',
+    steps:['對完賽 10 分鐘內的場次登記申訴（選球隊、事由、保證金）','對完賽超過 30 分鐘的場次登記','裁決一筆成立、一筆不成立'],
+    expect:['30 分鐘內直接受理；逾時要先確認並記為逾時受理','保證金去向沒有選項：成立退還、不成立沒收','公開比賽頁只顯示申訴狀態與哪一隊，不顯示事由與電話'] },
+  { id:'M-6', title:'人工裁定同分 #/admin/standings', env:'demo', ref:'docs/05 §7.2／F15',
+    steps:['找一組積分榜「待裁定」的（demo 有，或自己打幾場 1:1）','用「抽籤」','用上下移改一格','解除裁定'],
+    expect:['抽籤留下種子並寫進稽核','名次用原本那一群佔的名次（第 3、4 名同分就裁定誰 3 誰 4），不會被搬到榜首','裁定後公開端積分榜與晉級名單更新','解除後「待裁定」變回來'] },
+  { id:'M-7', title:'稽核紀錄 #/admin/audits', env:'demo', ref:'R-SEC-002',
+    steps:['開稽核頁','搜尋你自己的名字','找剛才的改判'],
+    expect:['整頁沒有任何刪除或清除按鈕','搜尋你看到的名字找得到（畫面與搜尋用同一份）','剛做的動作都在，還沒同步的顯示「同步中」而不是假時間','不認得的動作照原樣印出代碼'] },
+  { id:'M-8', title:'直播設定 #/admin/stream', env:'demo', ref:'#YT1',
+    steps:['貼一整串 YouTube 網址存檔','在場次改判頁設單場覆蓋','回公開比賽頁的直播分頁'],
+    expect:['整串網址被抽成影片 ID 存起來','單場設定蓋過場地整日設定','公開端點了才載入播放器'] },
+  { id:'M-9', title:'匯出抽獎名單 #/admin/export', env:'demo', ref:'#CSV',
+    steps:['匯出 CSV，用 Excel 開'],
+    expect:['中文不亂碼','0 張的人不在名單','張數多的在前，同張數依代號','暱稱以 = 或 + 開頭的不會變成公式','有登記聯絡方式的看得到手機'] },
+  { id:'M-10', title:'管理員不受場地限制', env:'demo', ref:'assignedVenue',
+    steps:['以管理員開任一場地的賽務台與檢錄台'],
+    expect:['三個場地都進得去'] }
+]},
+
+{ id:'T', who:'super', title:'9. 總管', intro:'只有總管能做的三件事。demo 切換身分切不成總管，要用真的總管 LINE 帳號。',
+  items:[
+  { id:'T-1', title:'身分授權 #/admin/staff', env:'demo', ref:'R-RULES-003',
+    steps:['請一位工作人員先用 LINE 登入一次','在名錄找到他，指派「記錄員」與場地','再把一位改成「管理員」','停用一位'],
+    expect:['頁面寫明「請對方先用 LINE 登入一次」','身分是單選，每顆按鈕寫著含哪些下層身分（記錄員含裁判、檢錄員、攤位）','清單裡沒有「總管」，總管自己那一列沒有編輯器','選管理員時場地選擇器收掉','停用是改狀態不是刪除，紀錄還在','舊資料裡不認得的角色照原樣印出，不顯示成未指派'] },
+  { id:'T-2', title:'權限開關 #/admin/perms', env:'demo', ref:'R-PERM-002',
+    steps:['關掉記錄員的「送出完賽」','看檢錄員那一列的「看球員個資」','看還沒上線的功能'],
+    expect:['關掉後記錄員的賽務台按鈕消失並說明管理員仍可（見 S-9）','每一條只在它歸屬的那一階可調，其他列寫「這一條屬於 xx，請到那裡調整」','總管的三條不畫開關','標「功能尚未上線」的沒有開關','這一頁只做得到收窄，做不到放寬（破壞性權限同時寫在資料庫規則）'] },
+  { id:'T-3', title:'報名開關 #/admin/registration', env:'demo', ref:'regOpen()',
+    steps:['看最上面的「現在到底開不開放」','把截止日改成過去 → 儲存 → 看 #/register','清空截止日再從空白填一組民國年'],
+    expect:['開放條件是手動開關且在起訖之間，兩者缺一就是關閉','日期提醒（起訖顛倒、晚於比賽日）是提醒不擋儲存','空白日期填得進去，打到一半不會被清掉'] },
+  { id:'T-4', title:'三位總管都進得去', env:'both',
+    steps:['三位總管各自登入，開身分授權、權限開關、報名開關'],
+    expect:['三頁都畫得出來','「我的功能」10 項'] }
+]},
+
+{ id:'X', who:'dev', title:'10. 權限與資料邊界（開發者選測）', intro:'需要瀏覽器開發者工具或 REST 工具。不做也不影響簽核，但做了最安心。',
+  items:[
+  { id:'X-1', title:'未登入的導向', env:'both',
+    steps:['未登入直接開 #/admin/teams、#/booth、#/staff'],
+    expect:['#/admin/* 導到登入頁並帶 next','#/booth 導到登入頁並帶 next','#/staff 導到賽務登入頁'] },
+  { id:'X-2', title:'私密名單讀不到', env:'both', ref:'R-PRIV-001',
+    steps:['未登入用 REST 讀 events/feda-cup-2026/teams/{t}/members'],
+    expect:['403 permission denied','同一支球隊的 roster 讀得到，而且沒有生日與後四碼'] },
+  { id:'X-3', title:'非管理員直接寫入被拒', env:'demo', ref:'R-PERM-002／M7',
+    steps:['以記錄員的身分在開發者工具直接對 matches 文件做覆核、重開、改判、棄賽的 updateDoc'],
+    expect:['四種都 permission-denied','記錄員在三分鐘後直接改鎖定的比分也被拒'] },
+  { id:'X-4', title:'積分榜自動重算', env:'demo', ref:'M3.9',
+    steps:['完賽一場 1:1','幾秒後看組別頁'],
+    expect:['積分榜版本號增加，兩隊各 +1 分','全部同分時標記待裁定，不會隨機排'] },
+  { id:'X-5', title:'首頁看板與當日場次一致', env:'both',
+    steps:['比對首頁的「進行中／接下來」與 #/schedule 同一天'],
+    expect:['兩邊的場次與比分一致'] }
+]}
+];
+
+/* ═══ 狀態 ═══ */
+const KEY = 'feda-acceptance-v1';
+let S = { results: {}, tester: '', env: 'demo', role: 'all', q: '' };
+try { const raw = localStorage.getItem(KEY); if (raw) S = { ...S, ...JSON.parse(raw) }; } catch (e) { /* 無痕視窗讀不到就從頭開始 */ }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* 存不進去仍可用 */ } }
+
+const allItems = SECTIONS.flatMap(s => s.items.map(i => ({ ...i, who: s.who, secId: s.id })));
+
+/* ═══ 畫面 ═══ */
+const $ = sel => document.querySelector(sel);
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function renderChips() {
+  $('#chips').innerHTML = ROLES.map(([v, l]) => {
+    const n = v === 'all' ? allItems.length : allItems.filter(i => i.who === v).length;
+    return `<button class="chip ${S.role === v ? 'is-on' : ''}" type="button" data-role="${v}">${l} <span style="opacity:.7">${n}</span></button>`;
+  }).join('');
+}
+
+function itemHtml(i) {
+  const r = S.results[i.id] || {};
+  const envTag = i.env === 'both' ? '<span class="tag tag--env">demo／正式皆可</span>' : '<span class="tag">只在 demo</span>';
+  const refTag = i.ref ? `<span class="tag tag--ref">${esc(i.ref)}</span>` : '';
+  const stateText = { pass: '通過', fail: '失敗', skip: '略過' }[r.r] || '未測';
+  return `<details class="item" id="it-${i.id}" data-r="${r.r || ''}">
+    <summary class="item__sum">
+      <span class="item__id">${i.id}</span>
+      <span>
+        <div class="item__title">${esc(i.title)}</div>
+        <div class="item__tags"><span class="tag">${ROLE_LABEL[i.who]}</span>${envTag}${refTag}</div>
+      </span>
+      <span class="state" data-r="${r.r || ''}">${stateText}</span>
+    </summary>
+    <div class="item__body">
+      <h4>步驟</h4><ol>${i.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+      <h4>預期結果</h4><ul>${i.expect.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+      ${i.why ? `<div class="why">${esc(i.why)}</div>` : ''}
+      <div class="verdict" data-id="${i.id}">
+        <button class="v ${r.r === 'pass' ? 'is-on' : ''}" type="button" data-v="pass">通過</button>
+        <button class="v ${r.r === 'fail' ? 'is-on' : ''}" type="button" data-v="fail">失敗</button>
+        <button class="v ${r.r === 'skip' ? 'is-on' : ''}" type="button" data-v="skip">略過</button>
+      </div>
+      <textarea class="note" data-id="${i.id}" placeholder="備註：失敗時寫下你看到的畫面、場次代號、時間">${esc(r.note || '')}</textarea>
+      <div class="stamp">${r.at ? `最後更新 ${esc(r.at)}${r.by ? '　by ' + esc(r.by) : ''}` : ''}</div>
+    </div>
+  </details>`;
+}
+
+function visible(i) {
+  if (S.role !== 'all' && i.who !== S.role) return false;
+  if (S.env === 'prod' && i.env !== 'both') return false;
+  if (S.q) {
+    const hay = [i.id, i.title, ...i.steps, ...i.expect, i.ref || '', i.why || ''].join(' ').toLowerCase();
+    if (!hay.includes(S.q.toLowerCase())) return false;
+  }
+  return true;
+}
+
+function render() {
+  renderChips();
+  const main = $('#main');
+  const html = SECTIONS.map(sec => {
+    const items = sec.items.map(i => ({ ...i, who: sec.who })).filter(visible);
+    if (!items.length) return '';
+    return `<section class="sec" id="sec-${sec.id}">
+      <div class="sec__head"><h2>${esc(sec.title)}</h2><span class="sec__count">${items.length} 項</span></div>
+      <p class="sec__intro">${esc(sec.intro)}</p>
+      ${items.map(itemHtml).join('')}
+    </section>`;
+  }).join('');
+  main.innerHTML = html || '<p class="empty">這個篩選下沒有項目。</p>';
+  renderProgress();
+}
+
+function renderProgress() {
+  const list = allItems.filter(visible);
+  const n = { pass: 0, fail: 0, skip: 0 };
+  for (const i of list) { const r = S.results[i.id]?.r; if (r) n[r] += 1; }
+  const total = list.length || 1;
+  $('#track').innerHTML = ['pass', 'fail', 'skip'].map(k => `<div class="prog__seg prog__seg--${k}" style="width:${(n[k] / total) * 100}%"></div>`).join('');
+  $('#nums').textContent = `通過 ${n.pass}　失敗 ${n.fail}　略過 ${n.skip}　未測 ${list.length - n.pass - n.fail - n.skip}／${list.length}`;
+}
+
+function stamp() {
+  const d = new Date();
+  const p = x => String(x).padStart(2, '0');
+  return `${d.getMonth() + 1}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/* ═══ 事件 ═══ */
+$('#tester').value = S.tester; $('#env').value = S.env;
+$('#tester').addEventListener('input', e => { S.tester = e.target.value.trim(); save(); });
+$('#env').addEventListener('change', e => { S.env = e.target.value; save(); render(); });
+$('#q').addEventListener('input', e => { S.q = e.target.value.trim(); render(); });
+$('#chips').addEventListener('click', e => {
+  const b = e.target.closest('[data-role]'); if (!b) return;
+  S.role = b.dataset.role; save(); render();
+});
+$('#main').addEventListener('click', e => {
+  const b = e.target.closest('.v'); if (!b) return;
+  const id = b.closest('.verdict').dataset.id;
+  const cur = S.results[id] || {};
+  const next = cur.r === b.dataset.v ? null : b.dataset.v;     // 再按一次取消
+  S.results[id] = { ...cur, r: next, at: stamp(), by: S.tester || '' };
+  save();
+  const it = document.getElementById(`it-${id}`);
+  it.dataset.r = next || '';
+  it.querySelector('.state').dataset.r = next || '';
+  it.querySelector('.state').textContent = { pass: '通過', fail: '失敗', skip: '略過' }[next] || '未測';
+  it.querySelectorAll('.v').forEach(x => x.classList.toggle('is-on', x.dataset.v === next));
+  it.querySelector('.stamp').textContent = `最後更新 ${S.results[id].at}${S.tester ? '　by ' + S.tester : ''}`;
+  renderProgress();
+});
+$('#main').addEventListener('input', e => {
+  const t = e.target.closest('.note'); if (!t) return;
+  const id = t.dataset.id;
+  S.results[id] = { ...(S.results[id] || {}), note: t.value, at: stamp(), by: S.tester || '' };
+  save();
+});
+$('#expandAll').addEventListener('click', () => document.querySelectorAll('.item').forEach(d => { d.open = true; }));
+$('#collapseAll').addEventListener('click', () => document.querySelectorAll('.item').forEach(d => { d.open = false; }));
+
+$('#doExport').addEventListener('click', async () => {
+  const list = allItems.filter(visible);
+  const n = { pass: 0, fail: 0, skip: 0 };
+  const lines = [];
+  for (const i of list) { const r = S.results[i.id]?.r; if (r) n[r] += 1; }
+  lines.push(`飛達盃 2026 驗收結果　${stamp()}　測試人：${S.tester || '（未填）'}　環境：${S.env === 'prod' ? '正式站' : 'demo'}　身分：${ROLE_LABEL[S.role]}`);
+  lines.push(`通過 ${n.pass}／失敗 ${n.fail}／略過 ${n.skip}／未測 ${list.length - n.pass - n.fail - n.skip}，共 ${list.length} 項`);
+  const fails = list.filter(i => S.results[i.id]?.r === 'fail');
+  if (fails.length) {
+    lines.push('', '【失敗】');
+    for (const i of fails) lines.push(`- ${i.id} ${i.title}${S.results[i.id].note ? '：' + S.results[i.id].note.replace(/\s+/g, ' ') : ''}`);
+  }
+  const skips = list.filter(i => S.results[i.id]?.r === 'skip');
+  if (skips.length) {
+    lines.push('', '【略過】');
+    for (const i of skips) lines.push(`- ${i.id} ${i.title}${S.results[i.id].note ? '：' + S.results[i.id].note.replace(/\s+/g, ' ') : ''}`);
+  }
+  const notes = list.filter(i => S.results[i.id]?.r === 'pass' && S.results[i.id]?.note);
+  if (notes.length) {
+    lines.push('', '【通過但有備註】');
+    for (const i of notes) lines.push(`- ${i.id} ${i.title}：${S.results[i.id].note.replace(/\s+/g, ' ')}`);
+  }
+  lines.push('', '【通過】' + list.filter(i => S.results[i.id]?.r === 'pass').map(i => i.id).join('、'));
+  lines.push('【未測】' + list.filter(i => !S.results[i.id]?.r).map(i => i.id).join('、'));
+  const text = lines.join('\n');
+  $('#out').value = text;
+  try { await navigator.clipboard.writeText(text); $('#doExport').textContent = '已複製到剪貼簿'; }
+  catch (e) { $('#doExport').textContent = '請長按上面的文字複製'; }
+  setTimeout(() => { $('#doExport').textContent = '產生文字並複製'; }, 2500);
+});
+$('#doReset').addEventListener('click', () => {
+  if (!confirm('清掉這支手機上所有的驗收結果與備註？')) return;
+  S.results = {}; save(); render();
+});
+
+render();
+</script>
+</body>
+</html>
