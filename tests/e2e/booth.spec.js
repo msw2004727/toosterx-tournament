@@ -278,6 +278,14 @@ test('⭐ C07 十分鐘內可以作廢自己送的那一筆 @booth', async ({ pa
   expect(await attemptsOf(page)).toHaveLength(1);
 });
 
+test('⭐ 手機相機掃到玩家的 QR 會開 #/booth?id=…，代號自動帶入並查好 @booth', async ({ page }) => {
+  // QR 裡放的是攤位頁的網址；相機 App 掃到就開這個網址，攤位不用再打字
+  await stub(page);
+  await go(page, '#/booth?id=FEDA-0182');
+  await expect(page.locator('.booth__nick')).toContainText('阿哲', { timeout: 15_000 });
+  await expect(page.locator('.booth__pid')).toContainText('FEDA-0182');   // 查到之後輸入區收起來，顯示的是玩家卡
+});
+
 test('⭐ 找不到的 ID 會問要不要代建 @booth', async ({ page }) => {
   await stub(page);
   await go(page);

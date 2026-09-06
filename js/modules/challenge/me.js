@@ -29,6 +29,15 @@ import { formatScore, drawEntries, normalizePhone, maskPhone } from '../../engin
 import * as data from './data.js';
 import { savedPass, savePass, clearPass } from './pass.js';
 
+/**
+ * QR 的內容是攤位頁的網址，不是裸代號：攤位用手機相機掃就直接開攤位頁並帶入代號，
+ * 不必再打字。攤位頁內的掃描器與輸入框都認得這種網址（parseScannedId）。
+ * 長度約 50 個位元組，在 QR 產生器的上限（62）之內。
+ */
+function boothLink(playerId) {
+  return `${location.origin}${location.pathname}#/booth?id=${encodeURIComponent(playerId)}`;
+}
+
 export async function challengeMePage({ scope, view }) {
   const root = el('div', { class: 'chal' });
   mount(view, root);
@@ -94,10 +103,10 @@ export async function challengeMePage({ scope, view }) {
       //    `qrSvg()` 自己產生的、不含任何使用者輸入（只有 FEDA-0182），
       //    所以不是 R-CODE-002 的情形——但 label 有暱稱，那一段已經
       //    在 qrSvg 裡走過 escape，這裡刻意只傳代號當 label。
-      el('div', { class: 'chal__qr', html: qrSvg(state.playerId, { label: `我的代號 ${state.playerId}` }) }),
+      el('div', { class: 'chal__qr', html: qrSvg(boothLink(state.playerId), { label: `我的代號 ${state.playerId}` }) }),
       el('strong', { class: 'chal__pid', text: state.playerId }),
       el('span', { class: 'chal__nick', text: state.player?.nickname ?? '' }),
-      el('p', { class: 'chal__hint', text: '把這一頁拿給攤位工作人員掃。掃不到的話，念代號給他們也可以。' }),
+      el('p', { class: 'chal__hint', text: '把這一頁拿給攤位工作人員，用手機相機掃就會帶入你的代號。掃不到的話，念代號給他們也可以。' }),
       el('div', { class: 'chal__row' }, [
         el('button', { class: 'btn btn--sm', type: 'button', onClick: copyId },
           iconText('note', '複製代號')),

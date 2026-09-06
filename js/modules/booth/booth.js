@@ -28,7 +28,7 @@ import { now as serverNow } from '../../core/clock.js';
 import { hold } from '../../core/store.js';
 import { hhmm } from '../../lib/format.js';
 import {
-  formatScore, normalizePlayerId, pickBest, attemptQuota, myRank, normalizePhone, maskPhone
+  formatScore, normalizePlayerId, parseScannedId, pickBest, attemptQuota, myRank, normalizePhone, maskPhone
 } from '../../engine/challenge.js';
 import {
   inputModeOf, resolveScore, isDuplicate, buildAttempt, submitFeedback,
@@ -36,8 +36,9 @@ import {
 } from './actions.js';
 import * as data from './data.js';
 import { syncIndicator } from '../staff/sync-indicator.js';
+import { scanSupported, scanOnce } from './scan.js';
 
-export async function boothPage({ scope, view, params }) {
+export async function boothPage({ scope, view, params, query }) {
   const root = el('div', { class: 'booth' });
   const indicator = syncIndicator();
   mount(view, indicator.node, root);
@@ -53,7 +54,10 @@ export async function boothPage({ scope, view, params }) {
     // 送出後的回饋
     result: null,
     recent: [], board: null,
-    idInput: '', busy: false, lockUntil: 0,
+    // 手機相機掃玩家的 QR 會開 #/booth?id=FEDA-0182：代號先填進輸入框，關卡定了就自動查
+    idInput: parseScannedId(query?.get('id')) ?? (query?.get('id') ?? ''),
+    autoLookup: !!query?.get('id'),
+    busy: false, lockUntil: 0,
     sent: []                       // 本機去重用
   };
 
@@ -88,6 +92,14 @@ export async function boothPage({ scope, view, params }) {
     }
     if (state.challenge) watchForChallenge();
     render();
+    autoLookupIfReady();
+  }
+
+  /** 網址帶了代號、關卡也定了，就替攤位省掉那一下「查詢」 */
+  function autoLookupIfReady() {
+    if (!state.autoLookup || !state.challenge || !state.idInput) return;
+    state.autoLookup = false;
+    lookup(state.idInput);
   }
 
   function watchForChallenge() {
@@ -103,8 +115,20 @@ export async function boothPage({ scope, view, params }) {
 
   // ── 動作 ─────────────────────────────────────────────────
 
+  async function scan() {
+    try {
+      const text = await scanOnce();
+      if (!text) return;
+      state.idInput = parseScannedId(text) ?? text;
+      render();
+      lookup(text);
+    } catch (err) {
+      toast(err.message, 'warn');
+    }
+  }
+
   async function lookup(raw) {
-    const pid = normalizePlayerId(raw);
+    const pid = parseScannedId(raw);
     if (!pid) { toast('ID 格式不對，應該像 FEDA-0182', 'warn'); return; }
     state.busy = true; render();
     try {
@@ -249,7 +273,7 @@ export async function boothPage({ scope, view, params }) {
       el('div', { class: 'booth__choices' }, state.challenges.map(c =>
         el('button', {
           class: 'booth__choice', type: 'button',
-          onClick: () => { state.challenge = c; watchForChallenge(); render(); }
+          onClick: () => { state.challenge = c; watchForChallenge(); render(); autoLookupIfReady(); }
         }, [
           icon(c.icon ?? 'goal'),
           el('span', { class: 'booth__choiceName', text: c.name }),
@@ -272,9 +296,15 @@ export async function boothPage({ scope, view, params }) {
         el('button', {
           class: 'btn btn--primary btn--lg', type: 'button', disabled: state.busy,
           onClick: () => lookup(state.idInput)
-        }, iconText('check', '查詢'))
+        }, iconText('check', '查詢')),
+        // 頁內掃描只在瀏覽器有 BarcodeDetector 時出現（Android Chrome）；
+        // 沒有的裝置用手機相機 App 掃，QR 會直接開這一頁並帶入代號
+        scanSupported() ? el('button', {
+          class: 'btn btn--lg', type: 'button', disabled: state.busy, 'aria-label': '用相機掃描玩家的 QR',
+          onClick: () => scan()
+        }, iconText('qr', '掃描')) : null
       ]),
-      el('p', { class: 'booth__note', text: 'QR 掃不到、或玩家手機沒電時，直接輸入卡片上的號碼。' })
+      el('p', { class: 'booth__note', text: '用手機相機掃玩家的 QR 會直接開這一頁並帶入代號。掃不到、或玩家手機沒電時，直接輸入卡片上的號碼。' })
     ]);
   }
 

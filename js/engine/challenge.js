@@ -449,6 +449,25 @@ export function formatPlayerId(n, prefix = 'FEDA') {
 }
 
 /** 使用者手動輸入的 ID → 正規化。大小寫、缺前綴、多餘空白都要接得住。 */
+/**
+ * 掃到的內容 → 玩家代號。
+ * QR 裡放的是攤位頁的網址（…/#/booth?id=FEDA-0182），手機相機掃到會直接開攤位頁；
+ * 攤位在頁內掃、有人把代號念出來、或把整張卡的文字貼過來，都要吃得下。找不到就 null，不猜。
+ */
+export function parseScannedId(text, prefix = 'FEDA') {
+  const s = String(text ?? '').trim();
+  if (!s) return null;
+  const m = s.toUpperCase().match(new RegExp(prefix + '[-\\s]?(\\d{4})'));
+  if (m) return `${prefix}-${m[1]}`;
+  try {
+    const u = new URL(s);
+    const qs = u.hash.includes('?') ? u.hash.slice(u.hash.indexOf('?') + 1) : u.search;
+    const id = new URLSearchParams(qs).get('id');
+    return id ? normalizePlayerId(id, prefix) : null;
+  } catch { /* 不是網址 */ }
+  return normalizePlayerId(s, prefix);
+}
+
 export function normalizePlayerId(input, prefix = 'FEDA') {
   const s = String(input ?? '').trim().toUpperCase().replace(/\s+/g, '');
   if (!s) return null;
@@ -522,7 +541,7 @@ if (typeof module !== 'undefined' && module.exports) {
     attemptMs, pickBest, diffBestFlags, attemptQuota,
     buildLeaderboard, myRank, compareEntries, rankInLadder,
     drawEntries, nextCompleted,
-    formatPlayerId, normalizePlayerId, newPlayerDoc,
+    formatPlayerId, parseScannedId, normalizePlayerId, newPlayerDoc,
     normalizePhone, maskPhone
   };
 }

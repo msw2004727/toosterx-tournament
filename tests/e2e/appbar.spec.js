@@ -186,33 +186,18 @@ test('⭐ 換頁不會累積出第二列頁首 @appbar', async ({ page }) => {
    安裝到裝置
    ══════════════════════════════════════════════════════════════ */
 
-test('⭐ 接到 beforeinstallprompt 才出現安裝鈕，按下去叫原生對話框 @appbar', async ({ page }) => {
+test('⭐ PWA 安裝入口已關閉：就算接到 beforeinstallprompt 也不畫安裝鈕（主辦 2026-09-06 決定）@appbar', async ({ page }) => {
   await stub(page, { install: 'prompt' });
   await go(page, '/#/');
-
-  const btn = page.locator('.apphead__install');
-  await expect(btn).toBeVisible();
-  await btn.click();
-  await expect.poll(() => page.evaluate(() => window.__promptCalls)).toBe(1);
-
-  // 用過就要收起來——同一個事件不能 prompt 第二次
-  await expect(btn).toBeHidden();
+  await expect(page.locator('.apphead__link').first()).toBeVisible();
+  await expect(page.locator('.apphead__install')).toHaveCount(0);
 });
 
-test('⭐ 沒有那個事件時安裝鈕仍在，按下去是「從選單安裝」的說明（頁首每一台都要長一樣）@appbar', async ({ page }) => {
-  // 2026-09-06 驗收反饋：Android／桌面 Chrome 沒派發 beforeinstallprompt 時按鈕消失，
-  // 測試的人以為壞了。按鈕照畫，但按下去一定有反應——是說明，不是空按鈕。
+test('PWA 安裝入口已關閉：沒有事件時也不畫 @appbar', async ({ page }) => {
   await stub(page, { install: 'none' });
   await go(page, '/#/');
-  const btn = page.locator('.apphead__install');
-  await expect(btn).toBeVisible();
-  await btn.click();
-  const dlg = page.getByRole('dialog', { name: '安裝到裝置' });
-  await expect(dlg).toBeVisible();
-  await expect(dlg).toContainText('選單');
-  await expect(dlg).toContainText('加到主畫面');
-  await dlg.getByRole('button', { name: '知道了' }).click();
-  await expect(dlg).toHaveCount(0);
+  await expect(page.locator('.apphead__link').first()).toBeVisible();
+  await expect(page.locator('.apphead__install')).toHaveCount(0);
 });
 
 test('⭐ 已經安裝（standalone）不畫安裝鈕 @appbar', async ({ page }) => {
@@ -221,27 +206,18 @@ test('⭐ 已經安裝（standalone）不畫安裝鈕 @appbar', async ({ page })
   await expect(page.locator('.apphead__install')).toBeHidden();
 });
 
-test('iOS Safari 沒有原生對話框，改給「分享 → 加入主畫面」的步驟 @appbar', async ({ page }) => {
+test('PWA 安裝入口已關閉：iOS 也不畫 @appbar', async ({ page }) => {
   await stub(page, { install: 'ios' });
   await go(page, '/#/');
-
-  await page.locator('.apphead__install').click();
-  const dlg = page.locator('.modal');
-  await expect(dlg).toContainText('加到主畫面');
-  await expect(dlg.locator('.install__steps li')).toHaveCount(3);
-  await expect(dlg).toContainText('加入主畫面');
+  await expect(page.locator('.apphead__link').first()).toBeVisible();
+  await expect(page.locator('.apphead__install')).toHaveCount(0);
 });
 
-test('⭐ LINE 內建瀏覽器裝不了，要教人改用外部瀏覽器 @appbar', async ({ page }) => {
-  // 報名的家長多半是從 LINE 點連結進來的。在那裡畫一顆按了沒反應的
-  // 「安裝」，就是最難回報的那種故障。
+test('PWA 安裝入口已關閉：LINE 內建瀏覽器也不畫 @appbar', async ({ page }) => {
   await stub(page, { install: 'inapp' });
   await go(page, '/#/');
-
-  await page.locator('.apphead__install').click();
-  const dlg = page.locator('.modal');
-  await expect(dlg).toContainText('請改用瀏覽器開啟');
-  await expect(dlg).toContainText('在瀏覽器開啟');
+  await expect(page.locator('.apphead__link').first()).toBeVisible();
+  await expect(page.locator('.apphead__install')).toHaveCount(0);
 });
 
 test('manifest 與圖示真的抓得到（不是 404）@appbar', async ({ page }) => {

@@ -1129,6 +1129,14 @@ rules 用 `hasOnly([...])` 逐項列了准許的鍵，兩邊分岔會被整筆�
 鏡頭），Windows 桌面 Chrome 沒有 `BarcodeDetector`，只能拿真的手機掃一次。
 所以畫面上 QR 旁邊一律同時印大字代號，攤位也保留手動輸入。
 
+### 攤位怎麼掃 QR（2026-09-06）
+
+玩家「我的挑戰卡」的 QR 內容是**攤位頁的網址** `…/#/booth?id=FEDA-0182`（約 50 位元組，在產生器上限 62 之內），
+不是裸代號。攤位用**手機相機 App** 掃就直接開攤位頁並帶入代號、自動查好；Android Chrome 另有頁內的
+「掃描」鈕（`js/modules/booth/scan.js`，只用內建 BarcodeDetector，不裝套件、不從 CDN 載）。
+iPhone Safari 沒有 BarcodeDetector，用相機 App 一樣能用。`parseScannedId`（引擎）吃得下裸代號、網址、
+夾在文字裡的代號；掃不到永遠有備援：卡片上的大字代號。
+
 ### 挑戰攤位（`#/booth`、`js/engine/challenge.js`）
 
 ```
@@ -1480,6 +1488,10 @@ scripts/make-icons.mjs  產生 img/*.png（只用 Node 內建 zlib，不裝套�
 第三種對這個專案特別重要：報名的家長是從 LINE 點連結進來的。
 **沒接到事件就改成「從瀏覽器選單安裝」的說明**，按鈕每一台都在——按了沒反應是最難回報的故障，
 但按鈕在有的手機出現、有的不出現，驗收的人會以為壞了（2026-09-06 反饋）。只有真的已安裝才收起來。
+
+⚠️ **主辦 2026-09-06 稍後決定整個關閉安裝入口**：`js/config.js` 的 `PWA_INSTALL = false`，頁首不畫「安裝」，
+`index.html` 的 preventDefault 仍擋掉 Chrome 自己的橫幅。Service Worker 與離線快取不受影響。
+要打開改回 true 就好，安裝鈕與教學都還在。
 
 ⚠️ `beforeinstallprompt` 在首次繪製前後就派發，那時 `app.js`（type=module，
 等同 defer）還沒載。攔截寫在 `index.html` 的 inline script 裡，存進

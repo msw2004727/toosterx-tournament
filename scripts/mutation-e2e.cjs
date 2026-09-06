@@ -227,6 +227,12 @@ const MUTANTS = [
     to: ``
   },
   {
+    name: '#E34 ⭐ 相機掃到的 ?id= 不自動查詢（攤位還是要再打一次字）',
+    file: 'js/modules/booth/booth.js',
+    from: `    autoLookup: !!query?.get('id'),`,
+    to: `    autoLookup: false,`
+  },
+  {
     name: '#E31 ⭐ 出場名單給隊職員畫先發／替補鈕（D-08）',
     file: 'js/modules/staff/sheet.js',
     from: `      if (!isPlayerRow(p)) {`,
@@ -236,6 +242,6 @@ const MUTANTS = [
 
 process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js --project=chromium-mobile --reporter=dot',
+  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js --project=chromium-mobile --reporter=dot',
   title: '前端時序｜E2E 變異測試'
 }));

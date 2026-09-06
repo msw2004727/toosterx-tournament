@@ -28,6 +28,7 @@ import { themeSwitch } from './theme.js';
 import { icon } from './icons.js';
 import { el, mount } from './ui.js';
 import { installState, promptInstall, showInstallHelp, onInstallableChange } from './install.js';
+import { PWA_INSTALL } from '../config.js';
 
 // ⚠️ 這個模組**刻意不 import firebase.js**。
 //    那條 import 會把 firebase-config.js 一起拉進來，而它在模組層就讀
@@ -163,7 +164,7 @@ export function mountAppBar({
     }
 
     const links = defs.map(d => navLink({ ...d, current: d.isCurrent ? d.isCurrent() : false }));
-    const install = installButton();
+    const install = PWA_INSTALL ? installButton() : null;     // 關閉時整顆不畫（主辦 2026-09-06 決定）
     const theme = themeSwitch();
 
     const bar = el('nav', { class: 'apphead', 'aria-label': '全站導覽' });

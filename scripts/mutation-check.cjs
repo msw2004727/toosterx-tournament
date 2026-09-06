@@ -1877,6 +1877,12 @@ const MUTANTS = [
     to: '"fieldPath": "jerseyNoX"'
   },
   {
+    name: '#AF17 ⭐ 掃到的內容夾在別的文字裡就抓不到代號（整張卡的文字貼過來會失敗）',
+    file: 'js/engine/challenge.js',
+    from: "  const m = s.toUpperCase().match(new RegExp(prefix + '[-\\\\s]?(\\\\d{4})'));\n  if (m) return `${prefix}-${m[1]}`;\n",
+    to: ''
+  },
+  {
     name: '#AF12 ⭐ CLAUDE.md 的角色 level 跟 ROLE_INFO 漂移（Codex 抓到的那一次）',
     file: 'CLAUDE.md',
     from: '| `referee` | 2.3 | 裁判 | ✗ 賽事專用 |',
