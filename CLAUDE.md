@@ -200,7 +200,7 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 1150 全綠（47 個 suite） |
+| `npm run test:unit` | ✅ 1156 全綠（47 個 suite） |
 | `npm run test:mutation` | ✅ 297 / 297 全被抓到 |
 | `npm run test:mutation:e2e` | ✅ 32 / 32 全被抓到（畫面層時序、權限、替身語意與驗收修正） |
 | `npm run test:e2e` | ✅ 1131 全綠（mobile / desktop / 320px 三種寬度） |
