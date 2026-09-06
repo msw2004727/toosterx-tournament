@@ -393,3 +393,7 @@ button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-colo
 .pdiv[data-div="women"]{--div:var(--div-women)} .pdiv[data-div="adult-fun"]{--div:var(--div-fun)} .pdiv[data-div="adult-open"]{--div:var(--div-open)}
 /* 射手榜：名次淡、進球數重 */
 .ptop__val{font-size:var(--fs-md)}
+
+/* 分頁列跟上面的頁首／記分板拉開距離，膠囊之間也鬆一點（2026-09-06 主辦看預覽版的回饋） */
+.ptabs{gap:var(--sp-3)}
+.ptabs--sub{padding:var(--sp-4) var(--sp-3) var(--sp-3)}
