@@ -102,9 +102,10 @@ export async function publicMatch({ params, scope, view, query }) {
 
     const m = state.match;
     mount(root,
+      // 標題只放組別與輪次，場地跟時間放副標：三段串在標題上會在 390px 被截掉
       pageHead(
-        [state.division?.name, m.venueName || m.venueId, m.label].filter(Boolean).join('　·　'),
-        { sub: `${dateLabelFromYmd(m.date)}　${hhmm(m.kickoffAt)}`, onBack: () => history.back() }
+        [state.division?.name, m.label].filter(Boolean).join('　'),
+        { sub: [m.venueName || m.venueId, `${dateLabelFromYmd(m.date)}　${hhmm(m.kickoffAt)}`].filter(Boolean).join('　·　'), onBack: () => history.back() }
       ),
       scoreboard(m),
       tabBar(),
