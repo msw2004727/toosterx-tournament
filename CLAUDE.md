@@ -201,13 +201,13 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 | 關卡 | 狀態 |
 |---|---|
 | `npm run test:unit` | ✅ 1158 全綠（48 個 suite） |
-| `npm run test:mutation` | ✅ 297 / 297 全被抓到 |
-| `npm run test:mutation:e2e` | ✅ 32 / 32 全被抓到（畫面層時序、權限、替身語意與驗收修正） |
+| `npm run test:mutation` | ✅ 298 / 298 全被抓到 |
+| `npm run test:mutation:e2e` | ✅ 35 / 35 全被抓到（畫面層時序、權限、替身語意與驗收修正） |
 | `npm run test:e2e` | ✅ 1131 全綠（mobile / desktop / 320px 三種寬度） |
 | `npm run test:rules` | ✅ 228 全綠（…、R133 球員上限、R134 我的球員、R135 申訴、R136 取消退費、R137 聯絡方式、R138 眼鏡切結書、R139 憑證雜湊） |
-| `npm run test:mutation:rules` | ✅ 42 / 42 全被抓到 |
+| `npm run test:mutation:rules` | ✅ 44 / 44 全被抓到 |
 | `npm run test:fn` | ✅ 91 全綠（F01–F15j 結果管線與同分裁定、FR01–FR15e 報名／登入／規章第十二條、FC01–FC15f 挑戰與聯絡方式） |
-| `npm run test:mutation:fn` | ✅ 27 / 27 全被抓到 |
+| `npm run test:mutation:fn` | ✅ 29 / 29 全被抓到 |
 
 ### 驗收整合修正（2026-09-06）
 
