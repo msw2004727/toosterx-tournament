@@ -209,3 +209,28 @@ export function drawSeedFrom(nowMs) {
   if (!Number.isFinite(nowMs)) throw new TypeError('drawSeedFrom：需要一個毫秒數字');
   return Math.floor(nowMs % 2147483647);
 }
+
+/**
+ * 把主辦打的時間整理成 24 小時制的 `HH:MM`，整理不出來就回 null。
+ *
+ * 收：`09:30`、`9:30`、`0930`、`930`、`14.30`、`14：30`（全形冒號）。
+ * 不收 12 小時制（「上午 9:30」）——沒有辦法猜對，猜錯是排錯場次。
+ * 用文字格而不是 `<input type="time">`：Android 的原生選擇器跟著手機的
+ * 12／24 小時設定走，主辦改不掉（2026-09-06 驗收 M-3）。
+ */
+export function normalizeHHMM(raw) {
+  const s = String(raw ?? '').trim().replace(/[：．.]/g, ':');
+  if (!s || /[^\d:]/.test(s)) return null;
+  let h, m;
+  if (s.includes(':')) {
+    const parts = s.split(':');
+    if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+    h = Number.parseInt(parts[0], 10); m = Number.parseInt(parts[1], 10);
+  } else if (s.length === 3 || s.length === 4) {
+    h = Number.parseInt(s.slice(0, s.length - 2), 10); m = Number.parseInt(s.slice(-2), 10);
+  } else {
+    return null;
+  }
+  if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}

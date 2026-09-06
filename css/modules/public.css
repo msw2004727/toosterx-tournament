@@ -397,3 +397,6 @@ button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-colo
 /* 分頁列跟上面的頁首／記分板拉開距離，膠囊之間也鬆一點（2026-09-06 主辦看預覽版的回饋） */
 .ptabs{gap:var(--sp-3)}
 .ptabs--sub{padding:var(--sp-4) var(--sp-3) var(--sp-3)}
+
+/* PK 決勝（正規時間平手時的勝負） */
+.prow__pk,.psb__pk{font-weight:700;color:var(--text-secondary)}

@@ -431,7 +431,14 @@ test('⭐ 監聽有註冊、換頁後有回收 @public', async ({ page }) => {
   await expect.poll(count).toBeGreaterThanOrEqual(1);   // standings
 
   await go(page, '/#/team/t-101');
-  // 球隊頁完全不用即時監聽；前兩頁的都該被 router 回收掉
+  // 球隊頁沒有 Firestore 的即時監聽，只有一條登入狀態（隊長才畫得出「管理名單」鈕）；
+  // 前兩頁的都該被 router 回收掉
+  await expect.poll(count).toBeLessThanOrEqual(1);
+  const labels = await page.evaluate(async () => (await import('/js/core/store.js')).describe());
+  expect(JSON.stringify(labels)).not.toMatch(/match|timeline|standing/);
+
+  await page.goto('/#/no-such-page');
+  // 404 頁什麼都不監聽：連那一條登入狀態也要被回收
   await expect.poll(count).toBe(0);
 });
 
@@ -554,4 +561,48 @@ test('⭐ 申訴中的場次在比賽頁掛徽章：只有狀態與哪一隊 @pu
   await go(page, `/#/match/${MATCH}`);
   await expect(page.locator('.psb__appeal')).toContainText('申訴審理中');
   await expect(page.locator('.psb__appeal')).toContainText(m.home.name);
+});
+
+// ── 2026-09-06 主辦驗收：PK 決勝要看得到、隊長從球隊頁要找得到管理頁 ──
+test('⭐ 比賽頁與賽程列都印出 PK 決勝 @public @match', async ({ page }) => {
+  const s = base();
+  s[`events/${EVENT}/matches/${MATCH}`] = liveMatch({
+    status: 'finished', period: 'ft', score: { home: 2, away: 2 }, penaltyScore: { home: 4, away: 3 },
+    result: { winner: 'home', method: 'penalty', homePoints: 3, awayPoints: 0 }
+  });
+  await stub(page, s);
+  await go(page, `/#/match/${MATCH}`);
+  await expect(page.locator('#psb-pk')).toHaveText('PK 4-3');
+  await go(page, `/#/schedule?date=${DATE}`);
+  await expect(page.locator('.prow__pk').first()).toHaveText('PK 4-3');
+});
+
+test('沒有 PK 的比賽不印 PK 那一行 @public @match', async ({ page }) => {
+  const s = base();
+  s[`events/${EVENT}/matches/${MATCH}`] = liveMatch({ status: 'finished', period: 'ft', score: { home: 2, away: 1 } });
+  await stub(page, s);
+  await go(page, `/#/match/${MATCH}`);
+  await expect(page.locator('#psb-home')).toHaveText('2');
+  await expect(page.locator('#psb-pk')).toHaveCount(0);
+});
+
+test('⭐ 隊長看自己的球隊頁有「管理名單」鈕，訪客沒有 @public @team', async ({ page }) => {
+  const s = base();
+  s[`events/${EVENT}/teams/t-101`] = { teamId: 't-101', name: '臺中市西屯區野狼', divisionId: 'adult-open', captainUid: 'U-cap', status: 'approved', memberCount: 1 };
+  await stub(page, s);
+  await page.addInitScript(() => { window.__FAKE_USER = { uid: 'U-cap', displayName: '隊長' }; });
+  await go(page, '/#/team/t-101');
+  await expect(page.locator('#pteam-captain')).toBeVisible();
+  await page.locator('#pteam-captain button').click();
+  await expect(page).toHaveURL(/team\/t-101\/manage/);
+});
+
+test('訪客與非隊長看不到「管理名單」鈕 @public @team', async ({ page }) => {
+  const s = base();
+  s[`events/${EVENT}/teams/t-101`] = { teamId: 't-101', name: '臺中市西屯區野狼', divisionId: 'adult-open', captainUid: 'U-cap', status: 'approved', memberCount: 1 };
+  await stub(page, s);
+  await page.addInitScript(() => { window.__FAKE_USER = { uid: 'U-other', displayName: '路人' }; });
+  await go(page, '/#/team/t-101');
+  await expect(page.locator('.prec')).toBeVisible();
+  await expect(page.locator('#pteam-captain')).toHaveCount(0);
 });

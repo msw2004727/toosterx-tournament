@@ -340,12 +340,25 @@ export async function adminMatchPage({ scope, view, params }) {
         (m.lock?.locked ? '（已鎖定）' : '') +
         (m.revisionCount ? `・已改判 ${m.revisionCount} 次` : '')
       )),
+      // 目前的比分要連 PK 一起看：正規時間平手時勝負是 PK 決定的，只印 2:2 看不出誰晉級
+      // （2026-09-06 驗收：「總比分沒加上 PK 比分」）
+      currentScoreText(m)
+        ? el('p', { class: 'adm__note num', id: 'match-score-now', text: currentScoreText(m) })
+        : null,
       preview && dirty()
         ? el('p', { class: 'adm__permNote', text:
             `改判後的判定：${preview.winner === 'draw' ? '和局' : `${sideName(preview.winner)} 勝`}` +
             `（${preview.homePoints}:${preview.awayPoints} 分${preview.method === 'penalty' ? '，PK 決勝' : ''}）` })
         : null
     ].filter(Boolean));
+  }
+
+  /** 「目前比分 2:2（PK 4:3）」；沒有比分就 null */
+  function currentScoreText(m) {
+    const h = scoreOf(m?.score?.home), a = scoreOf(m?.score?.away);
+    if (h == null || a == null) return null;
+    const ph = scoreOf(m?.penaltyScore?.home), pa = scoreOf(m?.penaltyScore?.away);
+    return `目前比分 ${h}:${a}` + (ph != null && pa != null ? `（PK ${ph}:${pa}）` : '');
   }
 
   function scoreEditor() {
@@ -367,7 +380,7 @@ export async function adminMatchPage({ scope, view, params }) {
     ]);
 
     return el('div', {}, [
-      el('h3', { class: 'adm__sectionHead', text: '改判比分' }),
+      el('h3', { class: 'adm__sectionHead', id: 'override-section', text: '改判比分' }),
       el('div', { class: 'adm__schedRow' }, [
         num('home', state.match.home?.name ?? '主隊'),
         num('away', state.match.away?.name ?? '客隊')
@@ -482,8 +495,18 @@ export async function adminMatchPage({ scope, view, params }) {
         `・保證金 ${Number(a.deposit ?? APPEAL_RULES.deposit).toLocaleString()} 元${a.depositPaid ? '已收' : '未收'}` }),
       el('p', { class: 'adm__note', text: `事由：${a.reason ?? ''}` }),
       a.decision
-        ? el('p', { class: 'adm__permNote', text:
-            `裁決：${a.decision.note ?? ''}・保證金${a.decision.depositReturned ? '退還' : '不予發還'}` })
+        ? el('div', {}, [
+            el('p', { class: 'adm__permNote', text:
+              `裁決：${a.decision.note ?? ''}・保證金${a.decision.depositReturned ? '退還' : '不予發還'}` }),
+            // 申訴成立多半要跟著改判比分，但裁決與改判是兩個動作（成立也可能只是紀律問題）。
+            // 提醒並帶到改判區，不強制（2026-09-06 主辦驗收的建議 M-5）
+            a.decision.depositReturned && can('match.score.override')
+              ? el('button', {
+                  class: 'btn btn--sm', type: 'button', dataset: { act: 'go-override' },
+                  onClick: () => document.getElementById('override-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }, iconText('note', '申訴成立要改比分嗎？到「改判比分」'))
+              : null
+          ].filter(Boolean))
         : el('div', { class: 'adm__field' }, [
             el('label', { class: 'adm__fieldLabel', for: 'ap-note', text: '紀律委員會裁決意見（必填）' }),
             el('textarea', {

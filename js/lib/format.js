@@ -196,3 +196,15 @@ export const APPEAL_STATUS_LABEL = {
   upheld: '申訴成立',
   dismissed: '申訴不成立'
 };
+
+/**
+ * PK 決勝的文字：「PK 4-3」；沒有 PK（或只填了一邊）就 null。
+ * 公開端的比分列與比賽頁都用這一支——正規時間平手時勝負是 PK 決定的，
+ * 只印 2-2 家長看不出誰晉級（2026-09-06 驗收）。
+ */
+export function pkText(m) {
+  const h = strictNum(m?.penaltyScore?.home);
+  const a = strictNum(m?.penaltyScore?.away);
+  if (h === null || a === null) return null;
+  return `PK ${h}-${a}`;
+}

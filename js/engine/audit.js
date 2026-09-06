@@ -27,8 +27,19 @@ import { ROLE_INFO, PERMISSION_BY_CODE } from '../config.js';
 /** 目標種類的顯示名 */
 const ENTITY_LABEL = {
   team: '球隊', staff: '身分', rolePermissions: '權限',
-  match: '場次', timeline: '事件', standing: '積分榜', division: '組別'
+  match: '場次', timeline: '事件', standing: '積分榜', division: '組別',
+  member: '名單', player: '玩家', venue: '場地', config: '設定', event: '賽事', export: '匯出'
 };
+
+/** 毫秒 → 台北時間「10:30」。引擎不能 import lib，所以這裡自己有一份（只用在稽核的人話裡） */
+function hhmmOf(v) {
+  const ms = typeof v === 'number' ? v : (typeof v?.toMillis === 'function' ? v.toMillis() : null);
+  if (!Number.isFinite(ms)) return null;
+  return new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(ms));
+}
+
+/** `teamId/memberId` → teamId（Function 寫的名單稽核用這種 entityId） */
+const teamOfMemberId = id => String(id ?? '').split('/')[0] || null;
 
 /**
  * 把兩種欄位形狀收斂成一種。
@@ -170,6 +181,102 @@ export function describeAudit(a, lookup = {}) {
     case 'advancement.resolve':
       title = `系統解出了 ${a.entityId ?? '某組別'} 的晉級`;
       break;
+
+    // ── 積分榜的人工裁定（規章第十九條第 5 順位：抽籤／主辦裁定）──────
+    // 2026-09-06 主辦驗收：這幾種在 demo 與正式站都真的發生過，卻只印成
+    // 「standing.manualRanking：積分榜 u10__group__A」，主辦以為沒有紀錄。
+    case 'standing.manualRanking': {
+      const pins = Array.isArray(a.after?.pins) ? a.after.pins : [];
+      title = `人工裁定了 ${a.entityId ?? '某積分榜'} 的同分名次`;
+      if (pins.length) detail.push(pins.map(p => `第 ${p.rank} 名 ${team(p.teamId)}`).join('、'));
+      detail.push(a.after?.drawSeed != null ? `以抽籤決定（種子 ${a.after.drawSeed}，可重放）` : '由主辦直接裁定');
+      break;
+    }
+    case 'standing.clearManual':
+      title = `解除了 ${a.entityId ?? '某積分榜'} 的人工裁定`;
+      detail.push('同分回到「待主辦裁定」，晉級要等再裁定一次');
+      break;
+    case 'standing.rankChanged':
+      title = `${a.entityId ?? '某積分榜'} 的名次因重算而變動`;
+      break;
+    case 'finalRanking.publish':
+      title = `系統算出了 ${a.entityId ?? '某組別'} 的最終排名`;
+      break;
+
+    // ── 賽程管理（docs/05 §6）────────────────────────────────
+    case 'schedule.draw':
+      title = `抽了 ${a.entityId ?? '某組別'} 的籤`;
+      if (a.after?.seed != null) detail.push(`種子 ${a.after.seed}，任何人都能重放出同一組分組`);
+      break;
+    case 'schedule.generate':
+      title = `產生了 ${a.entityId ?? '某組別'} 的對戰表`;
+      break;
+    case 'schedule.place':
+      title = `排定了 ${a.entityId ?? '某組別'} 的時間與場地`;
+      break;
+    case 'schedule.move': {
+      const from = hhmmOf(a.before?.kickoffAt), to = hhmmOf(a.after?.kickoffAt);
+      title = `調整了 ${a.entityId ?? '某場次'} 的時間或場地`;
+      if (from && to && from !== to) detail.push(`開賽時間從 ${from} 改成 ${to}`);
+      if (a.before?.venueId !== a.after?.venueId && (a.before?.venueId || a.after?.venueId)) {
+        detail.push(`場地從 ${a.before?.venueId ?? '（未指定）'} 改成 ${a.after?.venueId ?? '（未指定）'}`);
+      }
+      break;
+    }
+    case 'schedule.shift':
+      title = `整體順延了 ${a.entityId ?? '某組別'} 的場次`;
+      break;
+    case 'schedule.publish':
+      title = `發布了 ${a.entityId ?? '某組別'} 的賽程`;
+      detail.push('公開端從這一刻起看得到這一組的場次');
+      break;
+    case 'schedule.unpublish':
+      title = `收回了 ${a.entityId ?? '某組別'} 的賽程`;
+      detail.push('公開端暫時看不到；讀得到資料的人仍然讀得到');
+      break;
+
+    // ── 申訴、直播、報名開關（2026-09-05 補齊的規章項目）──────
+    case 'appeal.filed':
+      title = `登記了 ${a.entityId ?? '某場次'} 的申訴`;
+      if (a.after?.late) detail.push('逾時受理（規章第二十條的 30 分鐘已過，主辦破例）');
+      break;
+    case 'appeal.decided':
+      title = `裁決了 ${a.entityId ?? '某場次'} 的申訴：${a.after?.upheld === true ? '成立' : a.after?.upheld === false ? '不成立' : '（結果不明）'}`;
+      detail.push(a.after?.upheld === true ? '保證金退還' : '保證金不予發還');
+      break;
+    case 'stream.update':
+      title = `更新了 ${a.entityId ?? '某處'} 的直播設定`;
+      if (a.after?.videoId) detail.push(`影片 ${a.after.videoId}`);
+      break;
+    case 'registration.update':
+      title = '更新了報名開關';
+      if (typeof a.after?.open === 'boolean') detail.push(a.after.open ? '手動開關：開放' : '手動開關：關閉');
+      break;
+
+    // ── 系統自動退件（每人限報乙隊、重複申請、人數上限）──────
+    case 'member.crossTeamRejected':
+      title = `系統退回了「${team(teamOfMemberId(a.entityId))}」的一位成員：每人限報乙隊`;
+      detail.push('同一位球員（後四碼＋生日相同）已在另一支球隊的名單上');
+      break;
+    case 'member.duplicateRejected':
+      title = `系統退回了「${team(teamOfMemberId(a.entityId))}」的一筆重複申請`;
+      detail.push('同一個帳號對同一支球隊一次只能有一筆待審申請');
+      break;
+    case 'member.capRejected':
+      title = `系統退回了「${team(a.entityId)}」超過上限的球員`;
+      break;
+    case 'team.withdraw': {
+      const amt = a.after?.refund?.amount;
+      title = `取消了「${team(a.entityId)}」的報名`;
+      if (typeof amt === 'number') detail.push(`退費 NT$ ${amt.toLocaleString()}`);
+      break;
+    }
+    case 'export.luckyDraw':
+      title = '匯出了抽獎名單';
+      break;
+    case 'challenge.playerMissing':
+      title = `挑戰成績找不到玩家 ${a.entityId ?? ''}`.trim();
+      break;
     default:
       // 不認得的動作要**照原樣印出來**，不可以吞掉——
       // 日後新增的動作在這裡沒有分支時，主辦仍然看得到「發生過某件事」。
@@ -195,13 +302,26 @@ export function actorText(a, lookup = {}) {
   return lookup.people?.[a?.actorUid] ?? a?.actorName ?? a?.actorUid ?? '（不明）';
 }
 
-/** 篩選用的分組。`prefix` 是 action 的開頭。 */
+/**
+ * 篩選用的分組。
+ *
+ * ⚠️ 每一筆都要落在**恰好一個**分類裡，最後的「其他」是前面全部的補集——
+ *    分類的數字加起來要等於「全部」。2026-09-06 主辦驗收時正式站 87 筆裡有 62 筆
+ *    （賽程、積分裁定、申訴、系統退件）不在任何分類，主辦以為人工裁定沒有留痕。
+ */
+const act = a => String(a?.action ?? '');
+const CATEGORIES = [
+  { key: 'team', label: '報名審核', match: a => /^(team|member|registration)\./.test(act(a)) },
+  { key: 'staff', label: '身分授權', match: a => act(a).startsWith('staff.') },
+  { key: 'perms', label: '權限開關', match: a => act(a).startsWith('perms.') },
+  { key: 'match', label: '賽務改動', match: a => /^(match|timeline|advancement|appeal|stream)\./.test(act(a)) },
+  { key: 'standing', label: '積分裁定', match: a => /^(standing|finalRanking)\./.test(act(a)) },
+  { key: 'schedule', label: '賽程', match: a => act(a).startsWith('schedule.') }
+];
 export const AUDIT_FILTERS = [
   { key: 'all', label: '全部', match: () => true },
-  { key: 'team', label: '報名審核', match: a => String(a.action).startsWith('team.') },
-  { key: 'staff', label: '身分授權', match: a => String(a.action).startsWith('staff.') },
-  { key: 'perms', label: '權限開關', match: a => String(a.action).startsWith('perms.') },
-  { key: 'match', label: '賽務改動', match: a => /^(match|timeline|advancement)\./.test(String(a.action)) }
+  ...CATEGORIES,
+  { key: 'other', label: '其他', match: a => !CATEGORIES.some(f => f.match(a)) }
 ];
 
 /**

@@ -174,9 +174,33 @@ export async function managePage({ params, scope, view }) {
       if (state.reg && !state.reg.open) {
         body.push(el('p', { class: 'reg__fine', text: state.reg.reason }));
       }
+      // 草稿：還沒送出、沒有報名費，隊長自己就能取消（rules R98e）。
+      // 被退回的：曾經送出過，取消與退費仍由主辦處理，所以是「申請取消」。
+      // 原本這兩種狀態都沒有任何取消的路（2026-09-06 驗收 R-11）
+      body.push(...(s === 'rejected' ? cancelRows() : draftCancelRows()));
     }
 
     return el('section', { class: 'reg__card' }, body);
+  }
+
+  function draftCancelRows() {
+    return [
+      el('p', { class: 'reg__fine', text: '不報了？草稿還沒送出，取消不會有任何費用。' }),
+      el('button', {
+        class: 'btn btn--ghost', type: 'button', id: 'team-cancel-draft', disabled: state.busy,
+        onClick: () => cancelDraft()
+      }, '取消這支球隊')
+    ];
+  }
+
+  async function cancelDraft() {
+    const ok = await confirmDialog({
+      title: `取消「${state.team.name || teamId}」？`,
+      body: '這支球隊會從「我的」消失，名單上的成員也不再算報名。這個動作不能復原；之後要報名請重新建立球隊。',
+      confirmText: '取消這支球隊', tone: 'danger'
+    });
+    if (!ok) return;
+    await run(() => data.withdrawDraft(teamId, { reason: '隊長自行取消（草稿）' }), '已取消這支球隊');
   }
 
   // ── 邀請碼 ──────────────────────────────────────────────
@@ -215,6 +239,7 @@ export async function managePage({ params, scope, view }) {
   function inviteCard() {
     const code = state.team.inviteCode || '—';
     const link = `${location.origin}/#/join/${encodeURIComponent(code)}`;
+    const canShare = typeof navigator.share === 'function';
     return el('section', { class: 'reg__card' }, [
       el('h2', { class: 'reg__cardHead' }, iconText('qr', '邀請隊友')),
       el('p', { class: 'reg__note', text: '把下面的連結或代碼給隊友（兒童組給家長）。他們用 LINE 登入後填資料，再由你同意。' }),
@@ -222,13 +247,30 @@ export async function managePage({ params, scope, view }) {
         el('span', { class: 'reg__codeLabel', text: '邀請碼' }),
         el('code', { class: 'reg__codeValue', text: code })
       ]),
+      // 連結本身印出來：LINE 內建瀏覽器常常不給自動複製，長按這一格也能選取。
+      // 少了它，隊長會把網址列（帶著 ?lineAppVersion=… 的管理頁）貼給隊友（2026-09-06 驗收 R-5）
+      el('code', { class: 'reg__link', id: 'invite-link', text: link }),
       el('div', { class: 'reg__btnRow' }, [
-        el('button', { class: 'btn btn--lg btn--primary', type: 'button', onClick: () => copy(link, '邀請連結') },
+        canShare
+          ? el('button', { class: 'btn btn--lg btn--primary', type: 'button', onClick: () => share(link) },
+              iconText('forward', '分享給隊友', { trailing: true }))
+          : null,
+        el('button', { class: `btn btn--lg${canShare ? '' : ' btn--primary'}`, type: 'button', onClick: () => copy(link, '邀請連結') },
           iconText('forward', '複製邀請連結', { trailing: true })),
         el('button', { class: 'btn btn--lg', type: 'button', onClick: () => copy(code, '邀請碼') }, '複製代碼')
-      ]),
+      ].filter(Boolean)),
       el('p', { class: 'reg__fine', text: '知道代碼只能「申請」加入，一定要你同意才會進名單。' })
     ]);
+  }
+
+  /** 手機的分享面板（LINE 就在裡面），沒有的瀏覽器退回複製 */
+  async function share(link) {
+    try {
+      await navigator.share({ title: `加入「${state.team.name || teamId}」`, text: `用這個連結加入我們的球隊（邀請碼 ${state.team.inviteCode || ''}）`, url: link });
+    } catch (err) {
+      if (err?.name === 'AbortError') return;      // 使用者自己關掉分享面板
+      copy(link, '邀請連結');
+    }
   }
 
   // ── 教練直接新增小球員（學童組）──────────────────────────
@@ -314,11 +356,13 @@ export async function managePage({ params, scope, view }) {
         { required: true, hint: '只存後四碼，不會存完整號碼。檢錄當天用它跟證件核對。' }) : null,
       f.kind === 'player' ? err('idLast4') : null,
 
-      field('m-no', '背號', textInput('m-no', {
+      // 背號只有球員有：隊職員不上場，帶著背號會在名單與審核頁跟球員撞號
+      // （2026-09-06 驗收 R-6：教練名單顯示背號、背號應該不可重複）
+      f.kind === 'player' ? field('m-no', '背號', textInput('m-no', {
         value: f.jerseyNo, maxlength: 2, inputmode: 'numeric', placeholder: '9',
         onInput: v => { f.jerseyNo = v.replace(/\D/g, '').slice(0, 2); }
-      }), { hint: '之後還能改，現在可以先留空。' }),
-      err('jerseyNo'),
+      }), { hint: '之後還能改，現在可以先留空。同一隊的球員不能同號。' }) : null,
+      f.kind === 'player' ? err('jerseyNo') : null,
 
       // ── 配戴眼鏡上場（規章附件二）：切結書是家長紙本親簽，教練記「收到了沒」 ──
       f.kind === 'player'
@@ -375,19 +419,25 @@ export async function managePage({ params, scope, view }) {
   }
 
   async function saveMember(f, editing) {
+    const isPlayer = f.kind === 'player';
     const payload = {
       name: String(f.name || '').trim(),
-      birthDate: f.birthDate || null,
-      idLast4: f.idLast4 || null,
-      jerseyNo: f.jerseyNo === '' ? null : Number(f.jerseyNo),
+      birthDate: isPlayer ? (f.birthDate || null) : null,
+      idLast4: isPlayer ? (f.idLast4 || null) : null,
+      jerseyNo: isPlayer && f.jerseyNo !== '' ? Number(f.jerseyNo) : null,
       kind: f.kind,
-      glasses: f.kind === 'player' && f.glasses === true,
+      glasses: isPlayer && f.glasses === true,
       glassesWaiverReceived: f.glassesWaiverReceived === true
     };
 
     // 前端擋一次是為了給好的訊息，權威仍在 rules 與規章設定
     const v = validateMember(payload, state.division);
-    if (!v.ok) { state.formErrors = v.errors; render(); return; }
+    // 背號撞號在這裡就擋：審核頁會把它列成 error 而不給核准，但那是主辦才看得到的地方
+    const taken = payload.jerseyNo != null && state.members.find(m =>
+      m.memberId !== f.memberId && ['approved', 'pending'].includes(m.status)
+      && (m.kind || 'player') === 'player' && m.jerseyNo === payload.jerseyNo);
+    if (taken) v.errors.jerseyNo = `背號 ${payload.jerseyNo} 已經是「${taken.name || '另一位球員'}」的了，請換一個`;
+    if (!v.ok || taken) { state.formErrors = v.errors; render(); return; }
 
     if (!editing) {
       const active = state.members.filter(m => m.status === 'approved' || m.status === 'pending');
@@ -443,6 +493,7 @@ export async function managePage({ params, scope, view }) {
         class: 'reg__fine',
         text: `球員 ${players} / ${REGISTRATION_LIMITS.maxPlayers}　·　隊職員 ${staff} / ${REGISTRATION_LIMITS.maxStaff}（競賽規章第十二條）`
       }),
+      rejectedBox(),
       !rows.length
         ? el('p', {
             class: 'reg__note',
@@ -467,6 +518,30 @@ export async function managePage({ params, scope, view }) {
                   }, '移除')
                 ].filter(Boolean))
           ].filter(Boolean))))
+    ]);
+  }
+
+  /**
+   * 被系統退件的那幾筆（每人限報乙隊、重複申請、人數上限）。
+   * Function 是事後退件的：教練按下「加入名單」看到「已加入」，一秒後那一列就消失，
+   * 沒有任何解釋——2026-09-06 驗收時同一個孩子被重試了四次，教練以為是後四碼「9070 太大」。
+   * 這裡把原因印出來，並讓隊長收掉（status → removed，rules R57c）。
+   */
+  function rejectedBox() {
+    const rows = state.members.filter(m => m.status === 'rejected' && String(m.decidedBy ?? '').startsWith('fn:'));
+    if (!rows.length) return null;
+    return el('div', { class: 'reg__rejected', id: 'roster-rejected' }, [
+      el('p', { class: 'reg__note', text: '下面這幾筆系統沒有讓他們進名單，原因寫在每一筆上：' }),
+      ...rows.map(m => el('div', { class: 'reg__rejectedRow' }, [
+        el('div', { class: 'reg__memberInfo' }, [
+          el('strong', { class: 'reg__memberName', text: m.name || '（未填姓名）' }),
+          el('span', { class: 'reg__memberMeta', text: m.rejectReason || '系統退件，沒有寫原因。' })
+        ]),
+        frozen() ? null : el('button', {
+          class: 'btn btn--sm', type: 'button', disabled: state.busy,
+          onClick: () => run(() => data.decideMember(teamId, m.memberId, 'removed'), '已收掉')
+        }, '知道了，收掉')
+      ].filter(Boolean)))
     ]);
   }
 

@@ -199,6 +199,9 @@ service cloud.firestore {
       function captainMemberTransition(from, to) {
         return (from == 'pending'  && to in ['pending', 'approved', 'rejected'])
             || (from == 'approved' && to in ['approved', 'removed'])
+            // 被系統退件的那幾筆（每人限報乙隊、重複申請）隊長要能從名單上收掉，
+            // 不然每退一次就多一列永遠留在畫面上（2026-09-06 驗收：同一個孩子重試了四次）
+            || (from == 'rejected' && to in ['rejected', 'removed'])
             || from == to;
       }
 
@@ -299,8 +302,10 @@ service cloud.firestore {
       //    於是隊長改完按送出，本機快照先變成「待主辦審核」、下一秒被規則打回來，
       //    畫面只說「可能是報名已經截止」——被退回的球隊永遠送不出去
       //    （2026-09-06 在 demo 實測抓到，R98c／RU#46）。
+      // 草稿可以由隊長自己取消（withdrawn）：還沒送出、沒有報名費，不必勞煩主辦。
+      // 送出之後就只能「申請取消」，取消與退費由主辦處理（2026-09-06 驗收：草稿沒有任何取消的路）。
       function captainTeamTransition(from, to) {
-        return (from == 'draft'     && to in ['draft', 'submitted'])
+        return (from == 'draft'     && to in ['draft', 'submitted', 'withdrawn'])
             || (from == 'submitted' && to in ['submitted', 'draft'])
             || (from == 'rejected'  && to in ['rejected', 'draft', 'submitted'])
             // 狀態不動的更新（例如已核准之後申請取消）：欄位仍由 captainTeamPatchOk 的白名單管

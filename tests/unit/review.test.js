@@ -259,3 +259,27 @@ describe('T43-8 配戴眼鏡上場的切結書（規章附件二）', () => {
     expect(codes(r)).not.toContain('GLASSES_WAIVER_MISSING');
   });
 });
+
+// ── 2026-09-06 正式站真的收到 5 筆「2026-09-06 出生」的成人（日期選擇器預設今天）──
+describe('T-review 生日看起來填錯', () => {
+  test('⭐ 比賽當天不到 3 歲要提醒（warn），但不擋核准（規章沒寫）', () => {
+    const div = { ...ADULT, date: ADULT.date ?? '2026-10-11' };
+    const r = reviewTeam({
+      team: { teamId: 't' },
+      members: [player({ name: '張張', birthDate: '2026-09-06', jerseyNo: 1 }), player({ name: '張嘴', birthDate: '1970-11-06', jerseyNo: 6 })],
+      division: div, limits: L
+    });
+    const f = r.findings.find(x => x.code === 'BIRTHDATE_IMPLAUSIBLE');
+    expect(f?.level).toBe('warn');
+    expect(f?.message).toContain('張張');
+    expect(f?.message).not.toContain('張嘴');
+    expect(r.canApprove).toBe(true);
+  });
+
+  test('年紀合理的不提醒；讀不到比賽日就不猜', () => {
+    const ok = reviewTeam({ team: {}, members: [player({ birthDate: '1990-01-01', jerseyNo: 1 })], division: { ...ADULT, date: '2026-10-11' }, limits: L });
+    expect(codes(ok)).not.toContain('BIRTHDATE_IMPLAUSIBLE');
+    const noDate = reviewTeam({ team: {}, members: [player({ birthDate: '2099-01-01', jerseyNo: 1 })], division: { ...ADULT, date: null }, limits: L });
+    expect(codes(noDate)).not.toContain('BIRTHDATE_IMPLAUSIBLE');
+  });
+});

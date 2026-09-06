@@ -93,9 +93,9 @@ const MUTANTS = [
   {
     name: 'RU#12 隊長的狀態機允許 approved（自己核准自己的報名）',
     file: F,
-    from: `        return (from == 'draft'     && to in ['draft', 'submitted'])
+    from: `        return (from == 'draft'     && to in ['draft', 'submitted', 'withdrawn'])
             || (from == 'submitted' && to in ['submitted', 'draft'])`,
-    to: `        return (from == 'draft'     && to in ['draft', 'submitted'])
+    to: `        return (from == 'draft'     && to in ['draft', 'submitted', 'withdrawn'])
             || (from == 'submitted' && to in ['submitted', 'draft', 'approved'])`
   },
   {
@@ -380,6 +380,24 @@ const MUTANTS = [
     file: F,
     from: `            || (from == 'rejected'  && to in ['rejected', 'draft', 'submitted'])`,
     to: `            || (from == 'rejected'  && to in ['rejected', 'draft'])`
+  },
+  {
+    name: 'RU#47 ⭐ 草稿取消不了（管理頁的「取消這支球隊」按了被規則打回）',
+    file: F,
+    from: `        return (from == 'draft'     && to in ['draft', 'submitted', 'withdrawn'])`,
+    to: `        return (from == 'draft'     && to in ['draft', 'submitted'])`
+  },
+  {
+    name: 'RU#48 ⭐ 送出之後隊長也能自己取消（繞過主辦的取消與退費）',
+    file: F,
+    from: `            || (from == 'submitted' && to in ['submitted', 'draft'])`,
+    to: `            || (from == 'submitted' && to in ['submitted', 'draft', 'withdrawn'])`
+  },
+  {
+    name: 'RU#49 ⭐ 系統退件的那一筆隊長收不掉（每退一次多一列永遠留在名單頁）',
+    file: F,
+    from: `            || (from == 'rejected' && to in ['rejected', 'removed'])`,
+    to: `            || (from == 'rejected' && to in ['rejected'])`
   }
 ];
 

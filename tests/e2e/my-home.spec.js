@@ -215,3 +215,25 @@ test('未登入時導向登入而不是空白頁 @my', async ({ page }) => {
   await go(page);
   await expect(page.locator('#app-view')).toContainText(/登入/);
 });
+
+// ── 2026-09-06 主辦驗收：隊長從「我的」找不到審核鈕、被退件只看到「已婉拒」 ──
+test('⭐ 「我的球隊」點進去是管理頁（審核、送出、取消都在那裡）@my', async ({ page }) => {
+  await stub(page);
+  await go(page);
+  await page.locator('.acct__row', { hasText: '大甲金剛足球隊' }).click();
+  await expect(page).toHaveURL(/team\/t-1\/manage/);
+});
+
+test('⭐ 被系統退件的球員在「我報名的球員」看得到原因 @my', async ({ page }) => {
+  await stub(page, {
+    members: [
+      { team: 't-1', memberId: 'm-r', name: '張張', guardianUid: UID, status: 'rejected', kind: 'player',
+        decidedBy: 'fn:rejectDuplicateApplication', rejectReason: '這個帳號對這支球隊已經有一筆待審的申請，請等隊長處理完再送下一筆。' },
+      { team: 't-1', memberId: 'm-a', name: '張嘴', guardianUid: UID, status: 'approved', kind: 'player', jerseyNo: 6 }
+    ]
+  });
+  await go(page);
+  const card = page.locator('.acct__card', { hasText: '我報名的球員' });
+  await expect(card.locator('.acct__rowReason')).toHaveCount(1);
+  await expect(card.locator('.acct__rowReason')).toContainText('已經有一筆待審的申請');
+});

@@ -183,6 +183,37 @@ export async function boothPage({ scope, view, params, query }) {
     toast('已代建，成績可以直接登錄');
   }
 
+  /**
+   * 代建一張新卡，代號由系統隨機配（家長的第二個小孩、沒有 LINE 的玩家）。
+   * 原本只能「打一個沒人用的代號 → 查不到 → 代建」，但沒有人知道哪個代號沒人用
+   * （2026-09-06 驗收 M-9：「我要在哪才可以新增家長手機第二個小孩」）。
+   * 先查再建，撞到就換一組；真的同一秒撞號由 rules 的 create-only 擋（R17）。
+   */
+  async function createNewCard() {
+    if (state.busy) return;
+    const ok = await confirmDialog({
+      title: '代建一張新的挑戰卡？',
+      body: '代號由系統隨機配發。代建的卡沒有綁 LINE，請把代號抄給玩家（或截圖）——之後要查成績、登記手機都靠這組代號。',
+      confirmText: '代建新卡', tone: 'default'
+    });
+    if (!ok) return;
+    state.busy = true; render();
+    try {
+      for (let i = 0; i < 6; i++) {
+        const pid = `FEDA-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
+        if (await data.getPlayer(pid)) continue;         // 已經有人用，換一組
+        await createOnSite(pid);
+        state.idInput = pid;
+        return;
+      }
+      toast('連續抽到已使用的代號，請再試一次', 'warn');
+    } catch (err) {
+      toast(data.explain(err, '沒有建立成功。'), 'error');
+    } finally {
+      state.busy = false; render();
+    }
+  }
+
   async function submit() {
     const c = state.challenge;
     const r = resolveScore({ challenge: c, value: state.value, detail: state.detail });
@@ -303,6 +334,13 @@ export async function boothPage({ scope, view, params, query }) {
           class: 'btn btn--lg', type: 'button', disabled: state.busy, 'aria-label': '用相機掃描玩家的 QR',
           onClick: () => scan()
         }, iconText('qr', '掃描')) : null
+      ]),
+      el('p', { class: 'booth__hint' }, [
+        document.createTextNode('沒有卡的玩家（家長的第二個小孩、沒有 LINE）：'),
+        el('button', {
+          class: 'btn btn--sm', type: 'button', id: 'booth-new-card', disabled: state.busy,
+          onClick: () => createNewCard()
+        }, iconText('ticket', '代建新卡（系統配號）'))
       ]),
       el('p', { class: 'booth__note', text: '用手機相機掃玩家的 QR 會直接開這一頁並帶入代號。掃不到、或玩家手機沒電時，直接輸入卡片上的號碼。' })
     ]);

@@ -290,3 +290,42 @@ export function explain(err, fallback = '送出沒有成功，請稍後再試。
   }
   return err?.message || fallback;
 }
+
+// ── 2026-09-06 驗收補的三支 ───────────────────────────────────
+
+/**
+ * 我（這個帳號）在這支球隊送過的申請。加入頁用它先講「你已經有一筆待審」，
+ * 不要讓人填完才被 Function 退件（同一帳號對同一隊一次只能有一筆待審，docs/10 §3.3）。
+ * 只用單一欄位查（guardianUid 有 COLLECTION 範圍的索引），status 在記憶體裡看。
+ */
+export async function myMembersInTeam(teamId) {
+  const { collection, getDocs, query, where } = sdk();
+  if (!uid()) return [];
+  const snap = await getDocs(query(
+    collection(db(), 'events', EVENT_ID, 'teams', teamId, 'members'),
+    where('guardianUid', '==', uid())
+  ));
+  return snap.docs.map(d => ({ memberId: d.id, ...d.data() }));
+}
+
+/** 盯著自己剛送出的那一筆：Function 退件時把原因拿回畫面上 */
+export function watchMember(scope, teamId, memberId, cb, onError) {
+  const { doc, onSnapshot } = sdk();
+  const unsub = onSnapshot(doc(db(), 'events', EVENT_ID, 'teams', teamId, 'members', memberId),
+    snap => cb(snap.exists() ? { memberId: snap.id, ...snap.data() } : null),
+    err => onError?.(err));
+  return hold(scope, unsub, `member:${teamId}/${memberId}`);
+}
+
+/**
+ * 隊長自己取消還在草稿的球隊。沒有送出過就沒有報名費，不必勞煩主辦——
+ * rules 只放行 draft → withdrawn（R98e）；送出之後只能「申請取消」（requestCancel）。
+ */
+export async function withdrawDraft(teamId, { reason }) {
+  const { doc, updateDoc, serverTimestamp } = sdk();
+  await updateDoc(doc(db(), 'events', EVENT_ID, 'teams', teamId), {
+    status: 'withdrawn',
+    cancelRequest: { reason: String(reason ?? '').trim().slice(0, 500), byUid: uid(), status: 'self', at: serverTimestamp() },
+    updatedAt: serverTimestamp(), updatedBy: uid()
+  });
+}

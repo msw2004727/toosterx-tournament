@@ -347,3 +347,28 @@ test('攤位登記手機：格式不對留在畫面上，不送出 @booth @conta
   await expect(page.locator('#booth-phone-note')).toContainText('09 開頭');
   expect(await page.evaluate(() => (window.__FAKE_CALLS || []).some(c => c.name === 'setPlayerContact'))).toBe(false);
 });
+
+// ── 2026-09-06 主辦驗收 M-9：家長的第二個小孩要在哪裡建卡、「已連線」白字看不見 ──
+test('⭐ 代建新卡：系統配號、寫進 players、成績可以直接登錄 @booth', async ({ page }) => {
+  await stub(page);
+  await go(page);
+  await ready(page);
+  await page.locator('#booth-new-card').click();
+  await page.locator('.modal .btn--primary').click();
+  await expect(page.locator('.booth__nick')).toContainText('FEDA-', { timeout: 15_000 });
+  const created = Object.entries(await dump(page)).filter(([k]) => k.includes('/players/FEDA-')).map(([, v]) => v)
+    .find(p => p.createdVia === 'staff');
+  expect(created).toBeTruthy();
+  expect(created.playerId).toMatch(/^FEDA-[0-9]{4}$/);
+  // 代號要印在畫面上（攤位要抄給玩家），而且成績區直接可以送出
+  await expect(page.locator('.booth__nick')).toContainText(created.playerId);
+  await expect(page.getByRole('button', { name: /送出成績/ })).toBeVisible();
+});
+
+test('⭐ 三態燈在攤位頁的淺色底上看得到（不是白字）@booth', async ({ page }) => {
+  await stub(page);
+  await go(page);
+  await ready(page);
+  const color = await page.locator('.sync').first().evaluate(el => getComputedStyle(el).color);
+  expect(color).not.toBe('rgb(255, 255, 255)');
+});

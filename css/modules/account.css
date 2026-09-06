@@ -143,3 +143,6 @@
 @media (max-width:359px){
   .acct__grid{grid-template-columns:1fr}
 }
+
+/* 被退回的原因（系統退件會寫原因；只有「已婉拒」三個字家長不知道要改什麼） */
+.acct__rowReason{flex:1 1 100%;font-size:var(--fs-xs);color:var(--warning);line-height:1.5}

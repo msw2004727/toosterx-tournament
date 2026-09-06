@@ -1893,6 +1893,38 @@ const MUTANTS = [
     file: 'js/modules/public/match.js',
     from: "    const ht = (state.division?.periods ?? 2) > 1 && m.htScore && m.htScore.home != null",
     to: "    const ht = m.htScore && m.htScore.home != null"
+  },
+
+  // ── 2026-09-06 主辦驗收（第二輪：家長／隊長與管理員兩張驗收單）──
+  {
+    name: '#AF18 ⭐ 稽核的「其他」分類變成空集合（賽程以外的紀錄又掉出分類，加總不等於全部；M-7）',
+    file: 'js/engine/audit.js',
+    from: "  { key: 'other', label: '其他', match: a => !CATEGORIES.some(f => f.match(a)) }",
+    to: "  { key: 'other', label: '其他', match: () => false }"
+  },
+  {
+    name: '#AF19 ⭐ 積分裁定的紀錄不在「積分裁定」分類裡（主辦以為人工裁定沒有留痕；M-7）',
+    file: 'js/engine/audit.js',
+    from: "  { key: 'standing', label: '積分裁定', match: a => /^(standing|finalRanking)\\./.test(act(a)) },",
+    to: "  { key: 'standing', label: '積分裁定', match: a => /^(finalRanking)\\./.test(act(a)) },"
+  },
+  {
+    name: '#AF20 ⭐ 生日填成「今天」的成人不提醒（正式站真的收到 5 筆 2026-09-06 出生的球員）',
+    file: 'js/engine/review.js',
+    from: '        return age < MIN_PLAUSIBLE_AGE;',
+    to: '        return false;'
+  },
+  {
+    name: '#AF21 ⭐ 「我報名的球員」不帶退件原因（家長只看到「已婉拒」；R-3／R-9）',
+    file: 'js/modules/account/my-players.js',
+    from: "      reason: status === 'rejected' && typeof d.rejectReason === 'string' && d.rejectReason.trim()\n        ? d.rejectReason.trim() : null",
+    to: '      reason: null'
+  },
+  {
+    name: '#AF22 ⭐ 開賽時間收下 24:00（排出一個不存在的時間；M-3）',
+    file: 'js/modules/admin/schedule-actions.js',
+    from: '  if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;',
+    to: '  if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 24 || m < 0 || m > 59) return null;'
   }
 ];
 

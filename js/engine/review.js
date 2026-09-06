@@ -15,7 +15,10 @@
  *   那等於系統替主辦訂了一條規章沒有的規則。
  */
 
-import { checkAge, isYouthDivision } from './eligibility.js';
+import { checkAge, isYouthDivision, parseYmd } from './eligibility.js';
+
+/** 比賽當天不到這個歲數就提醒「生日看起來填錯了」：最小的組別是幼稚園，再小就不可能是球員 */
+const MIN_PLAUSIBLE_AGE = 3;
 
 /** @typedef {{level:'error'|'warn'|'ok', code:string, message:string, source:string}} Finding */
 
@@ -126,6 +129,21 @@ export function reviewTeam({ team, members = [], division, limits }) {
   }
   if (isYouthDivision(division) && !tooOld.length && !noBirth.length && players.length) {
     add('ok', 'AGE', '全部球員符合出生日期門檻', '規章第十一條');
+  }
+  // 比賽當天還不到 3 歲：不可能是球員，多半是日期選擇器預設成「今天」就被送出
+  // （2026-09-06 正式站真的收到 5 筆 2026-09-06 出生的成人）。規章沒寫，所以是提醒不是擋。
+  const eventDate = typeof division?.date === 'string' ? division.date : null;
+  const tooYoung = eventDate
+    ? players.filter(m => {
+        const b = parseYmd(m?.birthDate), e = parseYmd(eventDate);
+        if (!b || !e) return false;
+        const age = e.y - b.y - ((e.m < b.m || (e.m === b.m && e.d < b.d)) ? 1 : 0);
+        return age < MIN_PLAUSIBLE_AGE;
+      })
+    : [];
+  if (tooYoung.length) {
+    add('warn', 'BIRTHDATE_IMPLAUSIBLE',
+      `${tooYoung.length} 位球員的出生日期看起來填錯了（比賽當天還不到 ${MIN_PLAUSIBLE_AGE} 歲）：${nameList(tooYoung)}。`, '系統');
   }
 
   // ── 檢錄要用的欄位（學童組）─────────────────────────────

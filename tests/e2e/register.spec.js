@@ -660,3 +660,121 @@ test('換頁時教學彈窗跟著收掉（不會留在別的頁面上）@registe
   await expect(page.locator('.pub')).toBeVisible();
   await expect(page.locator('.tut')).toHaveCount(0);
 });
+
+/* ══════════════════════════════════════════════════════════════
+   2026-09-06 主辦驗收（家長／隊長）抓到的：系統退件看不見、背號、草稿取消、加入頁回饋
+   ══════════════════════════════════════════════════════════════ */
+
+const SYSTEM_REJECT = '每人限報乙隊（競賽規章第十二條）：這位球員已經在「雷兒TEST」的名單上。要換隊請先請原球隊移除。';
+
+test('⭐ 系統退件的成員留在名單頁上、寫出原因，隊長可以收掉 @register @youth @reject', async ({ page }) => {
+  // Function 是事後退件的：教練看到「已加入」，一秒後那一列就消失——2026-09-06 同一個孩子被重試了四次
+  await stub(page, base({
+    members: member('m-r', {
+      status: 'rejected', source: 'coach', guardianUid: null, name: 'Smile', idLast4: '9070',
+      decidedBy: 'fn:onePlayerOneTeam', rejectReason: SYSTEM_REJECT
+    })
+  }), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+  const box = page.locator('#roster-rejected');
+  await expect(box).toBeVisible();
+  await expect(box).toContainText('Smile');
+  await expect(box).toContainText('每人限報乙隊');
+  await expect(box).toContainText('雷兒TEST');
+  await box.getByRole('button', { name: /收掉/ }).click();
+  await expect.poll(async () => (await firstMember(page))?.status, { timeout: 10_000 }).toBe('removed');
+  await expect(page.locator('#roster-rejected')).toHaveCount(0);
+});
+
+test('隊長自己婉拒的不算系統退件，不會出現在退件區 @register @reject', async ({ page }) => {
+  await stub(page, base({ members: member('m-x', { status: 'rejected', decidedBy: CAP }) }), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+  await expect(page.getByRole('button', { name: /新增一位球員/ })).toBeVisible();
+  await expect(page.locator('#roster-rejected')).toHaveCount(0);
+});
+
+test('⭐ 隊職員的表單沒有背號欄，存進去的 jerseyNo 是 null @register @youth @jersey', async ({ page }) => {
+  await stub(page, base(), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+  await page.getByRole('button', { name: /新增一位球員/ }).click();
+  await page.locator('#m-kind').selectOption('coach');
+  await expect(page.locator('#m-name')).toBeVisible();
+  await expect(page.locator('#m-no')).toHaveCount(0);
+  await page.locator('#m-name').fill('林教練');
+  await page.getByRole('button', { name: /加入名單/ }).click();
+  await expect.poll(async () => (await firstMember(page))?.kind ?? null, { timeout: 10_000 }).toBe('coach');
+  const row = await firstMember(page);
+  expect(row.jerseyNo).toBeNull();
+  expect(row.birthDate).toBeNull();
+});
+
+test('⭐ 背號撞號在「加入名單」時就擋下，說出撞到誰 @register @youth @jersey', async ({ page }) => {
+  await stub(page, base({
+    members: member('m-1', { status: 'approved', source: 'coach', guardianUid: null, name: '小豆子', jerseyNo: 9, birthDate: '2017-03-05', idLast4: '1234' })
+  }), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+  await fillPlayer(page, { name: '阿寶', no: '9', id4: '2345', y: '107', m: '8', d: '20' });
+  await expect(page.locator('.reg__hint--err')).toContainText('背號 9 已經是「小豆子」的了');
+  const members = Object.entries(await dump(page)).filter(([k]) => k.includes('/members/'));
+  expect(members).toHaveLength(1);
+});
+
+test('⭐ 草稿可以由隊長自己取消，狀態變成已撤銷 @register @cancel', async ({ page }) => {
+  await stub(page, base(), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+  await page.locator('#team-cancel-draft').click();
+  await page.locator('.modal .btn--danger').click();
+  await expect.poll(async () => (await dump(page))[`events/${EVENT}/teams/${TEAM}`]?.status, { timeout: 10_000 }).toBe('withdrawn');
+  expect((await dump(page))[`events/${EVENT}/teams/${TEAM}`].cancelRequest.status).toBe('self');
+  await expect(page.locator('.reg__badge--withdrawn')).toBeVisible();
+});
+
+test('被退回的球隊有「申請取消報名」（曾送出過，取消與退費由主辦處理）@register @cancel', async ({ page }) => {
+  await stub(page, base({ teamOver: { status: 'rejected', rejectReason: '請補背號' } }), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+  await expect(page.locator('#team-cancel')).toBeVisible();
+  await expect(page.locator('#team-cancel-draft')).toHaveCount(0);
+});
+
+test('⭐ 同一帳號已經有一筆待審申請時，加入頁先講清楚、不畫表單 @register @join', async ({ page }) => {
+  await stub(page, base({ teamOver: { divisionId: 'adult-open' }, members: member('m-p', { status: 'pending', name: '張嘴' }) }),
+    { uid: PARENT, displayName: '家長' });
+  await go(page, `/#/join/${CODE}`);
+  await expect(page.locator('.reg__box--warn')).toContainText('已經有一筆待審的申請');
+  await expect(page.locator('.reg__box--warn')).toContainText('張嘴');
+  await expect(page.locator('#m-name')).toHaveCount(0);
+});
+
+test('⭐ 送出後被系統退件，原因留在加入頁（不是只剩「申請已送出」）@register @join', async ({ page }) => {
+  await stub(page, base({ teamOver: { divisionId: 'adult-open' } }), { uid: PARENT, displayName: '家長' });
+  await go(page, `/#/join/${CODE}`);
+  await page.locator('#m-name').fill('張張');
+  await page.locator('#join-submit').click();
+  await expect(page.locator('.reg__cardHead')).toContainText('申請已送出');
+  const [path, doc] = Object.entries(await dump(page)).find(([k]) => k.includes('/members/'));
+  await page.evaluate(([p, d]) => window.__fake.__seed({ [p]: { ...d, status: 'rejected', decidedBy: 'fn:rejectDuplicateApplication', rejectReason: '這個帳號對這支球隊已經有一筆待審的申請，請等隊長處理完再送下一筆。' } }), [path, doc]);
+  await expect(page.locator('#join-rejected')).toContainText('已經有一筆待審的申請');
+});
+
+test('加入頁：生日是民國年三格，身分選教練就不問背號 @register @join', async ({ page }) => {
+  await stub(page, base({ teamOver: { divisionId: 'adult-open' } }), { uid: PARENT, displayName: '家長' });
+  await go(page, `/#/join/${CODE}`);
+  await expect(page.locator('#m-birth-m')).toBeVisible();
+  await page.locator('#m-name').fill('王大明');
+  await page.locator('#m-birth').fill('84');
+  await page.locator('#m-birth-m').fill('5');
+  await page.locator('#m-birth-d').fill('20');
+  await page.locator('#m-no').fill('10');
+  await page.locator('#m-kind').selectOption('coach');
+  await expect(page.locator('#m-no')).toHaveCount(0);
+  await expect(page.locator('#m-birth')).toHaveValue('84');
+  await page.locator('#join-submit').click();
+  await expect.poll(async () => (await firstMember(page))?.birthDate ?? null, { timeout: 10_000 }).toBe('1995-05-20');
+  expect((await firstMember(page)).jerseyNo).toBeNull();
+});
+
+test('邀請卡把連結印出來（LINE 內建瀏覽器常常不給自動複製）@register', async ({ page }) => {
+  await stub(page, base({ teamOver: { divisionId: 'adult-open' } }), { uid: CAP, displayName: '隊長' });
+  await go(page, `/#/team/${TEAM}/manage`);
+  await expect(page.locator('#invite-link')).toContainText(`#/join/${CODE}`);
+});

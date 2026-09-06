@@ -271,3 +271,19 @@
   .reg__guide{flex-direction:column;align-items:stretch}
   .tut__tab span{display:none}
 }
+
+/* ── 系統退件、邀請連結（2026-09-06 驗收）── */
+.reg__rejected{display:flex;flex-direction:column;gap:var(--sp-2)}
+.reg__rejectedRow{
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);
+  padding:var(--sp-3);border-radius:var(--r-sm);
+  background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn-text);
+}
+.reg__rejectedRow .reg__memberInfo{flex:1 1 160px}
+.reg__rejectedRow .reg__memberMeta{color:inherit;opacity:.9}
+.reg__link{
+  display:block;width:100%;box-sizing:border-box;padding:var(--sp-2) var(--sp-3);
+  font-size:var(--fs-xs);font-family:var(--font-num);color:var(--text-secondary);
+  background:var(--bg-input);border:1px solid var(--border);border-radius:var(--r-sm);
+  overflow-wrap:anywhere;user-select:all;-webkit-user-select:all;
+}

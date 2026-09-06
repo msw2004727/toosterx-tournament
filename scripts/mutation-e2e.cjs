@@ -249,11 +249,80 @@ const MUTANTS = [
     file: 'js/modules/register/manage.js',
     from: `          value: f.birthDate, parts: f.birthParts,`,
     to: `          value: f.birthDate, parts: null,`
+  },
+
+  // ── 2026-09-06 主辦驗收（第二輪：家長／隊長與管理員兩張驗收單）──
+  {
+    name: '#E37 ⭐ 系統退件的成員不畫在名單頁上（教練以為「9070 太大」，同一個孩子重試四次；R-6）',
+    file: 'js/modules/register/manage.js',
+    from: `    const rows = state.members.filter(m => m.status === 'rejected' && String(m.decidedBy ?? '').startsWith('fn:'));
+    if (!rows.length) return null;`,
+    to: `    const rows = state.members.filter(m => m.status === 'rejected' && String(m.decidedBy ?? '').startsWith('fn:'));
+    if (rows.length >= 0) return null;`
+  },
+  {
+    name: '#E38 ⭐ 隊職員也問背號（教練名單顯示背號、跟球員撞號；R-6）',
+    file: 'js/modules/register/manage.js',
+    from: `      f.kind === 'player' ? field('m-no', '背號', textInput('m-no', {`,
+    to: `      true ? field('m-no', '背號', textInput('m-no', {`
+  },
+  {
+    name: '#E39 ⭐ 背號撞號不擋（審核頁才會看到 error，教練在現場才知道；R-6）',
+    file: 'js/modules/register/manage.js',
+    from: `    if (taken) v.errors.jerseyNo = \`背號 \${payload.jerseyNo} 已經是「\${taken.name || '另一位球員'}」的了，請換一個\`;
+    if (!v.ok || taken) { state.formErrors = v.errors; render(); return; }`,
+    to: `    if (!v.ok) { state.formErrors = v.errors; render(); return; }`
+  },
+  {
+    name: '#E40 ⭐ 草稿的「取消這支球隊」寫成 draft（按了沒有任何效果；R-11）',
+    file: 'js/modules/register/data.js',
+    from: `    status: 'withdrawn',
+    cancelRequest: { reason: String(reason ?? '').trim().slice(0, 500), byUid: uid(), status: 'self', at: serverTimestamp() },`,
+    to: `    status: 'draft',
+    cancelRequest: { reason: String(reason ?? '').trim().slice(0, 500), byUid: uid(), status: 'self', at: serverTimestamp() },`
+  },
+  {
+    name: '#E41 ⭐ 加入頁不先講「你已經有一筆待審」（家長填完第二個孩子才被退件；R-3）',
+    file: 'js/modules/register/join.js',
+    from: `    const pending = (state.mine ?? []).find(m => m.status === 'pending');`,
+    to: `    const pending = null;`
+  },
+  {
+    name: '#E42 ⭐ 送出後被退件不把原因拿回加入頁（家長只看到「申請已送出」；R-3／R-9）',
+    file: 'js/modules/register/join.js',
+    from: `        if (m?.status === 'rejected' && !state.rejected) {`,
+    to: `        if (false) {`
+  },
+  {
+    name: '#E43 ⭐ 場次改判頁的頁首不印 PK（正規時間平手看不出誰晉級；M-4）',
+    file: 'js/modules/admin/match.js',
+    from: `    return \`目前比分 \${h}:\${a}\` + (ph != null && pa != null ? \`（PK \${ph}:\${pa}）\` : '');`,
+    to: `    return \`目前比分 \${h}:\${a}\`;`
+  },
+  {
+    name: '#E44 ⭐ 有場次開打之後分組按鈕還能點（對調了卻產生不了，看起來像沒有作用；M-3）',
+    file: 'js/modules/admin/schedule.js',
+    from: `            disabled: gc === 1 || !!state.busy || !canRegenerate(existing()).ok,`,
+    to: `            disabled: gc === 1 || !!state.busy,`
+  },
+  {
+    name: '#E45 ⭐ 「代建新卡」按了什麼都不做（家長的第二個小孩沒有卡；M-9）',
+    file: 'js/modules/booth/booth.js',
+    from: `  async function createNewCard() {
+    if (state.busy) return;`,
+    to: `  async function createNewCard() {
+    return;`
+  },
+  {
+    name: '#E46 ⭐ 「我的球隊」又連回公開球隊頁（隊長找不到審核鈕；R-5／R-6／R-11）',
+    file: 'js/modules/account/my.js',
+    from: `                onClick: () => navigate(\`/team/\${encodeURIComponent(t.teamId)}/manage\`)`,
+    to: `                onClick: () => navigate(\`/team/\${encodeURIComponent(t.teamId)}\`)`
   }
 ];
 
 process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js --project=chromium-mobile --reporter=dot',
+  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js tests/e2e/register.spec.js --project=chromium-mobile --reporter=dot',
   title: '前端時序｜E2E 變異測試'
 }));

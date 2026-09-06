@@ -251,3 +251,59 @@ test('⭐ 320px 不出現橫向捲軸 @admin @narrow', async ({ page }) => {
   });
   expect(over).toBeNull();
 });
+
+// ── 2026-09-06 主辦驗收 M-7：人工裁定名次的紀錄「好像少了」——其實在，只是印成代碼、不在任何分類 ──
+test('⭐ 人工裁定名次有自己的分類，而且是人話 @admin @audit', async ({ page }) => {
+  await stub(page, { extra: {
+    [`events/${EVENT}/audits/a-standing`]: {
+      auditId: 'a-standing', action: 'standing.manualRanking', entity: 'standing', entityId: 'u10__group__A',
+      before: null, after: { pins: [{ teamId: 't-113', rank: 1 }], drawSeed: 4242 }, reason: '完全同分',
+      actor: { uid: UID }, createdAt: T('2026-09-06T12:00:00+08:00')
+    },
+    [`events/${EVENT}/audits/a-move`]: {
+      auditId: 'a-move', action: 'schedule.move', entity: 'match', entityId: 'AO-G-A-01',
+      before: { kickoffAt: Date.parse('2026-10-09T09:30:00+08:00'), venueId: 'venue-a' },
+      after: { kickoffAt: Date.parse('2026-10-09T10:00:00+08:00'), venueId: 'venue-a' }, reason: null,
+      actor: { uid: UID }, createdAt: T('2026-09-06T11:00:00+08:00')
+    }
+  } });
+  await go(page);
+  await ready(page);
+  const tab = page.locator('.adm__tab', { hasText: '積分裁定' });
+  await expect(tab).toContainText('1');
+  await tab.click();
+  await expect(page.locator('.adm__auditTitle')).toHaveCount(1);
+  await expect(page.locator('.adm__auditTitle')).toContainText('人工裁定');
+  await expect(page.locator('.adm__audits')).toContainText('第 1 名 臺中晨星足球隊');
+  await expect(page.locator('.adm__audits')).toContainText('種子 4242');
+  await expect(page.locator('.adm__audits')).not.toContainText('standing.manualRanking');
+  await page.locator('.adm__tab', { hasText: '賽程' }).click();
+  await expect(page.locator('.adm__audits')).toContainText('09:30 改成 10:00');
+});
+
+test('⭐ 分類加總等於全部，沒有紀錄掉在分類外 @admin @audit', async ({ page }) => {
+  await stub(page, { extra: {
+    [`events/${EVENT}/audits/a-x`]: {
+      auditId: 'a-x', action: 'export.luckyDraw', entity: 'export', entityId: 'luckyDraw',
+      before: null, after: null, reason: null, actor: { uid: UID }, createdAt: T('2026-09-06T10:00:00+08:00')
+    }
+  } });
+  await go(page);
+  await ready(page);
+  const counts = await page.locator('.adm__tabCount').allTextContents();
+  const [all, ...rest] = counts.map(Number);
+  expect(all).toBe(5);
+  expect(rest.reduce((a, b) => a + b, 0)).toBe(all);
+  await page.locator('.adm__tab', { hasText: '其他' }).click();
+  await expect(page.locator('.adm__auditTitle')).toContainText('匯出了抽獎名單');
+});
+
+test('分頁標籤不換行（360px 的手機上「報名審核」不會折成兩行）@admin @audit @narrow', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await stub(page);
+  await go(page);
+  await ready(page);
+  const heights = await page.evaluate(() => [...document.querySelectorAll('.adm__tab > span:first-child')]
+    .map(s => Math.round(s.getBoundingClientRect().height)));
+  expect(Math.max(...heights)).toBeLessThan(30);
+});

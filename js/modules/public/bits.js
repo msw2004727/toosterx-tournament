@@ -12,7 +12,7 @@
 
 import { el, mount, toast } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
-import { STATUS_LABEL, hhmm, displayMinute, scoreText } from '../../lib/format.js';
+import { STATUS_LABEL, hhmm, displayMinute, scoreText, pkText } from '../../lib/format.js';
 import { elapsedSec, now } from '../../core/clock.js';
 import { isLiveMatch, isPlaceholder, sideLabel } from './selectors.js';
 
@@ -81,7 +81,8 @@ export function matchRow({ match: m, onOpen, division }) {
       ]),
       side('away', 'away')
     ]),
-    sc.masked ? el('span', { class: 'prow__note', text: '兒童組比分達分差上限，以 7+ 顯示' }) : null
+    sc.masked ? el('span', { class: 'prow__note', text: '兒童組比分達分差上限，以 7+ 顯示' }) : null,
+    started && pkText(m) ? el('span', { class: 'prow__note prow__pk', text: pkText(m) }) : null
   ].filter(Boolean));
 
   return el('li', {

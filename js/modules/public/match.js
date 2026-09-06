@@ -14,7 +14,7 @@ import { navigate } from '../../core/router.js';
 import { icon, iconText } from '../../core/icons.js';
 import { startTicker, now, elapsedSec } from '../../core/clock.js';
 import {
-  hhmm, dateLabelFromYmd, displayMinute, scoreText,
+  hhmm, dateLabelFromYmd, displayMinute, scoreText, pkText,
   STATUS_LABEL, periodLabel
 } from '../../lib/format.js';
 import * as data from './data.js';
@@ -144,6 +144,9 @@ export async function publicMatch({ params, scope, view, query }) {
         el('span', { class: 'psb__team', text: sideLabel(m, 'away') })
       ]),
       ht ? el('p', { class: 'psb__ht', text: ht }) : null,
+      // PK 決勝：正規時間平手時勝負是 PK 決定的，只印 2-2 家長看不出誰晉級
+      // （2026-09-06 驗收：「比分要有同分發生 PK 時的欄位」）
+      pkText(m) ? el('p', { class: 'psb__ht psb__pk', id: 'psb-pk', text: pkText(m) }) : null,
       // 申訴（規章第二十條）：只顯示狀態與哪一隊，事由與電話不公開
       m.appeal?.status
         ? el('p', { class: 'psb__note psb__appeal', dataset: { status: m.appeal.status }, text:

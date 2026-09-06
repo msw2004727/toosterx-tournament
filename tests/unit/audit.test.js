@@ -235,3 +235,79 @@ describe('T39-C 篩選與搜尋', () => {
     expect(filterAudits(rows, {})).toHaveLength(4);
   });
 });
+
+// ── 2026-09-06 主辦驗收：正式站 87 筆裡有 62 筆印成原始代碼、不在任何分類 ──
+describe('T39-D 賽程、積分裁定、申訴、系統退件也要變成人話並落在分類裡', () => {
+  const d = (over) => describeAudit(normalizeAudit(newShape(over)), LOOKUP);
+
+  test('⭐ 人工裁定名次：講出是哪一個積分榜、釘了誰第幾名、有沒有抽籤', () => {
+    const r = d({
+      action: 'standing.manualRanking', entity: 'standing', entityId: 'u10__group__A',
+      after: { pins: [{ teamId: 't-113', rank: 1 }, { teamId: 't-114', rank: 2 }], drawSeed: 4242 }, reason: '完全同分'
+    });
+    expect(r.title).toContain('人工裁定');
+    expect(r.title).toContain('u10__group__A');
+    expect(r.detail.join(' ')).toContain('第 1 名 臺中晨星足球隊');
+    expect(r.detail.join(' ')).toContain('種子 4242');
+    expect(r.detail.join(' ')).toContain('完全同分');
+  });
+
+  test('解除裁定講出後果（同分回到待裁定）', () => {
+    const r = d({ action: 'standing.clearManual', entity: 'standing', entityId: 'u10__group__A' });
+    expect(r.title).toContain('解除');
+    expect(r.detail.join(' ')).toContain('待主辦裁定');
+  });
+
+  test('賽程：抽籤帶種子、調時間講出從幾點到幾點', () => {
+    const draw = d({ action: 'schedule.draw', entity: 'division', entityId: 'u10', after: { seed: 99 } });
+    expect(draw.title).toContain('抽了 u10 的籤');
+    expect(draw.detail.join(' ')).toContain('種子 99');
+    const move = d({
+      action: 'schedule.move', entity: 'match', entityId: 'U10-G-A-01',
+      before: { kickoffAt: Date.parse('2026-10-09T09:30:00+08:00'), venueId: 'venue-a' },
+      after: { kickoffAt: Date.parse('2026-10-09T10:00:00+08:00'), venueId: 'venue-a' }
+    });
+    expect(move.detail.join(' ')).toContain('09:30 改成 10:00');
+    expect(move.detail.join(' ')).not.toContain('場地從');
+  });
+
+  test('申訴裁決講出成立與否與保證金去向', () => {
+    const r = d({ action: 'appeal.decided', entity: 'match', entityId: 'U10-G-A-01', after: { upheld: false } });
+    expect(r.title).toContain('不成立');
+    expect(r.detail.join(' ')).toContain('不予發還');
+  });
+
+  test('⭐ 系統退件：每人限報乙隊要帶得出是哪一隊', () => {
+    const r = d({ action: 'member.crossTeamRejected', entity: 'member', entityId: 't-113/m-1' });
+    expect(r.title).toContain('臺中晨星足球隊');
+    expect(r.title).toContain('每人限報乙隊');
+  });
+
+  test('⭐ 每一筆都恰好落在一個分類，分類加總等於全部', () => {
+    const actions = [
+      'team.approve', 'member.crossTeamRejected', 'registration.update', 'staff.assign', 'perms.toggle',
+      'match.override', 'appeal.filed', 'stream.update', 'advancement.resolve',
+      'standing.manualRanking', 'standing.rankChanged', 'finalRanking.publish',
+      'schedule.move', 'schedule.publish', 'export.luckyDraw', 'challenge.playerMissing', 'future.thing'
+    ];
+    const rows = actions.map(action => normalizeAudit(newShape({ action })));
+    const cats = AUDIT_FILTERS.filter(f => f.key !== 'all');
+    for (const a of rows) {
+      const hit = cats.filter(f => f.match(a)).map(f => f.key);
+      expect({ action: a.action, hit }).toEqual({ action: a.action, hit: [hit[0]] });
+    }
+    const sum = cats.reduce((n, f) => n + filterAudits(rows, { filter: f.key }).length, 0);
+    expect(sum).toBe(filterAudits(rows, { filter: 'all' }).length);
+    expect(filterAudits(rows, { filter: 'standing' }).map(a => a.action))
+      .toEqual(['standing.manualRanking', 'standing.rankChanged', 'finalRanking.publish']);
+    expect(filterAudits(rows, { filter: 'schedule' })).toHaveLength(2);
+    expect(filterAudits(rows, { filter: 'other' }).map(a => a.action))
+      .toEqual(['export.luckyDraw', 'challenge.playerMissing', 'future.thing']);
+    expect(filterAudits(rows, { filter: 'team' })).toHaveLength(3);
+  });
+
+  test('人工裁定的紀錄能用「裁定」搜到（搜的是畫面上的字）', () => {
+    const rows = [normalizeAudit(newShape({ action: 'standing.manualRanking', entity: 'standing', entityId: 'u10__group__A', after: { pins: [] } }))];
+    expect(filterAudits(rows, { q: '裁定', lookup: LOOKUP })).toHaveLength(1);
+  });
+});

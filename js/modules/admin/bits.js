@@ -25,11 +25,20 @@ export const TEAM_STATUS = {
  * 「返回」一律回專屬首頁（`#/my`）而不是瀏覽器上一頁：
  * 管理員常常從幾個功能之間跳來跳去，回到功能區比回到上一個功能有用。
  */
+/**
+ * 返回鍵：從別頁點進來的就回那一頁（例如賽程管理 → 場次改判 → 回賽程管理），
+ * 直接用網址開的才回「我的」。2026-09-06 驗收：改完比分按返回卻跳到「我的」，
+ * 主辦得再點兩次才回得到賽程頁。
+ */
+export function adminBack() {
+  if (history.length > 1) history.back(); else navigate('/my');
+}
+
 export function adminHead(title, { sub } = {}) {
   return el('div', { class: 'adm__head' }, [
     el('button', {
-      class: 'adm__back', type: 'button', 'aria-label': '回我的功能',
-      onClick: () => navigate('/my')
+      class: 'adm__back', type: 'button', 'aria-label': '返回',
+      onClick: () => adminBack()
     }, icon('back')),
     el('div', { class: 'adm__headText' }, [
       el('strong', { text: title }),

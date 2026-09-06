@@ -39,7 +39,8 @@ import {
 } from '../../engine/schedule.js';
 import {
   approvedTeamsOf, scheduleConfigOf, venuesForDate, canRegenerate,
-  planGeneration, planPlacement, matchDocOf, movePatch, drawSeedFrom, NOT_STARTED, hadResult
+  planGeneration, planPlacement, matchDocOf, movePatch, drawSeedFrom, NOT_STARTED, hadResult,
+  normalizeHHMM
 } from './schedule-actions.js';
 import * as data from './data.js';
 import { adminHead, denied } from './bits.js';
@@ -536,17 +537,21 @@ export async function adminSchedulePage({ scope, view }) {
         el('div', { class: 'adm__chips' }, g.map(t =>
           el('button', {
             class: `adm__chip${state.picked === t.teamId ? ' is-on' : ''}`, type: 'button',
-            disabled: gc === 1 || !!state.busy,
+            // 已經有場次開打就不能再動分組（R-SCHED-002）：按鈕要一起關掉並說原因，
+            // 不然點了會對調、產生對戰卻被擋，看起來像「對調沒有作用」（2026-09-06 驗收 M-3）
+            disabled: gc === 1 || !!state.busy || !canRegenerate(existing()).ok,
             'aria-pressed': state.picked === t.teamId ? 'true' : 'false',
             onClick: () => pickTeam(t.teamId)
           }, t.shortName || t.name || t.teamId)))
       ])),
 
-      gc > 1
-        ? el('p', { class: 'adm__permNote', text: state.picked
-            ? '再點另一組的一隊就會對調。'
-            : '要調整分組：點一隊，再點另一組的一隊，兩隊對調。（只能對調，不能單獨搬走——兩組隊數不等的話，名次賽會少一個對手。）' })
-        : null
+      !canRegenerate(existing()).ok
+        ? el('p', { class: 'adm__permNote', id: 'draw-swap-note', text: `分組已經定案：${canRegenerate(existing()).reason}` })
+        : gc > 1
+          ? el('p', { class: 'adm__permNote', id: 'draw-swap-note', text: state.picked
+              ? '再點另一組的一隊就會對調。'
+              : '要調整分組：點一隊，再點另一組的一隊，兩隊對調。（只能對調，不能單獨搬走——兩組隊數不等的話，名次賽會少一個對手。）' })
+          : null
     ].filter(Boolean));
   }
 
@@ -633,13 +638,20 @@ export async function adminSchedulePage({ scope, view }) {
               : null
           ].filter(Boolean))
         : el('div', { class: 'adm__schedRow' }, [
+            // 用文字格而不是 type="time"：Android 的原生時間選擇器跟著手機的 12／24 小時
+            // 設定走，主辦的手機會顯示「上午 9:30」而且改不掉（2026-09-06 驗收 M-3）。
+            // 直接打「0930」或「9:30」都收，存的一律是 HH:MM 的 24 小時制。
             el('input', {
-              class: 'adm__search adm__time', type: 'time', value: parts.time,
-              'aria-label': `${m.matchId} 開賽時間`,
+              class: 'adm__search adm__time', type: 'text', inputmode: 'numeric', value: parts.time,
+              placeholder: '09:30', maxlength: '5', autocomplete: 'off',
+              'aria-label': `${m.matchId} 開賽時間（24 小時制）`,
               disabled: state.busy === m.matchId,
               onChange: e => {
-                const next = taipeiMs(div?.date, e.target.value);
-                if (next == null) { toast('時間格式不對', 'warn'); return; }
+                const hhmm = normalizeHHMM(e.target.value);
+                const next = hhmm ? taipeiMs(div?.date, hhmm) : null;
+                if (next == null) { toast('時間請用 24 小時制，例如 09:30 或 1430', 'warn'); e.target.value = parts.time; return; }
+                e.target.value = hhmm;
+                if (next === ms) return;
                 moveOne(m, movePatch({ kickoffMs: next, venueId: m.venueId, venueName: m.venueName }));
               }
             }),

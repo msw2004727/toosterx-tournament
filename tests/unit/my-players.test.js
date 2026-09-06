@@ -117,3 +117,24 @@ describe('T53-3 countActive', () => {
     expect(countActive(null)).toBe(0);
   });
 });
+
+// ── 2026-09-06 驗收 R-3／R-9：家長只看到「已婉拒」，不知道是每人限報乙隊還是重複申請 ──
+describe('T53-R 被退回的原因', () => {
+  const REASON = '這個帳號對這支球隊已經有一筆待審的申請。';
+  const row = (id, data) => ({ id, path: `events/e/teams/t-1/members/${id}`, data });
+
+  test('⭐ 系統退件的原因帶到列上；沒有原因或不是退回就是 null', () => {
+    const rows = buildMyPlayerRows({
+      members: [
+        row('m-1', { name: '張張', status: 'rejected', rejectReason: REASON }),
+        row('m-2', { name: '張嘴', status: 'rejected' }),
+        row('m-3', { name: '張姐', status: 'approved', rejectReason: '舊的' })
+      ],
+      teamsById: { 't-1': { name: '雷兒TEST' } }
+    });
+    const by = Object.fromEntries(rows.map(r => [r.name, r.reason]));
+    expect(by['張張']).toContain('待審的申請');
+    expect(by['張嘴']).toBeNull();
+    expect(by['張姐']).toBeNull();
+  });
+});

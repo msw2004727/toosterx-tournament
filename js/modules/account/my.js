@@ -242,9 +242,12 @@ export async function myPage({ scope, view }) {
               }, iconText('forward', '我要報名球隊', { trailing: true }))
             ])
           : el('ul', { class: 'acct__list' }, rows.map(t => el('li', {}, [
+              // 這一列是「我帶的球隊」，點進去要能審核、送出、取消——直接進管理頁。
+              // 原本連到公開球隊頁，那一頁沒有任何通往管理頁的路，隊長找不到審核鈕
+              // （2026-09-06 驗收 R-5／R-6／R-11 都是這個原因）
               el('button', {
                 class: 'acct__row', type: 'button',
-                onClick: () => navigate(`/team/${encodeURIComponent(t.teamId)}`)
+                onClick: () => navigate(`/team/${encodeURIComponent(t.teamId)}/manage`)
               }, [
                 el('span', { class: 'acct__rowMain', text: t.name || t.teamId }),
                 el('span', {
@@ -293,8 +296,9 @@ export async function myPage({ scope, view }) {
                   el('span', {
                     class: 'acct__rowSub',
                     text: r.jerseyNo != null ? `${r.teamName} · #${r.jerseyNo}` : r.teamName
-                  })
-                ])
+                  }),
+                  r.reason ? el('span', { class: 'acct__rowReason', text: r.reason }) : null
+                ].filter(Boolean))
               ])))
     ]);
   }

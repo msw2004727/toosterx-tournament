@@ -267,6 +267,15 @@ describe('R55–R64 名單與加入申請（docs/10 §3.3／§4）', () => {
     await assertSucceeds(updateDoc(memberRef(authed(env, CAP), 'm-2'), { status: 'removed' }));
   });
 
+  test('R57c ⭐ 被系統退件的那一筆隊長可以收掉（移除），但不能改成已加入', async () => {
+    // 每人限報乙隊／重複申請是 Function 事後退件的；不讓隊長移除的話，
+    // 每退一次就多一列永遠留在名單頁上（2026-09-06 驗收：同一個孩子重試了四次）
+    await seedTeam();
+    await seedMember({ memberId: 'm-3', status: 'rejected', decidedBy: 'fn:onePlayerOneTeam', rejectReason: '每人限報乙隊' });
+    await assertFails(updateDoc(memberRef(authed(env, CAP), 'm-3'), { status: 'approved' }));
+    await assertSucceeds(updateDoc(memberRef(authed(env, CAP), 'm-3'), { status: 'removed', decidedBy: CAP }));
+  });
+
   test('R58 ⭐ 名單凍結後隊長不能再決定申請（驗收 A04）', async () => {
     await seedTeam({ status: 'approved', rosterLocked: true });
     await seedMember();
@@ -479,6 +488,20 @@ describe('R93–R98 報名審核（docs/05 §8.2、docs/10 §3）', () => {
   test('R98d 被退回的球隊仍然不能由隊長自己改成 approved', async () => {
     await seedTeam({ status: 'rejected', rosterLocked: false });
     await assertFails(updateDoc(teamRef(authed(env, CAP)), { status: 'approved' }));
+  });
+
+  test('R98e ⭐ 草稿可以由隊長自己取消（還沒送出、沒有報名費，不必勞煩主辦）', async () => {
+    await seedTeam({ status: 'draft', rosterLocked: false });
+    await assertSucceeds(updateDoc(teamRef(authed(env, CAP)), {
+      status: 'withdrawn', cancelRequest: { reason: '球員湊不齊', byUid: CAP, status: 'self' }
+    }));
+  });
+
+  test('R98f ⭐ 送出之後隊長就取消不了，只能申請（取消與退費由主辦處理）', async () => {
+    await seedTeam({ status: 'submitted' });
+    await assertFails(updateDoc(teamRef(authed(env, CAP)), { status: 'withdrawn' }));
+    await seedTeam({ status: 'approved', rosterLocked: true });
+    await assertFails(updateDoc(teamRef(authed(env, CAP)), { status: 'withdrawn' }));
   });
 
   test('R98b ⭐ 稽核紀錄只能新增，改不動也刪不掉（R-SEC-002）', async () => {

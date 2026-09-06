@@ -189,11 +189,14 @@
 
 /* ── 連線狀態燈（常駐右上）──────────────────────────── */
 .sync-wrap{position:relative;flex:none}
+/* 三態燈的預設色跟著主題走（攤位頁直接放在淺色底上；
+   白字只在賽務端的深色頁首裡才看得到——2026-09-06 驗收：攤位頁「已連線」白字看不見） */
 .sync{
   display:inline-flex;align-items:center;gap:6px;
   min-height:36px;padding:0 var(--sp-3);border-radius:var(--r-full);
-  background:rgba(255,255,255,.15);color:#fff;font-size:var(--fs-xs);font-weight:700;
+  background:var(--bg-elevated);color:var(--text-primary);font-size:var(--fs-xs);font-weight:700;
 }
+.staff__head .sync,.live__head .sync{background:rgba(255,255,255,.15);color:#fff}
 .sync .dot{background:currentColor}
 .sync[data-level="saved"] .dot{background:#63D9A2;animation:none}
 .sync[data-level="queued"] .dot{background:#F0C24B;animation:dot-pulse 1.6s ease-in-out infinite}

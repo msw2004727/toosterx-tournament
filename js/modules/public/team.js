@@ -13,6 +13,8 @@
 import { el, mount, skeleton } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
 import { icon, iconText } from '../../core/icons.js';
+import { user, onAuth } from '../../core/firebase.js';
+import { hold } from '../../core/store.js';
 import { dateLabelFromYmd } from '../../lib/format.js';
 import * as data from './data.js';
 import {
@@ -25,7 +27,7 @@ const TABS = [
   { key: 'schedule', label: '賽程', icon: 'list' }
 ];
 
-export async function publicTeam({ params, view, query }) {
+export async function publicTeam({ params, view, query, scope }) {
   const { teamId } = params;
   const root = el('div', { class: 'pub' });
   mount(view, root);
@@ -36,6 +38,10 @@ export async function publicTeam({ params, view, query }) {
     tab: TABS.some(t => t.key === query?.get('tab')) ? query.get('tab') : 'roster',
     loaded: false, notFound: false, rosterHidden: false
   };
+
+  // 隊長看自己的球隊時要有一條路通往管理頁（審核、送出、取消都在那裡）。
+  // 登入狀態晚一點才到位，所以要跟著重畫（2026-09-06 驗收 R-6：「隊長權限要有編輯／審核的連結」）
+  hold(scope, onAuth(() => { if (state.loaded && !state.notFound) render(); }), 'auth:pteam');
 
   try {
     state.team = await data.getTeam(teamId);
@@ -77,12 +83,27 @@ export async function publicTeam({ params, view, query }) {
         onBack: () => history.back()
       }),
       recordCard(),
+      isCaptain()
+        ? el('div', { class: 'pcard pcard--captain', id: 'pteam-captain' }, [
+            el('p', { class: 'pcard__note', text: '你是這支球隊的隊長。審核申請、送出報名、取消報名都在管理頁。' }),
+            el('button', {
+              class: 'btn btn--lg btn--primary', type: 'button',
+              onClick: () => navigate(`/team/${encodeURIComponent(teamId)}/manage`)
+            }, iconText('team', '管理名單／審核申請'))
+          ])
+        : null,
       el('div', { class: 'pmatch__actions' }, [
         shareButton(`${t.name || teamId}｜FEDA CUP 2026`, location.href)
       ]),
       tabBar(),
       state.tab === 'schedule' ? scheduleTab() : rosterTab()
     );
+  }
+
+  /** 隊長：teams 文件上的 captainUid 就是我（docs/10 §1.2，隊長不是全站角色） */
+  function isCaptain() {
+    const u = user();
+    return !!u && !!state.team?.captainUid && state.team.captainUid === u.uid;
   }
 
   /** 戰績只從已完賽的場次數，不重算積分（積分是 standings 的事） */

@@ -292,8 +292,9 @@ test('改一場的時間會寫進去並留痕 @admin', async ({ page }) => {
   await stub(page, { matches: { 'AO-G-A-01': match() }, division: { schedulePublished: false } });
   await go(page);
   await ready(page);
-  await page.locator('input[type=time]').first().fill('10:15');
-  await page.locator('input[type=time]').first().blur();
+  // 開賽時間是文字格（24 小時制），不再是 type=time（2026-09-06 驗收 M-3）
+  await page.locator('.adm__time').first().fill('10:15');
+  await page.locator('.adm__time').first().blur();
 
   await expect.poll(async () => {
     const d = await dump(page);
@@ -346,4 +347,32 @@ test('真的沒打過的取消場次不擋重產 @admin', async ({ page }) => {
   await ready(page);
   await expect(page.locator('#draw-locked')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /抽籤/ })).toBeEnabled();
+});
+
+// ── 2026-09-06 主辦驗收 M-3：「好像不能手動對調隊伍」——有場次開打之後本來就不能，但按鈕沒有關、也沒有說 ──
+test('⭐ 有場次開打之後，分組的按鈕關掉並說明原因 @admin', async ({ page }) => {
+  await stub(page, { matches: { 'AO-G-A-01': match({ status: 'finished', score: { home: 1, away: 0 }, lock: { locked: true, lockedAt: null, lockedBy: 'u' } }) } });
+  await go(page);
+  await ready(page);
+  await expect(page.locator('#draw-swap-note')).toContainText('分組已經定案');
+  const chips = page.locator('.adm__chip');
+  await expect(chips.first()).toBeDisabled();
+  await expect(page.getByRole('button', { name: /抽籤/ })).toBeDisabled();
+});
+
+test('⭐ 開賽時間是文字格、24 小時制：打 930 存成 09:30 @admin', async ({ page }) => {
+  await stub(page, { matches: { 'AO-G-A-01': match() } });
+  await go(page);
+  await ready(page);
+  const input = page.locator('input[aria-label="AO-G-A-01 開賽時間（24 小時制）"]');
+  await expect(input).toHaveAttribute('type', 'text');
+  await expect(input).toHaveValue('09:00');
+  await input.fill('930');
+  await input.press('Tab');
+  await expect.poll(async () => {
+    const m = (await matchesOf(page)).find(x => x.matchId === 'AO-G-A-01');
+    const k = m?.kickoffAt;
+    const ms = typeof k === 'number' ? k : (k?.seconds != null ? k.seconds * 1000 : (k instanceof Date ? k.getTime() : Date.parse(k)));
+    return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+  }, { timeout: 10_000 }).toBe('2026-10-11T01:30:00.000Z');
 });

@@ -6,6 +6,7 @@
  */
 
 import {
+  normalizeHHMM,
   approvedTeamsOf, scheduleConfigOf, venuesForDate, canRegenerate,
   planGeneration, planPlacement, matchDocOf, movePatch, drawSeedFrom, NOT_STARTED
 } from '../../js/modules/admin/schedule-actions.js';

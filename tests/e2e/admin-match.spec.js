@@ -433,3 +433,48 @@ test('⭐ D-11 改判之後 walkoverSide 清掉（不再同時說「棄賽」與
   await expect.poll(async () => (await matchOf(page))?.score?.away, { timeout: 15_000 }).toBe(1);
   expect((await matchOf(page)).walkoverSide).toBeNull();
 });
+
+// ── 2026-09-06 主辦驗收 M-4／M-5／M-6 ──
+test('⭐ 頁首印出目前比分，含 PK（正規時間平手時勝負是 PK 決定的）@adminmatch', async ({ page }) => {
+  await stub(page, { m: match({
+    score: { home: 2, away: 2 }, penaltyScore: { home: 4, away: 3 },
+    result: { winner: 'home', method: 'penalty', homePoints: 3, awayPoints: 0 }
+  }) });
+  await go(page);
+  await expect(page.locator('#match-score-now')).toContainText('2:2');
+  await expect(page.locator('#match-score-now')).toContainText('PK 4:3');
+});
+
+test('沒有 PK 時只印正規比分 @adminmatch', async ({ page }) => {
+  await stub(page);
+  await go(page);
+  await expect(page.locator('#match-score-now')).toHaveText('目前比分 2:1');
+});
+
+test('⭐ 返回鍵回到上一頁（從賽程管理點進來就回賽程管理，不是「我的」）@adminmatch', async ({ page }) => {
+  await stub(page);
+  await page.goto('/#/admin/schedule');
+  await page.waitForFunction(() => !!window.__fake, null, { timeout: 30_000 });
+  await page.goto(`/#/admin/match/${MATCH}`);
+  await expect(page.locator('.adm__head')).toBeVisible({ timeout: 15_000 });
+  await page.locator('.adm__back').click();
+  await expect(page).toHaveURL(/admin\/schedule/);
+});
+
+test('申訴成立之後有一條捷徑到「改判比分」（裁決與改判是兩個動作）@adminmatch @appeal', async ({ page }) => {
+  await stub(page, {
+    m: match({ appeal: { status: 'upheld', teamId: 't-1' } }),
+    extra: {
+      [`events/${EVENT}/appeals/${MATCH}-t-1`]: {
+        appealId: `${MATCH}-t-1`, matchId: MATCH, teamId: 't-1', status: 'upheld',
+        filedBy: { role: 'leader', name: '王領隊', phone: '0912-345-678' },
+        minutesAfter: 5, late: false, deposit: 2000, depositPaid: true, reason: '越位誤判',
+        decision: { upheld: true, note: '錄影顯示無越位', depositReturned: true }
+      }
+    }
+  });
+  await go(page);
+  await expect(page.locator('[data-act="go-override"]')).toBeVisible();
+  await page.locator('[data-act="go-override"]').click();
+  await expect(page.locator('#override-section')).toBeInViewport();
+});

@@ -56,7 +56,11 @@ export function buildMyPlayerRows({ members, teamsById = {} }) {
       idLast4: typeof d.idLast4 === 'string' ? d.idLast4 : null,
       isSelf: d.isSelf === true,
       status,
-      statusLabel: MEMBER_STATUS[status] || status
+      statusLabel: MEMBER_STATUS[status] || status,
+      // 被退回的原因（系統退件會寫在 rejectReason；隊長婉拒沒有原因）。
+      // 少了這一句，家長只看到「已婉拒」，不知道是每人限報乙隊還是重複申請（2026-09-06 驗收 R-3／R-9）
+      reason: status === 'rejected' && typeof d.rejectReason === 'string' && d.rejectReason.trim()
+        ? d.rejectReason.trim() : null
     };
   });
 
