@@ -221,6 +221,12 @@ const MUTANTS = [
         ? el('div', { class: 'chk__empty chk__error', role: 'alert', id: 'chk-roster-error' }, [`
   },
   {
+    name: '#E33 ⭐ 清單裡的場次不給檢錄員「檢錄」的選項（只能檢錄目前這一場）',
+    file: 'js/modules/staff/home.js',
+    from: `    if (can('checkin.write')) opts.push({ value: 'checkin', label: '檢錄', sub: '可以提早做，不必等這一場輪到' });`,
+    to: ``
+  },
+  {
     name: '#E31 ⭐ 出場名單給隊職員畫先發／替補鈕（D-08）',
     file: 'js/modules/staff/sheet.js',
     from: `      if (!isPlayerRow(p)) {`,

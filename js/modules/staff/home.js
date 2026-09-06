@@ -8,7 +8,7 @@
  * 所以這頁不做任何篩選器——staff.assignment 就是篩選條件。
  */
 
-import { el, emptyState, toast, mount } from '../../core/ui.js';
+import { el, emptyState, toast, mount, sheet } from '../../core/ui.js';
 import { iconText } from '../../core/icons.js';
 import { hhmm, dateLabelFromYmd, STATUS_LABEL } from '../../lib/format.js';
 import { staff, user, isPersistenceDegraded, can } from '../../core/firebase.js';
@@ -150,7 +150,7 @@ export async function staffHome({ scope, view }) {
       el('ul', { class: 'mlist' }, matches.map(m => el('li', { class: `mlist__item ${DONE.has(m.status) ? 'is-done' : ''}` }, [
         el('button', {
           class: 'mlist__btn', type: 'button',
-          onClick: () => navigate(`/staff/match/${encodeURIComponent(m.matchId)}`)
+          onClick: () => openMatch(m)
         }, [
           // 狀態是 CSS 圓點（.dot[data-status]），不是 emoji：
           // 顏色要跟著主題走，而且 emoji 在各平台的形狀不一致
@@ -162,6 +162,28 @@ export async function staffHome({ scope, view }) {
         ])
       ])))
     ]);
+  }
+
+  /**
+   * 點清單裡的任一場：有檢錄或出場名單權限的人先選要做什麼，其他人直接進賽務台。
+   *
+   * 檢錄**沒有時間限制**：規章第十八條第 3 款是「賽前 30 分鐘檢錄」，但那是對球隊的要求，
+   * 檢錄員可以提早把當天的場次一場一場做完。工具列的「檢錄」只開「目前這一場」，
+   * 沒有這條路的話，其他場次只能自己打網址（主辦 2026-09-06 問的）。
+   */
+  async function openMatch(m) {
+    const opts = [{ value: 'match', label: '賽務台', sub: '比分、事件、時鐘' }];
+    if (can('checkin.write')) opts.push({ value: 'checkin', label: '檢錄', sub: '可以提早做，不必等這一場輪到' });
+    if (can('matchsheet.write')) opts.push({ value: 'sheet', label: '出場名單', sub: '先發與替補' });
+    let pick = 'match';
+    if (opts.length > 1) {
+      pick = await sheet({
+        title: `${m.label || m.matchId}　${m.home?.name || '待定'} vs ${m.away?.name || '待定'}`,
+        options: opts
+      });
+      if (!pick) return;
+    }
+    navigate(`/staff/${pick}/${encodeURIComponent(m.matchId)}`);
   }
 
   // 依權限畫按鈕（R-PERM-001）。攤位人員點「檢錄」只會進到「你沒有檢錄權限」——

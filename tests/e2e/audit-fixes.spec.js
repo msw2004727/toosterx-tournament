@@ -197,6 +197,27 @@ test('D-13 檢錄員看得到「檢錄」、看不到「出場名單」 @audit @
   await expect(page.getByRole('button', { name: '出場名單' })).toHaveCount(0);
 });
 
+test('⭐ C-9 檢錄員可以從清單提早檢錄當天任一場（不必等輪到）@audit @staff @checkin', async ({ page }) => {
+  await stub(page, base({ roles: ['checkin'] }));
+  await go(page, '/#/staff');
+  await expect(page.locator('.staff__head')).toBeVisible({ timeout: 15_000 });
+  await page.locator('.mlist__btn').first().click();
+  const sh = page.getByRole('dialog');
+  await expect(sh).toContainText('檢錄');
+  await expect(sh.locator('.sheet__opt', { hasText: '出場名單' })).toHaveCount(0);   // 檢錄員沒有出場名單
+  await sh.locator('.sheet__opt', { hasText: '檢錄' }).click();
+  await expect.poll(() => page.evaluate(() => location.hash), { timeout: 15_000 }).toBe(`#/staff/checkin/${MATCH}`);
+  await expect(page.locator('.chk__list, .chk__empty, #chk-roster-error').first()).toBeVisible({ timeout: 15_000 });
+});
+
+test('攤位人員點清單直接進賽務台（沒有別的選項就不問）@audit @staff @perm', async ({ page }) => {
+  await stub(page, base({ roles: ['booth'] }));
+  await go(page, '/#/staff');
+  await expect(page.locator('.staff__head')).toBeVisible({ timeout: 15_000 });
+  await page.locator('.mlist__btn').first().click();
+  await expect.poll(() => page.evaluate(() => location.hash), { timeout: 15_000 }).toBe(`#/staff/match/${MATCH}`);
+});
+
 test('D-13 記錄員兩個都有 @audit @staff @perm', async ({ page }) => {
   await stub(page, base({ roles: ['scorer'] }));
   await go(page, '/#/staff');
