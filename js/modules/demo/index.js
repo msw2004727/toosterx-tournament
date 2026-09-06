@@ -30,7 +30,7 @@ export const ROLES = [
   { value: 'scorer',  note: '裁判 ＋ 記分、時鐘、完賽送出（A 場）' },
   { value: 'referee', note: '檢錄員 ＋ 出場名單' },
   { value: 'checkin', note: '挑戰攤位 ＋ 檢錄勾選、看球員個資' },
-  { value: 'booth',   note: '挑戰區成績登錄（M6）' }
+  { value: 'booth',   note: '挑戰區成績登錄（五關都能登錄）' }
 // 標籤一律從 js/config.js 的角色字典取，不要在這裡再寫一份——
 // 那一份與 FC-Football 對齊，兩邊分岔會讓同一個角色在兩個系統裡叫不同名字。
 ].map(r => ({ ...r, label: roleLabel(r.value), sub: `${r.value}　level ${ROLE_INFO[r.value].level}` }));
@@ -105,6 +105,21 @@ async function pick(App) {
  * firestore.rules 才會放行「使用者建立自己的 staff 文件」，
  * 而且角色白名單裡沒有 admin。正式專案沒有那份設定文件，這條路整個是關的。
  */
+/**
+ * demo 的攤位身分指派到**全部**關卡，五種輸入方式（stepper／shots／ladder／numpad）都測得到。
+ * 正式站的攤位人員由總管在 #/admin/staff 指派，通常一人一關；只有一關時攤位頁不用選。
+ * （主辦 2026-09-06 回報：切成攤位只看得到橫樑，以為別關壞了。）
+ */
+async function demoChallengeIds(database, { collection, getDocs }) {
+  try {
+    const snap = await getDocs(collection(database, 'events', EVENT_ID, 'challenges'));
+    const ids = snap.docs.map(d => d.id).sort();
+    return ids.length ? ids : ['g03-crossbar'];
+  } catch {
+    return ['g03-crossbar'];
+  }
+}
+
 async function signInAs(role) {
   const { auth, db, sdk, reloadIdentity } = await import('../../core/firebase.js');
   const { signInAnonymously, doc, setDoc, serverTimestamp } = sdk();
@@ -122,7 +137,7 @@ async function signInAs(role) {
       date: null,                                  // 不綁日期，看得到全部三天
       venueIds: role === 'booth' ? [] : ['venue-a'],
       divisionIds: [],
-      challengeIds: role === 'booth' ? ['g03-crossbar'] : []
+      challengeIds: role === 'booth' ? await demoChallengeIds(db(), sdk()) : []
     },
     deviceLabel: 'DEMO',
     active: true,
