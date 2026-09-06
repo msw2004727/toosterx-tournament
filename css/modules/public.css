@@ -66,7 +66,14 @@
 /* 卡片裡的清單已經有卡片的內距，不要疊兩層（首頁、組別頁、球隊頁） */
 .pcard .plist{padding:0}
 /* 時段標題跟場次列同一個左右內距，不然 08:30 會貼在螢幕邊 */
-.pslot{margin-left:var(--sp-3);margin-right:var(--sp-3)}
+.pslot{margin:var(--sp-4) var(--sp-3) var(--sp-2)}
+/* 賽程頁：每個時段一張卡，場次列不再直接貼在頁面底色上（驗收反饋 A-3：太多列會眼花） */
+.psched .plist{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);
+  margin:0 var(--sp-3);box-shadow:var(--shadow-1);
+}
+/* 積分榜的進度說明（尚未開賽／進行中） */
+.pstand__phase{margin:0 0 var(--sp-2)}
 .prow{display:flex;align-items:stretch;gap:var(--sp-2);border-top:1px solid var(--border)}
 .prow:first-child{border-top:0}
 /* 未定隊伍（排名階段還沒解算）：虛線框 ＋ 斜體，一眼看得出「還不確定」 */

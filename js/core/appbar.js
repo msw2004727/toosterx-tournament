@@ -83,7 +83,8 @@ function navLink({ href, iconName, label, current }) {
  *   ・iOS Safari：**沒有這個事件**，永遠不會有，只能教使用者手動加入
  *   ・LINE／FB 內建瀏覽器：沒有，而且**根本裝不了**，教改用外部瀏覽器
  *
- * 沒接到事件就不畫按鈕——畫一顆按了沒反應的鈕比沒有按鈕更糟。
+ * 沒接到事件時改給「從瀏覽器選單安裝」的步驟——按鈕每一台都在（頁首要長一樣），
+ * 但按下去一定有反應。只有真的已經安裝（standalone）才收起來。
  */
 function installButton() {
   const btn = el('button', {
@@ -103,7 +104,7 @@ function installButton() {
   function sync() {
     const st = installState();
     btn.hidden = !st.canInstall;
-    btn.title = st.mode === 'ios' ? '加到 iPhone 主畫面' : '安裝到裝置';
+    btn.title = st.mode === 'ios' ? '加到 iPhone 主畫面' : st.mode === 'inapp' ? '請改用瀏覽器開啟後安裝' : '安裝到裝置';
   }
   sync();
 

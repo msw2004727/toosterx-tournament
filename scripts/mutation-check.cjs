@@ -219,14 +219,28 @@ const MUTANTS = [
   {
     name: '#P5 rank 為 null 時不標 unresolved（等於默默給了名次）',
     file: 'js/modules/public/selectors.js',
-    from: `      unresolved: r?.rank == null || r?.hasUnresolvedTie === true,`,
-    to: `      unresolved: r?.hasUnresolvedTie === true,`
+    from: `      unresolved: r?.rank == null || (complete && r?.hasUnresolvedTie === true),`,
+    to: `      unresolved: (complete && r?.hasUnresolvedTie === true),`
   },
   {
     name: '#P6 吞掉 hasUnresolvedTie',
     file: 'js/modules/public/selectors.js',
-    from: `    hasUnresolvedTie: doc?.hasUnresolvedTie === true,`,
+    from: `    hasUnresolvedTie: complete && doc?.hasUnresolvedTie === true,`,
     to: `    hasUnresolvedTie: false,`
+  },
+  {
+    name: '#P6b ⭐ 一場都沒打也寫「待主辦裁定」（開賽前就對觀眾說同分條件用盡；驗收反饋 A-5）',
+    file: 'js/modules/public/selectors.js',
+    from: `  if (played.every(p => p === 0)) return 'notStarted';
+`,
+    to: ``
+  },
+  {
+    name: '#P6c ⭐ 分組賽打到一半就把同分的列畫成「—」',
+    file: 'js/modules/public/selectors.js',
+    from: `  if (played.every(p => p >= list.length - 1)) return 'complete';
+  return 'inProgress';`,
+    to: `  return 'complete';`
   },
   {
     name: '#P7 積分欄位用 Number() 硬轉（壞資料會被當成數字）',

@@ -112,18 +112,29 @@ export async function publicDivision({ params, scope, view, query }) {
   function standingBlock(v) {
     const title = [stageLabel(v.stageId), v.groupId ? `${v.groupId} 組` : null].filter(Boolean).join('　');
     return sectionCard(title || '積分榜', 'table', [
-      // 整份待裁定：講清楚原因，不要讓家長以為是網站壞了
-      v.hasUnresolvedTie
-        ? el('div', { class: 'notice notice--warn' }, [
-            icon('warn'),
-            el('span', { text: '名次待主辦裁定：同分條件已用盡，最終名次由主辦決定後公布。' })
+      // 進度說明：一場都沒打就寫「尚未開賽」、打到一半寫「暫時排名」，
+      // 只有分組賽打完仍同分才是「待主辦裁定」（驗收反饋 A-5：開賽前就看到「待裁定」會以為壞了）
+      v.phase === 'notStarted' && !v.isEmpty
+        ? el('div', { class: 'notice notice--info pstand__phase' }, [
+            icon('info'),
+            el('span', { text: '尚未開賽：第一場完賽後名次就會開始計算。' })
           ])
-        : null,
+        : v.phase === 'inProgress'
+          ? el('div', { class: 'notice notice--info pstand__phase' }, [
+              icon('info'),
+              el('span', { text: '分組賽進行中：這是暫時排名，同分的隊伍在全部打完後才依規章第十九條排序。' })
+            ])
+          : v.hasUnresolvedTie
+            ? el('div', { class: 'notice notice--warn' }, [
+                icon('warn'),
+                el('span', { text: '名次待主辦裁定：同分條件已用盡，最終名次由主辦決定後公布。' })
+              ])
+            : null,
       v.isEmpty
         ? empty('這一組還沒有成績', '第一場完賽後就會出現。')
         : el('div', { class: 'ptable-wrap' }, el('table', { class: 'ptable' }, [
             el('thead', {}, el('tr', {}, [
-              th('名'), th('球隊', 'left'), th('賽'), th('勝'), th('和'), th('負'),
+              th('名次'), th('球隊', 'left'), th('賽'), th('勝'), th('和'), th('負'),
               th('進'), th('失'), th('差'), th('積分')
             ])),
             el('tbody', {}, v.rows.map(r => el('tr', {

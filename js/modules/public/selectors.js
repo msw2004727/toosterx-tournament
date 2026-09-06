@@ -166,12 +166,19 @@ export function queryToFilter(query) {
  */
 export function viewStanding(doc, { qualifyCount = 0 } = {}) {
   const rows = Array.isArray(doc?.rows) ? doc.rows : [];
+  const phase = standingPhase(rows);
+  // ⚠️ 引擎在「條件用盡仍同分」時就會標 hasUnresolvedTie——包括一場都還沒打的時候
+  //    （每隊 0 分 0 球，當然全部同分）。那時候對觀眾說「同分條件已用盡，等主辦裁定」
+  //    是錯的訊息：分組賽打完之前，同分本來就還沒有意義（驗收反饋 A-5）。
+  //    裁定的判斷仍以引擎為準，公開端只在分組賽打完之後才把它顯示出來。
+  const complete = phase === 'complete';
   return {
     standingId: doc?.standingId ?? null,
     divisionId: doc?.divisionId ?? null,
     stageId: doc?.stageId ?? null,
     groupId: doc?.groupId ?? null,
-    hasUnresolvedTie: doc?.hasUnresolvedTie === true,
+    phase,
+    hasUnresolvedTie: complete && doc?.hasUnresolvedTie === true,
     isEmpty: rows.length === 0,
     rows: rows.map((r, i) => ({
       rank: r?.rank ?? null,
@@ -184,11 +191,25 @@ export function viewStanding(doc, { qualifyCount = 0 } = {}) {
       form: Array.isArray(r?.form) ? r.form.slice(-5) : [],
       // 晉級區以名次判斷，不是以陣列位置——rows 有可能沒排好或有並列
       qualified: qualifyCount > 0 && Number.isFinite(r?.rank) && r.rank <= qualifyCount,
-      // 這一列自己排不出來時要標出來，不可以偷偷給它一個名次
-      unresolved: r?.rank == null || r?.hasUnresolvedTie === true,
+      // 這一列自己排不出來時要標出來，不可以偷偷給它一個名次；
+      // 分組賽還沒打完時名次是暫時的，照引擎給的順序顯示，不畫「—」
+      unresolved: r?.rank == null || (complete && r?.hasUnresolvedTie === true),
       order: i
     }))
   };
+}
+
+/**
+ * 分組賽的進度：'notStarted'（一場都沒打）／'inProgress'／'complete'（每隊都打滿）。
+ * 單循環每隊 n−1 場；雙循環會晚一點才判定打完，只影響「暫時排名」那句話多顯示幾場，不影響名次本身。
+ */
+export function standingPhase(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return 'notStarted';
+  const played = list.map(r => num(r?.played));
+  if (played.every(p => p === 0)) return 'notStarted';
+  if (played.every(p => p >= list.length - 1)) return 'complete';
+  return 'inProgress';
 }
 
 /**

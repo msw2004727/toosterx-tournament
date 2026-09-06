@@ -70,7 +70,7 @@ describe('T33-1 三種環境的判定', () => {
     expect(mod.installState().mode).toBe('ios');
     // 真的 Mac 沒有觸控，不該被當成 iPad
     fakeEnv({ ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605', platform: 'MacIntel', touch: 0 });
-    expect(mod.installState().mode).toBe(null);
+    expect(mod.installState().mode).toBe('manual');
   });
 
   test('LINE 內建瀏覽器 → 教使用者改用外部瀏覽器', () => {
@@ -90,10 +90,16 @@ describe('T33-1 三種環境的判定', () => {
     expect(mod.installState().canInstall).toBe(false);
   });
 
-  test('⭐ 桌面 Firefox 之類裝不了的環境不畫按鈕', () => {
-    // 畫一顆按了沒反應的鈕比沒有按鈕更糟（同 #/login 在 SDK 載不到時的處理）
+  test('⭐ 沒有原生安裝框的環境（桌面 Firefox、事件沒來）按鈕仍在，模式是「從選單安裝」的說明', () => {
+    // 原本這裡不畫按鈕，結果頁首在每一台手機長得不一樣，驗收的人以為壞了（2026-09-06）。
+    // 按鈕照畫，但按下去一定有反應——是說明，不是空按鈕。
     fakeEnv({ ua: UA.desktopFirefox });
-    expect(mod.installState()).toMatchObject({ canInstall: false, mode: null });
+    expect(mod.installState()).toMatchObject({ installed: false, canInstall: true, mode: 'manual' });
+  });
+
+  test('已經安裝（standalone）才收起按鈕', () => {
+    fakeEnv({ ua: UA.desktopFirefox, standalone: true });
+    expect(mod.installState()).toMatchObject({ installed: true, canInstall: false });
   });
 });
 

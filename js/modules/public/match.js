@@ -120,6 +120,8 @@ export async function publicMatch({ params, scope, view, query }) {
   function dur() { return state.division?.matchDurationMin ?? 30; }
 
   function scoreboard(m) {
+    // 分頁標題跟分享文字用同一句：路由給的「比賽」只是資料到之前的暫時標題
+    document.title = shareText(m);
     const sc = scoreText(m.score, state.division?.display?.mercyRule);
     const started = isLiveMatch(m) || isDoneMatch(m);
     // 單節的組別（規章第十八條第 2 款：不分上下半場）沒有「半場」這回事（驗收 D-07）

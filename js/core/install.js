@@ -10,6 +10,7 @@
  * | Android Chrome／桌面 Chrome | 有                       | 叫原生安裝對話框 |
  * | iOS Safari                 | 沒有，永遠不會有            | 教使用者「分享 → 加入主畫面」 |
  * | LINE／FB 內建瀏覽器          | 沒有，而且**根本裝不了**     | 教使用者改用外部瀏覽器開 |
+ * | 其他（事件沒來、Firefox、裝過但用瀏覽器開）| 沒有                | 教從瀏覽器選單安裝（2026-09-06 驗收反饋：頁首每一台都要長一樣）|
  *
  * 第三種對這個專案特別重要：報名的家長是從 LINE 點連結進來的，
  * 預設就在 LINE 的內建瀏覽器裡。在那裡畫一顆按了沒反應的「安裝」，
@@ -64,7 +65,7 @@ function bucket() {
 }
 
 /**
- * @returns {{installed:boolean, canInstall:boolean, mode:'prompt'|'ios'|'inapp'|null}}
+ * @returns {{installed:boolean, canInstall:boolean, mode:'prompt'|'ios'|'inapp'|'manual'|null}}
  */
 export function installState() {
   const b = bucket();
@@ -72,8 +73,10 @@ export function installState() {
   if (b.deferred) return { installed: false, canInstall: true, mode: 'prompt' };
   if (isInAppBrowser()) return { installed: false, canInstall: true, mode: 'inapp' };
   if (isIos()) return { installed: false, canInstall: true, mode: 'ios' };
-  // 桌面 Firefox、已經裝過但沒開 standalone、瀏覽器判定還沒完成——一律不畫
-  return { installed: false, canInstall: false, mode: null };
+  // 桌面 Firefox、已經裝過但用瀏覽器開、Chrome 還沒判定完或決定不主動提示——
+  // 按鈕照畫，按下去是「從瀏覽器選單安裝」的步驟。原本這裡不畫按鈕，結果頁首在
+  // 每一台手機長得不一樣，驗收的人以為壞了（2026-09-06）。按了會有說明，不是沒反應。
+  return { installed: false, canInstall: true, mode: 'manual' };
 }
 
 /**
@@ -111,22 +114,30 @@ const INAPP_STEPS = [
   '選「在瀏覽器開啟」（Safari 或 Chrome）',
   '在瀏覽器裡再按一次這顆「安裝」'
 ];
+const MANUAL_STEPS = [
+  '按瀏覽器右上角的選單（⋮）',
+  '選「安裝應用程式」或「加到主畫面」',
+  '安裝後從主畫面點開，畫面會全螢幕、載入也更快'
+];
 
 /** 教學彈窗。用 .modal 的樣式，跟 confirmDialog 同一套視覺。 */
 export function showInstallHelp(mode = installState().mode) {
   const ios = mode === 'ios';
-  const steps = ios ? IOS_STEPS : INAPP_STEPS;
-  const title = ios ? '加到主畫面' : '請改用瀏覽器開啟';
+  const manual = mode === 'manual' || mode === 'prompt' || mode == null;
+  const steps = ios ? IOS_STEPS : manual ? MANUAL_STEPS : INAPP_STEPS;
+  const title = ios ? '加到主畫面' : manual ? '安裝到裝置' : '請改用瀏覽器開啟';
   const note = ios
     ? 'iPhone 的 Safari 不支援一鍵安裝，要手動加入。加入後從主畫面點開，畫面會全螢幕、載入也更快。'
-    : 'LINE 內建的瀏覽器沒辦法安裝網頁應用程式。用 Safari 或 Chrome 開啟後就可以了。';
+    : manual
+      ? '這個瀏覽器沒有主動跳出安裝框，但多半可以從選單安裝。已經裝過的話，請直接從主畫面開啟。'
+      : 'LINE 內建的瀏覽器沒辦法安裝網頁應用程式。用 Safari 或 Chrome 開啟後就可以了。';
 
   const list = el('ol', { class: 'install__steps' },
     steps.map(s => el('li', { text: s })));
 
   const dlg = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, [
     el('div', { class: 'modal__panel' }, [
-      el('h2', { class: 'modal__title' }, [icon(ios ? 'share' : 'info'), document.createTextNode(' ' + title)]),
+      el('h2', { class: 'modal__title' }, [icon(ios ? 'share' : manual ? 'install' : 'info'), document.createTextNode(' ' + title)]),
       el('div', { class: 'modal__body' }, [el('p', { class: 'install__note', text: note }), list]),
       el('div', { class: 'modal__actions' }, [
         el('button', { class: 'btn btn--primary', type: 'button', onClick: () => close() }, '知道了')

@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path';
 import {
   sortByKickoff, groupBySlot, splitHomeSections,
   filterMatches, filterToQuery, queryToFilter,
-  viewStanding, sortStandings, sortRoster,
+  viewStanding, standingPhase, sortStandings, sortRoster,
   publicMember, leakedFields, PUBLIC_MEMBER_FIELDS,
   embedUrl, isPlaceholder, sideLabel, isLiveMatch, isDoneMatch,
   hiddenScorerDivisions, unpublishedDivisions, publishedMatches, hasBoardContent
@@ -456,5 +456,41 @@ describe('T32-11 空的看板不算看板', () => {
   test('欄位型別不對時當成沒有（不要因此整頁掛掉）', () => {
     expect(hasBoardContent({ liveMatches: '不是陣列' })).toBe(false);
     expect(hasBoardContent({ liveMatches: 3 })).toBe(false);
+  });
+});
+
+describe('T61 積分榜的進度：還沒開賽／進行中不寫「待主辦裁定」（驗收反饋 A-5）', () => {
+  const row = (teamId, played, over = {}) => ({ rank: 1, teamId, name: teamId, played, win: 0, draw: 0, loss: 0, goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0, hasUnresolvedTie: true, ...over });
+
+  test('一場都沒打：引擎會標同分未解，公開端不顯示待裁定、名次照列', () => {
+    const v = viewStanding({ rows: [row('a', 0), row('b', 0), row('c', 0)], hasUnresolvedTie: true });
+    expect(v.phase).toBe('notStarted');
+    expect(v.hasUnresolvedTie).toBe(false);
+    expect(v.rows.every(r => r.unresolved === false)).toBe(true);
+  });
+
+  test('打到一半：暫時排名，不畫「—」', () => {
+    const v = viewStanding({ rows: [row('a', 1), row('b', 1), row('c', 0)], hasUnresolvedTie: true });
+    expect(v.phase).toBe('inProgress');
+    expect(v.hasUnresolvedTie).toBe(false);
+    expect(v.rows[2].unresolved).toBe(false);
+  });
+
+  test('每隊都打滿仍同分：才是待主辦裁定', () => {
+    const v = viewStanding({ rows: [row('a', 2), row('b', 2), row('c', 2)], hasUnresolvedTie: true });
+    expect(v.phase).toBe('complete');
+    expect(v.hasUnresolvedTie).toBe(true);
+    expect(v.rows[0].unresolved).toBe(true);
+  });
+
+  test('rank 缺漏的列不管進度都不能編一個名次', () => {
+    const v = viewStanding({ rows: [row('a', 1, { rank: null, hasUnresolvedTie: false }), row('b', 1, { hasUnresolvedTie: false })], hasUnresolvedTie: false });
+    expect(v.rows[0].unresolved).toBe(true);
+    expect(v.rows[1].unresolved).toBe(false);
+  });
+
+  test('standingPhase 邊界：空陣列＝還沒開賽；played 不是數字當 0', () => {
+    expect(standingPhase([])).toBe('notStarted');
+    expect(standingPhase([{ played: null }, { played: 'x' }])).toBe('notStarted');
   });
 });

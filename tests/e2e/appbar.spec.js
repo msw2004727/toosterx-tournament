@@ -199,10 +199,20 @@ test('⭐ 接到 beforeinstallprompt 才出現安裝鈕，按下去叫原生對�
   await expect(btn).toBeHidden();
 });
 
-test('⭐ 沒有那個事件就不畫安裝鈕（不留按了沒反應的按鈕）@appbar', async ({ page }) => {
+test('⭐ 沒有那個事件時安裝鈕仍在，按下去是「從選單安裝」的說明（頁首每一台都要長一樣）@appbar', async ({ page }) => {
+  // 2026-09-06 驗收反饋：Android／桌面 Chrome 沒派發 beforeinstallprompt 時按鈕消失，
+  // 測試的人以為壞了。按鈕照畫，但按下去一定有反應——是說明，不是空按鈕。
   await stub(page, { install: 'none' });
   await go(page, '/#/');
-  await expect(page.locator('.apphead__install')).toBeHidden();
+  const btn = page.locator('.apphead__install');
+  await expect(btn).toBeVisible();
+  await btn.click();
+  const dlg = page.getByRole('dialog', { name: '安裝到裝置' });
+  await expect(dlg).toBeVisible();
+  await expect(dlg).toContainText('選單');
+  await expect(dlg).toContainText('加到主畫面');
+  await dlg.getByRole('button', { name: '知道了' }).click();
+  await expect(dlg).toHaveCount(0);
 });
 
 test('⭐ 已經安裝（standalone）不畫安裝鈕 @appbar', async ({ page }) => {
