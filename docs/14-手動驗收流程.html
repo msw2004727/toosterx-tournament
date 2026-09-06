@@ -198,7 +198,7 @@ const SECTIONS = [
   { id:'P-2', title:'三位總管用 LINE 登入一次', env:'both', ref:'R-RULES-003',
     steps:['頁首按「登入」→ 用 LINE 登入 → 授權','回到站上後開「我的」（#/my）'],
     expect:['授權完自動回到「我的」，不必再按一次登入','「我的」顯示你的 LINE 名稱、uid（U 開頭 33 碼）與「總管」','「我的功能」列出 10 項（含身分授權、權限開關、報名開關）'],
-    why:'三位總管的 uid 已經用 Admin SDK 掛好（小麥、U2104…、U196b…）。名字要等第一次 LINE 登入之後才會出現在後台，登入前後台顯示的是 uid。LINE 那邊若出現「This channel is now developing status」，是 LINE Login 頻道還沒發布：Developing 狀態只有頻道的開發者登得進去，要到 LINE Developers 把兩個頻道（FEDA CUP 2026、FEDA CUP 2026 Demo）改成 Published。' },
+    why:'三位總管的 uid 已經用 Admin SDK 掛好（小麥、U2104…、U196b…）。名字要等第一次 LINE 登入之後才會出現在後台，登入前後台顯示的是 uid。兩個 LINE Login 頻道已在 2026-09-06 發布（Published）；若 LINE 那邊仍出現「developing status」，代表你開的是別的頻道或舊連結，把 LINE 顯示的那句話回報給主辦。' },
   { id:'P-3', title:'demo 的切換身分', env:'demo', ref:'R-DEMO-001',
     steps:['在 demo 站按橫幅上的「切換身分」','逐一看清單'],
     expect:['清單有五種：挑戰攤位、檢錄員、裁判、記錄員、管理員，每一列寫明比上一階多了什麼','清單裡沒有「總管」','切換後「我的」立刻依新身分展開，不必重新整理','清單最後有「留在我的 LINE 身分」可以退回'],
