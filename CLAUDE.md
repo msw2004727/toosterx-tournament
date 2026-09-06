@@ -202,7 +202,7 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 |---|---|
 | `npm run test:unit` | ✅ 1176 全綠（49 個 suite，含 T63 報名圖文教學、T39-D 稽核分類） |
 | `npm run test:mutation` | ✅ 298 / 298 全被抓到 |
-| `npm run test:mutation:e2e` | ✅ 47 條（第二輪驗收 #E37–#E47）。#E44 第一次逃掉——測試用了單組範本，按鈕本來就是灰的；改成 6 隊兩組範本後重跑 |
+| `npm run test:mutation:e2e` | ✅ 47 / 47 全被抓到（第二輪驗收 #E37–#E47）。#E44 第一次逃掉——測試用了單組範本，按鈕本來就是灰的；改成 6 隊兩組範本後重跑全抓到 |
 | `npm run test:e2e` | ✅ 1242 全綠（mobile / desktop / 320px 三種寬度；admin-teams 320px 與 admin-staff 各有一條偶發逾時，重跑即過） |
 | `npm run test:rules` | ✅ 233 全綠（…、R139 憑證雜湊、R98c 退回後直接再送、R98e／R98f 草稿由隊長取消、R57c 系統退件可收掉） |
 | `npm run test:mutation:rules` | ✅ 48 / 48 全被抓到（RU#46 退回後直接再送、RU#47／#48 草稿取消、RU#49 系統退件可收掉） |
