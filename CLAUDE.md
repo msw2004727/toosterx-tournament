@@ -198,16 +198,16 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       先重現再修、操作誤會只回報。第三輪抓到「完成檢錄什麼都沒寫」與「名單確認後球員選單沒人」。docs/13 §9–§10
 - [ ] M7 彩排 → 上線
 
-## 現在的狀態（2026-09-06）
+## 現在的狀態（2026-09-07）
 
 | 關卡 | 狀態 |
 |---|---|
-| `npm run test:unit` | ✅ 1176 全綠（49 個 suite，含 T63 報名圖文教學、T39-D 稽核分類） |
+| `npm run test:unit` | ✅ 1198 全綠（49 個 suite，含 T41-5／T41-6 完成檢錄門檻、T-sched 開賽時間文字格、T63 報名圖文教學、T39-D 稽核分類） |
 | `npm run test:mutation` | ✅ 298 / 298 全被抓到 |
-| `npm run test:mutation:e2e` | ✅ 47 / 47 全被抓到（第二輪驗收 #E37–#E47）。#E44 第一次逃掉——測試用了單組範本，按鈕本來就是灰的；改成 6 隊兩組範本後重跑全抓到 |
-| `npm run test:e2e` | ✅ 1242 全綠（mobile / desktop / 320px 三種寬度；admin-teams 320px 與 admin-staff 各有一條偶發逾時，重跑即過） |
-| `npm run test:rules` | ✅ 233 全綠（…、R139 憑證雜湊、R98c 退回後直接再送、R98e／R98f 草稿由隊長取消、R57c 系統退件可收掉） |
-| `npm run test:mutation:rules` | ✅ 48 / 48 全被抓到（RU#46 退回後直接再送、RU#47／#48 草稿取消、RU#49 系統退件可收掉） |
+| `npm run test:mutation:e2e` | ✅ 54 / 54 全被抓到（第三輪 #E48–#E54：有問題鎖勾選、人數不足鎖完成、完成要寫回、放行要原因、換人分場上場下、鎖定場次給管理員路、名單列是球員）。#E44 第一次逃掉——測試用了單組範本，按鈕本來就是灰的；改成 6 隊兩組範本後重跑全抓到 |
+| `npm run test:e2e` | ✅ 1275 全綠（mobile / desktop / 320px 三種寬度；desktop 的 challenge 與 register 各有一條在 `waitForFunction` 偶發逾時，重跑即過） |
+| `npm run test:rules` | ✅ 243 全綠（…、R82e–R82l 完成檢錄寫回場次的 (E) 分支、R139 憑證雜湊、R98c 退回後直接再送、R98e／R98f 草稿由隊長取消、R57c 系統退件可收掉） |
+| `npm run test:mutation:rules` | ✅ 50 / 50 全被抓到（RU#50 檢錄那條路不能把狀態推到 live、RU#51 檢錄那條路要看場地；RU#46–#49 第二輪報名） |
 | `npm run test:fn` | ✅ 91 全綠（F01–F15j 結果管線與同分裁定、FR01–FR15e 報名／登入／規章第十二條、FC01–FC15f 挑戰與聯絡方式） |
 | `npm run test:mutation:fn` | ✅ 29 / 29 全被抓到 |
 
@@ -1850,6 +1850,11 @@ js/config.js                         新權限碼 checkin.force（群組「檢�
 4. **權限矩陣是登入時一次讀取的。** 總管關掉開關之後，已經開著賽務台的手機要重新整理；權限開關頁現在有寫。
 5. **出場名單的列 `role` 是 start／bench。** 名單確認之後賽務台走的是這份，任何「是不是球員」的判斷都要認得它。
    換人選單現在用 `onFieldIds` 分場上／場下，只排序與標記、不藏——出場名單可能跟場上實況對不起來。
+6. **「以為加了」的測試：CI 紅了一整晚。** 第二輪的 T-sched（`normalizeHHMM`）用 heredoc 追加時失敗，檔案裡只剩 import；
+   本機 `test:unit` 照樣全綠，變異 #AF22 從 CI 逃掉，兩條分支從 09-06 17:34 起都是紅的。追加測試之後要 `grep` 那個名字真的在檔案裡，
+   而且要看 CI 的結論——本機全綠不代表 CI 綠（CI 多跑三套變異）。這一輪補回 T-sched 三組案例。
+7. **背景跑變異要用 detached 的 process。** 工具的背景指令有 10 分鐘上限，rules 變異一條約 80 秒、50 條要一小時多，
+   被砍在中途就是 R-TEST-002 那個事故。這一輪改用 `scratchpad/run-mutations.cmd` 由 `Start-Process` 起、只看 log 的摘要行。
 
 ## 公開端（M5）
 

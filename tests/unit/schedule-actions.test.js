@@ -286,3 +286,36 @@ describe('T45-G 小工具', () => {
     expect(() => drawSeedFrom(NaN)).toThrow(TypeError);
   });
 });
+
+// ── T-sched 開賽時間的文字格（第二輪驗收 M-3）──────────────────────
+// Android 的 <input type="time"> 跟著手機的 12／24 小時設定走，網頁改不掉，
+// 所以改成文字格：收各種打法，存 24 小時制。
+// ⚠️ 這一組 2026-09-06 那一晚沒有真的加進檔案（只剩 import），CI 的變異 #AF22
+//    「收下 24:00」因此逃掉，兩條分支紅了一整晚。
+
+describe('T-sched normalizeHHMM：開賽時間怎麼打都收，但只存 24 小時制', () => {
+  test('常見打法都收', () => {
+    expect(normalizeHHMM('09:30')).toBe('09:30');
+    expect(normalizeHHMM('9:30')).toBe('09:30');
+    expect(normalizeHHMM('0930')).toBe('09:30');
+    expect(normalizeHHMM('930')).toBe('09:30');
+    expect(normalizeHHMM('14.30')).toBe('14:30');
+    expect(normalizeHHMM('14：30')).toBe('14:30');   // 全形冒號（手機中文鍵盤）
+    expect(normalizeHHMM(' 8:05 ')).toBe('08:05');
+    expect(normalizeHHMM('0:00')).toBe('00:00');
+    expect(normalizeHHMM('23:59')).toBe('23:59');
+  });
+
+  test('⭐ 24:00 與 23:60 都不是時間（#AF22 就是這條）', () => {
+    expect(normalizeHHMM('24:00')).toBeNull();
+    expect(normalizeHHMM('2400')).toBeNull();
+    expect(normalizeHHMM('23:60')).toBeNull();
+    expect(normalizeHHMM('25:10')).toBeNull();
+  });
+
+  test('看不懂的一律 null，不猜', () => {
+    for (const bad of ['', null, undefined, 'abc', '9', '12', '12345', '9:3:0', ':30', '9:', '-1:00', '9:30pm']) {
+      expect(normalizeHHMM(bad)).toBeNull();
+    }
+  });
+});
