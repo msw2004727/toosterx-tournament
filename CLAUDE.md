@@ -203,7 +203,7 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 | 關卡 | 狀態 |
 |---|---|
 | `npm run test:unit` | ✅ 1198 全綠（49 個 suite，含 T41-5／T41-6 完成檢錄門檻、T-sched 開賽時間文字格、T63 報名圖文教學、T39-D 稽核分類） |
-| `npm run test:mutation` | ✅ 298 / 298 全被抓到 |
+| `npm run test:mutation` | ✅ 310 / 310 全被抓到（CI 2026-09-07，含第三輪 #AF23–#AF29 與補回測試後的 #AF22）。⚠️ 本機 Windows 跑到第 180 條撞 `EUNKNOWN` 寫檔失敗（像是 Defender 鎖住 `js/engine/schedule.js`），runner 有還原乾淨；單元變異以 CI（Linux）為準，不要在本機硬跑 50 分鐘 |
 | `npm run test:mutation:e2e` | ✅ 54 / 54 全被抓到（第三輪 #E48–#E54：有問題鎖勾選、人數不足鎖完成、完成要寫回、放行要原因、換人分場上場下、鎖定場次給管理員路、名單列是球員）。#E44 第一次逃掉——測試用了單組範本，按鈕本來就是灰的；改成 6 隊兩組範本後重跑全抓到 |
 | `npm run test:e2e` | ✅ 1275 全綠（mobile / desktop / 320px 三種寬度；desktop 的 challenge 與 register 各有一條在 `waitForFunction` 偶發逾時，重跑即過） |
 | `npm run test:rules` | ✅ 243 全綠（…、R82e–R82l 完成檢錄寫回場次的 (E) 分支、R139 憑證雜湊、R98c 退回後直接再送、R98e／R98f 草稿由隊長取消、R57c 系統退件可收掉） |
