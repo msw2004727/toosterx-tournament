@@ -325,6 +325,50 @@ const MUTANTS = [
     file: 'js/modules/account/my.js',
     from: `                onClick: () => navigate(\`/team/\${encodeURIComponent(t.teamId)}/manage\`)`,
     to: `                onClick: () => navigate(\`/team/\${encodeURIComponent(t.teamId)}\`)`
+  },
+
+  // ══ 第三輪驗收（2026-09-07）：檢錄員 C-3／C-5、記錄員 S-5／S-9 ══
+  {
+    name: '#E48 ⭐ 標了「有問題」還能直接勾出賽（註記被悄悄洗掉；C-3）',
+    file: 'js/modules/staff/checkin.js',
+    from: "          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy || failed,",
+    to: "          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy,"
+  },
+  {
+    name: '#E49 ⭐ 人數不足「完成檢錄」照樣按得下去（一個人也能完成；C-5）',
+    file: 'js/modules/staff/checkin.js',
+    from: '        disabled: state.busy || !gate.allowed,',
+    to: '        disabled: state.busy,'
+  },
+  {
+    name: '#E50 ⭐ 完成檢錄什麼都不寫（只跳一則成功提示；C-5）',
+    file: 'js/modules/staff/checkin.js',
+    from: '    confirmCheckin(matchId, patch, `完成檢錄　${teamName(state.side)}`);',
+    to: '    void patch;'
+  },
+  {
+    name: '#E51 ⭐ 管理員放行不用填原因（事後查不到為什麼 4 人就開賽；C-5）',
+    file: 'js/modules/staff/checkin.js',
+    from: "      if (!forcedReason) { toast('必須填原因才能放行', 'warn'); return; }",
+    to: "      if (!forcedReason) { forcedReason = '（未填）'; }"
+  },
+  {
+    name: '#E52 ⭐ 換人選單不分場上場下（換完「誰下場」還列著已經下場的人；S-5）',
+    file: 'js/modules/staff/live.js',
+    from: "      const mismatch = onField && want ? (want === 'on' ? !inField : inField) : false;",
+    to: '      const mismatch = false;'
+  },
+  {
+    name: '#E53 ⭐ 管理員在鎖定的場次沒有改判頁的路（提示叫他去找管理員；S-9）',
+    file: 'js/modules/staff/live.js',
+    from: "    const admin = locked && can('match.reopen');",
+    to: '    const admin = false;'
+  },
+  {
+    name: '#E54 ⭐ 出場名單的列不算球員（名單一經確認，選單一個人都不剩；S-5）',
+    file: 'js/modules/staff/live-actions.js',
+    from: "  return r === 'player' || SHEET_ROLES.includes(r);",
+    to: "  return r === 'player';"
   }
 ];
 

@@ -29,7 +29,7 @@ import {
   buildGoalEvent, buildCardEvent, buildSubEvent, buildPeriodEvent,
   buildFinishPatch, finishSummary, suggestCardType, sentOffPlayerIds,
   checkSubLimit, eventText, EVENT_ICON, CARD_LABEL, sortEventsDesc,
-  scoreFromTimeline, isLive, undoState, buildUndoPatch, UNDO_WINDOW_SEC, isPlayerRow
+  scoreFromTimeline, isLive, undoState, buildUndoPatch, UNDO_WINDOW_SEC, isPlayerRow, onFieldIds
 } from './live-actions.js';
 import { syncIndicator } from './sync-indicator.js';
 import { isOnline } from '../../core/sync.js';
@@ -225,14 +225,23 @@ export async function liveConsole({ params, scope, view }) {
     const canUndo = undoState({
       match: m, nowMs: now(), online: isOnline(), uid: user()?.uid ?? null
     }).can;
+    // 管理員看到鎖定的場次時，路在場次改判頁（重開／改判），不是「去找管理員」——
+    // 第三輪驗收 S-9 的「管理員身分好像還是唯讀」就是這一句把他自己繞進去了。
+    const locked = m.lock?.locked === true;
+    const admin = locked && can('match.reopen');
     const why = !canScore() ? '你的帳號沒有記分權限。'
       : !assignedToVenue(m.venueId) ? '這個場次不在你被指派的場地，請聯絡管理員調整指派。'
       : canUndo ? '這場已送出完賽。要修改請先用下方的「撤回完賽」。'
+      : admin ? '這場已完賽並鎖定。賽務台對鎖定的場次一律唯讀；要重開或改判請到場次改判頁。'
       : '這場已完賽並鎖定，需要管理員解鎖才能修改。';
     return el('div', { class: 'notice notice--warn' }, [
       el('strong', { text: '唯讀模式' }),
-      el('span', { text: why })
-    ]);
+      el('span', { text: why }),
+      admin ? el('button', {
+        class: 'btn btn--sm', type: 'button', id: 'live-to-admin',
+        onClick: () => navigate(`/admin/match/${encodeURIComponent(matchId)}`)
+      }, [...iconText('forward', '到場次改判頁', { trailing: true })]) : null
+    ].filter(Boolean));
   }
 
   function timelineList(m, readOnly) {
@@ -386,7 +395,14 @@ export async function liveConsole({ params, scope, view }) {
     });
   }
 
-  async function pickPlayer(side, { title, allowNone = false, exclude = new Set(), only = null }) {
+  /**
+   * 選球員。
+   *
+   * `onField`／`want`（換人用）：`want:'on'` 要的是場上的人（誰下場），`'off'` 要的是場下的人
+   * （誰上場）。不符的那些**不藏起來**，只排到後面並標「場下」／「場上」——出場名單可能
+   * 跟場上實況對不起來，系統不該比記錄員更有主見（跟換人上限「警示不阻擋」同一條線）。
+   */
+  async function pickPlayer(side, { title, allowNone = false, exclude = new Set(), only = null, onField = null, want = null }) {
     const list = (state.rosters[side] || []).filter(p => {
       if (!isPlayerRow(p)) return false;          // 教練不會進球，也不會吃牌（驗收 D-08）
       if (exclude.has(p.memberId)) return false;
@@ -394,13 +410,19 @@ export async function liveConsole({ params, scope, view }) {
       return true;
     });
     const off = sentOffPlayerIds(state.events);
-    const options = list.map(p => ({
-      value: p.memberId,
-      label: p.displayName || p.name || '（未命名）',
-      sub: p.jerseyNo != null ? `#${p.jerseyNo}` : '',
-      note: off.has(p.memberId) ? '已離場' : '',
-      disabled: off.has(p.memberId)
-    }));
+    const options = list.map(p => {
+      const sentOff = off.has(p.memberId);
+      const inField = onField ? onField.has(p.memberId) : null;
+      const mismatch = onField && want ? (want === 'on' ? !inField : inField) : false;
+      return {
+        value: p.memberId,
+        label: p.displayName || p.name || '（未命名）',
+        sub: p.jerseyNo != null ? `#${p.jerseyNo}` : '',
+        note: sentOff ? '已離場' : mismatch ? (want === 'on' ? '場下' : '場上') : '',
+        disabled: sentOff,
+        rank: sentOff ? 2 : mismatch ? 1 : 0
+      };
+    }).sort((a, b) => a.rank - b.rank);   // 穩定排序：同一級維持名冊（背號）順序
     if (allowNone) options.unshift({ value: '__none__', label: '不指定球員', sub: '', tone: 'ghost' });
     if (!options.length) {
       toast('這一隊還沒有名單。請先到「出場名單」確認，或改用「不指定球員」。', 'warn');
@@ -494,9 +516,16 @@ export async function liveConsole({ params, scope, view }) {
       if (!go) return;
     }
 
-    const outP = await pickPlayer(side, { title: '誰下場？' });
+    // 場上名單：先發 − 罰離場 − 換下 ＋ 換上。出場名單還沒確認時是 null，兩張選單就照名冊列。
+    // 第三輪驗收 S-5：換過人之後「誰下場」還是列著已經下場的人，記錄員得自己記誰在場上。
+    const onField = onFieldIds(state.rosters[side], state.events);
+    const outP = await pickPlayer(side, {
+      title: onField ? `誰下場？（場上 ${onField.size} 人）` : '誰下場？', onField, want: 'on'
+    });
     if (!outP?.memberId) return;
-    const inP = await pickPlayer(side, { title: '誰上場？', exclude: new Set([outP.memberId]) });
+    const inP = await pickPlayer(side, {
+      title: '誰上場？', exclude: new Set([outP.memberId]), onField, want: 'off'
+    });
     if (!inP?.memberId) return;
 
     addTimelineEvent(matchId, buildSubEvent({ ...ctxFor(side), outPlayer: outP, inPlayer: inP }),

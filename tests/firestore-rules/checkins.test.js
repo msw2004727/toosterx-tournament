@@ -14,7 +14,7 @@
  */
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { doc, setDoc, updateDoc, getDoc, deleteDoc } from 'firebase/firestore';
-import { makeEnv, seedBaseline, asAdminSdk, authed, guest, EVENT, MATCH } from './helpers.js';
+import { makeEnv, seedBaseline, asAdminSdk, authed, guest, EVENT, MATCH, MATCH_B } from './helpers.js';
 
 let env;
 beforeAll(async () => { env = await makeEnv(); });
@@ -144,5 +144,84 @@ describe('R82 檢錄員讀得到 members，但只有 members', () => {
     await assertFails(updateDoc(matchRef(authed(env, 'u-checkin')), {
       status: 'finished', lock: { locked: true, lockedBy: 'u-checkin' }, updatedBy: 'u-checkin'
     }));
+  });
+});
+
+// ── 第三輪驗收（2026-09-07，檢錄員 C-5）：完成檢錄要寫回場次 ──────────────
+// 在 (E) 分支出現之前，檢錄員根本沒有一條寫得到場次文件的路，
+// 所以「完成檢錄」只能跳一則成功提示，什麼都沒寫。
+
+describe('R82e–R82l 完成檢錄：檢錄員寫得到場次的 checkin 那一包，但只有那一包', () => {
+  const flags = (over = {}) => ({
+    homeConfirmed: true, awayConfirmed: false, confirmedAt: null,
+    homeConfirmedBy: 'u-checkin', homeConfirmedAt: null, homePresent: 5, homeForcedReason: null,
+    ...over
+  });
+  const scheduled = () => asAdminSdk(env, db => updateDoc(matchRef(db), { status: 'scheduled' }));
+
+  test('R82e ⭐ 檢錄員完成一隊檢錄：旗標 ＋ 狀態進入檢錄中', async () => {
+    await scheduled();
+    await assertSucceeds(updateDoc(matchRef(authed(env, 'u-checkin')), {
+      checkin: flags(), status: 'checkin', updatedBy: 'u-checkin'
+    }));
+  });
+
+  test('R82e2 兩隊都完成 → 待開賽（checkin → ready）', async () => {
+    await asAdminSdk(env, db => updateDoc(matchRef(db), { status: 'checkin', checkin: flags() }));
+    await assertSucceeds(updateDoc(matchRef(authed(env, 'u-checkin')), {
+      checkin: flags({ awayConfirmed: true }), status: 'ready', updatedBy: 'u-checkin'
+    }));
+  });
+
+  test('R82e3 已開打的場次也寫得了旗標（遲到的隊伍），但狀態不能動', async () => {
+    // baseline 是 live：只寫 checkin，狀態 from == to
+    await assertSucceeds(updateDoc(matchRef(authed(env, 'u-checkin')), { checkin: flags(), updatedBy: 'u-checkin' }));
+  });
+
+  test('R82f ⭐ 同一筆寫入夾帶比分就整筆被擋（這條路只有 checkin 那一包）', async () => {
+    await scheduled();
+    await assertFails(updateDoc(matchRef(authed(env, 'u-checkin')), {
+      checkin: flags(), status: 'checkin', score: { home: 3, away: 0 }, updatedBy: 'u-checkin'
+    }));
+  });
+
+  test('R82g ⭐ 從這條路不能把狀態推到 live／finished（狀態機本身放行 scheduled → live，是這條分支擋的）', async () => {
+    await scheduled();
+    await assertFails(updateDoc(matchRef(authed(env, 'u-checkin')), { checkin: flags(), status: 'live', updatedBy: 'u-checkin' }));
+    await assertFails(updateDoc(matchRef(authed(env, 'u-checkin')), { checkin: flags(), status: 'finished', updatedBy: 'u-checkin' }));
+  });
+
+  test('R82h ⭐ 不是自己場地的場次寫不了；管理員不受場地限制', async () => {
+    const refB = db => doc(db, 'events', EVENT, 'matches', MATCH_B);
+    await asAdminSdk(env, db => updateDoc(refB(db), { status: 'scheduled' }));
+    await assertFails(updateDoc(refB(authed(env, 'u-checkin')), { checkin: flags(), status: 'checkin', updatedBy: 'u-checkin' }));
+    await assertSucceeds(updateDoc(refB(authed(env, 'u-admin')), {
+      checkin: flags({ homeConfirmedBy: 'u-admin' }), status: 'checkin', updatedBy: 'u-admin'
+    }));
+  });
+
+  test('R82i 已鎖定的場次寫不了', async () => {
+    await asAdminSdk(env, db => updateDoc(matchRef(db), {
+      status: 'finished', lock: { locked: true, lockedAt: null, lockedBy: 'u-scorer' }
+    }));
+    await assertFails(updateDoc(matchRef(authed(env, 'u-checkin')), { checkin: flags(), updatedBy: 'u-checkin' }));
+  });
+
+  test('R82j updatedBy 必須是自己（留痕是誰放行的）', async () => {
+    await scheduled();
+    await assertFails(updateDoc(matchRef(authed(env, 'u-checkin')), { checkin: flags(), status: 'checkin', updatedBy: 'u-scorer' }));
+  });
+
+  test('R82k 裁判也走得了這條路（裁判含檢錄員的職能）', async () => {
+    await scheduled();
+    await assertSucceeds(updateDoc(matchRef(authed(env, 'u-referee')), {
+      checkin: flags({ homeConfirmedBy: 'u-referee' }), status: 'checkin', updatedBy: 'u-referee'
+    }));
+  });
+
+  test('R82l 攤位人員與一般登入者寫不了', async () => {
+    await scheduled();
+    await assertFails(updateDoc(matchRef(authed(env, 'u-booth')), { checkin: flags(), status: 'checkin', updatedBy: 'u-booth' }));
+    await assertFails(updateDoc(matchRef(authed(env, 'u-random')), { checkin: flags(), status: 'checkin', updatedBy: 'u-random' }));
   });
 });

@@ -49,6 +49,8 @@
   date: '2026-10-11',
   teamCount: 8,
   playersOnField: 9,                   // 5 或 9
+  minPlayersToStart: 7,                // 可選：完成檢錄的最低人數；沒設就用 playersOnField
+                                       // （規章沒有寫最低開賽人數，留給主辦；js/modules/staff/checkin-actions.js requiredMinOf）
   matchDurationMin: 30,
   formatId: 'F8_GROUP_CROSS',          // 指向 config/formats
   rankingRuleId: 'RR_FEDA_DEFAULT',    // 指向 config/rankingRules
@@ -270,7 +272,13 @@
 
   checkin: {
     homeConfirmed: true, awayConfirmed: true,
-    confirmedAt: Timestamp
+    confirmedAt: Timestamp,            // 兩隊都完成時才填
+    // 由檢錄台「完成這一隊的檢錄」寫入（rules 的 (E) 分支，只准動這一包與狀態）：
+    homeConfirmedBy: 'uid...', homeConfirmedAt: Timestamp, homePresent: 5, homeForcedReason: null,
+    awayConfirmedBy: 'uid...', awayConfirmedAt: Timestamp, awayPresent: 5, awayForcedReason: null,
+    // 人數不足由管理員放行時 *ForcedReason 是原因（同時寫進 audits: checkin.forceComplete）。
+    // requiredMin（可選）：主辦逐場設定的門檻；沒設就用組別的 minPlayersToStart → playersOnField。
+    // ⚠️ updateDoc 對這一包是整包取代，寫的時候要把另一隊的旗標抄回去。
   },
 
   lock: {

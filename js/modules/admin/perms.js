@@ -159,6 +159,7 @@ export async function adminPermsPage({ scope, view }) {
         el('p', {
           class: 'adm__note',
           text: '這裡調的是「畫面上看得到什麼」。標著「規則也擋」的那幾條同時寫在資料庫規則裡，關掉只是把按鈕收起來，資料仍然受保護。'
+            + '改動不會推到已經開著賽務台的手機——那邊要重新整理或重新登入才會生效。'
         })
       ]),
 

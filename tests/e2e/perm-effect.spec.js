@@ -58,7 +58,8 @@ const base = ({ role = 'scorer', matrix = MATRIX } = {}) => {
       kickoffAt: '2026-10-09T09:30:00+08:00',
       home: { teamId: 't-101', name: '臺中野狼' }, away: { teamId: 't-102', name: '臺中猛虎' },
       teamIds: ['t-101', 't-102'],
-      checkin: { requiredMin: 5 },
+      // ⚠️ 真實文件的形狀（seed）：沒有 requiredMin，門檻從組別的 playersOnField 來
+      checkin: { homeConfirmed: false, awayConfirmed: false, confirmedAt: null },
       score: { home: 0, away: 0 }, status: 'scheduled', period: 'pre',
       clock: { running: false, periodStartedAt: null, elapsedSecAtPause: 0, addedTimeSec: 0 },
       lock: { locked: false }

@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20260907a';
+export const CACHE_VERSION = '0.20260907b';
 
 /**
  * PWA 安裝入口。主辦 2026-09-06 決定關閉：頁首不畫「安裝」，Chrome 自己的安裝橫幅也在
@@ -167,6 +167,9 @@ export const PERMISSIONS = [
   // ── 檢錄 ──
   { code: 'checkin.write',    label: '檢錄勾選出賽',   group: '檢錄', minRole: 'checkin' },
   { code: 'member.read',      label: '看球員個資（生日／身分證後四碼）', group: '檢錄', minRole: 'checkin' },
+  // 人數不足時「仍要完成檢錄」只有管理員以上做得到，而且要記錄原因（docs/04 §4.6）。
+  // 檢錄員按不到：人數不足是主辦要裁定的事（規章第十八條第 6 款，棄權論 0:2）。
+  { code: 'checkin.force',    label: '人數不足仍完成檢錄（記錄原因）', group: '檢錄', minRole: 'admin' },
 
   // ── 裁判 ──
   // 時鐘與期別**不在**這裡：rules 對 matches 文件是一道整體的閘

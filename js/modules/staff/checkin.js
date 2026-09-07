@@ -25,9 +25,11 @@ import { el, mount, toast, skeleton, confirmDialog } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
 import { user, can, canCheckin } from '../../core/firebase.js';
-import { watchMatch } from './data.js';
-import { watchCheckins, saveCheckin, getCheckinRoster } from './checkin-data.js';
-import { buildCheckin, checkinSummary, presentIds } from './checkin-actions.js';
+import { watchMatch, getDivision, writeAudit } from './data.js';
+import { watchCheckins, saveCheckin, getCheckinRoster, confirmCheckin, stamp } from './checkin-data.js';
+import {
+  buildCheckin, checkinSummary, presentIds, requiredMinOf, checkinGate, buildCheckinConfirmPatch
+} from './checkin-actions.js';
 
 export async function checkinPage({ params, scope, view }) {
   const { matchId } = params;
@@ -43,7 +45,9 @@ export async function checkinPage({ params, scope, view }) {
   const state = {
     match: null, rosters: {}, rosterError: {}, checkins: {},
     side: 'home', loaded: false, busy: false,
-    rosterKey: null
+    rosterKey: null,
+    // 組別設定：開賽人數門檻從這裡來（規章第十五條的上場人數）
+    division: null, divisionKey: null
   };
 
   if (!canCheckin()) {
@@ -55,6 +59,7 @@ export async function checkinPage({ params, scope, view }) {
     state.match = m;
     state.loaded = true;
     loadRosters();
+    loadDivision();
     render();
   }, err => {
     console.error('[checkin] match', err);
@@ -92,6 +97,23 @@ export async function checkinPage({ params, scope, view }) {
       }
       render();
     }
+  }
+
+  /**
+   * 組別設定只讀一次：門檻（playersOnField）在比賽期間不會變。
+   * 讀不到就留 null——footer 會 fail-closed 說「門檻讀不到」，不會當成 0。
+   */
+  async function loadDivision() {
+    const id = state.match?.divisionId;
+    if (!id || state.divisionKey === id) return;
+    state.divisionKey = id;
+    try {
+      state.division = await getDivision(id);
+    } catch (err) {
+      console.warn('[checkin] division', id, err);
+      state.division = null;
+    }
+    render();
   }
 
   /** 錯誤翻成人話（檢錄員看不懂 failed-precondition） */
@@ -178,14 +200,18 @@ export async function checkinPage({ params, scope, view }) {
 
     return el('li', { class: `chk__row${present ? ' is-present' : ''}${failed ? ' is-failed' : ''}` }, [
       el('label', { class: 'chk__pick' }, [
+        // ⚠️ 標了「有問題」的球員**不能直接勾出賽**（第三輪驗收 C-3）。
+        //    出賽與有問題是同一個欄位（result），直接勾等於悄悄把註記洗掉——
+        //    而註記正是要擋住這個勾的東西。要先按「取消註記」，讓那一步是明白做的。
         el('input', {
-          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy,
+          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy || failed,
           'aria-label': `${m.displayName || m.memberId} 出賽`,
           onChange: e => mark(m, e.target.checked ? 'pass' : null)
         }),
         el('span', { class: 'chk__no num', text: m.jerseyNo != null ? String(m.jerseyNo) : '—' }),
         el('span', { class: 'chk__info' }, [
           el('strong', { class: 'chk__name', text: m.displayName || '（未填）' }),
+          failed ? el('span', { class: 'chk__tag chk__tag--flag', text: '有問題・先取消註記才能勾出賽' }) : null,
           // 配戴眼鏡上場（規章附件二）：切結書沒收到的要提醒裁判賽前檢查裝備
           m.glasses
             ? el('span', {
@@ -215,23 +241,47 @@ export async function checkinPage({ params, scope, view }) {
     ]);
   }
 
+  /**
+   * 底部：進度、門檻、完成鈕。
+   *
+   * 門檻由 requiredMinOf 算（場次 → 組別 minPlayersToStart → 組別 playersOnField），
+   * 讀不到就 fail-closed。人數不足時檢錄員按不下去（人數不足是主辦裁定的事，
+   * 規章第十八條第 6 款）；管理員（`checkin.force`）可以，但要記錄原因。
+   */
   function footer(sum) {
-    const min = state.match?.checkin?.requiredMin ?? null;
-    const short = min != null && sum.present < min;
+    const m = state.match;
+    const min = requiredMinOf({ match: m, division: state.division });
+    const gate = checkinGate({ summary: sum, requiredMin: min, canForce: can('checkin.force') });
+    const done = m?.checkin?.[`${state.side}Confirmed`] === true;
     return el('div', { class: 'chk__footer' }, [
       el('div', { class: 'chk__tally' }, [
         el('strong', { class: 'num', text: `${sum.present}` }),
         el('span', { text: ` / ${sum.total} 人已確認出賽` }),
-        sum.failed ? el('span', { class: 'chk__warn', text: `　·　${sum.failed} 筆有問題` }) : null
+        sum.failed ? el('span', { class: 'chk__warn', text: `　·　${sum.failed} 筆有問題` }) : null,
+        done ? el('span', { class: 'chk__tag chk__tag--ok', id: 'chk-done', text: '已完成檢錄' }) : null
       ].filter(Boolean)),
-      short
-        ? el('p', { class: 'chk__warn', text: `不足開賽人數（至少 ${min} 人）。人數不足請找主辦，不要自行放行。` })
-        : null,
+      gateNote(gate, min),
       el('button', {
-        class: 'btn btn--lg btn--primary', type: 'button', disabled: state.busy,
-        onClick: () => finish(sum)
-      }, iconText('check', '完成這一隊的檢錄'))
+        class: 'btn btn--lg btn--primary', type: 'button', id: 'chk-finish',
+        disabled: state.busy || !gate.allowed,
+        onClick: () => finish(sum, gate)
+      }, iconText('check', gate.needsReason ? '人數不足仍完成檢錄' : '完成這一隊的檢錄'))
     ].filter(Boolean));
+  }
+
+  /** 為什麼按不下去、或為什麼要填原因——一定要說出來，不能只把按鈕變灰 */
+  function gateNote(gate, min) {
+    if (gate.allowed && !gate.short) return null;
+    if (min == null) {
+      return el('p', { class: 'chk__warn', id: 'chk-gate', text: `${gate.reason}。門檻讀不到就不能完成檢錄。` });
+    }
+    const head = `不足開賽人數（至少 ${min} 人，還差 ${gate.missing} 人）。`;
+    return el('p', {
+      class: 'chk__warn', id: 'chk-gate',
+      text: gate.needsReason
+        ? `${head}人數不足由主辦裁定；你是管理員，可以記錄原因後放行。`
+        : `${head}人數不足請找主辦裁定，檢錄員不能自行放行。`
+    });
   }
 
   // ── 動作 ────────────────────────────────────────────────
@@ -254,13 +304,46 @@ export async function checkinPage({ params, scope, view }) {
     saveCheckin(matchId, m.memberId, doc, result == null);
   }
 
-  async function finish(sum) {
+  /**
+   * 完成這一隊的檢錄。
+   *
+   * 寫回場次的 `checkin` 那一包（誰、幾點、幾人、有沒有放行），狀態進入檢錄中／待開賽。
+   * 第三輪驗收 C-5 之前這裡只跳一則成功提示，什麼都沒寫——一個人也能「完成」。
+   * 管理員放行一定要填原因，而且寫進稽核（docs/04 §4.6）。
+   */
+  async function finish(sum, gate) {
+    if (!gate?.allowed) return;
+    let forcedReason = null;
+    if (gate.needsReason) {
+      const typed = window.prompt(`人數不足（還差 ${gate.missing} 人）仍要完成檢錄的原因（必填，會寫進稽核紀錄）：`);
+      forcedReason = String(typed ?? '').trim().slice(0, 200);
+      if (!forcedReason) { toast('必須填原因才能放行', 'warn'); return; }
+    }
     const ok = await confirmDialog({
       title: `完成 ${teamName(state.side)} 的檢錄？`,
-      body: `已確認出賽 ${sum.present} / ${sum.total} 人${sum.failed ? `，${sum.failed} 筆標記有問題` : ''}。送出後仍可修改。`,
+      body: `已確認出賽 ${sum.present} / ${sum.total} 人${sum.failed ? `，${sum.failed} 筆標記有問題` : ''}`
+        + `${forcedReason ? `。人數不足，由你放行：${forcedReason}` : ''}。送出後仍可修改。`,
       confirmText: '完成檢錄'
     });
     if (!ok) return;
+
+    const m = state.match;
+    const patch = buildCheckinConfirmPatch({
+      match: m, side: state.side, uid: user()?.uid ?? null,
+      present: sum.present, forcedReason, stamp: stamp()
+    });
+    // 不 await（R-UI-002）：離線時 Promise 永遠 pending，狀態交給右上角的三態燈
+    confirmCheckin(matchId, patch, `完成檢錄　${teamName(state.side)}`);
+    if (forcedReason) {
+      writeAudit({
+        entity: 'match', entityId: matchId, action: 'checkin.forceComplete',
+        before: { side: state.side, present: sum.present, requiredMin: requiredMinOf({ match: m, division: state.division }) },
+        after: { [`${state.side}Confirmed`]: true },
+        reason: forcedReason
+      });
+    }
+    // 本機先更新，畫面立刻標「已完成檢錄」；伺服器的快照回來會再覆蓋一次
+    state.match = { ...m, checkin: patch.checkin, ...(patch.status ? { status: patch.status } : {}) };
     toast(`${teamName(state.side)} 檢錄完成`, 'success');
     // 兩隊都檢完就回賽務首頁；否則切到另一隊繼續
     const other = state.side === 'home' ? 'away' : 'home';

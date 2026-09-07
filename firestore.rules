@@ -446,7 +446,21 @@ service cloud.firestore {
                && onlyChanged(['status', 'period', 'lock', 'result',
                                'scoreSubmittedAt', 'scoreSubmittedBy',
                                'updatedAt', 'updatedBy'])
-               && request.resource.data.updatedBy == uid() );
+               && request.resource.data.updatedBy == uid() )
+
+          // (E) 檢錄：完成一隊的檢錄時把旗標寫回場次（docs/04 §4.6、docs/01b §1.7 的 checkin）。
+          //     isCheckin() 已含裁判／記錄員／管理員。只動 checkin 這一包與
+          //     「未開始／檢錄中／待開賽」之間的狀態——比分、時鐘、完賽在這條路上一律寫不進去
+          //     （R82c／R82d 守著），場地限制與 (B) 相同。
+          //     第三輪驗收 C-5 之前「完成檢錄」什麼都沒寫，因為檢錄員根本沒有一條寫得到場次的路。
+          || ( isCheckin()
+               && assignedVenue(resource.data.venueId)
+               && resource.data.lock.locked == false
+               && onlyChanged(['checkin', 'status', 'updatedAt', 'updatedBy'])
+               && request.resource.data.updatedBy == uid()
+               && ( request.resource.data.status == resource.data.status
+                    || request.resource.data.status in ['checkin', 'ready'] )
+               && validStatusTransition(resource.data.status, request.resource.data.status) );
 
         // ── 比賽事件：永不刪除，只作廢 ──
         match /timeline/{timelineId} {

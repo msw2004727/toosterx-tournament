@@ -111,3 +111,20 @@ export function saveCheckin(matchId, memberId, doc_, clear = false) {
   // 整份覆蓋會把先前的 note 洗掉
   return track(label, () => setDoc(ref, payload, { merge: true }), { matchId, memberId });
 }
+
+/** 給引擎當時間戳用的 serverTimestamp()（引擎自己不碰時間，R-ENG-004） */
+export const stamp = () => sdk().serverTimestamp();
+
+/**
+ * 完成一隊的檢錄：把旗標寫回場次文件（patch 由 buildCheckinConfirmPatch 組）。
+ *
+ * 規則的 (E) 分支只放行 checkin／status／updatedAt／updatedBy，而且狀態只能在
+ * 未開始／檢錄中／待開賽之間走——比分與完賽在這條路上是寫不進去的。
+ * 第三輪驗收 C-5 之前，「完成檢錄」按下去什麼都沒寫，只跳一則成功提示。
+ */
+export function confirmCheckin(matchId, patch, label) {
+  const { doc, updateDoc, serverTimestamp } = sdk();
+  const ref = doc(db(), 'events', EVENT_ID, 'matches', matchId);
+  return track(label, () => updateDoc(ref, { ...patch, updatedAt: serverTimestamp(), updatedBy: uid() }),
+    { matchId, kind: 'checkin' });
+}

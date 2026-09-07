@@ -488,7 +488,7 @@ const MUTANTS = [
   {
     name: '#P33 介面提供了 rules 不放行的身分（選了才被擋，看起來像壞掉）',
     file: 'js/modules/demo/index.js',
-    from: `  { value: 'admin',   note: '記錄員 ＋ 覆核完賽、改判、賽程、審核報名' },`,
+    from: `  { value: 'admin',   note: '多了：覆核完賽、改判、賽程、審核報名（其餘同記錄員）' },`,
     to: `  { value: 'super_admin', note: 'x' },`
   },
   {
@@ -1925,6 +1925,50 @@ const MUTANTS = [
     file: 'js/modules/admin/schedule-actions.js',
     from: '  if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;',
     to: '  if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 24 || m < 0 || m > 59) return null;'
+  },
+
+  // ══ 第三輪驗收（2026-09-07）：檢錄員 C-3／C-5、記錄員 S-5 ══
+  {
+    name: '#AF23 ⭐ 門檻讀不到當成 0（一個人也能完成檢錄；C-5）',
+    file: 'js/modules/staff/checkin-actions.js',
+    from: '    if (typeof v === \'number\' && Number.isFinite(v) && v > 0) return v;\n  }\n  return null;',
+    to: '    if (typeof v === \'number\' && Number.isFinite(v) && v > 0) return v;\n  }\n  return 0;'
+  },
+  {
+    name: '#AF24 ⭐ 門檻讀不到時管理員照樣放行（設定壞了沒有人會發現；C-5）',
+    file: 'js/modules/staff/checkin-actions.js',
+    from: '  if (known && canForce === true) {',
+    to: '  if (canForce === true) {'
+  },
+  {
+    name: '#AF25 ⭐ 人數不足時檢錄員照樣按得下去（C-5）',
+    file: 'js/modules/staff/checkin-actions.js',
+    from: '  return { allowed: false, short: known, missing, reason: r.reason, needsReason: false };',
+    to: '  return { allowed: true, short: known, missing, reason: r.reason, needsReason: false };'
+  },
+  {
+    name: '#AF26 ⭐ 出場名單的列不算球員（名單一經確認，賽務台的選單一個人都不剩；S-5）',
+    file: 'js/modules/staff/live-actions.js',
+    from: '  return r === \'player\' || SHEET_ROLES.includes(r);',
+    to: '  return r === \'player\';'
+  },
+  {
+    name: '#AF27 ⭐ 換人不更新場上名單（換完「誰下場」還列著已經下場的人；S-5）',
+    file: 'js/modules/staff/live-actions.js',
+    from: '    if (e.playerId) on.delete(e.playerId);\n    if (e.subInPlayerId) on.add(e.subInPlayerId);',
+    to: '    void e;'
+  },
+  {
+    name: '#AF28 ⭐ 一隊完成就填 confirmedAt（看起來兩隊都檢完了；C-5）',
+    file: 'js/modules/staff/checkin-actions.js',
+    from: '  checkin.confirmedAt = both ? (prev.confirmedAt ?? stamp) : null;',
+    to: '  checkin.confirmedAt = stamp;'
+  },
+  {
+    name: '#AF29 ⭐ 兩隊都檢完狀態仍停在檢錄中（賽務首頁永遠不會顯示待開賽；C-5）',
+    file: 'js/modules/staff/checkin-actions.js',
+    from: '    ? (both ? \'ready\' : \'checkin\')',
+    to: '    ? \'checkin\''
   }
 ];
 

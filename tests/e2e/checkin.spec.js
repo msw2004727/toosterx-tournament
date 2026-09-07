@@ -22,14 +22,38 @@ const staffDoc = (roles) => ({
   assignment: { eventId: EVENT, date: '2026-10-09', venueIds: ['venue-a'], divisionIds: [], challengeIds: [] }
 });
 
-const seed = ({ roles = ['checkin'], memberOver = {} } = {}) => ({
+/**
+ * 替身種子。
+ *
+ * ⚠️ 場次的 `checkin` 要照**真實文件**的形狀寫（seed 只有 homeConfirmed／awayConfirmed／confirmedAt）。
+ *    第一版塞了一個真實資料庫沒有的 `requiredMin: 5`，於是「人數不足說清楚」在測試裡一直是綠的、
+ *    在 demo 上一個人也能完成檢錄（第三輪驗收 C-5）——替身資料寫錯 schema 比沒有測試更危險，第六次。
+ *    門檻現在從組別的 playersOnField 來。
+ *
+ * @param {number} [extraPlayers]  兩隊各多加幾位球員（要湊到 5 人門檻用）
+ * @param {object} [divisionOver]  覆蓋組別設定；值給 undefined 就是把那個欄位拿掉
+ */
+const seed = ({ roles = ['checkin'], memberOver = {}, extraPlayers = 0, divisionOver = {} } = {}) => {
+  const division = {
+    divisionId: 'u10', name: '學童中年級', matchDurationMin: 25, periods: 1, playersOnField: 5,
+    eligibility: { bornOnOrAfter: '2016-09-01' }, ...divisionOver
+  };
+  for (const k of Object.keys(division)) if (division[k] === undefined) delete division[k];
+  const extra = {};
+  for (let i = 0; i < extraPlayers; i++) {
+    for (const [team, tag] of [['t-101', 'x'], ['t-102', 'y']]) {
+      const id = `m-${tag}${i + 1}`;
+      extra[`events/${EVENT}/teams/${team}/members/${id}`] = {
+        memberId: id, name: `補位${tag}${i + 1}`, nameKind: 'nickname', jerseyNo: 20 + i,
+        kind: 'player', status: 'approved', birthDate: '2017-02-02', idLast4: String(4000 + i), source: 'coach'
+      };
+    }
+  }
+  return {
   [`events/${EVENT}`]: { eventId: EVENT, name: 'FEDA CUP 2026' },
   'config/env': { env: 'demo', allowSelfServeStaff: true },
   'staff/u-e2e': staffDoc(roles),
-  [`events/${EVENT}/divisions/u10`]: {
-    divisionId: 'u10', name: '學童中年級', matchDurationMin: 25, periods: 1, playersOnField: 5,
-    eligibility: { bornOnOrAfter: '2016-09-01' }
-  },
+  [`events/${EVENT}/divisions/u10`]: division,
   [`events/${EVENT}/matches/${MATCH}`]: {
     matchId: MATCH, eventId: EVENT, divisionId: 'u10', stageId: 'group', groupId: 'A',
     label: '第1場 A組第1輪', venueId: 'venue-a', venueName: 'A場', date: '2026-10-09',
@@ -38,7 +62,7 @@ const seed = ({ roles = ['checkin'], memberOver = {} } = {}) => ({
     teamIds: ['t-101', 't-102'],
     score: { home: 0, away: 0 }, status: 'scheduled', period: 'pre',
     clock: { running: false }, lock: { locked: false },
-    checkin: { requiredMin: 5 }
+    checkin: { homeConfirmed: false, awayConfirmed: false, confirmedAt: null }
   },
   // ⚠️ 檢錄讀的是 members（私密），不是公開的 roster——
   //    生日與身分證後四碼只存在這一份文件上。
@@ -61,8 +85,10 @@ const seed = ({ roles = ['checkin'], memberOver = {} } = {}) => ({
   [`events/${EVENT}/teams/t-102/members/m-9`]: {
     memberId: 'm-9', name: '小龍', nameKind: 'nickname', jerseyNo: 11,
     kind: 'player', status: 'approved', birthDate: '2017-06-01', idLast4: '2468', source: 'coach'
-  }
-});
+  },
+  ...extra
+  };
+};
 
 async function stub(page, opts = {}) {
   await page.route('https://www.gstatic.com/firebasejs/**', r =>
@@ -231,4 +257,129 @@ test('⭐ D-01b 名單讀不到（缺索引）時說「讀不到」，不說「�
   await expect(page.locator('#chk-roster-error')).toContainText('索引');
   await expect(page.locator('.chk__empty', { hasText: '還沒有名單' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /完成這一隊的檢錄/ })).toBeVisible();
+});
+
+// ── 第三輪驗收（2026-09-07，檢錄員）────────────────────────────────
+// C-3：標了「有問題」的人不能直接勾出賽。C-5：一個人也能「完成檢錄」，而且什麼都沒寫。
+
+const matchDoc = async page => (await dump(page))[`events/${EVENT}/matches/${MATCH}`];
+const tickAll = async (page, n) => { for (let i = 0; i < n; i++) await page.locator('.chk__box').nth(i).check(); };
+
+test('⭐ C-3 標了「有問題」的球員不能直接勾出賽，要先取消註記 @staff @checkin', async ({ page }) => {
+  // 出賽與有問題是同一個欄位（result），直接勾等於悄悄把註記洗掉——而註記正是要擋住這個勾的東西
+  await stub(page);
+  await go(page);
+  const row = page.locator('.chk__row').first();
+  await row.getByRole('button', { name: /^有問題$/ }).click();
+  await expect(row).toHaveClass(/is-failed/);
+  await expect(row.locator('.chk__box')).toBeDisabled();
+  await expect(row).toContainText('先取消註記');
+  await row.getByRole('button', { name: /取消註記/ }).click();
+  await expect(row.locator('.chk__box')).toBeEnabled();
+  await expect(row).not.toContainText('先取消註記');
+});
+
+test('⭐ C-5 只勾 1 人：完成檢錄按不下去，說清楚差幾人，而且不叫檢錄員自己放行 @staff @checkin', async ({ page }) => {
+  await stub(page, { extraPlayers: 3 });
+  await go(page);
+  await expect(page.locator('.chk__box')).toHaveCount(6);   // 5 位球員 ＋ 教練那一列（球員排前面）
+  await page.locator('.chk__box').first().check();
+  await expect(page.locator('.chk__footer')).toContainText('1 / 5');
+  await expect(page.locator('#chk-finish')).toBeDisabled();
+  await expect(page.locator('#chk-gate')).toContainText('至少 5 人');
+  await expect(page.locator('#chk-gate')).toContainText('還差 4 人');
+  await expect(page.locator('#chk-gate')).toContainText('不能自行放行');
+});
+
+test('⭐ C-5 人數夠了才按得下去；完成之後旗標寫回場次、狀態進入檢錄中 @staff @checkin', async ({ page }) => {
+  await stub(page, { extraPlayers: 3 });
+  await go(page);
+  await expect(page.locator('.chk__box')).toHaveCount(6);   // 5 位球員 ＋ 教練那一列
+  await expect(page.locator('#chk-finish')).toBeDisabled();
+  await tickAll(page, 5);
+  await expect(page.locator('.chk__footer')).toContainText('5 / 5');
+  await expect(page.locator('#chk-gate')).toHaveCount(0);
+  await expect(page.locator('#chk-finish')).toBeEnabled();
+  await page.locator('#chk-finish').click();
+  await page.locator('.modal').getByRole('button', { name: '完成檢錄' }).click();
+
+  await expect.poll(async () => (await matchDoc(page))?.checkin?.homeConfirmed ?? null, { timeout: 10_000 }).toBe(true);
+  const m = await matchDoc(page);
+  expect(m.status).toBe('checkin');
+  expect(m.checkin.awayConfirmed).toBe(false);        // 另一隊的旗標原封不動（updateDoc 對巢狀 map 是整包取代）
+  expect(m.checkin.confirmedAt).toBeNull();
+  expect(m.checkin.homeConfirmedBy).toBe('u-e2e');
+  expect(m.checkin.homePresent).toBe(5);
+  expect(m.updatedBy).toBe('u-e2e');
+
+  // 主隊檢完、客隊還沒：畫面切到客隊。客隊 4 人（小龍 ＋ 補位 3 人）全勾仍差 1 人 → 按不下去
+  await expect(page.getByRole('tab', { name: /沙鹿飛龍/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.chk__box')).toHaveCount(4);
+  await tickAll(page, 4);
+  await expect(page.locator('#chk-finish')).toBeDisabled();
+  await expect(page.locator('#chk-gate')).toContainText('還差 1 人');
+
+  // 回主隊分頁要看得到「已完成檢錄」
+  await page.getByRole('tab', { name: /大甲金剛/ }).click();
+  await expect(page.locator('#chk-done')).toBeVisible();
+});
+
+test('⭐ C-5 兩隊都完成 → 場次進入待開賽（ready），confirmedAt 這時才填 @staff @checkin', async ({ page }) => {
+  await stub(page, { extraPlayers: 4 });
+  await go(page);
+  await expect(page.locator('.chk__box')).toHaveCount(7);   // 6 位球員 ＋ 教練那一列
+  await tickAll(page, 5);
+  await page.locator('#chk-finish').click();
+  await page.locator('.modal').getByRole('button', { name: '完成檢錄' }).click();
+  await expect.poll(async () => (await matchDoc(page))?.status ?? null, { timeout: 10_000 }).toBe('checkin');
+
+  await expect(page.getByRole('tab', { name: /沙鹿飛龍/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.chk__box')).toHaveCount(5);
+  await tickAll(page, 5);
+  await expect(page.locator('#chk-finish')).toBeEnabled();
+  await page.locator('#chk-finish').click();
+  await page.locator('.modal').getByRole('button', { name: '完成檢錄' }).click();
+  await expect.poll(async () => (await matchDoc(page))?.status ?? null, { timeout: 10_000 }).toBe('ready');
+  const m = await matchDoc(page);
+  expect(m.checkin.homeConfirmed).toBe(true);
+  expect(m.checkin.awayConfirmed).toBe(true);
+  expect(m.checkin.confirmedAt).not.toBeNull();
+});
+
+test('⭐ C-5 管理員可以在人數不足時放行，但一定要填原因，而且留稽核 @staff @checkin', async ({ page }) => {
+  await stub(page, { roles: ['admin'], extraPlayers: 3 });
+  await go(page);
+  await expect(page.locator('.chk__box')).toHaveCount(6);   // 5 位球員 ＋ 教練那一列
+  await page.locator('.chk__box').first().check();
+  await expect(page.locator('#chk-gate')).toContainText('管理員');
+  const btn = page.locator('#chk-finish');
+  await expect(btn).toBeEnabled();
+  await expect(btn).toContainText('人數不足仍完成檢錄');
+
+  // 沒填原因就不放行：連確認框都不出現，什麼都不寫
+  page.once('dialog', d => d.dismiss());
+  await btn.click();
+  await expect(page.locator('.modal')).toHaveCount(0);
+  expect((await matchDoc(page)).checkin.homeConfirmed).toBe(false);
+
+  page.once('dialog', d => d.accept('對手同意以 4 人開賽'));
+  await btn.click();
+  await expect(page.locator('.modal')).toContainText('對手同意以 4 人開賽');
+  await page.locator('.modal').getByRole('button', { name: '完成檢錄' }).click();
+  await expect.poll(async () => (await matchDoc(page))?.checkin?.homeConfirmed ?? null, { timeout: 10_000 }).toBe(true);
+  const d = await dump(page);
+  expect(d[`events/${EVENT}/matches/${MATCH}`].checkin.homeForcedReason).toBe('對手同意以 4 人開賽');
+  const audits = Object.entries(d).filter(([k]) => k.startsWith(`events/${EVENT}/audits/`)).map(([, v]) => v);
+  expect(audits.some(a => a.action === 'checkin.forceComplete' && a.reason === '對手同意以 4 人開賽')).toBe(true);
+});
+
+test('⭐ C-5 組別讀不到上場人數：門檻不明就不放行（fail-closed），連管理員都不行 @staff @checkin', async ({ page }) => {
+  // 「沒設定就當作通過」會在人數不足時默默放行；設定壞了要先修設定，不是硬按過去
+  await stub(page, { roles: ['admin'], extraPlayers: 3, divisionOver: { playersOnField: undefined } });
+  await go(page);
+  await expect(page.locator('.chk__box')).toHaveCount(6);   // 5 位球員 ＋ 教練那一列
+  await tickAll(page, 5);
+  await expect(page.locator('.chk__footer')).toContainText('5 / 5');
+  await expect(page.locator('#chk-finish')).toBeDisabled();
+  await expect(page.locator('#chk-gate')).toContainText('門檻');
 });

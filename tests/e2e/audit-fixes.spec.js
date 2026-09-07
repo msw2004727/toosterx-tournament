@@ -342,3 +342,90 @@ test('R-2 學童組的管理頁在組別讀到之前不畫「邀請隊友」（�
   await expect(page.getByRole('button', { name: /新增一位球員/ })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('.reg')).not.toContainText('邀請隊友');
 });
+
+// ── 第三輪驗收（2026-09-07，記錄員）────────────────────────────────
+// S-5：換人選單不知道誰在場上；核實時發現出場名單一經確認，選單就一個人都不剩。
+// S-9：管理員看鎖定的場次是唯讀，而提示叫他「去找管理員」。
+
+const SHEET = {
+  matchSheetId: `${MATCH}__t-101`, matchId: MATCH, teamId: 't-101', eventId: EVENT,
+  confirmed: true, startingCount: 2,
+  players: [
+    { memberId: 'm-1', displayName: '小豆子', jerseyNo: 7, position: null, role: 'start' },
+    { memberId: 'm-n', displayName: '沒背號', jerseyNo: null, position: null, role: 'start' },
+    { memberId: 'm-2', displayName: '阿光', jerseyNo: 9, position: null, role: 'bench' }
+  ]
+};
+const sheetSeed = () => base({ extra: { [`events/${EVENT}/matchSheets/${MATCH}__t-101`]: SHEET } });
+
+test('⭐ S-5 出場名單確認之後，賽務台的球員選單還是列得出球員（第一版一個人都不剩）@audit @staff', async ({ page }) => {
+  await stub(page, sheetSeed());
+  await go(page, `/#/staff/match/${MATCH}`);
+  await expect(page.locator('.sb__num').first()).toHaveText('0', { timeout: 15_000 });
+  await page.locator('.bigbtn', { hasText: '進球' }).click();
+  await page.locator('.sheet__opt', { hasText: '大甲金剛' }).click();
+  await expect(page.locator('.sheet__opt', { hasText: '小豆子' })).toBeVisible();
+  await expect(page.locator('.sheet__opt', { hasText: '阿光' })).toBeVisible();
+});
+
+test('⭐ S-5 換人選單分得出場上與場下，而且換完立刻更新 @audit @staff', async ({ page }) => {
+  await stub(page, sheetSeed());
+  await go(page, `/#/staff/match/${MATCH}`);
+  await expect(page.locator('.sb__num').first()).toHaveText('0', { timeout: 15_000 });
+  const dlg = page.getByRole('dialog');
+
+  await page.locator('.bigbtn', { hasText: '換人' }).click();
+  await page.locator('.sheet__opt', { hasText: '大甲金剛' }).click();
+  await expect(dlg).toContainText('誰下場？（場上 2 人）');
+  await expect(dlg.locator('.sheet__opt').first()).toContainText('小豆子');      // 場上的先列
+  await expect(dlg.locator('.sheet__opt', { hasText: '阿光' })).toContainText('場下');
+  await dlg.locator('.sheet__opt', { hasText: '小豆子' }).click();
+
+  await expect(dlg).toContainText('誰上場？');
+  await expect(dlg.locator('.sheet__opt').first()).toContainText('阿光');        // 場下的先列
+  await expect(dlg.locator('.sheet__opt', { hasText: '沒背號' })).toContainText('場上');
+  await dlg.locator('.sheet__opt', { hasText: '阿光' }).click();
+  await expect(page.locator('.tl__text', { hasText: '換人' })).toBeVisible();
+
+  // 再換一次：阿光已經在場上、小豆子在場下
+  await page.locator('.bigbtn', { hasText: '換人' }).click();
+  await page.locator('.sheet__opt', { hasText: '大甲金剛' }).click();
+  await expect(dlg).toContainText('誰下場？（場上 2 人）');
+  await expect(dlg.locator('.sheet__opt', { hasText: '阿光' })).not.toContainText('場下');
+  await expect(dlg.locator('.sheet__opt', { hasText: '小豆子' })).toContainText('場下');
+});
+
+test('S-5 出場名單還沒確認時，換人選單照全隊名冊列，不標場上場下 @audit @staff', async ({ page }) => {
+  await stub(page, base());
+  await go(page, `/#/staff/match/${MATCH}`);
+  await expect(page.locator('.sb__num').first()).toHaveText('0', { timeout: 15_000 });
+  await page.locator('.bigbtn', { hasText: '換人' }).click();
+  await page.locator('.sheet__opt', { hasText: '大甲金剛' }).click();
+  const dlg = page.getByRole('dialog');
+  await expect(dlg).toContainText('誰下場？');
+  await expect(dlg).not.toContainText('場上');
+  await expect(dlg.locator('.sheet__opt-note', { hasText: '場下' })).toHaveCount(0);
+});
+
+const lockedMatch = () => u10Match({
+  status: 'finished', period: 'ft', score: { home: 1, away: 0 },
+  lock: { locked: true, lockedAt: null, lockedBy: 'u-x' }
+});
+
+test('⭐ S-9 管理員看鎖定場次的唯讀提示：有「到場次改判頁」的路，不是叫他去找管理員 @audit @staff @perm', async ({ page }) => {
+  await stub(page, base({ roles: ['admin'], match: lockedMatch() }));
+  await go(page, `/#/staff/match/${MATCH}`);
+  await expect(page.getByText('唯讀模式')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.notice')).toContainText('場次改判頁');
+  await expect(page.locator('.notice')).not.toContainText('需要管理員');
+  await page.locator('#live-to-admin').click();
+  await expect.poll(() => page.evaluate(() => location.hash), { timeout: 15_000 }).toBe(`#/admin/match/${MATCH}`);
+});
+
+test('S-9 記錄員看到的仍然是「需要管理員解鎖」，沒有一顆進不去的按鈕 @audit @staff @perm', async ({ page }) => {
+  await stub(page, base({ roles: ['scorer'], match: lockedMatch() }));
+  await go(page, `/#/staff/match/${MATCH}`);
+  await expect(page.getByText('唯讀模式')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.notice')).toContainText('需要管理員解鎖');
+  await expect(page.locator('#live-to-admin')).toHaveCount(0);
+});

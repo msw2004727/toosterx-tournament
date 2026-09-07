@@ -6,7 +6,7 @@ import {
   buildGoalEvent, buildCardEvent, buildSubEvent,
   suggestCardType, sentOffPlayerIds, onFieldCount, matchFairPlay,
   subCount, checkSubLimit, buildFinishPatch, finishSummary,
-  eventText, sortEventsDesc
+  eventText, sortEventsDesc, isPlayerRow, onFieldIds
 } from '../../js/modules/staff/live-actions.js';
 
 const ev = (over = {}) => ({
@@ -273,5 +273,58 @@ describe('事件顯示', () => {
   test('同秒數時用 seq 決定先後（不會亂跳）', () => {
     const list = sortEventsDesc([ev({ seq: 1, clockSec: 100 }), ev({ seq: 2, clockSec: 100 })]);
     expect(list.map(e => e.seq)).toEqual([2, 1]);
+  });
+});
+
+// ── 第三輪驗收（2026-09-07，記錄員 S-5）────────────────────────────
+
+describe('出場名單的列也是球員', () => {
+  test('⭐ role 是 start／bench 的列算球員——不然名單一經裁判確認，選單就一個人都不剩', () => {
+    expect(isPlayerRow({ role: 'start' })).toBe(true);
+    expect(isPlayerRow({ role: 'bench' })).toBe(true);
+    expect(isPlayerRow({ role: 'player' })).toBe(true);
+    expect(isPlayerRow({})).toBe(true);
+    expect(isPlayerRow({ role: 'coach' })).toBe(false);
+    expect(isPlayerRow({ kind: 'captain' })).toBe(false);
+  });
+});
+
+describe('場上名單（換人選單用）', () => {
+  const sheet = [
+    { memberId: 'a', role: 'start' }, { memberId: 'b', role: 'start' },
+    { memberId: 'c', role: 'bench' }, { memberId: 'd', role: 'bench' }
+  ];
+  const sub = (out, inn, over = {}) => ev({ type: 'substitution', side: 'home', playerId: out, subInPlayerId: inn, ...over });
+
+  test('⭐ 先發在場上，替補在場下', () => {
+    expect([...onFieldIds(sheet, [])].sort()).toEqual(['a', 'b']);
+  });
+
+  test('⭐ 換人之後：下場的離開、上場的加入', () => {
+    const on = onFieldIds(sheet, [sub('a', 'c', { seq: 1, clockSec: 100 })]);
+    expect([...on].sort()).toEqual(['b', 'c']);
+  });
+
+  test('換下去的人可以再換上來（學童組滾動換人），依時序算', () => {
+    const on = onFieldIds(sheet, [
+      sub('c', 'a', { seq: 2, clockSec: 300 }),   // 故意倒著給，要照時間排
+      sub('a', 'c', { seq: 1, clockSec: 100 })
+    ]);
+    expect([...on].sort()).toEqual(['a', 'b']);
+  });
+
+  test('作廢的換人不算', () => {
+    expect([...onFieldIds(sheet, [sub('a', 'c', { voided: true })])].sort()).toEqual(['a', 'b']);
+  });
+
+  test('⭐ 罰離場的人不在場上', () => {
+    const on = onFieldIds(sheet, [ev({ type: 'card', cardType: 'red', playerId: 'a' })]);
+    expect([...on]).toEqual(['b']);
+  });
+
+  test('⭐ 名單沒有先發／替補資訊（出場名單還沒確認）時回 null，不是空集合', () => {
+    expect(onFieldIds([{ memberId: 'a', role: 'player' }], [])).toBeNull();
+    expect(onFieldIds([], [])).toBeNull();
+    expect(onFieldIds(null, null)).toBeNull();
   });
 });

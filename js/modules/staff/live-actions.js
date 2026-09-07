@@ -269,9 +269,43 @@ export function lastPlayedPeriod(events) {
   return best?.periodId ?? 'h1';
 }
 
-/** 名冊上的這一列是球員嗎（隊職員沒有 role，或 role/kind 不是 player） */
+/** 出場名單上球員的兩種身分：先發／替補（docs/04 §7） */
+export const SHEET_ROLES = ['start', 'bench'];
+
+/**
+ * 名冊上的這一列是球員嗎（隊職員沒有 role，或 role/kind 不是 player）。
+ *
+ * ⚠️ 出場名單的列 `role` 是 'start'／'bench'，那也是球員。第一版只認 'player'——
+ *    名單一經裁判確認，賽務台的球員選單就**一個人都不剩**（提示還叫人「先到出場名單確認」）。
+ *    demo 上 U10-G-A-01 的主隊真的有一份確認過的名單；第三輪驗收 S-5 核實時發現。
+ */
 export function isPlayerRow(p) {
-  return (p?.role ?? p?.kind ?? 'player') === 'player';
+  const r = p?.role ?? p?.kind ?? 'player';
+  return r === 'player' || SHEET_ROLES.includes(r);
+}
+
+/**
+ * 目前在場上的球員：先發 − 罰離場 − 換下 ＋ 換上，依時序算（換下去的人可以再換上來，
+ * 學童組滾動換人本來就這樣）。
+ *
+ * 名冊上沒有先發／替補資訊（出場名單還沒確認，退回全隊名冊）時回 **null**——
+ * 「不知道誰在場上」跟「沒有人在場上」是兩回事，選單要分得出來（第三輪驗收 S-5）。
+ *
+ * @returns {Set<string>|null}
+ */
+export function onFieldIds(roster, events) {
+  const rows = (roster || []).filter(isPlayerRow);
+  if (!rows.some(p => SHEET_ROLES.includes(p?.role))) return null;
+  const on = new Set(rows.filter(p => p.role === 'start').map(p => p.memberId));
+  const subs = (events || [])
+    .filter(e => isLive(e) && e.type === 'substitution')
+    .sort((a, b) => (a.clockSec ?? 0) - (b.clockSec ?? 0) || (a.seq ?? 0) - (b.seq ?? 0));
+  for (const e of subs) {
+    if (e.playerId) on.delete(e.playerId);
+    if (e.subInPlayerId) on.add(e.subInPlayerId);
+  }
+  for (const id of sentOffPlayerIds(events)) on.delete(id);
+  return on;
 }
 
 /** 隊職員在名單上的身分文字 */

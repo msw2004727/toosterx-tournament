@@ -25,11 +25,15 @@ import { toast, el, sheet, mount as setChildren } from '../../core/ui.js';
  */
 // 由高到低排，切換清單一眼看得出階層（向上包含，R-ROLE-002）。
 // 說明文字直接寫出「多了什麼」，才看得出來層級之間的差別。
+//
+// ⚠️ 說明**不要用下一階的名字開頭**。原本裁判那一列寫「檢錄員 ＋ 出場名單」，
+//    找「檢錄員」的人一眼掃到那三個字就按下去，然後回報「檢錄員可以編輯出場名單」
+//    （第三輪驗收 C-1：真的檢錄員在 demo 上只有賽務台與檢錄兩個選項）。
 export const ROLES = [
-  { value: 'admin',   note: '記錄員 ＋ 覆核完賽、改判、賽程、審核報名' },
-  { value: 'scorer',  note: '裁判 ＋ 記分、時鐘、完賽送出（A 場）' },
-  { value: 'referee', note: '檢錄員 ＋ 出場名單' },
-  { value: 'checkin', note: '挑戰攤位 ＋ 檢錄勾選、看球員個資' },
+  { value: 'admin',   note: '多了：覆核完賽、改判、賽程、審核報名（其餘同記錄員）' },
+  { value: 'scorer',  note: '多了：記分、時鐘、完賽送出（其餘同裁判；A 場）' },
+  { value: 'referee', note: '多了：出場名單（其餘同檢錄員）' },
+  { value: 'checkin', note: '多了：檢錄勾選、看球員個資（其餘同挑戰攤位）' },
   { value: 'booth',   note: '挑戰區成績登錄（五關都能登錄）' }
 // 標籤一律從 js/config.js 的角色字典取，不要在這裡再寫一份——
 // 那一份與 FC-Football 對齊，兩邊分岔會讓同一個角色在兩個系統裡叫不同名字。

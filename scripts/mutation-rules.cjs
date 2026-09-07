@@ -398,6 +398,24 @@ const MUTANTS = [
     file: F,
     from: `            || (from == 'rejected' && to in ['rejected', 'removed'])`,
     to: `            || (from == 'rejected' && to in ['rejected'])`
+  },
+
+  // ══ 第三輪驗收（2026-09-07，檢錄員 C-5）：完成檢錄寫回場次的 (E) 分支 ══
+  {
+    name: 'RU#50 ⭐ 檢錄那條路可以把狀態推到 live／finished（檢錄員按一下場次就開打）',
+    file: F,
+    from: `               && ( request.resource.data.status == resource.data.status
+                    || request.resource.data.status in ['checkin', 'ready'] )
+               && validStatusTransition(resource.data.status, request.resource.data.status) );`,
+    to: `               && validStatusTransition(resource.data.status, request.resource.data.status) );`
+  },
+  {
+    name: 'RU#51 ⭐ 檢錄那條路不看場地（B 場的志工改得動 A 場的檢錄狀態）',
+    file: F,
+    from: `          || ( isCheckin()
+               && assignedVenue(resource.data.venueId)`,
+    to: `          || ( isCheckin()
+               && true`
   }
 ];
 

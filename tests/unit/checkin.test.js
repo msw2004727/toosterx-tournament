@@ -8,8 +8,10 @@
  * 經得起事後查核：誰在幾點確認了誰出賽，取消也要留痕。
  */
 
-import { buildCheckin, checkinSummary, presentIds, readyToStart, CHECKIN_RESULTS }
-  from '../../js/modules/staff/checkin-actions.js';
+import {
+  buildCheckin, checkinSummary, presentIds, readyToStart, CHECKIN_RESULTS,
+  requiredMinOf, checkinGate, buildCheckinConfirmPatch
+} from '../../js/modules/staff/checkin-actions.js';
 
 const P = (memberId, over = {}) => ({
   memberId, displayName: '小豆子', jerseyNo: 9, role: 'player',
@@ -127,5 +129,108 @@ describe('T41-4 開賽人數（fail-closed）', () => {
 
   test('剛好到門檻就放行', () => {
     expect(readyToStart({ total: 10, present: 5, failed: 0 }, 5).ready).toBe(true);
+  });
+});
+
+// ── 第三輪驗收（2026-09-07，檢錄員 C-5）：一個人也能「完成檢錄」──────────
+// 真實的場次文件沒有 requiredMin，門檻要從組別設定來；而完成鈕原本從來沒有問過門檻。
+
+describe('T41-5 完成檢錄的門檻', () => {
+  test('⭐ 優先序：場次 requiredMin → 組別 minPlayersToStart → 組別 playersOnField', () => {
+    expect(requiredMinOf({ match: { checkin: { requiredMin: 4 } }, division: { minPlayersToStart: 3, playersOnField: 5 } })).toBe(4);
+    expect(requiredMinOf({ match: { checkin: {} }, division: { minPlayersToStart: 3, playersOnField: 5 } })).toBe(3);
+    // 真實資料：場次只有 homeConfirmed／awayConfirmed／confirmedAt，門檻落到規章第十五條的上場人數
+    expect(requiredMinOf({
+      match: { checkin: { homeConfirmed: false, awayConfirmed: false, confirmedAt: null } },
+      division: { playersOnField: 5 }
+    })).toBe(5);
+  });
+
+  test('⭐ 三個都讀不到就是 null（fail-closed），不是 0', () => {
+    expect(requiredMinOf({ match: {}, division: {} })).toBeNull();
+    expect(requiredMinOf({})).toBeNull();
+    expect(requiredMinOf()).toBeNull();
+    for (const bad of ['5', 0, -1, NaN, Infinity, null, undefined]) {
+      expect(requiredMinOf({ match: { checkin: { requiredMin: bad } }, division: { playersOnField: bad } })).toBeNull();
+    }
+  });
+
+  test('⭐ 人數不足：檢錄員按不下去，而且說得出差幾人', () => {
+    const g = checkinGate({ summary: { total: 8, present: 1, failed: 0 }, requiredMin: 5 });
+    expect(g.allowed).toBe(false);
+    expect(g.short).toBe(true);
+    expect(g.missing).toBe(4);
+    expect(g.needsReason).toBe(false);
+  });
+
+  test('⭐ 人數不足：管理員可以放行，但一定要填原因', () => {
+    const g = checkinGate({ summary: { total: 8, present: 1, failed: 0 }, requiredMin: 5, canForce: true });
+    expect(g.allowed).toBe(true);
+    expect(g.short).toBe(true);
+    expect(g.needsReason).toBe(true);
+    expect(g.missing).toBe(4);
+  });
+
+  test('⭐ 門檻讀不到時連管理員也不放行（那是設定壞了，要先修設定）', () => {
+    const g = checkinGate({ summary: { total: 8, present: 8, failed: 0 }, requiredMin: null, canForce: true });
+    expect(g.allowed).toBe(false);
+    expect(g.needsReason).toBe(false);
+    expect(g.missing).toBeNull();
+    expect(g.reason).toContain('門檻');
+  });
+
+  test('人數夠就不必填原因，管理員也一樣', () => {
+    expect(checkinGate({ summary: { total: 8, present: 5, failed: 3 }, requiredMin: 5, canForce: true }))
+      .toEqual({ allowed: true, short: false, missing: 0, reason: '', needsReason: false });
+    expect(checkinGate({ summary: { total: 8, present: 5, failed: 0 }, requiredMin: 5 }).allowed).toBe(true);
+  });
+});
+
+describe('T41-6 完成檢錄寫回場次', () => {
+  const m = (over = {}) => ({
+    status: 'scheduled',
+    checkin: { homeConfirmed: false, awayConfirmed: false, confirmedAt: null },
+    ...over
+  });
+
+  test('⭐ 第一隊完成 → 狀態進入檢錄中；另一隊的旗標原封不動（updateDoc 對巢狀 map 是整包取代）', () => {
+    const p = buildCheckinConfirmPatch({ match: m(), side: 'home', uid: 'u1', present: 5, stamp: 'T' });
+    expect(p.status).toBe('checkin');
+    expect(p.checkin.homeConfirmed).toBe(true);
+    expect(p.checkin.awayConfirmed).toBe(false);
+    expect(p.checkin.homeConfirmedBy).toBe('u1');
+    expect(p.checkin.homeConfirmedAt).toBe('T');
+    expect(p.checkin.homePresent).toBe(5);
+    expect(p.checkin.homeForcedReason).toBeNull();
+    expect(p.checkin.confirmedAt).toBeNull();
+  });
+
+  test('⭐ 兩隊都完成 → 待開賽，confirmedAt 這時才填', () => {
+    const prev = m({ status: 'checkin', checkin: { homeConfirmed: true, awayConfirmed: false, confirmedAt: null, homeConfirmedBy: 'u0' } });
+    const p = buildCheckinConfirmPatch({ match: prev, side: 'away', uid: 'u1', present: 5, stamp: 'T' });
+    expect(p.status).toBe('ready');
+    expect(p.checkin.confirmedAt).toBe('T');
+    expect(p.checkin.homeConfirmedBy).toBe('u0');   // 主隊那一邊的留痕不能被洗掉
+    expect(p.checkin.awayConfirmedBy).toBe('u1');
+  });
+
+  test('⭐ 已開打的場次不動狀態（規則對那些狀態只放行 from == to）', () => {
+    for (const s of ['live', 'halftime', 'finished', 'confirmed']) {
+      expect(buildCheckinConfirmPatch({ match: m({ status: s }), side: 'home', uid: 'u1', present: 5 }).status).toBe(s);
+    }
+  });
+
+  test('場次沒有 status 欄位時 patch 裡也不放 status（updateDoc 不吃 undefined）', () => {
+    const p = buildCheckinConfirmPatch({ match: { checkin: {} }, side: 'home', uid: 'u1', present: 5 });
+    expect('status' in p).toBe(false);
+  });
+
+  test('放行時原因跟著寫，而且截到 200 字', () => {
+    const p = buildCheckinConfirmPatch({ match: m(), side: 'home', uid: 'u1', present: 3, forcedReason: 'x'.repeat(300) });
+    expect(p.checkin.homeForcedReason).toHaveLength(200);
+  });
+
+  test('side 只能是 home 或 away', () => {
+    expect(() => buildCheckinConfirmPatch({ match: m(), side: 'x', uid: 'u1' })).toThrow();
   });
 });

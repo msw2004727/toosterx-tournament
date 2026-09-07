@@ -104,7 +104,7 @@ test('⭐ 管理員進不來，而且看得到原因 @admin', async ({ page }) =
 test('⭐ 每一條權限都列出來，預設全開 @admin', async ({ page }) => {
   await stub(page);
   await go(page);
-  await expect(page.locator('.adm__perm')).toHaveCount(21);
+  await expect(page.locator('.adm__perm')).toHaveCount(22);
   await expect(page.locator('.adm__perm.is-off')).toHaveCount(0);
   await expect(page.locator('.adm__head')).toContainText('全部維持預設');
 });
@@ -218,7 +218,7 @@ test('⭐ 讀不到設定走預設，不是全部關閉 @admin', async ({ page }
   // 規矩 3：把賽務按鈕全部收掉，現場會以為系統壞了
   await stub(page, { matrix: null });
   await go(page);
-  await expect(page.locator('.adm__perm')).toHaveCount(21);
+  await expect(page.locator('.adm__perm')).toHaveCount(22);
   await expect(page.locator('.adm__perm.is-off')).toHaveCount(0);
 });
 
