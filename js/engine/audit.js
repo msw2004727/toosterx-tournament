@@ -109,6 +109,10 @@ export function describeAudit(a, lookup = {}) {
   let title;
 
   switch (a.action) {
+    case 'team.import':
+      title = `匯入 ${a.after?.teamCount ?? '—'} 支球隊、${a.after?.playerCount ?? '—'} 位球員`;
+      detail.push('CSV 名冊已核准並鎖定；完整私密名冊只供授權賽務查看');
+      break;
     case 'team.approve':
       title = `核准了「${team(a.entityId)}」的報名`;
       detail.push('名單已鎖定，隊長不能再增減');
@@ -251,6 +255,7 @@ export function describeAudit(a, lookup = {}) {
     case 'registration.update':
       title = '更新了報名開關';
       if (typeof a.after?.open === 'boolean') detail.push(a.after.open ? '手動開關：開放' : '手動開關：關閉');
+      if (typeof a.after?.hidden === 'boolean') detail.push(a.after.hidden ? '線上報名入口：隱藏' : '線上報名入口：顯示');
       break;
 
     // ── 系統自動退件（每人限報乙隊、重複申請、人數上限）──────

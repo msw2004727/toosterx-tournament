@@ -72,6 +72,31 @@ const coachMemberDoc = (over = {}) => ({
   ...over
 });
 
+describe('關閉並隱藏報名，舊版客戶端不能繞過', () => {
+  beforeEach(async () => {
+    await seedTeam();
+    await seedMember();
+    await openRegistration({ open: true, hidden: true });
+  });
+  test('開放旗標仍為 true 時，隱藏也會擋建隊和加入', async () => {
+    await assertFails(setDoc(teamRef(authed(env, CAP), 'another'), newTeamDoc({ teamId: 'another' })));
+    await assertFails(setDoc(memberRef(authed(env, PARENT), 'new'), newMemberDoc({ memberId: 'new' })));
+  });
+  test('隊長不能更名、送出、編輯或審核球員，家長不能改舊申請', async () => {
+    await assertFails(updateDoc(teamRef(authed(env, CAP)), { name: '改名' }));
+    await assertFails(updateDoc(teamRef(authed(env, CAP)), { status: 'submitted' }));
+    await assertFails(updateDoc(memberRef(authed(env, CAP), 'm-1'), { status: 'approved' }));
+    await assertFails(updateDoc(memberRef(authed(env, PARENT), 'm-1'), { name: '改球員' }));
+    await seedMember(coachMemberDoc());
+    await assertFails(updateDoc(memberRef(authed(env, CAP), 'm-c1'), { name: '改暱稱' }));
+  });
+  test('管理員仍可維護既有隊伍，檢錄員仍能讀私密名冊', async () => {
+    await assertSucceeds(updateDoc(teamRef(authed(env, 'u-admin')), { name: '主辦修改' }));
+    await assertSucceeds(updateDoc(memberRef(authed(env, 'u-admin'), 'm-1'), { name: '主辦修改' }));
+    await assertSucceeds(getDoc(memberRef(authed(env, 'u-checkin'), 'm-1')));
+  });
+});
+
 // ══════════════════════════════════════════════════════════════
 describe('R34–R39 身分授權（docs/10 §5.1）', () => {
   const staffRef = (db, u) => doc(db, 'staff', u);

@@ -20,6 +20,7 @@ const seed = ({ roles = null, perms = null, members = [], teams = {} } = {}) => 
   const s = {
     [`events/${EVENT}`]: { eventId: EVENT, name: 'FEDA CUP 2026' },
     'config/env': { env: 'demo' },
+    'config/registration': { open: true, hidden: false },
     [`users/${UID}`]: { uid: UID, displayName: '金小麥', pictureUrl: null },
     [`events/${EVENT}/teams/t-1`]: {
       teamId: 't-1', name: '大甲金剛足球隊', divisionId: 'u10',

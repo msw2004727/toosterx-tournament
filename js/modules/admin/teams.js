@@ -95,6 +95,7 @@ export async function adminTeamsPage({ scope, view }) {
     if (!state.loaded) return;
     mount(root,
       adminHead('報名審核', { sub: `${(state.teams ?? []).length} 支球隊` }),
+      el('a', { class: 'btn btn--lg btn--primary', href: '#/admin/team-import' }, '匯入 CSV 球隊名冊'),
       state.error ? errBox('沒有送出去', { message: state.error }) : null,
       tabs(),
       list()

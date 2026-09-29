@@ -8,6 +8,8 @@
  *   node scripts/set-registration.mjs --project feda-cup-demo --show
  *   node scripts/set-registration.mjs --project feda-cup-demo --open --closes 2026-09-13T00:00
  *   node scripts/set-registration.mjs --project feda-cup-demo --close
+ *   node scripts/set-registration.mjs --project feda-cup-demo --close --hide
+ *   node scripts/set-registration.mjs --project feda-cup-demo --show-entry
  *
  * 為什麼要一支腳本而不是進 Console 手改：
  *   ・`closesAt` 必須是 Timestamp。在 Console 用字串填會讓 rules 的
@@ -20,7 +22,8 @@
  */
 
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { EVENT_ID } from '../js/config.js';
 
 const argv = process.argv.slice(2);
 const has = f => argv.includes(f);
@@ -61,6 +64,7 @@ function show(d) {
   console.log('─'.repeat(52));
   console.log('  open      ', d.open === true ? '✅ 開放中' : '⛔ 關閉');
   console.log('  opensAt   ', fmt(d.opensAt));
+  console.log('  hidden    ', d.hidden === true ? '已隱藏' : '顯示入口');
   console.log('  closesAt  ', fmt(d.closesAt));
   console.log('─'.repeat(52));
 
@@ -68,7 +72,7 @@ function show(d) {
   const now = Date.now();
   const started = !d.opensAt || d.opensAt.toMillis() <= now;
   const ended = d.closesAt && d.closesAt.toMillis() < now;
-  const live = d.open === true && started && !ended;
+  const live = d.open === true && d.hidden !== true && started && !ended;
   console.log(live
     ? '  → 現在報名得進來'
     : `  → 現在報名進不來（${d.open !== true ? 'open 是 false' : !started ? '還沒到開始時間' : '已經超過截止時間'}）`);
@@ -87,12 +91,14 @@ if (has('--show') || argv.length === 2) {
 const patch = {};
 if (has('--open')) patch.open = true;
 if (has('--close')) patch.open = false;
+if (has('--hide')) { patch.hidden = true; patch.open = false; }
+if (has('--show-entry')) patch.hidden = false;
 if (val('--opens')) patch.opensAt = taipei(val('--opens'));
 if (val('--closes')) patch.closesAt = taipei(val('--closes'));
 if (has('--clear-closes')) patch.closesAt = null;
 
 if (Object.keys(patch).length === 0) {
-  console.error('沒有指定要改什麼。可用：--open / --close / --opens / --closes / --clear-closes / --show');
+  console.error('沒有指定要改什麼。可用：--open / --close / --hide / --show-entry / --opens / --closes / --clear-closes / --show');
   process.exit(1);
 }
 
@@ -104,17 +110,29 @@ if (opensAt && closesAt && closesAt.toMillis() <= opensAt.toMillis()) {
   process.exit(1);
 }
 
+const batch = db.batch();
+const stamp = FieldValue.serverTimestamp();
+patch.updatedAt = stamp;
+patch.updatedBy = 'script:set-registration';
 if (!snap.exists) {
   console.log('ℹ️  文件不存在，建立一份新的');
-  await ref.set({
+  batch.set(ref, {
     open: false, opensAt: null, closesAt: null,
     maxTeamsPerAccount: 3, minMembers: null, maxMembers: null,
     note: '由 scripts/set-registration.mjs 建立',
     ...patch
   });
 } else {
-  await ref.update(patch);
+  batch.update(ref, patch);
 }
+const audit = db.collection('events').doc(EVENT_ID).collection('audits').doc();
+batch.create(audit, {
+  auditId: audit.id, eventId: EVENT_ID, action: 'registration.update', entity: 'config', entityId: 'registration',
+  before: { open: cur?.open === true, hidden: cur?.hidden === true, opensAt: cur?.opensAt ?? null, closesAt: cur?.closesAt ?? null },
+  after: { open: patch.open ?? cur?.open ?? false, hidden: patch.hidden ?? cur?.hidden ?? false, opensAt, closesAt },
+  reason: '主辦透過部署作業調整報名設定', actor: { uid: null, name: 'script:set-registration' }, createdAt: stamp
+});
+await batch.commit();
 
 console.log('✅ 已更新');
 show((await ref.get()).data());

@@ -14,6 +14,16 @@ const F = 'firestore.rules';
 
 const MUTANTS = [
   {
+    name: 'RU#CSV1 隱藏報名後仍可建隊', file: F,
+    from: "        && get(p).data.get('hidden', false) != true\n",
+    to: ''
+  },
+  {
+    name: 'RU#CSV2 隱藏報名後隊長仍能修改名冊', file: F,
+    from: "return exists(p) && get(p).data.get('hidden', false) != true;",
+    to: 'return true;'
+  },
+  {
     name: 'RU#1 身分改回 Admin 也能寫（Admin 可以把自己升成大總管）',
     file: F,
     from: `      allow create: if isSuperAdmin() && staffRolesAssignable(request.resource.data);`,

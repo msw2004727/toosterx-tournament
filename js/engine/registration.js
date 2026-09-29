@@ -44,6 +44,8 @@ export function registrationState(cfg, nowMs = 0) {
   const opensAt = toMs(cfg.opensAt);
   const closesAt = toMs(cfg.closesAt);
 
+  if (cfg.hidden === true) return { open: false, reason: '線上報名已關閉並隱藏，由主辦統一管理名冊。', closesAt, opensAt };
+
   if (cfg.open !== true) return { open: false, reason: '報名尚未開放。', closesAt, opensAt };
   if (opensAt != null && nowMs < opensAt) return { open: false, reason: '報名還沒開始。', closesAt, opensAt };
   if (closesAt != null && nowMs > closesAt) return { open: false, reason: '報名已經截止。', closesAt, opensAt };
@@ -99,14 +101,16 @@ export function checkRegistrationDates({ opensAt, closesAt, nowMs, firstMatchDat
  *
  * 時間戳由呼叫端轉成 Firestore Timestamp（R-ENG-004）。
  */
-export function buildRegistrationPatch({ open, opensAt, closesAt, maxTeamsPerAccount }) {
+export function buildRegistrationPatch({ open, hidden, opensAt, closesAt, maxTeamsPerAccount }) {
   if (typeof open !== 'boolean') throw new Error('報名開關只能是 true 或 false');
+  if (hidden != null && typeof hidden !== 'boolean') throw new Error('隱藏報名只能是 true 或 false');
   const n = maxTeamsPerAccount;
   if (n != null && (!Number.isInteger(n) || n < 1)) {
     throw new Error('每個帳號可建立的球隊數必須是 1 以上的整數');
   }
   return {
     open,
+    ...(hidden == null ? {} : { hidden, ...(hidden ? { open: false } : {}) }),
     // null 是有意義的值（「不限制」），所以照實寫進去，不要略過
     opensAt: opensAt == null ? null : new Date(opensAt),
     closesAt: closesAt == null ? null : new Date(closesAt),

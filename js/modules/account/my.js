@@ -25,6 +25,7 @@ import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
 import { user, staff, onAuth, signOutStaff, db, sdk, can, myRoles } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
+import { watchRegistrationVisibility } from '../../core/registration.js';
 import { logoutLine } from '../../core/liff.js';
 import { EVENT_ID, roleLabel, topRole, FEATURES, CACHE_VERSION } from '../../config.js';
 import { needLogin } from './login.js';
@@ -42,7 +43,7 @@ export async function myPage({ scope, view }) {
   const root = el('div', { class: 'acct' });
   mount(view, root);
 
-  const state = { teams: null, profile: null, players: null, playersError: false, loading: true };
+  const state = { teams: null, profile: null, players: null, playersError: false, loading: true, registrationVisible: false };
 
   // ⚠️ 不可以寫成「掛載時如果已登入就讀一次」。
   //    onAuth 的第一次回呼可能在頁面掛載**之後**才到（Firebase 要先還原
@@ -50,6 +51,7 @@ export async function myPage({ scope, view }) {
   //    畫面停在「你還沒有建立球隊」，而使用者明明有隊。
   //    所以讀取綁在身分變化上，不是綁在掛載時機上。
   let loadedFor = null;
+  watchRegistrationVisibility(scope, visible => { state.registrationVisible = visible; render(); });
 
   async function ensureTeams() {
     const u = user();
@@ -229,6 +231,7 @@ export async function myPage({ scope, view }) {
   // ── 我的球隊 ────────────────────────────────────────────
   function teamsCard() {
     const rows = state.teams;
+    if (!state.registrationVisible && !rows?.length) return null;
     return el('section', { class: 'acct__card' }, [
       el('h2', { class: 'acct__cardHead' }, iconText('team', '我的球隊')),
       state.loading && rows === null
@@ -247,7 +250,7 @@ export async function myPage({ scope, view }) {
               // （2026-09-06 驗收 R-5／R-6／R-11 都是這個原因）
               el('button', {
                 class: 'acct__row', type: 'button',
-                onClick: () => navigate(`/team/${encodeURIComponent(t.teamId)}/manage`)
+                onClick: () => navigate(`/team/${encodeURIComponent(t.teamId)}${state.registrationVisible ? '/manage' : ''}`)
               }, [
                 el('span', { class: 'acct__rowMain', text: t.name || t.teamId }),
                 el('span', {
@@ -268,6 +271,7 @@ export async function myPage({ scope, view }) {
   // 但不算數，不然家長會以為小孩還在名單上。
   function playersCard() {
     const rows = state.players;
+    if (!state.registrationVisible && !rows?.length) return null;
     const title = rows?.length ? `我報名的球員（${countActive(rows)}）` : '我報名的球員';
     return el('section', { class: 'acct__card' }, [
       el('h2', { class: 'acct__cardHead' }, iconText('person', title)),

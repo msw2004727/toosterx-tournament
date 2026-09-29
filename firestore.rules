@@ -81,8 +81,15 @@ service cloud.firestore {
       let p = /databases/$(db)/documents/config/registration;
       return exists(p)
         && get(p).data.get('open', false) == true
+        && get(p).data.get('hidden', false) != true
         && (get(p).data.get('opensAt', null) == null || request.time >= get(p).data.opensAt)
         && (get(p).data.get('closesAt', null) == null || request.time <= get(p).data.closesAt);
+    }
+
+    // 關閉並隱藏自助報名後，舊版頁面也不能修改球隊或名冊。
+    function registrationVisible() {
+      let p = /databases/$(db)/documents/config/registration;
+      return exists(p) && get(p).data.get('hidden', false) != true;
     }
 
     // staff 文件可以被指派的角色。**白名單裡沒有 super_admin**：
@@ -329,6 +336,7 @@ service cloud.firestore {
 
         allow update: if isAdmin()
                       || ( isCaptainOf(teamId)
+                           && registrationVisible()
                            && captainTeamPatchOk()
                            && captainTeamTransition(resource.data.get('status', 'draft'),
                                                     request.resource.data.status) );
@@ -370,9 +378,10 @@ service cloud.firestore {
                            );
 
           allow update: if isAdmin()
-                        || ( isCaptainOf(teamId) && captainMemberPatchOk(teamId) )
-                        || ( isCaptainOf(teamId) && coachMemberEditOk(teamId) )
+                        || ( registrationVisible() && isCaptainOf(teamId) && captainMemberPatchOk(teamId) )
+                        || ( registrationVisible() && isCaptainOf(teamId) && coachMemberEditOk(teamId) )
                         || ( isAuth()
+                             && registrationVisible()
                              && resource.data.get('guardianUid', '') == uid()
                              && resource.data.status == 'pending'
                              && guardianMemberPatchOk() );

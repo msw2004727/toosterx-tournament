@@ -10,6 +10,22 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
+    name: '#CSV1 隱藏報名卻仍判定可開放', file: 'js/engine/registration.js',
+    from: "if (cfg.hidden === true) return", to: "if (false) return"
+  },
+  {
+    name: '#CSV2 匯入不檢查既有同名球隊', file: 'js/engine/team-import.js',
+    from: 'if (exists.has(key)) add', to: 'if (false) add'
+  },
+  {
+    name: '#CSV3 匯入不檢查跨隊同人', file: 'js/engine/team-import.js',
+    from: 'if (people.has(person)) add', to: 'if (false) add'
+  },
+  {
+    name: '#CSV4 匯入放行超過 15 位球員', file: 'js/engine/team-import.js',
+    from: 'team.members.length > REGISTRATION_LIMITS.maxPlayers', to: 'false'
+  },
+  {
     name: '#1 用 Number() 判比分（null → 0，會判成 0:0 平手）',
     file: 'js/engine/tally.js',
     from: `return typeof v === 'number' && Number.isFinite(v) ? v : null;`,

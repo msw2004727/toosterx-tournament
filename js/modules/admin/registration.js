@@ -85,6 +85,7 @@ export async function adminRegistrationPage({ scope, view }) {
     const c = msToParts(toMs(cfg?.closesAt));
     return {
       open: cfg?.open === true,
+      hidden: cfg?.hidden === true,
       opensDate: o.date, opensTime: o.time || '00:00',
       closesDate: c.date, closesTime: c.time || '00:00',
       maxTeams: cfg?.maxTeamsPerAccount ?? null
@@ -121,7 +122,7 @@ export async function adminRegistrationPage({ scope, view }) {
   /** 草稿套用之後會是什麼狀態——按下儲存之前就看得到 */
   function previewState() {
     const { opensAt, closesAt } = draftMs();
-    return registrationState({ open: state.draft.open, opensAt, closesAt }, serverNow());
+    return registrationState({ open: state.draft.open, hidden: state.draft.hidden, opensAt, closesAt }, serverNow());
   }
 
   function warnings() {
@@ -155,13 +156,14 @@ export async function adminRegistrationPage({ scope, view }) {
     let patch;
     try {
       patch = buildRegistrationPatch({
-        open: state.draft.open, opensAt, closesAt,
+        open: state.draft.open, hidden: state.draft.hidden, opensAt, closesAt,
         maxTeamsPerAccount: state.draft.maxTeams
       });
     } catch (err) { toast(err.message, 'warn'); return; }
 
     const before = {
       open: state.cfg?.open === true,
+      hidden: state.cfg?.hidden === true,
       opensAt: toMs(state.cfg?.opensAt), closesAt: toMs(state.cfg?.closesAt)
     };
 
@@ -171,7 +173,7 @@ export async function adminRegistrationPage({ scope, view }) {
       await data.writeAudit({
         action: 'registration.update',
         targetType: 'config', targetId: 'registration',
-        before, after: { open: patch.open, opensAt, closesAt },
+        before, after: { open: patch.open, hidden: patch.hidden, opensAt, closesAt },
         reason: null
       });
       state.draft = null;              // 下一筆快照會重建，畫面回到「已儲存」
@@ -258,6 +260,13 @@ export async function adminRegistrationPage({ scope, view }) {
 
       statusBox(),
 
+      el('label', { class: 'adm__importConfirm' }, [
+        el('input', { type: 'checkbox', checked: state.draft.hidden, disabled: state.busy,
+          'aria-label': '關閉並隱藏線上報名',
+          onChange: e => { state.draft.hidden = e.target.checked; if (state.draft.hidden) state.draft.open = false; render(); } }),
+        el('span', { text: '關閉並隱藏線上報名（含舊邀請連結與隊長編輯名冊）；改由管理後台匯入 CSV。' })
+      ]),
+
       el('div', { class: 'adm__perm' }, [
         el('div', { class: 'adm__permMain' }, [
           el('span', { class: 'adm__permLabel', text: '開放報名' }),
@@ -267,7 +276,7 @@ export async function adminRegistrationPage({ scope, view }) {
           class: `adm__switch${state.draft.open ? ' is-on' : ''}`, type: 'button',
           role: 'switch', 'aria-checked': state.draft.open ? 'true' : 'false',
           'aria-label': '開放報名',
-          disabled: state.busy,
+          disabled: state.busy || state.draft.hidden,
           onClick: () => { state.draft.open = !state.draft.open; render(); }
         }, el('span', { class: 'adm__switchKnob' }))
       ]),

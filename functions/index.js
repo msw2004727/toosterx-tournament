@@ -31,9 +31,18 @@ import {
 import { setPlayerContactFor, issueGamePassFor } from './pipeline.js';
 import { writeAudit } from './store.js';
 import { loginWithLine } from './line.js';
+import { importTeamsFor, TeamImportError } from './team-import.js';
 
 ensureApp();
 setGlobalOptions({ region: 'asia-east1', maxInstances: 10 });
+
+export const importTeamsCsv = onCall({ timeoutSeconds: 120 }, async request => {
+  try { return { ok: true, data: await importTeamsFor(request) }; }
+  catch (err) {
+    if (err instanceof TeamImportError) throw new HttpsError(err.code, err.message);
+    throw err;
+  }
+});
 
 const ok = (data) => ({ ok: true, data });
 const fail = (code, message) => { throw new HttpsError(code, message); };

@@ -29,6 +29,7 @@ const liffStub = (loggedIn = false) => `window.liff = {
 const seed = () => ({
   [`events/${EVENT}`]: { eventId: EVENT, name: 'FEDA CUP 2026' },
   'config/env': { env: 'demo' },
+  'config/registration': { open: true, hidden: false },
   [`events/${EVENT}/teams/t-1`]: {
     teamId: 't-1', name: '大甲金剛足球隊', divisionId: 'u10',
     captainUid: UID, status: 'submitted', memberCount: 9

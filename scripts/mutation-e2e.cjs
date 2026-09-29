@@ -323,7 +323,7 @@ const MUTANTS = [
   {
     name: '#E46 ⭐ 「我的球隊」又連回公開球隊頁（隊長找不到審核鈕；R-5／R-6／R-11）',
     file: 'js/modules/account/my.js',
-    from: `                onClick: () => navigate(\`/team/\${encodeURIComponent(t.teamId)}/manage\`)`,
+    from: `                onClick: () => navigate(\`/team/\${encodeURIComponent(t.teamId)}\${state.registrationVisible ? '/manage' : ''}\`)`,
     to: `                onClick: () => navigate(\`/team/\${encodeURIComponent(t.teamId)}\`)`
   },
 

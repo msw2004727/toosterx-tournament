@@ -13,6 +13,14 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
+    name: 'FN#CSV1 非管理員也能匯入', file: 'functions/team-import.js',
+    from: "['admin', 'super_admin'].includes(r)", to: "['admin', 'super_admin', 'scorer'].includes(r)"
+  },
+  {
+    name: 'FN#CSV2 不檢查既有跨隊球員', file: 'functions/team-import.js',
+    from: 'personKeysOf(m).some(key => knownPeople.has(key))', to: 'false'
+  },
+  {
     name: 'FN#1 rankingRule 找不到就套預設（fail-open → 用錯規則排出一份看似正常的積分榜）',
     file: 'functions/store.js',
     from: '  if (!rule) throw new Error(`config/rankingRules 沒有 ${rankingRuleId}`);',

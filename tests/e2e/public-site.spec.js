@@ -431,9 +431,9 @@ test('⭐ 監聽有註冊、換頁後有回收 @public', async ({ page }) => {
   await expect.poll(count).toBeGreaterThanOrEqual(1);   // standings
 
   await go(page, '/#/team/t-101');
-  // 球隊頁沒有 Firestore 的即時監聽，只有一條登入狀態（隊長才畫得出「管理名單」鈕）；
+  // 球隊頁只有登入狀態與報名可見性兩條監聽；
   // 前兩頁的都該被 router 回收掉
-  await expect.poll(count).toBeLessThanOrEqual(1);
+  await expect.poll(count).toBeLessThanOrEqual(2);
   const labels = await page.evaluate(async () => (await import('/js/core/store.js')).describe());
   expect(JSON.stringify(labels)).not.toMatch(/match|timeline|standing/);
 
@@ -588,6 +588,7 @@ test('沒有 PK 的比賽不印 PK 那一行 @public @match', async ({ page }) =
 
 test('⭐ 隊長看自己的球隊頁有「管理名單」鈕，訪客沒有 @public @team', async ({ page }) => {
   const s = base();
+  s['config/registration'] = { open: true, hidden: false };
   s[`events/${EVENT}/teams/t-101`] = { teamId: 't-101', name: '臺中市西屯區野狼', divisionId: 'adult-open', captainUid: 'U-cap', status: 'approved', memberCount: 1 };
   await stub(page, s);
   await page.addInitScript(() => { window.__FAKE_USER = { uid: 'U-cap', displayName: '隊長' }; });

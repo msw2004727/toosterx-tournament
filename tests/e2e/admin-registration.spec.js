@@ -43,10 +43,12 @@ const seed = ({ roles = ['super_admin'], reg = REG } = {}) => {
 };
 
 async function stub(page, opts = {}) {
+  // 報名期間的案例固定時鐘，不能隨今天超過截止日而失效。
+  await page.clock.setFixedTime(new Date('2026-09-07T10:00:00+08:00'));
   await page.route('https://www.gstatic.com/firebasejs/**', r =>
     r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: FAKE }));
   await page.route('https://firestore.googleapis.com/**', r =>
-    r.fulfill({ status: 200, headers: { date: new Date().toUTCString() }, body: '{}' }));
+    r.fulfill({ status: 200, headers: { date: new Date('2026-09-07T10:00:00+08:00').toUTCString() }, body: '{}' }));
   await page.addInitScript(({ s, u }) => {
     window.__FAKE_SEED = s;
     window.__seedData = s;

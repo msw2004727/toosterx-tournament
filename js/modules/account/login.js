@@ -72,7 +72,7 @@ export async function loginPage({ view, query }) {
     mount(root,
       el('div', { class: 'acct__hero' }, [
         el('h1', { class: 'acct__title', text: EVENT.name }),
-        el('p', { class: 'acct__sub', text: '用 LINE 登入就可以報名球隊、管理名單、查看自己的球員' })
+        el('p', { class: 'acct__sub', text: '用 LINE 登入查看自己的球隊與賽事功能' })
       ]),
       body()
     );

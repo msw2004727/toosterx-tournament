@@ -42,6 +42,8 @@ const page = (path, fn) => {
 };
 
 export function registerAdminRoutes() {
+  route('/admin/team-import', page('../admin/team-import.js', m => m.adminTeamImportPage),
+    { title: '匯入球隊名冊', guard: requireLogin });
   route('/admin/teams', page('../admin/teams.js', m => m.adminTeamsPage),
     { title: '報名審核', guard: requireLogin });
   route('/admin/staff', page('../admin/staff.js', m => m.adminStaffPage),

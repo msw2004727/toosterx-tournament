@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20260907b';
+export const CACHE_VERSION = '0.20260929';
 
 /**
  * PWA 安裝入口。主辦 2026-09-06 決定關閉：頁首不畫「安裝」，Chrome 自己的安裝橫幅也在
@@ -263,6 +263,7 @@ export function effectivePerms(roles = [], matrix = {}) {
  * 自己的身分沒生效。折衷是「看得到、標明規劃中、按不下去」。
  */
 export const FEATURES = [
+  { code: 'team.manage', label: '匯入球隊名冊', hint: '上傳 CSV，批次建立球隊與球員', route: '/admin/team-import', icon: 'team' },
   { code: 'checkin.write',    label: '檢錄',       hint: '賽前 30 分鐘核對名單與證件', route: '/staff', icon: 'list' },
   { code: 'matchsheet.write', label: '出場名單',   hint: '確認先發與替補',           route: '/staff', icon: 'team' },
   { code: 'match.score.write',label: '賽務台',     hint: '記錄比分、事件與完賽送出',  route: '/staff', icon: 'whistle' },

@@ -64,6 +64,7 @@ const seed = ({ roles = ['admin'], teams = null, members = null } = {}) => {
 };
 
 async function stub(page, opts = {}) {
+  await page.clock.setFixedTime(new Date('2026-09-07T10:00:00+08:00'));
   await page.route('https://www.gstatic.com/firebasejs/**', r =>
     r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: FAKE }));
   await page.route('https://firestore.googleapis.com/**', r =>

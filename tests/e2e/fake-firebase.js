@@ -372,6 +372,14 @@ export const httpsCallable = (_fns, name) => async (payload) => {
   // 「畫面有沒有把正確的東西送出去」。
   (window.__FAKE_CALLS ||= []).push({ name, payload });
   if (window.__FAKE_CALL_ERROR) throw new Error(window.__FAKE_CALL_ERROR);
+  if (name === 'importTeamsCsv') {
+    // 僅確認 UI 接線；交易與實際資料驗證由 tests/functions/team-import.test.js 覆蓋。
+    const { parseTeamCsv, validateTeamImport } = await import(location.origin + '/js/engine/team-import.js');
+    const rows = parseTeamCsv(payload.csv);
+    const divisions = [...store.entries()].filter(([p]) => p.startsWith(`events/${payload.eventId}/divisions/`)).map(([, d]) => d);
+    const plan = validateTeamImport(rows, { divisions, asOf: '2026-10-09' });
+    return { data: { ok: true, data: { importId: 'fake-import', teamCount: plan.teams.length, playerCount: rows.length } } };
+  }
   if (name === 'issuePlayerQr') {
     // 綁 LINE 帳號配發：沒登入就拒絕；有登入就配（固定 FEDA-0182，spec 可用 __FAKE_PASS_ID 換）
     const u = S.currentUser;
