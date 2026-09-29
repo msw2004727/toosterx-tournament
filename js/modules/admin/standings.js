@@ -22,6 +22,7 @@
  * ⚠️ 頁面模組的順序陷阱（CLAUDE.md）：render() 會用到的東西一律具名函式。
  */
 
+import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, mount, toast, skeleton, confirmDialog } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { can, onAuth } from '../../core/firebase.js';
@@ -198,7 +199,7 @@ export async function adminStandingsPage({ scope, view }) {
     const k = keyOf(s, g);
     const order = orderOf(s, g);
     const seed = state.seeds[k] ?? null;
-    return el('div', { class: 'adm__box adm__box--warn', 'data-tie': k }, [
+    return el('div', { class: 'adm__box adm__box--warn', ...divisionThemeAttrs(s.divisionId), 'data-tie': k }, [
       el('strong', {}, iconText('warn', `${divisionName(s.divisionId)}　${s.groupId} 組`)),
       el('p', { class: 'adm__note', text:
         `${namesOf(g.teamIds, state.teamsById)} 在規章第十九條的四項條件下完全相同，第 5 順位是抽籤。` }),
@@ -220,7 +221,7 @@ export async function adminStandingsPage({ scope, view }) {
 
   function ruledCard(s) {
     const locked = (s.rows || []).filter(r => r.locked === true);
-    return el('div', { class: 'adm__box adm__box--ok' }, [
+    return el('div', { class: 'adm__box adm__box--ok', ...divisionThemeAttrs(s.divisionId) }, [
       el('strong', {}, iconText('check', `${divisionName(s.divisionId)}　${s.groupId} 組　已裁定`)),
       el('p', { class: 'adm__note', text: locked
         .map(r => `${r.rank}. ${state.teamsById[r.teamId]?.name ?? r.teamId}`).join('　') }),

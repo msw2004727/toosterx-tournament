@@ -20,6 +20,7 @@
  * 出問題時第一個要對的就是它。
  */
 
+import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, mount, toast, skeleton } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
@@ -244,7 +245,7 @@ export async function myPage({ scope, view }) {
                 onClick: () => navigate('/register')
               }, iconText('forward', '我要報名球隊', { trailing: true }))
             ])
-          : el('ul', { class: 'acct__list' }, rows.map(t => el('li', {}, [
+          : el('ul', { class: 'acct__list' }, rows.map(t => el('li', { class: 'division-card', ...divisionThemeAttrs(t.divisionId) }, [
               // 這一列是「我帶的球隊」，點進去要能審核、送出、取消——直接進管理頁。
               // 原本連到公開球隊頁，那一頁沒有任何通往管理頁的路，隊長找不到審核鈕
               // （2026-09-06 驗收 R-5／R-6／R-11 都是這個原因）
@@ -287,7 +288,7 @@ export async function myPage({ scope, view }) {
                   onClick: () => navigate('/register')
                 }, iconText('forward', '前往報名頁', { trailing: true }))
               ])
-            : el('ul', { class: 'acct__list' }, rows.map(r => el('li', {}, [
+            : el('ul', { class: 'acct__list' }, rows.map(r => el('li', { class: 'division-card', ...divisionThemeAttrs(r.divisionId) }, [
                 el('button', {
                   class: 'acct__row', type: 'button',
                   onClick: () => r.teamId && navigate(`/team/${encodeURIComponent(r.teamId)}`)

@@ -26,6 +26,7 @@
  * ⚠️ 頁面模組的順序陷阱（CLAUDE.md）：render() 會用到的東西一律具名函式。
  */
 
+import { divisionThemeAttrs, setDivisionTheme } from '../../core/division-theme.js';
 import { el, mount, toast, skeleton, confirmDialog, emptyState } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { can, onAuth } from '../../core/firebase.js';
@@ -423,7 +424,7 @@ export async function adminSchedulePage({ scope, view }) {
       const n = state.matches.filter(m => m.divisionId === d.divisionId).length;
       const on = d.divisionId === state.divisionId;
       return el('button', {
-        class: `adm__tab${on ? ' is-on' : ''}`, type: 'button',
+        class: `adm__tab division-choice${on ? ' is-on' : ''}`, ...divisionThemeAttrs(d), type: 'button',
         role: 'tab', 'aria-selected': on ? 'true' : 'false',
         onClick: () => { state.divisionId = d.divisionId; state.draft = null; state.picked = null; render(); }
       }, [
@@ -764,6 +765,7 @@ export async function adminSchedulePage({ scope, view }) {
   }
 
   function render() {
+    setDivisionTheme(root, division() || state.divisionId);
     if (!state.ready) { mount(root, adminHead('賽程管理'), skeleton(5)); return; }
     if (!can('schedule.manage')) { mount(root, adminHead('賽程管理'), denied('賽程管理', '管理員')); return; }
 

@@ -9,6 +9,7 @@
  * 監聽剛好 2 個（match ＋ timeline），在 docs/03 §12.4 的預算內。
  */
 
+import { setDivisionTheme } from '../../core/division-theme.js';
 import { el, mount, skeleton, buzz } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
 import { icon, iconText } from '../../core/icons.js';
@@ -91,6 +92,7 @@ export async function publicMatch({ params, scope, view, query }) {
   }
 
   function render() {
+    setDivisionTheme(root, state.division || state.match?.divisionId);
     if (!state.loaded) { mount(root, skeleton(4)); return; }
     if (state.notFound) {
       mount(root,

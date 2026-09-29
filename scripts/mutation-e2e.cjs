@@ -16,6 +16,18 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
+    name: '#E58 主題切換後沒有目前狀態提示',
+    file: 'js/core/theme.js',
+    from: '    closeToast = toast(`主題：${stateLabel()}`);',
+    to: '    closeToast = () => {};'
+  },
+  {
+    name: '#E59 日期列不使用等寬欄位，窄機較寬字型時溢出',
+    file: 'css/modules/public.css',
+    from: '.ptabs[aria-label="日期"]{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}',
+    to: '.ptabs[aria-label="日期"]{display:flex;gap:16px}'
+  },
+  {
     name: '#E57 深色危險按鈕回到淺紅配白字，對比不足',
     file: 'css/components.css',
     from: 'background:var(--danger-btn-bg);border-color:var(--danger-btn-bg);color:#fff',
@@ -391,6 +403,6 @@ const MUTANTS = [
 
 process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/button-system.spec.js tests/e2e/mobile-rosters.spec.js tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js tests/e2e/register.spec.js --project=chromium-mobile --reporter=dot',
+  testCmd: 'npx playwright test tests/e2e/home-division-design.spec.js tests/e2e/button-system.spec.js tests/e2e/mobile-rosters.spec.js tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js tests/e2e/register.spec.js --project=chromium-mobile --reporter=dot',
   title: '前端時序｜E2E 變異測試'
 }));

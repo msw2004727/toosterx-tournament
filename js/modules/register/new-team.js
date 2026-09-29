@@ -8,6 +8,7 @@
  * 而那些欄位隊長之後隨時能補（名單凍結前都可編輯，§4）。
  */
 
+import { setDivisionTheme } from '../../core/division-theme.js';
 import { el, mount, toast, skeleton } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
 import { user, onAuth } from '../../core/firebase.js';
@@ -37,6 +38,7 @@ export async function newTeamPage({ scope, view }) {
   render();
 
   function render() {
+    setDivisionTheme(root, state.divisions.find(d => d.divisionId === form.divisionId) || form.divisionId);
     if (!user()) { mount(root, needLogin('/register/new')); return; }
     if (!state.reg.open) {
       mount(root,
@@ -69,7 +71,7 @@ export async function newTeamPage({ scope, view }) {
 
       field('team-div', '參賽組別', selectInput('team-div',
         state.divisions.map(d => ({ value: d.divisionId, label: d.name || d.divisionId })),
-        { value: form.divisionId, onChange: v => { form.divisionId = v; refreshSubmit(); } }
+        { value: form.divisionId, onChange: v => { form.divisionId = v; setDivisionTheme(root, state.divisions.find(d => d.divisionId === v) || v); refreshSubmit(); } }
       ), { required: true, hint: '選錯的話報名送出前都可以改。' }),
 
       field('team-phone', '聯絡電話（選填）', textInput('team-phone', {

@@ -87,6 +87,9 @@
   /* 組別識別色 */
   --div-u6:#D95F3F; --div-u8:#C08A22; --div-u10:#3F8C55;
   --div-women:#9C4F91; --div-fun:#3A7CAE; --div-open:#245079;
+  --division-ink-target:#000000;
+  --division-ink-weight:25%;
+  --division-surface-weight:8%;
 
   --overlay:rgba(9,16,14,.42);
   --shadow-1:0 1px 2px rgba(16,32,26,.06),0 1px 3px rgba(16,32,26,.08);
@@ -143,8 +146,11 @@
 
   --live:#FF8A62; --finished:#4FC291; --pending:#E2B04A; --idle:#6C7C76;
 
-  --div-u6:#E8836A; --div-u8:#D9AE55; --div-u10:#6BBE84;
-  --div-women:#C583BB; --div-fun:#6FA9D4; --div-open:#5B8EC0;
+  --div-u6:#D95F3F; --div-u8:#C08A22; --div-u10:#3F8C55;
+  --div-women:#9C4F91; --div-fun:#3A7CAE; --div-open:#245079;
+  --division-ink-target:#FFFFFF;
+  --division-ink-weight:48%;
+  --division-surface-weight:16%;
 
   --overlay:rgba(0,0,0,.65);
   --shadow-1:0 1px 2px rgba(0,0,0,.4),0 1px 3px rgba(0,0,0,.3);

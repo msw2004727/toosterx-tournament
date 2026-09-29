@@ -10,6 +10,7 @@
  * R-CODE-002：隊名、球員名一律 textContent（el 的 text 屬性就是 textContent）。
  */
 
+import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, mount, toast } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { STATUS_LABEL, hhmm, displayMinute, scoreText, pkText } from '../../lib/format.js';
@@ -81,12 +82,14 @@ export function matchRow({ match: m, onOpen, division }) {
       ]),
       side('away', 'away')
     ]),
+    division?.name ? el('span', { class: 'division-badge', text: division.name }) : null,
     sc.masked ? el('span', { class: 'prow__note', text: '兒童組比分達分差上限，以 7+ 顯示' }) : null,
     started && pkText(m) ? el('span', { class: 'prow__note prow__pk', text: pkText(m) }) : null
   ].filter(Boolean));
 
   return el('li', {
-    class: `prow ${isPlaceholder(m) ? 'is-placeholder' : ''}`,
+    ...divisionThemeAttrs(division || m?.divisionId),
+    class: `prow division-card ${isPlaceholder(m) ? 'is-placeholder' : ''}`,
     // 每秒只換分鐘數而不重畫整列，靠這個 id 找回對應的節點
     dataset: { matchId: m?.matchId ?? '' }
   }, [body]);

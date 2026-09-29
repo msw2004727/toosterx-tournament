@@ -11,6 +11,7 @@
  *   ・離線可用：計時在本機跑，寫入排隊
  */
 
+import { setDivisionTheme } from '../../core/division-theme.js';
 import { el, toast, confirmDialog, sheet, buzz, emptyState, mount } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { clockText, displayMinute, periodLabel, STATUS_LABEL, hhmm } from '../../lib/format.js';
@@ -88,6 +89,7 @@ export async function liveConsole({ params, scope, view }) {
   // ══════════════════════════════════════════════════════════
 
   function render() {
+    setDivisionTheme(root, state.division || state.match?.divisionId);
     const m = state.match;
     if (!m) {
       mount(root, state.loaded

@@ -189,6 +189,18 @@ const MUTANTS = [
     to: `  if (pref === 'dark') return pref;`
   },
   {
+    name: '#TH1 單鍵循環先選系統相同色，第一下畫面沒有變化',
+    file: 'js/core/theme.js',
+    from: `  const order = ['system', opposite, same];`,
+    to: `  const order = ['system', same, opposite];`
+  },
+  {
+    name: '#DIV1 已知組別接受外部色碼覆蓋，固定色系失效',
+    file: 'js/core/division-theme.js',
+    from: `  const token = definitions.get(id)?.colorToken ?? division?.colorToken;`,
+    to: `  const token = division?.colorToken ?? definitions.get(id)?.colorToken;`
+  },
+  {
     name: '#20 EVENT_ICON 改回 emoji（跨平台形狀不一、深色無法換色）',
     file: 'js/modules/staff/live-actions.js',
     from: `  goal: 'goal', own_goal: 'goal', penalty_scored: 'goal', penalty_missed: 'close',`,

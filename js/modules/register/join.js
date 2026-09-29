@@ -10,6 +10,7 @@
  * 成人組本人報名時 `isSelf = true`，介面上就不出現「監護人」字樣。
  */
 
+import { setDivisionTheme } from '../../core/division-theme.js';
 import { el, mount, toast, skeleton } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
 import { user, onAuth } from '../../core/firebase.js';
@@ -72,6 +73,7 @@ export async function joinPage({ params, scope, view }) {
   loadMine();
 
   function render() {
+    setDivisionTheme(root, state.division || state.team?.divisionId);
     if (!state.team) {
       mount(root,
         pageHead('加入球隊', { onBack: () => navigate('/register') }),

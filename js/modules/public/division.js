@@ -13,6 +13,7 @@
  *   3. 某一列 rank 為 null → 那一列標「待裁定」，其餘照常顯示
  */
 
+import { setDivisionTheme } from '../../core/division-theme.js';
 import { el, mount, skeleton } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
 import { icon, iconText } from '../../core/icons.js';
@@ -57,6 +58,7 @@ export async function publicDivision({ params, scope, view, query }) {
   render();
 
   function render() {
+    setDivisionTheme(root, state.division || divisionId);
     if (!state.loaded) { mount(root, skeleton(4)); return; }
     mount(root,
       pageHead(state.division?.name || divisionId, {

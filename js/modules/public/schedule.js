@@ -8,6 +8,7 @@
  * 那是這一頁最常被使用的方式，比篩選器本身還重要。
  */
 
+import { setDivisionTheme } from '../../core/division-theme.js';
 import { el, mount, skeleton } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
 import { startTicker, now } from '../../core/clock.js';
@@ -70,6 +71,7 @@ export async function publicSchedule({ scope, view, query }) {
   function open(m) { navigate(`/match/${encodeURIComponent(m.matchId)}`); }
 
   function render() {
+    setDivisionTheme(root, divisionOf(state.divisionId) || state.divisionId);
     // 還沒發布賽程的組別不顯示——主辦可能正在排，家長照著半套跑會跑錯時間
     const rows = filterMatches(publishedMatches(state.matches, state.divisions), state);
     const groups = groupBySlot(rows, ms => hhmm(ms));

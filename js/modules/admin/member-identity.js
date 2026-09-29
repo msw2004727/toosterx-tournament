@@ -1,3 +1,4 @@
+import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, mount } from '../../core/ui.js';
 import { can, callFunction } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
@@ -17,7 +18,7 @@ export function editCsvIdentity({ team, member, division, scope, onSaved }) {
   const cancel = el('button', { type: 'button', class: 'btn btn--lg', onClick: close }, '取消');
   const save = el('button', { type: 'submit', class: 'btn btn--lg btn--primary' }, '儲存資料');
   const status = el('p', { role: 'status', class: 'adm__note' });
-  const form = el('form', { class: 'modal__panel', onSubmit: submit }, [
+  const form = el('form', { class: 'modal__panel', ...divisionThemeAttrs(division || team.divisionId), onSubmit: submit }, [
     el('h2', { class: 'modal__title', text: `補填／修改 #${member.jerseyNo} ${member.name}` }),
     el('div', { class: 'modal__body' }, [
       el('p', { class: 'adm__note', text: '生日與身分證後四碼可稍後補齊。未補齊不能確認出賽；更改後需重新核對證件，並留下修改紀錄。' }),

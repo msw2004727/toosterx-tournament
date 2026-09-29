@@ -11,7 +11,16 @@
  */
 
 import fs from 'node:fs';
-import { resolveTheme, normalizePref, THEME_KEY, THEME_PREFS } from '../../js/core/theme.js';
+import { resolveTheme, normalizePref, nextThemePref, THEME_KEY, THEME_PREFS } from '../../js/core/theme.js';
+
+describe('單鍵循環順序', () => {
+  test.each([[true, ['light', 'dark', 'system']], [false, ['dark', 'light', 'system']]])('系統深色 = %s，第一下必須切換實際配色且可回系統', (dark, expected) => {
+    let pref = 'system';
+    const actual = expected.map(() => { pref = nextThemePref(pref, dark); return pref; });
+    expect(actual).toEqual(expected);
+  });
+  test('無效偏好視同系統', () => expect(nextThemePref('invalid', true)).toBe('light'));
+});
 
 describe('T29-1 偏好解析', () => {
   test('明確選了淺色／深色就不看系統', () => {

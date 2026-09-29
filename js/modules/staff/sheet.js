@@ -8,6 +8,7 @@
  * 現在未檢錄的球員一律視為可排入（否則沒有檢錄資料時整頁不能用）。
  */
 
+import { setDivisionTheme } from '../../core/division-theme.js';
 import { el, toast, confirmDialog, emptyState, mount } from '../../core/ui.js';
 import { icon } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
@@ -54,6 +55,7 @@ export async function matchSheetPage({ params, scope, view }) {
   }
 
   function render() {
+    setDivisionTheme(root, state.division || state.match?.divisionId);
     const m = state.match;
     if (!m) {
       mount(root, state.loaded

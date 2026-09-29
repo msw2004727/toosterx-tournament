@@ -10,6 +10,7 @@
  *    投影 Function 還沒上線，種子與手動修補都可能讓私密欄位混進來。
  */
 
+import { setDivisionTheme } from '../../core/division-theme.js';
 import { el, mount, skeleton } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
 import { icon, iconText } from '../../core/icons.js';
@@ -79,6 +80,7 @@ export async function publicTeam({ params, view, query, scope }) {
       return;
     }
     const t = state.team;
+    setDivisionTheme(root, state.division || t?.divisionId);
     mount(root,
       pageHead(t.name || teamId, {
         sub: [state.division?.name, t.groupId ? `${t.groupId} 組` : null].filter(Boolean).join('　·　'),
@@ -218,6 +220,7 @@ export async function publicPlayer({ params, view }) {
     return;
   }
 
+  setDivisionTheme(root, team?.divisionId);
   const s = me.stats;
   const stat = (label, value) => el('div', { class: 'prec__cell' }, [
     el('span', { class: 'prec__val num', text: String(value) }),

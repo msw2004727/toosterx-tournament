@@ -10,6 +10,7 @@
  *    每一場都能改，不需要動這裡，也不需要找主辦。
  */
 
+import { setDivisionTheme } from '../../core/division-theme.js';
 import { el, mount, toast, confirmDialog, skeleton } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
@@ -92,6 +93,7 @@ export async function managePage({ params, scope, view }) {
   function youth() { return isYouthDivision(state.division); }
 
   function render() {
+    setDivisionTheme(root, state.division || state.team?.divisionId);
     if (!state.loaded) return;
     if (!user()) { mount(root, needLogin(`/team/${encodeURIComponent(teamId)}/manage`)); return; }
     if (!state.team) {

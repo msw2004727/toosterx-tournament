@@ -10,6 +10,7 @@
  * 沒有 live 場次時整區隱藏，「接下來」上移（§2.3）。
  */
 
+import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, mount, skeleton } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
 import { icon, iconText } from '../../core/icons.js';
@@ -21,7 +22,7 @@ import { splitHomeSections, isLiveMatch, hiddenScorerDivisions, publishedMatches
 import { matchRow, sectionCard, empty, pageHead, statusBadge } from './bits.js';
 
 export async function publicHome({ scope, view, query }) {
-  const root = el('div', { class: 'pub' });
+  const root = el('div', { class: 'pub p-home' });
   mount(view, root);
 
   const state = {
@@ -135,11 +136,12 @@ export async function publicHome({ scope, view, query }) {
   function open(m) { navigate(`/match/${encodeURIComponent(m.matchId)}`); }
 
   function render() {
-    if (state.loading) { mount(root, pageHead(EVENT.name, { sub: EVENT.slogan }), skeleton(4)); return; }
+    if (state.loading) { mount(root, homeHero(), skeleton(4)); return; }
     const { live, next, done } = sections();
 
     mount(root,
-      pageHead(EVENT.name, { sub: `${EVENT.slogan}　·　${EVENT.venueName}` }),
+      homeHero(),
+      homeShortcuts(),
       dateTabs(),
 
       // 挑戰區入口（docs/06 §9：賽事與挑戰區並列兩個入口）。
@@ -188,7 +190,7 @@ export async function publicHome({ scope, view, query }) {
       state.divisions.length ? sectionCard('各組即時排名', 'table',
         el('div', { class: 'pchips' }, state.divisions.map(d =>
           el('button', {
-            class: 'chip pdiv', type: 'button', dataset: { div: d.divisionId },
+            ...divisionThemeAttrs(d), class: 'chip pdiv', type: 'button', dataset: { div: d.divisionId },
             onClick: () => navigate(`/division/${encodeURIComponent(d.divisionId)}`)
           }, [
             el('span', { class: 'pdiv__dot', 'aria-hidden': 'true' }),
@@ -213,7 +215,7 @@ export async function publicHome({ scope, view, query }) {
       .slice(0, 3);
     return sectionCard('射手榜', 'goal',
       rows.length
-        ? el('ol', { class: 'ptop' }, rows.map((r, i) => el('li', { class: 'ptop__row' }, [
+        ? el('ol', { class: 'ptop' }, rows.map((r, i) => el('li', { class: 'ptop__row', ...divisionThemeAttrs(r.divisionId) }, [
             el('span', { class: 'ptop__rank num', text: String(i + 1) }),
             el('span', { class: 'ptop__name', text: r.displayName || r.name || '' }),
             el('span', { class: 'ptop__team', text: r.teamName || '' }),
@@ -224,6 +226,32 @@ export async function publicHome({ scope, view, query }) {
         class: 'btn btn--ghost btn--sm', type: 'button', onClick: () => navigate('/stats')
       }, iconText('forward', '完整統計', { trailing: true }))
     );
+  }
+
+  function homeHero() {
+    const parts = EVENT.name.split('｜');
+    const date = d => d.slice(5).replace('-', '.');
+    const range = [EVENT.dates[0], EVENT.dates.at(-1)].filter(Boolean).map(date).join(' — ');
+    return el('section', { class: 'p-homeHero' }, [
+      el('div', { class: 'p-homeHero__copy' }, [
+        el('p', { class: 'p-homeHero__eyebrow', text: parts.length > 1 ? parts[0] : 'TOURNAMENT' }),
+        el('h1', { class: 'p-homeHero__title', 'aria-label': EVENT.name, text: parts.at(-1) }),
+        el('p', { class: 'p-homeHero__slogan', text: EVENT.slogan }),
+        el('p', { class: 'p-homeHero__meta', text: `${range} / ${EVENT.venueName}` })
+      ]),
+      el('div', { class: 'p-homeHero__pitch', 'aria-hidden': 'true' }, [
+        el('i', { class: 'p-homeHero__circle' }), el('i', { class: 'p-homeHero__box' })
+      ]),
+      el('p', { class: 'p-homeHero__foot', text: '賽程・即時比分・組別排名' })
+    ]);
+  }
+
+  function homeShortcuts() {
+    return el('nav', { class: 'p-homeShortcuts', 'aria-label': '賽事快捷功能' }, [
+      ['list', '完整賽程', () => navigate(`/schedule?date=${encodeURIComponent(state.date)}`)],
+      ['table', '各組排名', () => root.querySelector('.pchips button')?.focus()],
+      ['goal', '射手榜', () => navigate('/stats')]
+    ].map(([glyph, label, onClick]) => el('button', { type: 'button', onClick }, [icon(glyph), el('span', { text: label })])));
   }
 
   function sponsorCard() {

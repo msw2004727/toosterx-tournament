@@ -19,6 +19,7 @@
  * ⚠️ 頁面模組的順序陷阱（CLAUDE.md）：render() 會用到的東西一律具名函式。
  */
 
+import { setDivisionTheme } from '../../core/division-theme.js';
 import { el, mount, toast, skeleton, confirmDialog } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { can, onAuth, user } from '../../core/firebase.js';
@@ -644,6 +645,7 @@ export async function adminMatchPage({ scope, view, params }) {
   }
 
   function render() {
+    setDivisionTheme(root, state.match?.divisionId);
     if (state.match === undefined) { mount(root, adminHead('場次改判'), skeleton(4)); return; }
 
     if (state.error || state.match === null) {

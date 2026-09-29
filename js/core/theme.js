@@ -17,6 +17,7 @@
  */
 
 import { icon } from './icons.js';
+import { mount, toast } from './ui.js';
 
 export const THEME_KEY = 'feda_theme';
 export const THEME_PREFS = ['system', 'light', 'dark'];
@@ -38,6 +39,14 @@ export function resolveTheme(pref, prefersDark) {
 /** 把 localStorage 讀到的任何東西正規化成合法偏好值 */
 export function normalizePref(raw) {
   return THEME_PREFS.includes(raw) ? raw : 'system';
+}
+
+/** 系統 → 相反配色 → 相同配色 → 系統；第一下總會改變畫面配色。 */
+export function nextThemePref(pref, prefersDark) {
+  const same = prefersDark ? 'dark' : 'light';
+  const opposite = prefersDark ? 'light' : 'dark';
+  const order = ['system', opposite, same];
+  return order[(order.indexOf(normalizePref(pref)) + 1) % order.length];
 }
 
 /* ── 與環境互動 ─────────────────────────────────────── */
@@ -103,8 +112,7 @@ export function initTheme() {
 
   // 系統日夜模式變了，只有在「跟隨系統」時才跟著動
   mq?.addEventListener?.('change', e => {
-    if (current !== 'system') return;
-    applyResolved(resolveTheme(current, e.matches));
+    if (current === 'system') applyResolved(resolveTheme(current, e.matches));
     for (const fn of listeners) fn(current, getResolved());
   });
 
@@ -119,30 +127,22 @@ export function initTheme() {
   return current;
 }
 
-/**
- * 三態切換元件（分段控制）。
- * 用 radiogroup 而不是三顆 button：螢幕閱讀器會念出「三選一，目前第 1 項」。
- */
+/** 單一循環按鈕。圖示表示目前偏好，輔助標籤同時說明目前與下一個狀態。 */
 export function themeSwitch() {
   const wrap = document.createElement('div');
   wrap.className = 'theme-switch';
-  wrap.setAttribute('role', 'radiogroup');
-  wrap.setAttribute('aria-label', '主題');
-
-  const btns = THEME_PREFS.map(pref => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'theme-switch__opt';
-    b.dataset.pref = pref;
-    b.setAttribute('role', 'radio');
-    b.title = LABEL[pref];
-    b.append(icon(ICON[pref]));
-    const label = document.createElement('span');
-    label.className = 'theme-switch__label';
-    label.textContent = LABEL[pref];
-    b.append(label);
-    b.addEventListener('click', () => setPref(pref));
-    return b;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'theme-switch__opt';
+  const label = document.createElement('span');
+  label.className = 'theme-switch__label';
+  const stateLabel = () => current === 'system'
+    ? `跟隨系統（目前${LABEL[getResolved()]}）` : `${LABEL[current]}模式`;
+  let closeToast = () => {};
+  b.addEventListener('click', () => {
+    setPref(nextThemePref(current, !!mediaQuery()?.matches));
+    closeToast();
+    closeToast = toast(`主題：${stateLabel()}`);
   });
 
   let off = () => {};
@@ -150,15 +150,16 @@ export function themeSwitch() {
     // 已經被換頁拔掉了就自己退訂，不然每換一次頁就多留一個閉包
     if (wrap.isConnected === false && wrap.dataset.mounted === '1') { off(); return; }
     if (wrap.isConnected) wrap.dataset.mounted = '1';
-    for (const b of btns) {
-      const on = b.dataset.pref === current;
-      b.classList.toggle('is-on', on);
-      b.setAttribute('aria-checked', on ? 'true' : 'false');
-      b.tabIndex = on ? 0 : -1;
-    }
+    b.dataset.pref = current;
+    const next = nextThemePref(current, !!mediaQuery()?.matches);
+    const description = `主題：${stateLabel()}；點擊切換為${LABEL[next]}`;
+    b.title = description;
+    b.setAttribute('aria-label', description);
+    label.textContent = description;
+    mount(b, icon(ICON[current]), label);
   };
 
-  wrap.append(...btns);
+  wrap.append(b);
   sync();
   off = onThemeChange(sync);
   wrap.destroy = off;          // 呼叫端若能明確回收就用這個，別依賴上面的自癒

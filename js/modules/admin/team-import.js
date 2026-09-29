@@ -1,3 +1,4 @@
+import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, mount, confirmDialog } from '../../core/ui.js';
 import { can, callFunction, onAuth } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
@@ -100,7 +101,7 @@ export async function adminTeamImportPage({ scope, view }) {
         el('button', { type: 'button', class: 'btn btn--lg', disabled: state.loading || state.busy || !state.divisions.length, onClick: download }, '下載 CSV 範本'),
         el('a', { class: 'btn btn--lg', href: '#/admin/teams' }, '查看球隊清單')
       ]),
-      el('p', { class: 'adm__note', text: '可用組別：' + state.divisions.map(d => `${d.divisionId}（${d.name}）`).join('、') }),
+      el('div', { class: 'division-key', 'aria-label': '可用組別' }, state.divisions.map(d => el('span', { class: 'division-badge', ...divisionThemeAttrs(d), text: `${d.divisionId}（${d.name}）` }))),
       el('label', { class: 'adm__importFile' }, [el('span', { text: 'CSV 文字編碼' }), el('select', {
         'aria-label': 'CSV 文字編碼', disabled: state.loading || state.busy,
         onChange: e => { state.encoding = e.target.value; choose(state.file); }
@@ -125,7 +126,7 @@ export async function adminTeamImportPage({ scope, view }) {
           el('strong', { text: `發現 ${plan.errors.length} 個問題，請修正後重新上傳，尚未寫入資料。` }),
           el('ul', { class: 'adm__importErrors' }, plan.errors.slice(0, 100).map(e => el('li', { text: `${e.row ? `第 ${e.row} 列：` : ''}${e.message}` })))
         ]) : null,
-        ...plan.teams.map(t => el('details', { class: 'adm__importTeam' }, [
+        ...plan.teams.map(t => el('details', { class: 'adm__importTeam division-card', ...divisionThemeAttrs(t.divisionId) }, [
           el('summary', { text: `${t.name} · ${state.divisions.find(d => d.divisionId === t.divisionId)?.name ?? t.divisionId} · ${t.members.length} 人` }),
           el('ul', {}, t.members.map(m => el('li', { text: `#${m.jerseyNo ?? '—'} ${m.name} · ${m.birthDate || '生日待補'} · 末四碼 ${m.idLast4 || '待補'}${m.identityComplete ? '' : ' · 待補資料'}${m.isGoalkeeper ? ' · 守門員' : ''}${m.isCaptain ? ' · 隊長' : ''}` })))
         ])),

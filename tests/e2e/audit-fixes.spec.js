@@ -253,7 +253,7 @@ test('⭐ D-15 主題切換鈕與積分榜隊名的觸控目標高度 ≥ 44px @
   expect((await team.boundingBox()).height).toBeGreaterThanOrEqual(44);
 
   const opts = page.locator('.theme-switch__opt');
-  await expect(opts).toHaveCount(3);
+  await expect(opts).toHaveCount(1);
   for (const o of await opts.all()) {
     const box = await o.boundingBox();
     expect(box.height).toBeGreaterThanOrEqual(44);

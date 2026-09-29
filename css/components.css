@@ -119,18 +119,52 @@ input[type="file"]::file-selector-button{
 .dot[data-status="live"]{animation:dot-pulse 1.6s ease-in-out infinite}
 @keyframes dot-pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
+/* 組別識別：固定品牌色＋可讀文字色；僅影響所屬節點，狀態提示色不變。 */
+[data-division-tone="div-u6"]{--division-color:var(--div-u6)}
+[data-division-tone="div-u8"]{--division-color:var(--div-u8)}
+[data-division-tone="div-u10"]{--division-color:var(--div-u10)}
+[data-division-tone="div-women"]{--division-color:var(--div-women)}
+[data-division-tone="div-fun"]{--division-color:var(--div-fun)}
+[data-division-tone="div-open"]{--division-color:var(--div-open)}
+[data-division-tone]{
+  --division-ink:color-mix(in srgb,var(--division-color),var(--division-ink-target) var(--division-ink-weight));
+  --division-soft:color-mix(in srgb,var(--division-color) var(--division-surface-weight),var(--bg-card));
+  --division-solid:color-mix(in srgb,var(--division-color),#000 30%);
+  --accent:var(--division-ink);--accent-hover:var(--division-ink);--accent-bg:var(--division-soft);
+  --primary:var(--division-solid);
+  --primary-btn-bg:var(--division-solid);--primary-btn-hover:color-mix(in srgb,var(--division-solid),#000 15%);
+  --primary-btn-active:color-mix(in srgb,var(--division-solid),#000 25%);
+  --control-selected-bg:var(--division-soft);--control-selected-text:var(--division-ink);
+  --control-selected-border:var(--division-color);--control-hover:var(--division-soft);
+}
+.division-card[data-division-tone]{border-inline-start:3px solid var(--division-color);background:var(--division-soft)}
+.division-choice[data-division-tone]{border-color:color-mix(in srgb,var(--division-color) 42%,var(--border));color:var(--division-ink)}
+.division-choice[data-division-tone]:is(.is-on,.is-active,[aria-selected="true"]){background:var(--division-soft);border-color:var(--division-color);box-shadow:inset 0 -2px var(--division-color)}
+.division-badge{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-xs);font-weight:600;line-height:1.5;color:var(--division-ink,var(--text-secondary));background:var(--division-soft,var(--bg-elevated));padding:4px 8px;border-radius:6px;max-width:100%;overflow-wrap:anywhere}
+.division-badge::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--division-color,var(--text-muted));flex:none}
+.division-key{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin:var(--sp-3) 0}
+[data-division-tone] :is(.pcard__head,.reg__cardHead,.adm__sectionHead){color:var(--division-ink)}
+[data-division-tone] :is(.psb,.sb,.chk__head,.ls__head){border-bottom:3px solid var(--division-color)}
+[data-division-tone] .ptable thead{background:var(--division-soft)}
+[data-division-tone] :is(.adm__head,.reg__head){border-bottom:3px solid var(--division-color);padding-bottom:var(--sp-3)}
+
 /* ── 主題切換（系統／淺色／深色）────────────────────── */
 .theme-switch{
-  display:inline-flex;gap:2px;padding:3px;
-  background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--r-full);
+  display:inline-flex;flex:none;
 }
 .theme-switch__opt{
   display:inline-flex;align-items:center;justify-content:center;gap:5px;
   min-height:var(--tap);min-width:var(--tap);padding:0 10px;border-radius:var(--r-full);
-  color:var(--text-muted);font-size:var(--fs-xs);font-weight:700;
-  transition:background var(--transition),color var(--transition);
+  background:var(--control-bg);border:1px solid var(--control-border);
+  color:var(--accent);font-size:var(--fs-xs);font-weight:700;box-shadow:var(--control-shadow);
+  transition:background var(--transition),color var(--transition),transform var(--transition);
 }
-.theme-switch__opt.is-on{background:var(--bg-card);color:var(--accent);box-shadow:var(--shadow-1)}
+.theme-switch__opt.is-on{color:var(--accent)}
+.theme-switch__opt .icon{width:19px;height:19px}
+.theme-switch__opt:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.theme-switch__opt:active{transform:translateY(1px)}
+@media (hover:hover){.theme-switch__opt:hover{background:var(--control-hover);border-color:var(--control-selected-border)}}
+@media (prefers-reduced-motion:reduce){.theme-switch__opt{transition:none}.theme-switch__opt:active{transform:none}}
 /* 窄機只留圖示，三個字擠不下 */
 /* ⚠️ 主題切換**任何寬度都只留圖示**（主辦 2026-09-03 指定）。
    文字標籤在窄螢幕會被斷行，把整條頁首撐成兩列。

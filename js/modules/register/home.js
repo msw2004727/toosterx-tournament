@@ -7,6 +7,7 @@
  * 再決定要不要授權 LINE——先擋登入等於逼人在不知道要做什麼的情況下交出身分。
  */
 
+import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, mount, skeleton } from '../../core/ui.js';
 import { iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
@@ -165,7 +166,7 @@ export async function registerHome({ scope, view, query }) {
     if (!state.divisions.length) return null;
     return el('section', { class: 'reg__card' }, [
       el('h2', { class: 'reg__cardHead' }, iconText('table', '參賽組別')),
-      el('ul', { class: 'reg__divs' }, state.divisions.map(d => el('li', { class: 'reg__div' }, [
+      el('ul', { class: 'reg__divs' }, state.divisions.map(d => el('li', { class: 'reg__div division-card', ...divisionThemeAttrs(d) }, [
         el('strong', { text: d.name || d.divisionId }),
         // ⚠️ 規章上的正式名稱一定要一起顯示。報名表印的是「學童中年級」，
         //    畫面只寫「U10兒童組」的話，家長會問「我到底要報哪一組」——

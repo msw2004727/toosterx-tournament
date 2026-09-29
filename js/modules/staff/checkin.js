@@ -21,6 +21,7 @@
  *   3. **一切留痕**。每一筆都寫 scannedBy／scannedAt，改判也留紀錄。
  */
 
+import { setDivisionTheme } from '../../core/division-theme.js';
 import { el, mount, toast, skeleton, confirmDialog } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
@@ -134,6 +135,7 @@ export async function checkinPage({ params, scope, view }) {
   function rows() { return state.rosters[state.side] || []; }
 
   function render() {
+    setDivisionTheme(root, state.division || state.match?.divisionId);
     if (!state.loaded) return;
     if (!state.match) {
       mount(root, errorBox('找不到這場比賽', null));

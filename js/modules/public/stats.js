@@ -4,6 +4,7 @@
  * 規格：docs/03-功能規格-公開端.md §9、§5.3
  */
 
+import { divisionThemeAttrs, setDivisionTheme } from '../../core/division-theme.js';
 import { el, mount, skeleton } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
 import { iconText } from '../../core/icons.js';
@@ -52,6 +53,7 @@ export async function publicStats({ view, query }) {
   render();
 
   function render() {
+    setDivisionTheme(root, state.divisions.find(d => d.divisionId === state.divisionId) || state.divisionId);
     mount(root,
       pageHead('統計', { sub: EVENT.name, onBack: () => navigate('/') }),
       tabBar(),
@@ -133,7 +135,7 @@ export async function publicStats({ view, query }) {
     const value = el('span', { class: 'ptop__val num', text: `${r[conf.valueKey] ?? 0} ${conf.unit}` });
 
     if (conf.kind === 'team') {
-      return el('li', { class: 'ptop__row' }, [
+      return el('li', { class: 'ptop__row', ...divisionThemeAttrs(r.divisionId) }, [
         rank,
         el('button', {
           class: 'ptop__name', type: 'button',
@@ -147,7 +149,7 @@ export async function publicStats({ view, query }) {
     // ⚠️ 看板上的球員鍵是 playerId（＝ memberId），不是 memberId。
     //    先前寫成 r.memberId，欄位不存在，點下去完全沒有反應。
     const name = r.name || (r.jerseyNo != null ? `#${r.jerseyNo}` : '未提供姓名');
-    return el('li', { class: 'ptop__row' }, [
+    return el('li', { class: 'ptop__row', ...divisionThemeAttrs(r.divisionId) }, [
       rank,
       el('button', {
         class: 'ptop__name', type: 'button',
@@ -208,7 +210,7 @@ export async function publicLiveWall({ scope, view }) {
     const div = m ? state.divisions.find(d => d.divisionId === m.divisionId) : null;
     const url = embedUrl({ match: m, venue: v });
 
-    return el('section', { class: 'pwall__cell', dataset: { venueId: v.venueId } }, [
+    return el('section', { class: 'pwall__cell division-card', ...divisionThemeAttrs(div || m?.divisionId), dataset: { venueId: v.venueId } }, [
       el('div', { class: 'pwall__head' }, [
         el('strong', { text: v.name || v.venueId }),
         m ? statusBadge(m, div?.matchDurationMin ?? 30) : el('span', { class: 'muted', text: '今日無場次' })

@@ -92,7 +92,7 @@ test('⭐ 手動選了淺色之後，系統轉深色也不會被蓋掉，而且�
   await gotoApp(page, '/');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
-  await page.locator('.theme-switch__opt[data-pref="light"]').click();
+  await page.locator('.theme-switch__opt').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 
   // 系統仍然是深色，但使用者的選擇要贏
@@ -101,17 +101,20 @@ test('⭐ 手動選了淺色之後，系統轉深色也不會被蓋掉，而且�
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 
   // 選回「跟隨系統」就該恢復成深色
-  await page.locator('.theme-switch__opt[data-pref="system"]').click();
+  await page.locator('.theme-switch__opt').click();
+  await page.locator('.theme-switch__opt').click();
+  await expect(page.locator('.theme-switch__opt')).toHaveAttribute('data-pref', 'system');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });
 
 test('⭐ 深色下文字與背景不可以是同一個顏色（token 沒定義就會這樣）@theme', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' });
   await gotoApp(page, '/#/staff');
   // ⚠️ 一定要等賽務頁真的畫出來。主題切換現在在**全站頁首**裡，
   //    頁首比頁面內容早出現——點得到它不再代表頁面載好了
   //    （改動前那顆在 .staff__head 裡，所以有隱含的等待）。
   await expect(page.locator('.card').first()).toBeVisible();
-  await page.locator('.theme-switch__opt[data-pref="dark"]').click();
+  await page.locator('.theme-switch__opt').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
   const probe = await page.evaluate(() => {

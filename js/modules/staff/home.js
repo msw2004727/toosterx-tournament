@@ -8,6 +8,7 @@
  * 所以這頁不做任何篩選器——staff.assignment 就是篩選條件。
  */
 
+import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, emptyState, toast, mount, sheet } from '../../core/ui.js';
 import { iconText } from '../../core/icons.js';
 import { hhmm, dateLabelFromYmd, STATUS_LABEL } from '../../lib/format.js';
@@ -120,7 +121,7 @@ export async function staffHome({ scope, view }) {
         el('p', { class: 'muted', text: '今天沒有待進行的場次。' })
       ]);
     }
-    return el('section', { class: 'card card--current' }, [
+    return el('section', { class: 'card card--current division-card', ...divisionThemeAttrs(m.divisionId) }, [
       el('h2', { class: 'card__head' }, iconText('live', '目前場次')),
       el('div', { class: 'cur' }, [
         el('span', { class: 'cur__meta', text: `${m.label || m.matchId}　${hhmm(m.kickoffAt)}　${m.venueName || venueLabel(m.venueId) || ''}` }),
@@ -147,7 +148,7 @@ export async function staffHome({ scope, view }) {
     }
     return el('section', { class: 'card' }, [
       el('h2', { class: 'card__head', text: `今日我的場次（${matches.length}）` }),
-      el('ul', { class: 'mlist' }, matches.map(m => el('li', { class: `mlist__item ${DONE.has(m.status) ? 'is-done' : ''}` }, [
+      el('ul', { class: 'mlist' }, matches.map(m => el('li', { ...divisionThemeAttrs(m.divisionId), class: `mlist__item division-card ${DONE.has(m.status) ? 'is-done' : ''}` }, [
         el('button', {
           class: 'mlist__btn', type: 'button',
           onClick: () => openMatch(m)

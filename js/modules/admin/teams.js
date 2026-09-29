@@ -16,6 +16,7 @@
  *    onSnapshot 的第一筆快照可能同步送達。
  */
 
+import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, mount, toast, skeleton, confirmDialog } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { user, can, onAuth } from '../../core/firebase.js';
@@ -138,7 +139,7 @@ export async function adminTeamsPage({ scope, view }) {
   function teamRow(t) {
     const open = state.open === t.teamId;
     const div = divisionOf(t.divisionId);
-    return el('li', { class: `adm__item${open ? ' is-open' : ''}` }, [
+    return el('li', { class: `adm__item division-card${open ? ' is-open' : ''}`, ...divisionThemeAttrs(div || t.divisionId) }, [
       el('button', {
         class: 'adm__itemHead', type: 'button',
         'aria-expanded': open ? 'true' : 'false',
