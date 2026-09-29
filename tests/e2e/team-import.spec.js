@@ -110,8 +110,11 @@ test('同一球員跨隊預覽匯入、確認後才呼叫後端，成功可前�
   expect((await download).suggestedFilename()).toBe('球隊名冊匯入範本.csv');
   await upload(page, [row(), row({ teamName: '第二隊' })]);
   await expect(page.getByText('匯入預覽：2 支球隊、2 位球員')).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
   await page.locator('.adm__importTeam summary').first().click();
-  await expect(page.getByText(/末四碼 0012/)).toBeVisible();
+  await expect(page.locator('.adm__importTeam').first().getByText(/末四碼 0012/)).toBeVisible();
+  await page.locator('.adm__importTeam summary').nth(1).click();
+  await expect(page.locator('.adm__importTeam').nth(1).getByText(/末四碼 0012/)).toBeVisible();
   await expect(page.getByRole('button', { name: '匯入並核准球隊' })).toBeDisabled();
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: '匯入並核准球隊' }).click();
