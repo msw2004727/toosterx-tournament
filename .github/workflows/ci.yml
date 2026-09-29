@@ -178,6 +178,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - run: npm ci
+      # 直接執行 onMemberWritten.run 的接線測試需要真正的 Functions SDK。
+      - run: npm ci --prefix functions
       - run: npm run test:fn
 
       # 同一套鑑別力要求：fail-closed 的程式碼在 happy path 上跟 fail-open
