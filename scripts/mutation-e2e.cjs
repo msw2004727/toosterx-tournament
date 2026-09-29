@@ -16,6 +16,18 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
+    name: '#ERANK1 首頁排名捷徑又沒有選組提示', file: 'js/modules/public/home.js',
+    from: "closeRankingsToast = toast('請選擇組別查看排名');", to: 'closeRankingsToast = null;'
+  },
+  {
+    name: '#ERANK2 首頁排名捷徑沒有捲動到完整組別選單', file: 'js/modules/public/home.js',
+    from: 'choices.scrollIntoView({', to: 'Boolean({'
+  },
+  {
+    name: '#ERANK3 組別讀取失敗被誤當成尚未設定', file: 'js/modules/public/home.js',
+    from: "state.divisionsStatus = 'error';", to: "state.divisionsStatus = 'ready';"
+  },
+  {
     name: '#EJER2 背號表單超出窄螢幕', file: 'css/modules/admin.css',
     from: '.adm__identityPanel{max-height:100%;overflow-y:auto;overscroll-behavior:contain;overflow-wrap:anywhere}',
     to: '.adm__identityPanel{overflow-wrap:anywhere}'

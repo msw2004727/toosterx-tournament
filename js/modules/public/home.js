@@ -11,7 +11,7 @@
  */
 
 import { divisionThemeAttrs } from '../../core/division-theme.js';
-import { el, mount, skeleton } from '../../core/ui.js';
+import { el, mount, skeleton, toast } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
 import { icon, iconText } from '../../core/icons.js';
 import { startTicker, now } from '../../core/clock.js';
@@ -29,6 +29,7 @@ export async function publicHome({ scope, view, query }) {
     date: query?.get('date') || todayInEvent(),
     matches: [],
     divisions: [],
+    divisionsStatus: 'loading',
     board: null,
     boardMissing: false,
     scorers: null,
@@ -36,10 +37,20 @@ export async function publicHome({ scope, view, query }) {
     loading: true
   };
 
-  // 組別清單一次性讀取，用來畫「各組即時排名」入口與取得 matchDurationMin
-  data.getDivisions()
-    .then(ds => { state.divisions = ds; render(); })
-    .catch(() => { /* 讀不到就少一個區塊，不影響比分 */ });
+  let disposed = false;
+  let closeRankingsToast = null;
+
+  // 組別讀取狀態與比分分開，快捷入口才能說明尚未載入的原因。
+  void loadDivisions();
+  async function loadDivisions() {
+    try {
+      state.divisions = await data.getDivisions();
+      state.divisionsStatus = 'ready';
+    } catch {
+      state.divisionsStatus = 'error';
+    }
+    if (!disposed) render();
+  }
 
   Promise.all([data.getBoards(), data.getFeatureFlags()])
     .then(([boards, flags]) => {
@@ -249,9 +260,32 @@ export async function publicHome({ scope, view, query }) {
   function homeShortcuts() {
     return el('nav', { class: 'p-homeShortcuts', 'aria-label': '賽事快捷功能' }, [
       ['list', '完整賽程', () => navigate(`/schedule?date=${encodeURIComponent(state.date)}`)],
-      ['table', '各組排名', () => root.querySelector('.pchips button')?.focus()],
+      ['table', '各組排名', showRankings],
       ['goal', '射手榜', () => navigate('/stats')]
     ].map(([glyph, label, onClick]) => el('button', { type: 'button', onClick }, [icon(glyph), el('span', { text: label })])));
+  }
+
+  function showRankings() {
+    closeRankingsToast?.();
+    if (state.divisionsStatus === 'loading') {
+      closeRankingsToast = toast('組別資料載入中，請稍候再試。', 'warn');
+      return;
+    }
+    if (state.divisionsStatus === 'error') {
+      closeRankingsToast = toast('讀不到組別資料，請重新整理或稍後再試。', 'error');
+      return;
+    }
+    if (!state.divisions.length) {
+      closeRankingsToast = toast('目前尚未設定組別，請稍後再查看。', 'warn');
+      return;
+    }
+    const choices = root.querySelector('.pchips');
+    choices.scrollIntoView({
+      behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'center'
+    });
+    choices.querySelector('button')?.focus({ preventScroll: true });
+    closeRankingsToast = toast('請選擇組別查看排名');
   }
 
   function sponsorCard() {
@@ -288,7 +322,7 @@ export async function publicHome({ scope, view, query }) {
     }
   }
 
-  return () => { stopTicker?.(); };
+  return () => { disposed = true; closeRankingsToast?.(); stopTicker?.(); };
 }
 
 /** 活動期間就用今天，否則落在活動第一天（賽前預覽不會看到空畫面） */

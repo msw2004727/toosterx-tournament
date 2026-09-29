@@ -3,9 +3,12 @@ import fs from 'node:fs';
 import { DIVISIONS } from '../../js/engine/formats.js';
 const FAKE=fs.readFileSync('tests/e2e/fake-firebase.js','utf8');
 const root='events/feda-cup-2026';
-async function stub(page,theme=null){
+async function stub(page,theme=null,divisionsState='ready'){
   await page.clock.setFixedTime(new Date('2026-09-29T10:00:00+08:00'));
-  await page.route('https://www.gstatic.com/firebasejs/**',r=>r.fulfill({contentType:'text/javascript',body:FAKE}));
+  const fake = divisionsState === 'loading'
+    ? FAKE.replace('S.stats.getDocs += 1;', 'S.stats.getDocs += 1; if (ref.path?.endsWith("/divisions")) await window.__divisionsPending;')
+    : FAKE;
+  await page.route('https://www.gstatic.com/firebasejs/**',r=>r.fulfill({contentType:'text/javascript',body:fake}));
   await page.route('https://firestore.googleapis.com/**',r=>r.fulfill({body:'{}'}));
   await page.route('https://static.line-scdn.net/**',r=>r.abort());
   const seed={'config/env':{env:'demo'},'config/registration':{open:false,hidden:true},'staff/design-admin':{roles:['admin'],active:true},'users/design-admin':{displayName:'測試管理員'}};
@@ -14,7 +17,13 @@ async function stub(page,theme=null){
     seed[`${root}/teams/team-${i}`]={teamId:`team-${i}`,name:`${d.name}驗收隊`,divisionId:d.divisionId,status:'approved',memberCount:1,source:'csv'};
     seed[`${root}/matches/m-${i}`]={matchId:`m-${i}`,divisionId:d.divisionId,date:'2026-10-09',kickoffAt:'2026-10-09T10:00:00+08:00',venueId:'a',venueName:'A 場',label:'小組賽',status:i===0?'live':'scheduled',home:{teamId:`team-${i}`,name:'名稱很長也需要完整呈現的足球隊'},away:{teamId:`away-${i}`,name:'青禾足球隊'},teamIds:[`team-${i}`,`away-${i}`],score:{home:2,away:1},clock:{running:false,elapsedSecAtPause:360},period:'h1'};
   }
-  await page.addInitScript(({seed,theme})=>{window.__FAKE_SEED=seed;window.__FAKE_USER={uid:'design-admin'};if(theme)localStorage.setItem('feda_theme',theme);else localStorage.removeItem('feda_theme');},{seed,theme});
+  if(divisionsState==='empty')for(const key of Object.keys(seed))if(key.startsWith(`${root}/divisions/`))delete seed[key];
+  await page.addInitScript(({seed,theme,divisionsState})=>{
+    window.__FAKE_SEED=seed;window.__FAKE_USER={uid:'design-admin'};
+    if(theme)localStorage.setItem('feda_theme',theme);else localStorage.removeItem('feda_theme');
+    if(divisionsState==='error')window.__FAKE_SNAPSHOT_FAIL={path:'/divisions',code:'unavailable'};
+    if(divisionsState==='loading')window.__divisionsPending=new Promise(resolve=>{window.__releaseDivisions=resolve;});
+  },{seed,theme,divisionsState});
 }
 async function contrast(node){return node.evaluate(el=>{
   const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
@@ -51,7 +60,14 @@ for(const scheme of ['light','dark']){
     }
     await page.setViewportSize({width:390,height:980});await page.screenshot({path:`tools/home-final-${scheme}-${test.info().project.name}.png`,fullPage:true});
     await page.locator('.pchips').screenshot({path:`tools/division-palette-${scheme}-${test.info().project.name}.png`});
+    await page.setViewportSize({width:320,height:568});
     await page.getByRole('button',{name:'各組排名',exact:true}).click();await expect(page.locator('.pdiv').first()).toBeFocused();
+    await expect(page.locator('#toast-root .toast:not(.is-leaving)')).toHaveText('請選擇組別查看排名');
+    await expect(page.locator('.pchips')).toBeInViewport({ratio:1});
+    await page.getByRole('button',{name:'成人公開組',exact:true}).click();await expect(page).toHaveURL(/#\/division\/adult-open$/);
+    await expect(page.getByRole('tab',{name:'積分榜',exact:true})).toHaveAttribute('aria-selected','true');
+    await expect(page.locator('#toast-root .toast:not(.is-leaving)')).toHaveCount(0);
+    await page.goto('/');
     await page.getByRole('button',{name:'完整賽程',exact:true}).click();await expect(page).toHaveURL(/#\/schedule/);
     await page.setViewportSize({width:320,height:900});
     await page.addStyleTag({content:'.ptabs[aria-label="日期"] .ptabs__btn{font-size:20px;letter-spacing:1px}'});
@@ -71,5 +87,31 @@ for(const scheme of ['light','dark']){
     await page.goto('/#/admin/teams');await page.getByRole('tab',{name:/已通過/}).click();
     for(const d of DIVISIONS) await expect(page.locator(`.adm__item[data-division="${d.divisionId}"]`)).toHaveAttribute('data-division-tone',d.colorToken);
     await page.goto('/#/admin/team-import');await expect(page.locator('.division-key .division-badge')).toHaveCount(6);
+  });
+}
+
+for(const [status,message] of [
+  ['loading','組別資料載入中，請稍候再試。'],
+  ['error','讀不到組別資料，請重新整理或稍後再試。'],
+  ['empty','目前尚未設定組別，請稍後再查看。']
+]){
+  test(`首頁排名捷徑說明組別狀態：${status}`,async({page})=>{
+    await stub(page,'light',status);await page.goto('/');
+    await page.getByRole('button',{name:'各組排名',exact:true}).click();
+    const activeToast=page.locator('#toast-root .toast:not(.is-leaving)');
+    await expect(activeToast).toHaveText(message);
+    await page.getByRole('button',{name:'各組排名',exact:true}).click();
+    await expect(activeToast).toHaveCount(1);
+    if(status==='loading'){
+      await page.evaluate(()=>window.__releaseDivisions());
+      await expect(page.locator('.pdiv')).toHaveCount(6);
+      await page.emulateMedia({reducedMotion:'reduce'});
+      await page.getByRole('button',{name:'各組排名',exact:true}).click();
+      await expect(activeToast).toHaveText('請選擇組別查看排名');
+      await expect(page.locator('.pchips')).toBeInViewport({ratio:1});
+    }
+    await page.getByRole('button',{name:'完整賽程',exact:true}).click();
+    await expect(page).toHaveURL(/#\/schedule/);
+    await expect(activeToast).toHaveCount(0);
   });
 }
