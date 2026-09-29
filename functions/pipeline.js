@@ -24,7 +24,7 @@ import { resolveStage, canResolve, computeFinalRanking as computeFinalRankingPur
 import { computeScorers, computeFairPlayBoard, countedMatchIdsOf } from './engine/awards.js';
 import { reconcileScore } from './engine/timeline.js';
 import { rosterProjection } from './engine/privacy.js';
-import { isPlayer, personKeysOf } from './engine/review.js';
+import { isPlayer } from './engine/review.js';
 import { REGISTRATION_LIMITS } from './engine/formats.js';
 import { normalizePhone, maskPhone, newPlayerDoc, formatPlayerId } from './engine/challenge.js';
 import { createHash } from 'node:crypto';
@@ -833,69 +833,8 @@ function rankSnapshot(standing) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  規章第十二條：每人限報乙隊、球員最多 15 人（伺服器端強制）
+//  規章第十二條：球員最多 15 人（伺服器端強制）
 // ══════════════════════════════════════════════════════════════
-
-/** 從 members 文件的路徑取 teamId：events/{e}/teams/{t}/members/{m} */
-const teamIdOfRef = ref => ref.parent.parent.id;
-
-/**
- * 每人限報乙隊——跨隊查重。
- *
- * 新建立的一筆（待審或已核准）若跟**別的球隊**上一筆待審／已核准的成員
- * 是同一個人，就把新的這一筆退件。「同一個人」的判斷在
- * `js/engine/review.js` 的 `personKeysOf`：身分證後四碼＋生日，或本人的 uid。
- *
- * ⚠️ 查的是 `members` 的 collection group。`idLast4` 與 `guardianUid` 兩個欄位
- *    在 `firestore.indexes.json` 有 collection-group 的 fieldOverride——
- *    少了它正式站會直接丟 FAILED_PRECONDITION，而模擬器上不會（模擬器不查索引）。
- *
- * ⚠️ 只擋**別隊**。同一隊裡的重複由 `rejectDuplicateApplication` 管
- *    （那是「同一帳號對同一隊兩筆待審」，語意不同）。
- *
- * @returns {Promise<false|{otherTeamId:string}>}
- */
-export async function rejectCrossTeamDuplicate({ eventId, teamId, memberId, member }) {
-  const keys = personKeysOf(member);
-  if (!keys.length) return false;
-
-  const group = db().collectionGroup('members');
-  const prefix = `events/${eventId}/teams/`;
-  const live = d => ['pending', 'approved'].includes(d.data().status);
-  const otherTeam = d => d.ref.path.startsWith(prefix) && teamIdOfRef(d.ref) !== teamId;
-
-  let hit = null;
-  for (const key of keys) {
-    const [kind, a, b] = key.split(':');
-    let snap;
-    if (kind === 'id') {
-      snap = await group.where('idLast4', '==', a).get();
-      hit = snap.docs.find(d => otherTeam(d) && live(d) && d.data().birthDate === b) ?? null;
-    } else {
-      snap = await group.where('guardianUid', '==', a).get();
-      hit = snap.docs.find(d => otherTeam(d) && live(d) && d.data().isSelf === true) ?? null;
-    }
-    if (hit) break;
-  }
-  if (!hit) return false;
-
-  const otherTeamId = teamIdOfRef(hit.ref);
-  const other = (await evRef(eventId).collection('teams').doc(otherTeamId).get()).data();
-  const otherName = other?.name ?? otherTeamId;
-
-  await evRef(eventId).collection('teams').doc(teamId).collection('members').doc(memberId).update({
-    status: 'rejected',
-    rejectReason: `每人限報乙隊（競賽規章第十二條）：這位球員已經在「${otherName}」的名單上。要換隊請先請原球隊移除。`,
-    decidedAt: FieldValue.serverTimestamp(),
-    decidedBy: 'fn:onePlayerOneTeam'
-  });
-  await writeAudit(eventId, {
-    entity: 'member', entityId: `${teamId}/${memberId}`, action: 'member.crossTeamRejected',
-    after: { otherTeamId, keys },
-    reason: '每人限報乙隊（規章第十二條）'
-  });
-  return { otherTeamId };
-}
 
 /**
  * 球員最多 15 人——超過的那幾筆退件。

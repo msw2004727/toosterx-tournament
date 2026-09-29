@@ -4,7 +4,6 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { db } from './admin.js';
 import { parseTeamCsv, validateTeamImport } from './engine/team-import.js';
 import { rosterProjection } from './engine/privacy.js';
-import { personKeysOf } from './engine/review.js';
 
 export class TeamImportError extends Error {
   constructor(code, message) { super(message); this.code = code; }
@@ -36,12 +35,6 @@ export async function importTeamsFor(request) {
     const existingTeams = teamSnap.docs.map(d => ({ ...d.data(), teamId: d.id }));
     const plan = validateTeamImport(rows, { divisions, existingTeams, asOf });
     if (plan.errors.length) fail('invalid-argument', plan.errors.slice(0, 10).map(e => `${e.row ? `第 ${e.row} 列：` : ''}${e.message}`).join('\n'));
-    // 不靠非同步 trigger 才退件：提交前在交易內讀現有名冊並檢查跨隊重複。
-    const memberSnaps = await Promise.all(teamSnap.docs.map(t => tx.get(t.ref.collection('members'))));
-    const knownPeople = new Set(memberSnaps.flatMap(s => s.docs.filter(d => ['pending', 'approved'].includes(d.data().status)).flatMap(d => personKeysOf(d.data()))));
-    for (const team of plan.teams) for (const m of team.members) {
-      if (personKeysOf(m).some(key => knownPeople.has(key))) fail('already-exists', `「${team.name}」的 ${m.jerseyNo} 號已在其他球隊名冊或待審申請中，整份未匯入。`);
-    }
     const prepared = plan.teams.map(team => ({ ...team, teamId: `csv-${createHash('sha256').update(team.key).digest('hex').slice(0, 32)}` }));
     const targetSnaps = await tx.getAll(...prepared.map(t => eventRef.collection('teams').doc(t.teamId)));
     if (targetSnaps.some(s => s.exists)) fail('already-exists', '檔案內的球隊已匯入過，不能重複匯入。');

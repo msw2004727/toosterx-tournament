@@ -381,7 +381,7 @@ const REGISTRATION_LIMITS = {
   maxPlayers: 15,          // 「球員最多 15 人」
   maxStaff: 3,             // 「隊職員 3 人（領隊、教練、管理各 1 人）」
   staffRoles: ['leader', 'coach', 'manager'],
-  onePlayerOneTeam: true,  // 「每人限報乙隊」
+  onePlayerOneTeam: false, // 主辦 2026-09-29 調整：三天不同盃賽，允許同一球員跨隊參賽。
   fee: { youth: 5000, adult: 6000 }   // 學童三組 / 女子與男子兩組
 };
 

@@ -229,7 +229,7 @@ export async function adminRegistrationPage({ scope, view }) {
     const L = REGISTRATION_LIMITS;
     return el('div', { class: 'adm__box' }, [
       el('strong', { text: '照競賽規章，不能在這裡改' }),
-      el('p', { class: 'adm__note', text: `球員最多 ${L.maxPlayers} 人、隊職員 ${L.maxStaff} 人（領隊／教練／管理各 1）、每人限報乙隊。規章第十二條。` })
+      el('p', { class: 'adm__note', text: `球員最多 ${L.maxPlayers} 人、隊職員 ${L.maxStaff} 人（領隊／教練／管理各 1）。同一球員可參加不同球隊／盃賽。` })
     ]);
   }
 

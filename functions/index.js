@@ -25,7 +25,7 @@ import {
   resolveAdvancementForStage, computeFinalRankingFor, publishFinalRankingFor,
   rebuildBoardsFor, reconcileMatchScore,
   syncRosterFor, recountTeamMembers, recountUserTeams, rejectDuplicateApplication,
-  rejectCrossTeamDuplicate, enforceRosterCap,
+  enforceRosterCap,
   onAttemptSubmitted, setManualRankingFor, clearManualRankingFor
 } from './pipeline.js';
 import { setPlayerContactFor, issueGamePassFor } from './pipeline.js';
@@ -181,15 +181,7 @@ export const onMemberWritten = onDocumentWritten(
         return;                    // 退件那次寫入會再觸發一次，投影與計數交給它
       }
     }
-    // 每人限報乙隊（規章第十二條）：待審或已核准的新成員都要跨隊查一次。
-    // 教練直接新增的學童（status 一開始就是 approved）也在這裡被擋。
-    if (!before && after && ['pending', 'approved'].includes(after.status)) {
-      const cross = await rejectCrossTeamDuplicate({ eventId, teamId, memberId, member: after });
-      if (cross) {
-        logger.info('[onMemberWritten] 跨隊重複已退件', { teamId, memberId, otherTeamId: cross.otherTeamId });
-        return;
-      }
-    }
+    // 三天為不同盃賽，同一球員可參加不同球隊；不做跨隊身分查重。
 
     const r = await syncRosterFor({ eventId, teamId, memberId });
     const c = await recountTeamMembers({ eventId, teamId });

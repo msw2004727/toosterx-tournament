@@ -99,7 +99,7 @@ test('驗證 TypeError 與壞掉的 UTF-8 分開提示 @csvencoding', async ({ p
   await expect(page.getByRole('alert')).toContainText('CSV 內容檢查失敗：欄位驗證失敗');
   await expect(page.getByRole('alert')).not.toContainText('UTF-8');
 });
-test('多隊預覽、確認後才呼叫後端，成功可前往賽程 @admin', async ({ page }) => {
+test('同一球員跨隊預覽匯入、確認後才呼叫後端，成功可前往賽程 @admin', async ({ page }) => {
   await stub(page);
   await page.goto('/#/admin/team-import');
   await expect(page.getByRole('table')).toContainText('2017-01-01');
@@ -108,7 +108,7 @@ test('多隊預覽、確認後才呼叫後端，成功可前往賽程 @admin', a
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: '下載 CSV 範本' }).click();
   expect((await download).suggestedFilename()).toBe('球隊名冊匯入範本.csv');
-  await upload(page, [row(), row({ teamName: '第二隊', idLast4: '9999' })]);
+  await upload(page, [row(), row({ teamName: '第二隊' })]);
   await expect(page.getByText('匯入預覽：2 支球隊、2 位球員')).toBeVisible();
   await page.locator('.adm__importTeam summary').first().click();
   await expect(page.getByText(/末四碼 0012/)).toBeVisible();

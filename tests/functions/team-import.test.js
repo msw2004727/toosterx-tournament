@@ -1,6 +1,7 @@
 import { db } from '../../functions/admin.js';
 import { importTeamsFor } from '../../functions/team-import.js';
-import { syncRosterFor, recountTeamMembers, rejectCrossTeamDuplicate } from '../../functions/pipeline.js';
+import { syncRosterFor, recountTeamMembers } from '../../functions/pipeline.js';
+import { onMemberWritten } from '../../functions/index.js';
 import { IMPORT_COLUMNS } from '../../js/engine/team-import.js';
 import { toCsv } from '../../js/engine/csv.js';
 import { ROSTER_FIELDS } from '../../js/engine/privacy.js';
@@ -27,7 +28,7 @@ beforeEach(async () => {
 });
 
 test('整份匯入直接核准，公開名冊白名單、私密資料與稽核正確，trigger 重跑後仍一致', async () => {
-  const result = await importTeamsFor(request([row(), row({ teamName: '另一隊', idLast4: '9876' })]));
+  const result = await importTeamsFor(request([row(), row({ teamName: '另一隊' })]));
   expect(result).toMatchObject({ teamCount: 2, playerCount: 2 });
   const ref = root().collection('teams').doc(result.teamIds[0]);
   expect((await ref.get()).data()).toMatchObject({ status: 'approved', rosterLocked: true, captainUid: null, playerCount: 1 });
@@ -38,7 +39,8 @@ test('整份匯入直接核准，公開名冊白名單、私密資料與稽核�
   expect(projection.displayName).toBe('小飛');
   expect(projection).not.toHaveProperty('birthDate');
   expect((await root().collection('audits').doc(result.importId).get()).data()).toMatchObject({ action: 'team.import', actor: { uid: 'admin' }, after: { teamCount: 2 } });
-  expect(await rejectCrossTeamDuplicate({ eventId: E, teamId: result.teamIds[0], memberId: 'p-7', member })).toBe(false);
+  await onMemberWritten.run({ params: { eventId: E, teamId: result.teamIds[0], memberId: 'p-7' }, data: { before: { data: () => undefined }, after: { data: () => member } } });
+  expect((await ref.collection('members').doc('p-7').get()).data().status).toBe('approved');
   await syncRosterFor({ eventId: E, teamId: result.teamIds[0], memberId: 'p-7' });
   await recountTeamMembers({ eventId: E, teamId: result.teamIds[0] });
   expect((await ref.collection('roster').doc('p-7').get()).data()).toMatchObject(projection);
@@ -67,11 +69,11 @@ test('重送及兩位管理員同時匯入只能成功一次', async () => {
   expect((await root().collection('audits').get()).size).toBe(1);
   await expect(importTeamsFor(request())).rejects.toMatchObject({ code: 'invalid-argument' });
 });
-test('與既有球隊重名或跨隊球員重複時不覆蓋、不新增', async () => {
+test('既有跨隊同人可新增，仍禁止覆蓋同名球隊', async () => {
   await importTeamsFor(request());
-  await expect(importTeamsFor(request([row({ teamName: '另一隊' })]))).rejects.toMatchObject({ code: 'already-exists' });
+  await expect(importTeamsFor(request([row({ teamName: '另一隊' })]))).resolves.toMatchObject({ teamCount: 1 });
   await expect(importTeamsFor(request([row({ idLast4: '9999' })]))).rejects.toMatchObject({ code: 'invalid-argument' });
-  expect((await root().collection('teams').get()).size).toBe(1);
+  expect((await root().collection('teams').get()).size).toBe(2);
 });
 test('不存在的賽事與缺少日期一律擋下', async () => {
   await root().delete();
@@ -112,9 +114,9 @@ test('拒绝超齡、壞日期、完整證號、無原因、停用管理員與�
   await expect(updateMemberIdentityFor(editRequest(id))).rejects.toMatchObject({ code: 'permission-denied' });
   expect((await root().collection('audits').get()).size).toBe(1);
 });
-test('補件檢查跨隊重複與同時修改：後到者不能覆蓋新值', async () => {
+test('補件可與別隊同身分，同時修改後到者仍不能覆蓋新值', async () => {
   const { teamIds: [id, other] } = await importTeamsFor(request([row(), row({ teamName: '第二隊', birthDate: '', idLast4: '' })]));
-  await expect(updateMemberIdentityFor(editRequest(other, { birthDate: '2017-01-01', idLast4: '0012' }))).rejects.toMatchObject({ code: 'already-exists' });
+  await expect(updateMemberIdentityFor(editRequest(other, { birthDate: '2017-01-01', idLast4: '0012' }))).resolves.toMatchObject({ identityComplete: true, idLast4: '0012' });
   const results = await Promise.allSettled([updateMemberIdentityFor(editRequest(id)), updateMemberIdentityFor(editRequest(id, { idLast4: '0002' }))]);
   expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
   expect(results.find(r => r.status === 'rejected').reason.code).toBe('aborted');

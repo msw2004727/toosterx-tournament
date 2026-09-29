@@ -10,6 +10,7 @@
  *   node scripts/set-registration.mjs --project feda-cup-demo --close
  *   node scripts/set-registration.mjs --project feda-cup-demo --close --hide
  *   node scripts/set-registration.mjs --project feda-cup-demo --show-entry
+ *   node scripts/set-registration.mjs --project feda-cup-demo --allow-multi-team
  *
  * 為什麼要一支腳本而不是進 Console 手改：
  *   ・`closesAt` 必須是 Timestamp。在 Console 用字串填會讓 rules 的
@@ -65,6 +66,7 @@ function show(d) {
   console.log('  open      ', d.open === true ? '✅ 開放中' : '⛔ 關閉');
   console.log('  opensAt   ', fmt(d.opensAt));
   console.log('  hidden    ', d.hidden === true ? '已隱藏' : '顯示入口');
+  console.log('  onePlayerOneTeam ', d.onePlayerOneTeam);
   console.log('  closesAt  ', fmt(d.closesAt));
   console.log('─'.repeat(52));
 
@@ -93,12 +95,13 @@ if (has('--open')) patch.open = true;
 if (has('--close')) patch.open = false;
 if (has('--hide')) { patch.hidden = true; patch.open = false; }
 if (has('--show-entry')) patch.hidden = false;
+if (has('--allow-multi-team')) patch.onePlayerOneTeam = false;
 if (val('--opens')) patch.opensAt = taipei(val('--opens'));
 if (val('--closes')) patch.closesAt = taipei(val('--closes'));
 if (has('--clear-closes')) patch.closesAt = null;
 
 if (Object.keys(patch).length === 0) {
-  console.error('沒有指定要改什麼。可用：--open / --close / --hide / --show-entry / --opens / --closes / --clear-closes / --show');
+  console.error('沒有指定要改什麼。可用：--open / --close / --hide / --show-entry / --allow-multi-team / --opens / --closes / --clear-closes / --show');
   process.exit(1);
 }
 
@@ -128,9 +131,9 @@ if (!snap.exists) {
 const audit = db.collection('events').doc(EVENT_ID).collection('audits').doc();
 batch.create(audit, {
   auditId: audit.id, eventId: EVENT_ID, action: 'registration.update', entity: 'config', entityId: 'registration',
-  before: { open: cur?.open === true, hidden: cur?.hidden === true, opensAt: cur?.opensAt ?? null, closesAt: cur?.closesAt ?? null },
-  after: { open: patch.open ?? cur?.open ?? false, hidden: patch.hidden ?? cur?.hidden ?? false, opensAt, closesAt },
-  reason: '主辦透過部署作業調整報名設定', actor: { uid: null, name: 'script:set-registration' }, createdAt: stamp
+  before: { open: cur?.open === true, hidden: cur?.hidden === true, onePlayerOneTeam: cur?.onePlayerOneTeam ?? null, opensAt: cur?.opensAt ?? null, closesAt: cur?.closesAt ?? null },
+  after: { open: patch.open ?? cur?.open ?? false, hidden: patch.hidden ?? cur?.hidden ?? false, onePlayerOneTeam: patch.onePlayerOneTeam ?? cur?.onePlayerOneTeam ?? null, opensAt, closesAt },
+  reason: has('--allow-multi-team') ? '主辦取消每人一隊限制：三天為不同盃賽，允許同一球員跨隊參賽。' : '主辦透過部署作業調整報名設定', actor: { uid: null, name: 'script:set-registration' }, createdAt: stamp
 });
 await batch.commit();
 

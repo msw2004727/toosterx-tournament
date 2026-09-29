@@ -198,7 +198,7 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
       先重現再修、操作誤會只回報。第三輪抓到「完成檢錄什麼都沒寫」與「名單確認後球員選單沒人」。docs/13 §9–§10
 - [x] 主辦改採 CSV 名冊（2026-09-29）：關閉並隱藏自助報名、舊路由與資料庫寫入同步封鎖；
       管理員上傳一列一球員的多隊 CSV，含欄位格式說明、範本下載、預覽、整批驗證，直接核准並鎖定。
-      球隊／私密名冊／公開投影／稽核同一交易提交；重送、併發、跨隊重複均防護。見 `docs/15-CSV名冊匯入與關閉報名.md`。
+      球隊／私密名冊／公開投影／稽核同一交易提交；防止同球隊重送與併發重建。主辦 2026-09-29 已取消同人跨隊限制，見 `docs/15-CSV名冊匯入與關閉報名.md`。
 - [ ] M7 彩排 → 上線
 
 ### CSV 與關閉報名的實作（2026-09-29）
@@ -211,7 +211,7 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 本次單元測試 1228、Rules 246、Functions 100 均通過；三種寬度的 E2E 共 1305 個案例。
 新增 8 條變異錨點，總計 453；完整變異仍以 CI Linux 執行結果為準。
 主辦後續決定：CSV 生日／後四碼可留空，後台已通過球隊可補填／修改（民國年表單）。
-`functions/member-identity.js` 交易驗角色、年齡、跨隊重複與版本，保留修改及檢錄失效稽核。
+`functions/member-identity.js` 交易驗角色、年齡與版本，允許同人跨隊，保留修改及檢錄失效稽核。
 待補資料不可勾出賽，rules 檢查實際欄位與 identityRevision，公開投影不擴充個資。
 CSV 說明表逐欄標示必填、格式與範例，下載 CSV UTF-8 範本後填寫；公開投影不含生日或身分證後四碼。
 
@@ -427,7 +427,7 @@ CI 跑 Linux，專門抓 CRLF、路徑大小寫這類本機看不到的問題，
 
 規章有、系統原本沒有的三件——申訴（賽後 30 分鐘＋保證金 2000）、眼鏡切結書、退費機制——
 **2026-09-05 已全部做完**（見「規章補齊」那一節），連同直播設定與中獎聯絡方式。
-（每人限報乙隊的跨隊檢查、球員人數上限的伺服器端強制：同日已做，見「規章第十二條」那一節。）
+（球員人數上限的伺服器端強制同日已做；每人限報乙隊已於 2026-09-29 依主辦指示取消。）
 
 ## 變異測試的殘留（R-TEST-002，2026-09-03 出過事）
 
@@ -517,7 +517,7 @@ CI 跑 Linux，永遠不會重現。
 | 條 | 內容 | 對應 |
 |---|---|---|
 | 十一 | 六個組別與參賽資格（學童三組 2020/2018/2016-09-01 以後出生）| `DIVISIONS[].eligibility` |
-| 十二 | 球員最多 15、隊職員 3（領隊/教練/管理各 1）、每人限報乙隊 | `REGISTRATION_LIMITS` |
+| 十二 | 球員最多 15、隊職員 3（領隊/教練/管理各 1）；每人限報乙隊已於 2026-09-29 取消 | `REGISTRATION_LIMITS` |
 | 十五 | 上場人數：學童三組＋女子公開 5 人、男子兩組 9 人 | `playersOnField` |
 | 十七 | 用球：學童 4 號、其餘 5 號 | `ballSize` |
 | 十八-2 | 比賽時間 25／30 分鐘，**不分上、下半場** | `matchDurationMin`、`periods:1` |
@@ -537,14 +537,19 @@ CI 跑 Linux，永遠不會重現。
 ### 規章有、系統原本沒有的
 
 申訴（第二十條）、眼鏡切結書（附件二）、退費機制（第二十七條）——**2026-09-05 已做**
-（見「規章補齊」那一節）。每人限報乙隊與 15 人上限的伺服器端強制同日已做（見下一節）。
+（見「規章補齊」那一節）。15 人上限的伺服器端強制同日已做（見下一節）。
 
 ### 規章第十二條的伺服器端強制（2026-09-05）
 
+**2026-09-29 主辦最新決議優先**：三天為不同盃賽，移除同人跨隊限制，不另限制日期。
+CSV 預覽、匯入交易、身分補件與 `onMemberWritten` 均允許跨隊。
+`onePlayerOneTeam:false`；原始規章及歷史稽核的「每人一隊」文字不代表現行限制。
+修改後須同時部署 `importTeamsCsv`、`updateMemberIdentity`、`onMemberWritten`，避免背景再次退件。
+
 ```
-js/engine/review.js      isPlayer（唯一定義）、personKeysOf（「這是誰」的鍵）
+js/engine/review.js      isPlayer（唯一定義）
 functions/pipeline.js    recountTeamMembers（多維護 playerCount）、
-                         rejectCrossTeamDuplicate、enforceRosterCap
+                         enforceRosterCap
 firestore.rules          playerRoomLeft(tid, kind)：擋第 16 位的建立與同意
 firestore.indexes.json   members 的 collection-group fieldOverride（idLast4、guardianUid）
 ```
@@ -562,13 +567,8 @@ firestore.indexes.json   members 的 collection-group fieldOverride（idLast4、
 ⚠️ rules 裡的 `15` 是寫死的（rules 進不了 formats.js）。
 `tests/unit/regulation-parity.test.js` 逐字對照 `REGISTRATION_LIMITS.maxPlayers`。
 
-**每人限報乙隊**只在 Function（rules 查不到別隊的名單）。「同一個人」的判斷在
-`personKeysOf`：身分證後四碼＋生日**兩個都有**才算，或本人用自己帳號報名的 uid。
-**家長的 uid 不算**——一位家長替兩個小孩報不同隊是合法的（FR07、FR14f）。
-
-⚠️ 查的是 `members` 的 **collection group**。`idLast4` 與 `guardianUid` 在
-`firestore.indexes.json` 有 collection-group 的 fieldOverride，**正式站沒部署索引
-會直接 FAILED_PRECONDITION，而模擬器不會**（模擬器不查索引）。`deploy:rules:*` 會一起部署。
+`rejectCrossTeamDuplicate` 與 `personKeysOf` 已移除；FR14 改為驗證同人跨隊不退件。
+同一帳號對同一隊的待審申請去重與 15 人上限仍保留。
 
 ### 正式站的設定怎麼進去（`scripts/bootstrap-prod.mjs`）
 

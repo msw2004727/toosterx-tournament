@@ -36,9 +36,8 @@ test.each([
 ])('第 2 列格式或資格錯誤會擋匯入 %j', patch => {
   expect(errors([row(patch)])[0].row).toBe(2);
 });
-test('同隊背號重複、跨隊同人、簡稱不同與兩位隊長均擋下', () => {
+test('同隊背號重複、簡稱不同與兩位隊長均擋下', () => {
   expect(errors([row(), row({ idLast4: '9999' })]).some(e => e.message.includes('號重複'))).toBe(true);
-  expect(errors([row(), row({ teamName: '其他隊' })]).some(e => e.message.includes('每人限報'))).toBe(true);
   expect(errors([row(), row({ idLast4: '8888', jerseyNo: '8', shortName: '另一簡稱' })]).some(e => e.message.includes('簡稱'))).toBe(true);
   expect(errors([row({ isCaptain: '是' }), row({ idLast4: '8888', jerseyNo: '8', isCaptain: '是' })]).some(e => e.message.includes('一位場上隊長'))).toBe(true);
 });
@@ -61,4 +60,10 @@ test('未成年成人組也用暱稱，成年使用姓名；忽略額外的管�
 test('隱藏報名優先於開放旗標，儲存隱藏必定同步關閉', () => {
   expect(registrationState({ open: true, hidden: true }).open).toBe(false);
   expect(buildRegistrationPatch({ open: true, hidden: true })).toMatchObject({ open: false, hidden: true });
+});
+
+test('同一球員可同份 CSV 匯入不同隊，生日及後四碼相同不阻擋', () => {
+  const plan = validateTeamImport([row(), row({ teamName: '其他队' })], ctx);
+  expect(plan.errors).toEqual([]);
+  expect(plan.teams).toHaveLength(2);
 });

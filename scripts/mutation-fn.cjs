@@ -13,20 +13,25 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
+    name: 'FN#CSV5 背景 trigger 錯誤恢復跨隊退件', file: 'functions/index.js',
+    from: 'const r = await syncRosterFor({ eventId, teamId, memberId });',
+    to: "if (!before && after?.idLast4) { const same = await db().collectionGroup('members').where('idLast4', '==', after.idLast4).get(); if (same.docs.some(d => d.ref.path.startsWith('events/' + eventId + '/teams/') && d.ref.parent.parent.id !== teamId && d.data().birthDate === after.birthDate)) { await db().doc('events/' + eventId + '/teams/' + teamId + '/members/' + memberId).update({ status: 'rejected' }); return; } } const r = await syncRosterFor({ eventId, teamId, memberId });"
+  },
+  {
     name: 'FN#CSV3 補件不擋舊版本覆蓋', file: 'functions/member-identity.js',
     from: '(member.identityRevision ?? 0) !== revision', to: 'false'
   },
   {
-    name: 'FN#CSV4 補件不檢查跨隊重複', file: 'functions/member-identity.js',
-    from: 'if (duplicate) fail', to: 'if (false) fail'
+    name: 'FN#CSV4 補件錯誤恢復跨隊限制', file: 'functions/member-identity.js',
+    from: 'const previous = { birthDate:', to: "const duplicate = await tx.get(db().collectionGroup('members').where('idLast4', '==', fields.idLast4)); if (duplicate.docs.some(d => d.ref.path !== memberRef.path && d.data().birthDate === fields.birthDate)) fail('already-exists', '同人跨隊'); const previous = { birthDate:"
   },
   {
     name: 'FN#CSV1 非管理員也能匯入', file: 'functions/team-import.js',
     from: "['admin', 'super_admin'].includes(r)", to: "['admin', 'super_admin', 'scorer'].includes(r)"
   },
   {
-    name: 'FN#CSV2 不檢查既有跨隊球員', file: 'functions/team-import.js',
-    from: 'personKeysOf(m).some(key => knownPeople.has(key))', to: 'false'
+    name: 'FN#CSV2 伺服器匯入錯誤恢復跨隊限制', file: 'functions/team-import.js',
+    from: 'const prepared = plan.teams.map', to: "const allMembers = await Promise.all(teamSnap.docs.map(t => tx.get(t.ref.collection('members')))); if (plan.teams.some(t => t.members.some(m => allMembers.some(s => s.docs.some(d => m.birthDate && m.idLast4 && d.data().birthDate === m.birthDate && d.data().idLast4 === m.idLast4))))) fail('already-exists', '同人跨隊'); const prepared = plan.teams.map"
   },
   {
     name: 'FN#1 rankingRule 找不到就套預設（fail-open → 用錯規則排出一份看似正常的積分榜）',
@@ -165,18 +170,6 @@ const MUTANTS = [
     file: 'functions/pipeline.js',
     from: `  const challenge = await loadChallenge(eventId, challengeId);`,
     to: `  const challenge = await loadChallenge(eventId, challengeId).catch(() => ({ rankingRule: 'higher' }));`
-  },
-  {
-    name: "FN#22 ⭐ 跨隊查重只看後四碼、不看生日（不同的人被當成同一個而退件）",
-    file: 'functions/pipeline.js',
-    from: "      hit = snap.docs.find(d => otherTeam(d) && live(d) && d.data().birthDate === b) ?? null;",
-    to: "      hit = snap.docs.find(d => otherTeam(d) && live(d)) ?? null;"
-  },
-  {
-    name: "FN#23 ⭐ 跨隊查重把已移除／已退回的也算進去（換隊變成不可能）",
-    file: 'functions/pipeline.js',
-    from: "  const live = d => ['pending', 'approved'].includes(d.data().status);",
-    to: "  const live = d => true;"
   },
   {
     name: "FN#24 ⭐ 人數上限把隊職員也算成球員（滿編的隊登記不了領隊）",

@@ -67,7 +67,7 @@ export function teamCsvTemplate(divisionId = '') {
 
 /** 只選取白名單欄位，不採用客戶端的 status、uid、teamId 或公開投影。 */
 export function validateTeamImport(rows, { divisions = [], existingTeams = [], asOf } = {}) {
-  const errors = [], teams = new Map(), people = new Map();
+  const errors = [], teams = new Map();
   const add = (row, message) => errors.push({ row, message });
   if (!Array.isArray(rows) || !rows.length || rows.length > IMPORT_MAX_ROWS) return { teams: [], errors: [{ row: 0, message: `請提供 1–${IMPORT_MAX_ROWS} 位球員。` }] };
   if (!parseYmd(asOf)) return { teams: [], errors: [{ row: 0, message: '賽事日期未設定，無法檢查參賽資格。' }] };
@@ -109,11 +109,6 @@ export function validateTeamImport(rows, { divisions = [], existingTeams = [], a
     };
     if (team.members.some(m => m.jerseyNo === member.jerseyNo)) add(rowNo, `「${team.name}」的 ${r.jerseyNo} 號重複。`);
     if (member.isCaptain && team.members.some(m => m.isCaptain)) add(rowNo, `「${team.name}」只能有一位場上隊長。`);
-    const person = `${r.birthDate}:${r.idLast4}`;
-    if (identity.complete) {
-      if (people.has(person)) add(rowNo, `球員與第 ${people.get(person)} 列重複（生日及身分證後四碼相同），每人限報一隊。`);
-      people.set(person, rowNo);
-    }
     team.members.push(member);
   }
   if (teams.size > 100) add(0, '每份 CSV 最多 100 支球隊。');

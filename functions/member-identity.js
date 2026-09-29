@@ -2,13 +2,12 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { db } from './admin.js';
 import { TeamImportError } from './team-import.js';
 import { validateIdentity } from './engine/member-identity.js';
-import { personKeysOf } from './engine/review.js';
 import { rosterProjection } from './engine/privacy.js';
 
 const fail = (code, message) => { throw new TeamImportError(code, message); };
 const authorized = s => s?.active === true && Array.isArray(s.roles) && s.roles.some(r => ['admin', 'super_admin'].includes(r));
 
-/** CSV 名冊身分補件／修正：資格、跨隊重複、版本、稽核與檢錄失效同一交易。 */
+/** CSV 名冊身分補件／修正：資格、版本、稽核與檢錄失效同一交易。 */
 export async function updateMemberIdentityFor(request) {
   const uid = request.auth?.uid;
   if (!uid) fail('unauthenticated', '請先登入。');
@@ -24,9 +23,9 @@ export async function updateMemberIdentityFor(request) {
   const memberRef = teamRef.collection('members').doc(memberId);
   const auditRef = eventRef.collection('audits').doc();
   return db().runTransaction(async tx => {
-    const [staffSnap, eventSnap, teamSnap, memberSnap, teamsSnap, checkinsSnap] = await Promise.all([
+    const [staffSnap, eventSnap, teamSnap, memberSnap, checkinsSnap] = await Promise.all([
       tx.get(staffRef), tx.get(eventRef), tx.get(teamRef), tx.get(memberRef),
-      tx.get(eventRef.collection('teams')), tx.get(eventRef.collection('checkins').where('teamId', '==', teamId))
+      tx.get(eventRef.collection('checkins').where('teamId', '==', teamId))
     ]);
     if (!authorized(staffSnap.data())) fail('permission-denied', '管理權限已變更。');
     const team = teamSnap.data(), member = memberSnap.data();
@@ -37,12 +36,6 @@ export async function updateMemberIdentityFor(request) {
     const asOf = eventSnap.data().dates?.[0];
     const identity = validateIdentity(fields, divSnap.data(), asOf);
     if (identity.errors.length) fail('invalid-argument', identity.errors.join('\n'));
-    const keys = personKeysOf(fields);
-    if (keys.length) {
-      const allMembers = await Promise.all(teamsSnap.docs.map(t => tx.get(t.ref.collection('members'))));
-      const duplicate = allMembers.some(s => s.docs.some(d => d.ref.path !== memberRef.path && ['pending', 'approved'].includes(d.data().status) && personKeysOf(d.data()).some(k => keys.includes(k))));
-      if (duplicate) fail('already-exists', '相同生日與身分證後四碼已存在其他球員或待審申請，每人限報一隊。');
-    }
     const previous = { birthDate: member.birthDate ?? '', idLast4: member.idLast4 ?? '' };
     if (previous.birthDate === fields.birthDate && previous.idLast4 === fields.idLast4) fail('invalid-argument', '資料沒有變更。');
     const records = checkinsSnap.docs.filter(d => d.data().memberId === memberId && d.data().result != null);

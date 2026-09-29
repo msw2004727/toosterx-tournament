@@ -176,8 +176,8 @@ describe('T37-5 報名限制（規章第十二條）', () => {
     expect(REGISTRATION_LIMITS.staffRoles).toEqual(['leader', 'coach', 'manager']);
   });
 
-  test('⭐ 每人限報乙隊', () => {
-    expect(REGISTRATION_LIMITS.onePlayerOneTeam).toBe(true);
+  test('⭐ 主辦 2026-09-29 取消每人一隊限制（三天不同盃賽）', () => {
+    expect(REGISTRATION_LIMITS.onePlayerOneTeam).toBe(false);
   });
 
   test('報名費：學童 5000、成人 6000', () => {

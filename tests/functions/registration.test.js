@@ -13,8 +13,9 @@
 import { db as adminDb } from '../../functions/admin.js';
 import {
   syncRosterFor, recountTeamMembers, recountUserTeams, rejectDuplicateApplication,
-  rejectCrossTeamDuplicate, enforceRosterCap
+  enforceRosterCap
 } from '../../functions/pipeline.js';
+import { onMemberWritten } from '../../functions/index.js';
 import { liffConfig, upsertUser } from '../../functions/line.js';
 
 const E = 'feda-cup-2026';
@@ -273,73 +274,26 @@ describe('FR09–FR13 LINE 登入的名錄與身分（docs/10 §1.4）', () => {
 });
 
 // ══════════════════════════════════════════════════════════════
-describe('FR14 每人限報乙隊（規章第十二條）', () => {
-  const OTHER = 't-2';
-  async function seedOtherTeam() {
-    await teamRef(OTHER).set({
-      teamId: OTHER, eventId: E, divisionId: 'u10', name: '清水海鷗', shortName: '清水',
-      captainUid: 'u-captain-2', status: 'draft', rosterLocked: false, memberCount: 0
-    });
-  }
-
-  test('⭐ FR14 同一個小孩（後四碼＋生日相同）在別隊已核准，這一隊的新申請會被退件', async () => {
-    await seedOtherTeam();
-    await memberRef('m-x', OTHER).set(member({ memberId: 'm-x', status: 'approved', idLast4: '5566', birthDate: '2016-05-05' }));
-    await memberRef('m-new').set(member({ memberId: 'm-new', status: 'pending', idLast4: '5566', birthDate: '2016-05-05', guardianUid: 'u-other-parent' }));
-
-    const r = await rejectCrossTeamDuplicate({ eventId: E, teamId: TEAM, memberId: 'm-new', member: (await memberRef('m-new').get()).data() });
-    expect(r).toEqual({ otherTeamId: OTHER });
-    const m = (await memberRef('m-new').get()).data();
-    expect(m.status).toBe('rejected');
-    expect(m.rejectReason).toContain('清水海鷗');
-    expect(m.decidedBy).toBe('fn:onePlayerOneTeam');
-    // 別隊那一筆不動
-    expect((await memberRef('m-x', OTHER).get()).data().status).toBe('approved');
+describe('FR14 三天不同盃賽允許同一球員跨隊', () => {
+  test.each(['pending', 'approved'])('同身分跨隊新增 %s，實際 trigger 不退件且保持正確投影', async status => {
+    await teamRef('t-2').set({ teamId: 't-2', divisionId: 'u10', name: '第二隊', status: 'approved' });
+    await memberRef('m-old', 't-2').set(member({ memberId: 'm-old', status: 'approved' }));
+    const fresh = member({ memberId: 'm-new', status });
+    await memberRef('m-new').set(fresh);
+    await onMemberWritten.run({ params: { eventId: E, teamId: TEAM, memberId: 'm-new' }, data: { before: { data: () => undefined }, after: { data: () => fresh } } });
+    expect((await memberRef('m-new').get()).data().status).toBe(status);
+    expect((await rosterRef('m-new').get()).exists).toBe(status === 'approved');
+    expect((await teamRef().get()).data().playerCount).toBe(status === 'approved' ? 1 : 0);
+    expect((await memberRef('m-old', 't-2').get()).data().status).toBe('approved');
   });
-
-  test('⭐ FR14b 教練直接新增（一開始就是 approved）也會被擋——學童組不走申請', async () => {
-    await seedOtherTeam();
-    await memberRef('m-x', OTHER).set(member({ memberId: 'm-x', status: 'approved', idLast4: '7788', birthDate: '2017-01-02', guardianUid: null, source: 'coach' }));
-    await memberRef('m-c').set(member({ memberId: 'm-c', status: 'approved', idLast4: '7788', birthDate: '2017-01-02', guardianUid: null, source: 'coach' }));
-
-    const r = await rejectCrossTeamDuplicate({ eventId: E, teamId: TEAM, memberId: 'm-c', member: (await memberRef('m-c').get()).data() });
-    expect(r).toBeTruthy();
-    expect((await memberRef('m-c').get()).data().status).toBe('rejected');
-  });
-
-  test('⭐ FR14c 後四碼相同但生日不同不算同一個人（寧可漏擋，不要把不同的人當同一個）', async () => {
-    await seedOtherTeam();
-    await memberRef('m-x', OTHER).set(member({ memberId: 'm-x', status: 'approved', idLast4: '5566', birthDate: '2016-05-05' }));
-    await memberRef('m-new').set(member({ memberId: 'm-new', status: 'pending', idLast4: '5566', birthDate: '2015-12-31' }));
-
-    expect(await rejectCrossTeamDuplicate({ eventId: E, teamId: TEAM, memberId: 'm-new', member: (await memberRef('m-new').get()).data() })).toBe(false);
-    expect((await memberRef('m-new').get()).data().status).toBe('pending');
-  });
-
-  test('⭐ FR14d 別隊那一筆已經被移除／退回就不算（換隊是合法的）', async () => {
-    await seedOtherTeam();
-    await memberRef('m-x', OTHER).set(member({ memberId: 'm-x', status: 'removed', idLast4: '5566', birthDate: '2016-05-05' }));
-    await memberRef('m-new').set(member({ memberId: 'm-new', status: 'pending', idLast4: '5566', birthDate: '2016-05-05' }));
-    expect(await rejectCrossTeamDuplicate({ eventId: E, teamId: TEAM, memberId: 'm-new', member: (await memberRef('m-new').get()).data() })).toBe(false);
-  });
-
-  test('FR14e 本人用自己的帳號報兩隊：uid 相同就擋', async () => {
-    await seedOtherTeam();
-    await memberRef('m-x', OTHER).set(member({ memberId: 'm-x', status: 'approved', isSelf: true, guardianUid: 'u-me', idLast4: null, birthDate: null }));
-    await memberRef('m-new').set(member({ memberId: 'm-new', status: 'pending', isSelf: true, guardianUid: 'u-me', idLast4: null, birthDate: null }));
-    expect(await rejectCrossTeamDuplicate({ eventId: E, teamId: TEAM, memberId: 'm-new', member: (await memberRef('m-new').get()).data() })).toBeTruthy();
-  });
-
-  test('⭐ FR14f 家長替兩個小孩報不同隊不算重複（家長 uid 不是人的鍵）', async () => {
-    await seedOtherTeam();
-    await memberRef('m-x', OTHER).set(member({ memberId: 'm-x', status: 'approved', guardianUid: 'u-parent', idLast4: '1111', birthDate: '2016-01-01' }));
-    await memberRef('m-new').set(member({ memberId: 'm-new', status: 'pending', guardianUid: 'u-parent', idLast4: '2222', birthDate: '2018-02-02' }));
-    expect(await rejectCrossTeamDuplicate({ eventId: E, teamId: TEAM, memberId: 'm-new', member: (await memberRef('m-new').get()).data() })).toBe(false);
-  });
-
-  test('FR14g 沒有可比對的身分（沒後四碼也不是本人）就不查、不擋', async () => {
-    await memberRef('m-new').set(member({ memberId: 'm-new', status: 'pending', idLast4: null, birthDate: null, isSelf: false }));
-    expect(await rejectCrossTeamDuplicate({ eventId: E, teamId: TEAM, memberId: 'm-new', member: (await memberRef('m-new').get()).data() })).toBe(false);
+  test('本人帳號也可跨隊，不因相同 uid 被背景退件', async () => {
+    await teamRef('t-2').set({ teamId: 't-2', divisionId: 'u10', name: '第二隊' });
+    const self = member({ isSelf: true, guardianUid: 'u-me', idLast4: '', birthDate: '' });
+    await memberRef('m-old', 't-2').set(self);
+    await memberRef('m-new').set(self);
+    await onMemberWritten.run({ params: { eventId: E, teamId: TEAM, memberId: 'm-new' }, data: { before: { data: () => undefined }, after: { data: () => self } } });
+    expect((await memberRef('m-new').get()).data().status).toBe('approved');
+    expect((await rosterRef('m-new').get()).exists).toBe(true);
   });
 });
 

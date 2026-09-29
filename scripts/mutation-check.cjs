@@ -10,10 +10,6 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
-    name: '#CSV10 空白身分誤判重複', file: 'js/engine/team-import.js',
-    from: 'if (identity.complete) {', to: 'if (true) {'
-  },
-  {
     name: '#CSV11 待補資料誤判可檢錄', file: 'js/engine/member-identity.js',
     from: "return member?.source === 'csv' &&", to: 'return false &&'
   },
@@ -52,8 +48,8 @@ const MUTANTS = [
     from: 'if (exists.has(key)) add', to: 'if (false) add'
   },
   {
-    name: '#CSV3 匯入不檢查跨隊同人', file: 'js/engine/team-import.js',
-    from: 'if (people.has(person)) add', to: 'if (false) add'
+    name: '#CSV3 錯誤恢復同一球員不能跨隊', file: 'js/engine/team-import.js',
+    from: 'team.members.push(member);', to: "if (identity.complete && [...teams.values()].some(t => t !== team && t.members.some(m => m.birthDate === r.birthDate && m.idLast4 === r.idLast4))) add(rowNo, '同人跨隊'); team.members.push(member);"
   },
   {
     name: '#CSV4 匯入放行超過 15 位球員', file: 'js/engine/team-import.js',
@@ -802,18 +798,6 @@ const MUTANTS = [
     file: 'js/engine/review.js',
     from: `  const roster = (Array.isArray(members) ? members : []).filter(m => ACTIVE.includes(m?.status));`,
     to: `  const roster = (Array.isArray(members) ? members : []);`
-  },
-  {
-    name: '#A10 ⭐ 跨隊查重把家長的 uid 也當成「同一個人」（一位家長替兩個小孩報不同隊，第二個被退件）',
-    file: 'js/engine/review.js',
-    from: `  if (member?.isSelf === true && typeof member?.guardianUid === 'string' && member.guardianUid) {`,
-    to: `  if (typeof member?.guardianUid === 'string' && member.guardianUid) {`
-  },
-  {
-    name: '#A11 ⭐ 跨隊查重只看後四碼、不看生日（同後四碼的兩個孩子被當成同一個人）',
-    file: 'js/engine/review.js',
-    from: '  if (/^\\d{4}$/.test(id4) && /^\\d{4}-\\d{2}-\\d{2}$/.test(bd)) keys.push(`id:${id4}:${bd}`);',
-    to: '  if (/^\\d{4}$/.test(id4)) keys.push(`id:${id4}:${bd}`);'
   },
   {
     name: '#MP1 ⭐ 我的球員從路徑取錯一段（每一筆都配到錯的隊）',
