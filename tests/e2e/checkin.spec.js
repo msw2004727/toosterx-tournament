@@ -17,6 +17,14 @@ const FAKE = fs.readFileSync(path.join(process.cwd(), 'tests/e2e/fake-firebase.j
 const EVENT = 'feda-cup-2026';
 const MATCH = 'U10-G-A-01';
 
+test('CSV 待補資料不能勾出賽，完整 CSV 可正常檢錄 @csvidentity', async ({ page }) => {
+  await stub(page, { memberOver: { source: 'csv', birthDate: '', idLast4: '', identityComplete: false } });
+  await page.goto(`/#/staff/checkin/${MATCH}`);
+  await expect(page.getByLabel('小豆子 出賽', { exact: true })).toBeDisabled();
+  await expect(page.getByText('待補資料・請管理員補齊生日與後四碼後再檢錄')).toBeVisible();
+  await expect(page.getByLabel('阿光 出賽', { exact: true })).toBeEnabled();
+});
+
 const staffDoc = (roles) => ({
   uid: 'u-e2e', name: '志工', roles, active: true, selfServe: true,
   assignment: { eventId: EVENT, date: '2026-10-09', venueIds: ['venue-a'], divisionIds: [], challengeIds: [] }

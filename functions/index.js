@@ -32,12 +32,21 @@ import { setPlayerContactFor, issueGamePassFor } from './pipeline.js';
 import { writeAudit } from './store.js';
 import { loginWithLine } from './line.js';
 import { importTeamsFor, TeamImportError } from './team-import.js';
+import { updateMemberIdentityFor } from './member-identity.js';
 
 ensureApp();
 setGlobalOptions({ region: 'asia-east1', maxInstances: 10 });
 
 export const importTeamsCsv = onCall({ timeoutSeconds: 120 }, async request => {
   try { return { ok: true, data: await importTeamsFor(request) }; }
+  catch (err) {
+    if (err instanceof TeamImportError) throw new HttpsError(err.code, err.message);
+    throw err;
+  }
+});
+
+export const updateMemberIdentity = onCall({ timeoutSeconds: 120 }, async request => {
+  try { return { ok: true, data: await updateMemberIdentityFor(request) }; }
   catch (err) {
     if (err instanceof TeamImportError) throw new HttpsError(err.code, err.message);
     throw err;

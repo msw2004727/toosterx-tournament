@@ -119,6 +119,10 @@
 }
 /* 隊職員排在球員後面，灰一階——審核看的是球員 */
 .adm__member--staff{opacity:.7}
+.adm__identityDate{display:flex;gap:var(--sp-2);border:0;padding:0;min-width:0;margin:0 0 var(--sp-3)}
+.adm__identityDate label{flex:1;min-width:0}
+.adm__identityInput{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:var(--sp-2);font:inherit;color:inherit;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--r-sm)}
+.adm__identityField{display:block;margin-block:var(--sp-3)}
 .adm__memberMeta{
   flex:none;font-size:var(--fs-xs);color:var(--text-muted);
   font-family:var(--font-num);

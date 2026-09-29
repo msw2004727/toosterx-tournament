@@ -87,6 +87,65 @@ const dump = page => page.evaluate(() => window.__fake.__dump());
 const teamOf = async (page, id) => (await dump(page))[`events/${EVENT}/teams/${id}`];
 const item = (page, name) => page.locator('.adm__item', { hasText: name });
 
+async function openIdentity(page, over = {}) {
+  await stub(page, { teams: { [`events/${EVENT}/teams/t-ok`]: { teamId: 't-ok', name: '合格球隊', divisionId: 'u10', status: 'approved', source: 'csv' } },
+    members: { [`events/${EVENT}/teams/t-ok/members/m1`]: member('m1', { source: 'csv', birthDate: '', idLast4: '', identityComplete: false, ...over }) } });
+  await go(page);
+  await page.getByRole('tab', { name: /已通過/ }).click();
+  await item(page, '合格球隊').locator('.adm__itemHead').click();
+  await page.getByRole('button', { name: '補填或修改 小球員m1 的資料' }).click();
+}
+test('CSV 後台補填民國生日與前導零後四碼，儲存後可再次修改 @csvidentity', async ({ page }) => {
+  await openIdentity(page);
+  await page.getByLabel('出生民國年', { exact: true }).fill('106');
+  await page.getByLabel('出生月', { exact: true }).fill('1');
+  await page.getByLabel('出生日', { exact: true }).fill('2');
+  await page.getByLabel('身分證後四碼', { exact: true }).fill('0012');
+  await page.getByLabel('修改原因', { exact: true }).fill('依證件補填');
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.adm__roster')).toContainText('106/01/02');
+  const calls = await page.evaluate(() => window.__FAKE_CALLS);
+  expect(calls[0]).toMatchObject({ name: 'updateMemberIdentity', payload: { birthDate: '2017-01-02', idLast4: '0012', revision: 0, reason: '依證件補填' } });
+  await page.getByRole('button', { name: '補填或修改 小球員m1 的資料' }).click();
+  await expect(page.getByLabel('出生民國年', { exact: true })).toHaveValue('106');
+  await page.getByLabel('身分證後四碼', { exact: true }).fill('0013');
+  await page.getByLabel('修改原因', { exact: true }).fill('更正末碼');
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect((await page.evaluate(() => window.__FAKE_CALLS))[1].payload.revision).toBe(1);
+});
+test('補件擋錯誤日期、超齡、無原因；伺服器失敗保留輸入且可重試 @csvidentity', async ({ page }) => {
+  await openIdentity(page);
+  await page.getByLabel('出生民國年', { exact: true }).fill('104');
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('完整且有效');
+  await page.getByLabel('出生月', { exact: true }).fill('1'); await page.getByLabel('出生日', { exact: true }).fill('1');
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('早於門檻');
+  await page.getByLabel('出生民國年', { exact: true }).fill('106');
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('修改原因');
+  await page.getByLabel('修改原因', { exact: true }).fill('先補生日');
+  await page.evaluate(() => { window.__FAKE_CALL_ERROR = '資料已被其他管理員修改'; });
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('其他管理員');
+  await expect(page.getByLabel('出生民國年', { exact: true })).toHaveValue('106');
+  await expect(page.getByRole('button', { name: '儲存資料', exact: true })).toBeEnabled();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+test('離線補件明確告知且不呼叫伺服器；取消不儲存 @csvidentity', async ({ page }) => {
+  await openIdentity(page);
+  await page.getByLabel('修改原因', { exact: true }).fill('補件');
+  await page.evaluate(() => Object.defineProperty(navigator, 'onLine', { value: false, configurable: true }));
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('離線');
+  expect(await page.evaluate(() => window.__FAKE_CALLS ?? [])).toEqual([]);
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
 test.beforeEach(({ page }) => {
   page.on('console', m => { if (m.type() === 'error') console.log('[browser error]', m.text()); });
 });

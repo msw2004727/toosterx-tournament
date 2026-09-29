@@ -372,6 +372,9 @@ export const httpsCallable = (_fns, name) => async (payload) => {
   // 「畫面有沒有把正確的東西送出去」。
   (window.__FAKE_CALLS ||= []).push({ name, payload });
   if (window.__FAKE_CALL_ERROR) throw new Error(window.__FAKE_CALL_ERROR);
+  if (name === 'updateMemberIdentity') {
+    return { data: { ok: true, data: { memberId: payload.memberId, birthDate: payload.birthDate, idLast4: payload.idLast4, identityComplete: !!payload.birthDate && !!payload.idLast4, identityRevision: payload.revision + 1, auditId: 'fake-identity-audit' } } };
+  }
   if (name === 'importTeamsCsv') {
     // 僅確認 UI 接線；交易與實際資料驗證由 tests/functions/team-import.test.js 覆蓋。
     const { parseTeamCsv, validateTeamImport } = await import(location.origin + '/js/engine/team-import.js');

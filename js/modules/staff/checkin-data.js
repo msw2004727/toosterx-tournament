@@ -48,6 +48,9 @@ export async function getCheckinRoster(teamId) {
       birthDate: m.birthDate ?? null,
       birthRoc: rocShort(m.birthDate),
       idLast4: m.idLast4 ?? null,
+      source: m.source ?? null,
+      identityComplete: m.identityComplete,
+      identityRevision: m.identityRevision ?? 0,
       // 配戴眼鏡上場（規章附件二）：裁判賽前要檢查裝備，檢錄員先看切結書收了沒
       glasses: m.glasses === true,
       glassesWaiver: m.glassesWaiver?.signed === true

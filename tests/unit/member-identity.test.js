@@ -1,0 +1,35 @@
+import { validateIdentity, csvIdentityPending } from '../../js/engine/member-identity.js';
+import { validateTeamImport, parseTeamCsv } from '../../js/engine/team-import.js';
+import { buildCheckin, checkinSummary, presentIds } from '../../js/modules/staff/checkin-actions.js';
+const division = { divisionId: 'youth', eligibility: { bornOnOrAfter: '2016-09-01' } };
+const date = '2026-10-09';
+
+test('省略身分欄位、多人留白不會誤判重複，仍可建立已核准球隊', () => {
+  const rows = parseTeamCsv('divisionId,teamName,playerName,jerseyNo\nyouth,新隊,小飛,1\nyouth,新隊,小球,2');
+  const plan = validateTeamImport(rows, { divisions: [division], asOf: date });
+  expect(plan.errors).toEqual([]);
+  expect(plan.teams[0].members).toHaveLength(2);
+  expect(plan.teams[0].members.every(m => m.status === 'approved' && m.identityComplete === false && m.nameKind === 'nickname')).toBe(true);
+});
+test.each([{ birthDate: '', idLast4: '' }, { birthDate: '2017-01-01', idLast4: '' }, { birthDate: '', idLast4: '0012' }])('允許部分補件但不當作完整 %j', fields => {
+  expect(validateIdentity(fields, division, date)).toEqual({ errors: [], complete: false });
+});
+test.each([{ birthDate: '2015-01-01', idLast4: '' }, { birthDate: '2020-02-30', idLast4: '0012' }, { birthDate: '', idLast4: '12' }, { birthDate: null, idLast4: 1234 }, { birthDate: '2027-01-01', idLast4: '1234' }])('有填錯值仍擋下 %j', fields => {
+  expect(validateIdentity(fields, division, date).errors.length).toBeGreaterThan(0);
+});
+test('資格設定遺失不能判成通過；有效後四碼保留零', () => {
+  const fields = { birthDate: '2017-01-01', idLast4: '0012' };
+  expect(validateIdentity(fields, division, date).complete).toBe(true);
+  expect(validateIdentity(fields, null, date).complete).toBe(false);
+  expect(validateIdentity(fields, division, '').complete).toBe(false);
+});
+test('CSV 待補球員不能建立通過紀錄，舊 pass 也不算出賽；完整舊名冊相容', () => {
+  const m = { memberId: 'p', source: 'csv', birthDate: '', idLast4: '0012', identityComplete: true };
+  expect(csvIdentityPending(m)).toBe(true);
+  expect(() => buildCheckin({ member: m, result: 'pass' })).toThrow('待補資料');
+  expect(buildCheckin({ member: m, result: 'fail' }).result).toBe('fail');
+  expect(checkinSummary([m], { p: { result: 'pass' } }).present).toBe(0);
+  expect(presentIds([m], { p: { result: 'pass' } })).toEqual([]);
+  expect(csvIdentityPending({ ...m, birthDate: '2017-01-01', identityComplete: undefined })).toBe(false);
+  expect(csvIdentityPending({ ...m, birthDate: '2017-01-01', identityComplete: false })).toBe(true);
+});

@@ -24,6 +24,7 @@
 import { el, mount, toast, skeleton, confirmDialog } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
+import { csvIdentityPending } from '../../engine/member-identity.js';
 import { user, can, canCheckin } from '../../core/firebase.js';
 import { watchMatch, getDivision, writeAudit } from './data.js';
 import { watchCheckins, saveCheckin, getCheckinRoster, confirmCheckin, stamp } from './checkin-data.js';
@@ -146,6 +147,7 @@ export async function checkinPage({ params, scope, view }) {
       head(),
       tabs(sum),
       guide(),
+      el('button', { type: 'button', class: 'btn btn--sm', onClick: () => { state.rosterKey = null; loadRosters(); } }, '重新載入球員資料'),
       state.rosterError[state.side]
         ? el('div', { class: 'chk__empty chk__error', role: 'alert', id: 'chk-roster-error' }, [
             el('strong', { text: '讀不到這一隊的名單' }),
@@ -195,7 +197,8 @@ export async function checkinPage({ params, scope, view }) {
 
   function memberRow(m) {
     const rec = state.checkins[m.memberId];
-    const present = rec?.result === 'pass';
+    const pending = csvIdentityPending(m);
+    const present = rec?.result === 'pass' && !pending;
     const failed = rec?.result === 'fail';
 
     return el('li', { class: `chk__row${present ? ' is-present' : ''}${failed ? ' is-failed' : ''}` }, [
@@ -204,13 +207,14 @@ export async function checkinPage({ params, scope, view }) {
         //    出賽與有問題是同一個欄位（result），直接勾等於悄悄把註記洗掉——
         //    而註記正是要擋住這個勾的東西。要先按「取消註記」，讓那一步是明白做的。
         el('input', {
-          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy || failed,
+          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy || failed || pending,
           'aria-label': `${m.displayName || m.memberId} 出賽`,
           onChange: e => mark(m, e.target.checked ? 'pass' : null)
         }),
         el('span', { class: 'chk__no num', text: m.jerseyNo != null ? String(m.jerseyNo) : '—' }),
         el('span', { class: 'chk__info' }, [
           el('strong', { class: 'chk__name', text: m.displayName || '（未填）' }),
+          pending ? el('span', { class: 'chk__tag chk__tag--flag', text: '待補資料・請管理員補齊生日與後四碼後再檢錄' }) : null,
           failed ? el('span', { class: 'chk__tag chk__tag--flag', text: '有問題・先取消註記才能勾出賽' }) : null,
           // 配戴眼鏡上場（規章附件二）：切結書沒收到的要提醒裁判賽前檢查裝備
           m.glasses
@@ -292,6 +296,7 @@ export async function checkinPage({ params, scope, view }) {
    * 整個畫面卡住（R-UI-002）。狀態由 sync.js 追蹤並反映在右上角燈號。
    */
   function mark(m, result) {
+    if (result === 'pass' && csvIdentityPending(m)) return;
     const doc = buildCheckin({
       matchId, teamId: state.match?.[state.side]?.teamId ?? null,
       member: m, result, uid: user()?.uid ?? null
@@ -368,4 +373,3 @@ export async function checkinPage({ params, scope, view }) {
     ].filter(Boolean));
   }
 }
-

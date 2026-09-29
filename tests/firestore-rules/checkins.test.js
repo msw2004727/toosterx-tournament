@@ -32,6 +32,30 @@ const matchRef = db => doc(db, 'events', EVENT, 'matches', MATCH);
 const ref = (db, id = ID) => doc(db, 'events', EVENT, 'checkins', id);
 const memberRef = db => doc(db, 'events', EVENT, 'teams', 't-101', 'members', MEMBER);
 
+test('CSV 待補資料連管理員也不能通過檢錄；可標問題及取消，補齊後可通過', async () => {
+  await asAdminSdk(env, db => updateDoc(memberRef(db), { source: 'csv', birthDate: '', idLast4: '', identityComplete: false }));
+  for (const who of ['u-checkin', 'u-admin']) await assertFails(setDoc(ref(authed(env, who)), rec({ scannedBy: who })));
+  await assertSucceeds(setDoc(ref(authed(env, 'u-checkin')), rec({ result: 'fail' })));
+  await assertFails(updateDoc(ref(authed(env, 'u-admin')), { result: 'pass', scannedBy: 'u-admin' }));
+  await assertSucceeds(updateDoc(ref(authed(env, 'u-checkin')), { result: null }));
+  await asAdminSdk(env, db => updateDoc(memberRef(db), { birthDate: '2017-01-01', idLast4: '0012', identityComplete: true }));
+  await assertSucceeds(updateDoc(ref(authed(env, 'u-checkin')), { result: 'pass' }));
+});
+test('不能用不存在的名冊路徑繞過待補資料檢查', async () => {
+  await assertFails(setDoc(ref(authed(env, 'u-checkin')), rec({ teamId: 'missing' })));
+});
+test('補件改版後不能用舊畫面核對的身分完成檢錄', async () => {
+  await asAdminSdk(env, db => updateDoc(memberRef(db), { source: 'csv', identityRevision: 2 }));
+  await assertFails(setDoc(ref(authed(env, 'u-checkin')), rec({ identityRevision: 1 })));
+  await assertSucceeds(setDoc(ref(authed(env, 'u-checkin')), rec({ identityRevision: 2 })));
+});
+test('舊 CSV 無完整旗標但有有效欄位仍可檢錄；欄位不足不能只信旗標', async () => {
+  await asAdminSdk(env, db => updateDoc(memberRef(db), { source: 'csv' }));
+  await assertSucceeds(setDoc(ref(authed(env, 'u-checkin')), rec()));
+  await asAdminSdk(env, db => updateDoc(memberRef(db), { idLast4: '', identityComplete: true }));
+  await assertFails(updateDoc(ref(authed(env, 'u-checkin')), { result: 'pass' }));
+});
+
 const rec = (over = {}) => ({
   checkinId: ID, matchId: MATCH, teamId: 't-101', memberId: MEMBER,
   memberName: '小豆子', jerseyNo: 7,
@@ -51,6 +75,7 @@ describe('R73–R77 誰寫得了檢錄', () => {
 
   test('R74 賽務、裁判、Admin 也寫得了（他們本來就做得了檢錄）', async () => {
     for (const u of ['u-scorer', 'u-referee', 'u-admin']) {
+      await asAdminSdk(env, db => setDoc(doc(db, 'events', EVENT, 'teams', 't-101', 'members', `x-${u}`), { status: 'approved' }));
       await assertSucceeds(setDoc(ref(authed(env, u), `${MATCH}__x-${u}`),
         rec({ checkinId: `${MATCH}__x-${u}`, memberId: `x-${u}`, scannedBy: u })));
     }

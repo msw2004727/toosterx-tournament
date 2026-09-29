@@ -499,18 +499,30 @@ service cloud.firestore {
 
       // ── 檢錄：doc id = matchId__memberId，天然防重複 ──
       match /checkins/{checkinId} {
+        function identityReady() {
+          let r = request.resource.data;
+          let memberPath = /databases/$(db)/documents/events/$(eventId)/teams/$(r.teamId)/members/$(r.memberId);
+          return r.get('result', null) != 'pass'
+            || (exists(memberPath) && get(memberPath).data.get('status', '') == 'approved'
+              && (get(memberPath).data.get('source', '') != 'csv'
+                || (get(memberPath).data.get('identityComplete', true) == true
+                  && r.get('identityRevision', 0) == get(memberPath).data.get('identityRevision', 0)
+                  && get(memberPath).data.get('birthDate', '').matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+                  && get(memberPath).data.get('idLast4', '').matches('^[0-9]{4}$'))));
+        }
         allow read:   if isCheckin();
         allow create: if isCheckin()
+                      && identityReady()
                       && request.resource.data.scannedBy == uid()
                       && checkinId == request.resource.data.matchId + '__'
                                       + request.resource.data.memberId;
         // 勾錯了要改得回來（學童組是用眼睛核對證件，不是掃碼）。
         // 只放行結果與備註，matchId／memberId 換掉就等於偽造另一筆。
-        allow update: if isAdmin()
+        allow update: if identityReady() && (isAdmin()
                       || ( isCheckin()
                            && onlyChanged(['result', 'failReason', 'note',
-                                           'method', 'scannedBy', 'scannedAt', 'syncedAt'])
-                           && request.resource.data.scannedBy == uid() );
+                                           'method', 'scannedBy', 'scannedAt', 'syncedAt', 'identityRevision'])
+                           && request.resource.data.scannedBy == uid() ));
         allow delete: if false;
       }
 

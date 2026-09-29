@@ -13,6 +13,14 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
+    name: 'FN#CSV3 補件不擋舊版本覆蓋', file: 'functions/member-identity.js',
+    from: '(member.identityRevision ?? 0) !== revision', to: 'false'
+  },
+  {
+    name: 'FN#CSV4 補件不檢查跨隊重複', file: 'functions/member-identity.js',
+    from: 'if (duplicate) fail', to: 'if (false) fail'
+  },
+  {
     name: 'FN#CSV1 非管理員也能匯入', file: 'functions/team-import.js',
     from: "['admin', 'super_admin'].includes(r)", to: "['admin', 'super_admin', 'scorer'].includes(r)"
   },

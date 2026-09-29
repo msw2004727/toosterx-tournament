@@ -1,5 +1,6 @@
 /** CSV 球隊名冊：前端預覽與伺服器共用，任何錯誤都整份拒絕。 */
-import { parseYmd, checkAge } from './eligibility.js';
+import { parseYmd } from './eligibility.js';
+import { validateIdentity } from './member-identity.js';
 import { isMinor } from './privacy.js';
 import { REGISTRATION_LIMITS } from './formats.js';
 import { toCsv } from './csv.js';
@@ -11,7 +12,7 @@ export const IMPORT_COLUMNS = [
   ['playerName', '球員姓名或暱稱'], ['jerseyNo', '背號'], ['birthDate', '出生日期'],
   ['idLast4', '身分證後四碼'], ['isGoalkeeper', '守門員'], ['isCaptain', '隊長']
 ];
-const REQUIRED = ['divisionId', 'teamName', 'playerName', 'jerseyNo', 'birthDate', 'idLast4'];
+const REQUIRED = ['divisionId', 'teamName', 'playerName', 'jerseyNo'];
 export const normalizedTeamName = name => String(name ?? '').normalize('NFKC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('zh-TW');
 export const importTeamKey = (divisionId, name) => JSON.stringify([divisionId, normalizedTeamName(name)]);
 
@@ -86,10 +87,8 @@ export function validateTeamImport(rows, { divisions = [], existingTeams = [], a
       if (r[key].length > max || /[\u0000-\u001F\u007F]/u.test(r[key])) add(rowNo, `${IMPORT_COLUMNS.find(c => c[0] === key)[1]}不可含換行／控制字元，且最多 ${max} 字。`);
     }
     if (!/^\d{1,2}$/.test(r.jerseyNo)) add(rowNo, '背號必須是 0–99 的整數。');
-    if (!parseYmd(r.birthDate) || r.birthDate < '1900-01-01' || r.birthDate >= asOf) add(rowNo, '出生日期須為有效西元 YYYY-MM-DD，且早於賽事日期。');
-    if (!/^\d{4}$/.test(r.idLast4)) add(rowNo, '身分證後四碼須為四位數字（含開頭的 0），勿填完整字號。');
-    const age = checkAge(r.birthDate, div);
-    if (!age.ok) add(rowNo, age.message);
+    const identity = validateIdentity(r, div, asOf);
+    for (const message of identity.errors) add(rowNo, message);
     const flag = key => {
       if (['', '否', 'false', '0'].includes(r[key])) return false;
       if (['是', 'true', '1'].includes(r[key])) return true;
@@ -105,14 +104,16 @@ export function validateTeamImport(rows, { divisions = [], existingTeams = [], a
     if (r.shortName && team.shortName !== r.shortName) add(rowNo, '同一球隊的簡稱不一致。');
     const member = {
       name: r.playerName, nameKind: isMinor(r.birthDate, asOf, 18) ? 'nickname' : 'real',
-      birthDate: r.birthDate, idLast4: r.idLast4, jerseyNo: /^\d{1,2}$/.test(r.jerseyNo) ? parseInt(r.jerseyNo, 10) : null,
+      birthDate: r.birthDate, idLast4: r.idLast4, identityComplete: identity.complete, jerseyNo: /^\d{1,2}$/.test(r.jerseyNo) ? parseInt(r.jerseyNo, 10) : null,
       isGoalkeeper: flag('isGoalkeeper'), isCaptain: flag('isCaptain'), kind: 'player', role: 'player', status: 'approved'
     };
     if (team.members.some(m => m.jerseyNo === member.jerseyNo)) add(rowNo, `「${team.name}」的 ${r.jerseyNo} 號重複。`);
     if (member.isCaptain && team.members.some(m => m.isCaptain)) add(rowNo, `「${team.name}」只能有一位場上隊長。`);
     const person = `${r.birthDate}:${r.idLast4}`;
-    if (people.has(person)) add(rowNo, `球員與第 ${people.get(person)} 列重複（生日及身分證後四碼相同），每人限報一隊。`);
-    people.set(person, rowNo);
+    if (identity.complete) {
+      if (people.has(person)) add(rowNo, `球員與第 ${people.get(person)} 列重複（生日及身分證後四碼相同），每人限報一隊。`);
+      people.set(person, rowNo);
+    }
     team.members.push(member);
   }
   if (teams.size > 100) add(0, '每份 CSV 最多 100 支球隊。');

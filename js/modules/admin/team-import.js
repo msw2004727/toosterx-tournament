@@ -13,8 +13,8 @@ const CSV_GUIDE = {
   shortName: ['選填', '例如 飛達。最多 20 字，同隊須一致；留白時使用隊名的前 20 字。'],
   playerName: ['必填', '例如 小飛。未滿 18 歲填暱稱，成年可填姓名；最多 40 字。'],
   jerseyNo: ['必填', '例如 7。填 0–99 的整數，同隊不可重複。'],
-  birthDate: ['必填', '例如 2017-01-01。西元年四碼，月份與日期各兩碼，以半形 - 分隔；不使用民國年。'],
-  idLast4: ['必填', '例如 0012。只填四位數字；Excel 請設為「文字」以保留開頭 0，勿填完整身分證。'],
+  birthDate: ['可後補', '可留白，由管理員後續補填。例如 2017-01-01。西元年四碼，月份與日期各兩碼，以半形 - 分隔；不使用民國年。'],
+  idLast4: ['可後補', '可留白，由管理員後續補填。例如 0012。只填四位數字；Excel 請設為「文字」以保留開頭 0，勿填完整身分證。'],
   isGoalkeeper: ['選填', '填 是 或 否，留白視為否。'],
   isCaptain: ['選填', '填 是 或 否，留白視為否。這是場上隊長，每隊最多一位，不是管理帳號。']
 };
@@ -61,7 +61,7 @@ export async function adminTeamImportPage({ scope, view }) {
   async function submit() {
     if (state.busy || !state.confirmed || !state.plan || state.plan.errors.length || !can('team.manage') || !navigator.onLine) return;
     const players = state.plan.teams.reduce((n, t) => n + t.members.length, 0);
-    if (!await confirmDialog({ title: '確認匯入球隊名冊？', body: `將新增 ${state.plan.teams.length} 支球隊、${players} 位球員，直接列為已通過並鎖定名單。既有球隊不會被覆蓋。`, confirmText: '確認匯入' })) return;
+    if (!await confirmDialog({ title: '確認匯入球隊名冊？', body: `將新增 ${state.plan.teams.length} 支球隊、${players} 位球員，直接列為已通過並鎖定名單。生日或後四碼未齊的球員需補齊後才能檢錄。既有球隊不會被覆蓋。`, confirmText: '確認匯入' })) return;
     state.busy = true; state.error = ''; render();
     try {
       const result = await callFunction('importTeamsCsv', { eventId: EVENT_ID, csv: state.csv, confirmed: true });
@@ -79,7 +79,7 @@ export async function adminTeamImportPage({ scope, view }) {
       adminHead('匯入球隊名冊', { sub: 'CSV 批次新增球隊與球員' }),
       el('p', { class: 'adm__note', text: '一列一位球員；同組別、同隊名會合併為一支球隊。最多 100 隊、1,000 位球員、1 MB，每隊最多 15 位球員。' }),
       el('p', { class: 'adm__note', text: '未滿 18 歲只填暱稱，請勿填真名。出生日期填西元 YYYY-MM-DD，身分證只填後四碼；Excel 請保留開頭的 0，另存為 CSV UTF-8。守門員、隊長填「是／否」，可留白。' }),
-      el('p', { class: 'adm__note', text: '生日與身分證後四碼供賽務檢錄，公開名冊只顯示球員姓名或暱稱及背號。匯入後直接核准，可到賽程管理安排比賽。' }),
+      el('p', { class: 'adm__note', text: '生日與身分證後四碼可先留空，之後到「查看球隊清單 → 已通過 → 展開球隊 → 補填資料／修改資料」處理。球隊可先排賽程；未補齊的球員標示待補資料，不能確認出賽。公開名冊不顯示生日與後四碼。' }),
       el('details', { class: 'adm__csvGuide', open: true }, [
         el('summary', { text: 'CSV 欄位填寫格式與範例' }),
         el('p', { class: 'adm__note', text: '第一列保留範本的欄位名稱，從第二列開始填球員。範本中的範例球隊與球員請替換成實際名冊。可調整欄位順序，勿新增不支援的欄位。' }),
@@ -115,7 +115,8 @@ export async function adminTeamImportPage({ scope, view }) {
       state.busy ? el('p', { role: 'status', text: '處理中，請勿重複送出…' }) : null,
       state.result ? el('div', { class: 'adm__box', role: 'status' }, [
         el('strong', { text: `匯入完成：${state.result.teamCount} 支球隊、${state.result.playerCount} 位球員，已通過。` }),
-        el('a', { class: 'btn btn--primary btn--lg', href: '#/admin/schedule' }, '前往賽程管理')
+        el('a', { class: 'btn btn--primary btn--lg', href: '#/admin/schedule' }, '前往賽程管理'),
+        el('a', { class: 'btn btn--lg', href: '#/admin/teams' }, '補填或修改球員資料')
       ]) : null,
       plan ? el('section', { class: 'adm__box' }, [
         el('h2', { class: 'adm__sectionHead', text: `匯入預覽：${plan.teams.length} 支球隊、${plan.teams.reduce((n, t) => n + t.members.length, 0)} 位球員` }),
@@ -125,7 +126,7 @@ export async function adminTeamImportPage({ scope, view }) {
         ]) : null,
         ...plan.teams.map(t => el('details', { class: 'adm__importTeam' }, [
           el('summary', { text: `${t.name} · ${state.divisions.find(d => d.divisionId === t.divisionId)?.name ?? t.divisionId} · ${t.members.length} 人` }),
-          el('ul', {}, t.members.map(m => el('li', { text: `#${m.jerseyNo ?? '—'} ${m.name} · ${m.birthDate} · 末四碼 ${m.idLast4}${m.isGoalkeeper ? ' · 守門員' : ''}${m.isCaptain ? ' · 隊長' : ''}` })))
+          el('ul', {}, t.members.map(m => el('li', { text: `#${m.jerseyNo ?? '—'} ${m.name} · ${m.birthDate || '生日待補'} · 末四碼 ${m.idLast4 || '待補'}${m.identityComplete ? '' : ' · 待補資料'}${m.isGoalkeeper ? ' · 守門員' : ''}${m.isCaptain ? ' · 隊長' : ''}` })))
         ])),
         !plan.errors.length ? el('label', { class: 'adm__importConfirm' }, [
           el('input', { type: 'checkbox', checked: state.confirmed, disabled: state.busy, onChange: e => { state.confirmed = e.target.checked; render(); } }),

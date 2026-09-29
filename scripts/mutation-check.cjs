@@ -10,6 +10,18 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
+    name: '#CSV10 空白身分誤判重複', file: 'js/engine/team-import.js',
+    from: 'if (identity.complete) {', to: 'if (true) {'
+  },
+  {
+    name: '#CSV11 待補資料誤判可檢錄', file: 'js/engine/member-identity.js',
+    from: "return member?.source === 'csv' &&", to: 'return false &&'
+  },
+  {
+    name: '#CSV12 補齊未檢查年齡資格', file: 'js/engine/member-identity.js',
+    from: 'if (!age.ok) errors.push(age.message);', to: 'if (false) errors.push(age.message);'
+  },
+  {
     name: '#CSV5 只接受 UTF-8，Excel Big5 又被拒絕', file: 'js/lib/csv-file.js',
     from: ": ['utf-8', 'big5'];", to: ": ['utf-8'];"
   },

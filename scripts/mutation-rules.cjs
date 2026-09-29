@@ -14,6 +14,10 @@ const F = 'firestore.rules';
 
 const MUTANTS = [
   {
+    name: 'RU#CSV3 待補身分也能完成檢錄', file: F,
+    from: "return r.get('result', null) != 'pass'", to: 'return true'
+  },
+  {
     name: 'RU#CSV1 隱藏報名後仍可建隊', file: F,
     from: "        && get(p).data.get('hidden', false) != true\n",
     to: ''
@@ -161,8 +165,10 @@ const MUTANTS = [
     name: 'RU#20 檢錄不檢查 scannedBy 是自己（可冒名記檢錄）',
     file: F,
     from: `        allow create: if isCheckin()
+                      && identityReady()
                       && request.resource.data.scannedBy == uid()`,
-    to: `        allow create: if isCheckin()`
+    to: `        allow create: if isCheckin()
+                      && identityReady()`
   },
   {
     name: 'RU#21 檢錄文件 id 可以自訂（同場同人會出現兩筆結果不同的紀錄）',
@@ -174,20 +180,20 @@ const MUTANTS = [
   {
     name: 'RU#22 檢錄紀錄可以刪除（誰放行了誰查不到）',
     file: F,
-    from: `        allow update: if isAdmin()
+    from: `        allow update: if identityReady() && (isAdmin()
                       || ( isCheckin()
                            && onlyChanged(['result', 'failReason', 'note',
-                                           'method', 'scannedBy', 'scannedAt', 'syncedAt'])
-                           && request.resource.data.scannedBy == uid() );
+                                           'method', 'scannedBy', 'scannedAt', 'syncedAt', 'identityRevision'])
+                           && request.resource.data.scannedBy == uid() ));
         allow delete: if false;
       }
 
       match /venues/{venueId} {`,
-    to: `        allow update: if isAdmin()
+    to: `        allow update: if identityReady() && (isAdmin()
                       || ( isCheckin()
                            && onlyChanged(['result', 'failReason', 'note',
-                                           'method', 'scannedBy', 'scannedAt', 'syncedAt'])
-                           && request.resource.data.scannedBy == uid() );
+                                           'method', 'scannedBy', 'scannedAt', 'syncedAt', 'identityRevision'])
+                           && request.resource.data.scannedBy == uid() ));
         allow delete: if isCheckin();
       }
 
@@ -197,9 +203,9 @@ const MUTANTS = [
     name: 'RU#23 檢錄修改的欄位白名單放行 memberId（等於偽造另一筆）',
     file: F,
     from: `                           && onlyChanged(['result', 'failReason', 'note',
-                                           'method', 'scannedBy', 'scannedAt', 'syncedAt'])`,
+                                           'method', 'scannedBy', 'scannedAt', 'syncedAt', 'identityRevision'])`,
     to: `                           && onlyChanged(['result', 'failReason', 'note', 'memberId', 'matchId',
-                                           'method', 'scannedBy', 'scannedAt', 'syncedAt'])`
+                                           'method', 'scannedBy', 'scannedAt', 'syncedAt', 'identityRevision'])`
   },
   {
     name: 'RU#25 檢錄不含更高階（記錄員反而檢錄不了）',

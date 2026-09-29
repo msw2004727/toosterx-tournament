@@ -59,7 +59,7 @@ export async function seedBaseline(env) {
 
     await setDoc(doc(db, 'events', EVENT, 'teams', 't-101'), { teamId: 't-101', name: '臺中野狼' });
     await setDoc(doc(db, 'events', EVENT, 'teams', 't-101', 'members', 'm-101-07'), {
-      memberId: 'm-101-07', name: '王小明', birthDate: '1996-03-14', idLast4: '1234'
+      memberId: 'm-101-07', status: 'approved', name: '王小明', birthDate: '1996-03-14', idLast4: '1234'
     });
     await setDoc(doc(db, 'events', EVENT, 'teams', 't-101', 'roster', 'm-101-07'), {
       memberId: 'm-101-07', displayName: '王小明', jerseyNo: 7

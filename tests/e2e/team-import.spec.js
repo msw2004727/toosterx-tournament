@@ -26,6 +26,20 @@ async function upload(page, rows) {
   await page.getByLabel('上傳 CSV 球隊名冊').setInputFiles({ name: '名冊.csv', mimeType: 'text/csv', buffer: Buffer.from(csv(rows)) });
 }
 
+test('生日後四碼可留空，多位球員能預覽並提示後補入口 @csvidentity', async ({ page }) => {
+  await stub(page); await page.goto('/#/admin/team-import');
+  await expect(page.getByText('可後補', { exact: true })).toHaveCount(2);
+  await upload(page, [row({ birthDate: '', idLast4: '' }), row({ jerseyNo: '8', birthDate: '', idLast4: '', isCaptain: '' })]);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await page.locator('.adm__importTeam summary').click();
+  await expect(page.locator('.adm__importTeam')).toContainText('生日待補');
+  await expect(page.locator('.adm__importTeam')).toContainText('待補資料');
+  await page.locator('.adm__importConfirm input').check();
+  await page.getByRole('button', { name: '匯入並核准球隊' }).click();
+  await page.getByRole('button', { name: '確認匯入', exact: true }).click();
+  await expect(page.getByRole('link', { name: '補填或修改球員資料' })).toBeVisible();
+});
+
 test('Excel Big5 CSV 能辨識中文並預覽，不會誤報 UTF-8 @csvencoding', async ({ page }) => {
   await stub(page); await page.goto('/#/admin/team-import');
   const buffer = Buffer.concat([

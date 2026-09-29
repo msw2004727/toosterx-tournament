@@ -27,6 +27,8 @@ import { rocShort } from '../../lib/roc.js';
 import { toMillis, dateLabel, hhmm } from '../../lib/format.js';
 import * as data from './data.js';
 import { adminHead, denied, TEAM_STATUS, KIND_LABEL } from './bits.js';
+import { editCsvIdentity } from './member-identity.js';
+import { csvIdentityPending } from '../../engine/member-identity.js';
 
 /** 分頁。順序照「主辦一天要做的事」排：待審的排最前面。 */
 const TABS = [
@@ -189,10 +191,21 @@ export async function adminTeamsPage({ scope, view }) {
             // 審核要核對的就是這兩格；生日用民國年，跟證件一致
             text: isStaffMember(m)
               ? (KIND_LABEL[m.kind || m.role] || '隊職員')
-              : [m.birthDate ? rocShort(m.birthDate) : null,
+              : [csvIdentityPending(m) ? '待補資料' : null, m.birthDate ? rocShort(m.birthDate) : null,
                  m.idLast4 ? `末四碼 ${m.idLast4}` : null].filter(Boolean).join('　·　')
-          })
+          }),
+          m.source === 'csv' && can('team.manage') ? el('button', {
+            type: 'button', class: 'btn btn--sm', 'aria-label': `補填或修改 ${m.name} 的資料`,
+            onClick: () => editCsvIdentity({ team: t, member: m, division: div, scope, onSaved: result => {
+              Object.assign(m, result); render(); toast('球員資料已儲存，修改紀錄已保留。', 'success');
+            } })
+          }, csvIdentityPending(m) ? '補填資料' : '修改資料') : null
         ]))),
+      el('button', { type: 'button', class: 'btn btn--sm', onClick: async () => {
+        try { state.members[t.teamId] = await data.getMembers(t.teamId); state.error = null; }
+        catch (err) { state.error = data.explain(err); }
+        render();
+      } }, '重新載入名單'),
 
       t.rejectReason
         ? el('p', { class: 'adm__note', text: `上次退回原因：${t.rejectReason}` })

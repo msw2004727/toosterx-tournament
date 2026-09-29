@@ -331,8 +331,8 @@ const MUTANTS = [
   {
     name: '#E48 ⭐ 標了「有問題」還能直接勾出賽（註記被悄悄洗掉；C-3）',
     file: 'js/modules/staff/checkin.js',
-    from: "          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy || failed,",
-    to: "          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy,"
+    from: "          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy || failed || pending,",
+    to: "          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy || pending,"
   },
   {
     name: '#E49 ⭐ 人數不足「完成檢錄」照樣按得下去（一個人也能完成；C-5）',
