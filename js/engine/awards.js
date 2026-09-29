@@ -8,6 +8,7 @@
  */
 
 import { fairPlayByTeam } from './ranking.js';
+import { tallyMatches } from './tally.js';
 
 /** 計入射手榜的事件型別。烏龍球（own_goal）不計入射手（T15）。 */
 export const SCORING_TYPES = ['goal', 'penalty_scored'];
@@ -136,8 +137,8 @@ export function computeGoalkeepers(keeperAppearances, concededByMatchTeam, opts 
 }
 
 /** 紅黃牌統計：從有效完賽場次累計，避免舊積分榜殘留、跨階段重複與漏掉淘汰賽。 */
-export function computeFairPlayBoard({ matches = [], cardEvents = [], teams = {} } = {}) {
-  const counted = countedMatchIdsOf(matches);
+export function computeFairPlayBoard({ matches = [], cardEvents = [], teams = {}, withdrawalPolicy } = {}) {
+  const counted = countedMatchIdsOf(matches, { teams, withdrawalPolicy });
   const byMatch = new Map();
   const byTeam = new Map();
   for (const m of matches) {
@@ -184,6 +185,13 @@ function assignRanks(rows, isTie) {
 const round2 = n => Math.round(n * 100) / 100;
 
 /** 只納入已完賽場次，供呼叫端先篩一輪 */
-export function countedMatchIdsOf(matches) {
-  return new Set((matches || []).filter(m => COUNTED_STATUSES.includes(m.status)).map(m => m.matchId));
+export function countedMatchIdsOf(matches, opts) {
+  const completed = (matches || []).filter(m => COUNTED_STATUSES.includes(m.status));
+  if (!opts?.teams) return new Set(completed.map(m => m.matchId));
+  // 與積分引擎共用有效比分、棄賽及退賽作廢判定，避免兩種統計各算各的。
+  return tallyMatches(Object.keys(opts.teams), completed, {
+    onlyBetweenTeams: true,
+    withdrawalPolicy: opts.withdrawalPolicy,
+    withdrawnTeamIds: Object.entries(opts.teams).filter(([, t]) => t.withdrawn === true).map(([id]) => id)
+  }).countedMatchIds;
 }

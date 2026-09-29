@@ -516,6 +516,18 @@ describe('統計來源完整性與觸發器', () => {
     await onTeamWritten.run(eventOf(before, { ...before, name: '最新完整隊名' }, { teamId: 't1' }));
     expect((await board('fairplay')).find(r => r.teamId === 't1').name).toBe('最新完整隊名');
   });
+  test('退賽作廢的場次從兩張看板排除，保留已賽政策則照計', async () => {
+    await prepare();
+    const ref = db.doc(`events/${E}/teams/t1`), before = (await ref.get()).data();
+    await ref.update({ withdrawn: true });
+    await onTeamWritten.run(eventOf(before, { ...before, withdrawn: true }, { teamId: 't1' }));
+    expect(await board('fairplay')).toEqual([]);
+    expect(await board('scorers')).toEqual([]);
+    await db.doc(`events/${E}/divisions/${DIV}`).update({ withdrawalPolicy: 'keepAsWalkover' });
+    await rebuildBoardsFor({ eventId: E, divisionId: DIV });
+    expect(await board('fairplay')).toHaveLength(2);
+    expect(await board('scorers')).toHaveLength(1);
+  });
 });
 
 // ══════════════════════════════════════════════════════════════

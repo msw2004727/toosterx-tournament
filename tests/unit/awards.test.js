@@ -123,7 +123,7 @@ describe('門將榜（半自動）', () => {
 
 describe('紅黃牌統計（運動精神獎參考）', () => {
   const teams = { A: { name: '甲隊' }, B: { name: '乙隊' }, C: { name: '未出賽' } };
-  const match = (matchId, status = 'finished', stageId = 'group') => ({ matchId, status, stageId, divisionId: 'd', home: { teamId: 'A' }, away: { teamId: 'B' } });
+  const match = (matchId, status = 'finished', stageId = 'group') => ({ matchId, status, stageId, divisionId: 'd', home: { teamId: 'A' }, away: { teamId: 'B' }, score: { home: 1, away: 0 } });
   const card = (matchId, cardType, extra = {}) => ({ matchId, type: 'card', cardType, playerId: 'p1', teamId: 'A', ...extra });
   test('從完賽場次計算，淘汰賽納入、跨階段同隊只有一列、未出賽不進榜', () => {
     const rows = computeFairPlayBoard({ teams, matches: [match('m1'), match('m2', 'confirmed', 'final')], cardEvents: [card('m1', 'yellow'), card('m2', 'red')] });
@@ -145,5 +145,17 @@ describe('紅黃牌統計（運動精神獎參考）', () => {
   test('重複讀入同一場不重複計場數', () => {
     const rows = computeFairPlayBoard({ teams, matches: [match('m1'), match('m1')] });
     expect(rows.every(r => r.played === 1)).toBe(true);
+  });
+  test('整隊退賽依規則作廢；保留已賽政策不會把未賽場次算成紀律紀錄', () => {
+    const withdrawn = { ...teams, A: { ...teams.A, withdrawn: true } };
+    const input = { teams: withdrawn, matches: [match('m1'), match('pending', 'scheduled')], cardEvents: [card('m1', 'red')] };
+    expect(computeFairPlayBoard(input)).toEqual([]);
+    const rows = computeFairPlayBoard({ ...input, withdrawalPolicy: 'keepAsWalkover' });
+    expect(rows.find(r => r.teamId === 'A')).toMatchObject({ played: 1, fairPlayPoints: -4 });
+  });
+  test('比分不完整或型別錯誤的完賽不列入', () => {
+    for (const score of [null, { home: null, away: 0 }, { home: '1', away: 0 }]) {
+      expect(computeFairPlayBoard({ teams, matches: [{ ...match('m1'), score }] })).toEqual([]);
+    }
   });
 });

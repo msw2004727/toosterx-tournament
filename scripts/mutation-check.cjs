@@ -9,6 +9,8 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#DISC3 忽略退賽作廢規則', file: 'js/engine/awards.js',
+    from: 'withdrawnTeamIds: Object.entries(opts.teams).filter(([, t]) => t.withdrawn === true).map(([id]) => id)', to: 'withdrawnTeamIds: []' },
   { name: '#DISC1 紅黃牌把未完賽也算進去', file: 'js/engine/awards.js',
     from: 'if (!counted.has(m.matchId) || byMatch.has(m.matchId)) continue;', to: 'if (byMatch.has(m.matchId)) continue;' },
   { name: '#DISC2 漏算兩黃換紅的第二張黃牌', file: 'js/engine/awards.js',

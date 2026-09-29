@@ -343,16 +343,18 @@ export async function rebuildBoardsFor({ eventId, divisionId }) {
   // 來源與看板在同一交易重讀，避免較慢的舊觸發器把已刪除的資料寫回來。
   return db().runTransaction(async tx => {
     const base = evRef(eventId);
-    const [matchSnap, teamSnap, ...boardSnaps] = await Promise.all([
+    const [matchSnap, teamSnap, divisionSnap, ...boardSnaps] = await Promise.all([
       tx.get(base.collection('matches').where('divisionId', '==', divisionId)),
       tx.get(base.collection('teams')),
+      tx.get(base.collection('divisions').doc(divisionId)),
       ...['scorers', 'fairplay'].map(boardId => tx.get(base.collection('boards').doc(boardId)))
     ]);
     const teams = Object.fromEntries(teamSnap.docs.map(d => [d.id, { ...d.data(), teamId: d.id }]));
     const matches = matchSnap.docs.map(d => ({ ...d.data(), matchId: d.id })).filter(m =>
       [m.home?.teamId, m.away?.teamId].every(id => teams[id]?.divisionId === divisionId)
       && m.home.teamId !== m.away.teamId);
-    const counted = countedMatchIdsOf(matches);
+    const withdrawalPolicy = divisionSnap.data()?.withdrawalPolicy;
+    const counted = countedMatchIdsOf(matches, { teams, withdrawalPolicy });
     const events = [];
     const roster = {};
     const played = matches.filter(m => counted.has(m.matchId));
@@ -383,7 +385,7 @@ export async function rebuildBoardsFor({ eventId, divisionId }) {
     }
     const scorers = computeScorers(events, { countedMatchIds: counted, playerMeta })
       .slice(0, BOARD_LIMIT).map(r => ({ ...r, divisionId }));
-    const fairPlay = computeFairPlayBoard({ matches, cardEvents: events, teams });
+    const fairPlay = computeFairPlayBoard({ matches, cardEvents: events, teams, withdrawalPolicy });
     for (const [i, rows] of [scorers, fairPlay].entries()) {
       const snap = boardSnaps[i];
       const boardId = snap.id;

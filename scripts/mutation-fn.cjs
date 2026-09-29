@@ -12,6 +12,8 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#DISC5 沒有讀取組別的退賽保留政策', file: 'functions/pipeline.js',
+    from: 'const withdrawalPolicy = divisionSnap.data()?.withdrawalPolicy;', to: 'const withdrawalPolicy = undefined;' },
   { name: 'FN#DISC1 刪除場次不更新公開榜', file: 'functions/index.js',
     from: '// 刪除與重開也要移除舊統計；', to: 'if (!after) return; // 刪除與重開也要移除舊統計；' },
   { name: 'FN#DISC2 重開比賽仍留舊分數', file: 'functions/index.js',
@@ -92,7 +94,7 @@ const MUTANTS = [
   {
     name: 'FN#7 射手榜不過濾未完賽場次（進行中的比賽就先進榜）',
     file: 'functions/pipeline.js',
-    from: '  const counted = countedMatchIdsOf(matches);',
+    from: '  const counted = countedMatchIdsOf(matches, { teams, withdrawalPolicy });',
     to: '  const counted = new Set(matches.map(m => m.matchId));'
   },
   {
