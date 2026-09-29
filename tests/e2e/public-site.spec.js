@@ -448,6 +448,7 @@ test('⭐ 監聽有註冊、換頁後有回收 @public', async ({ page }) => {
 
 const withBoards = () => ({
   ...full(),
+  [`events/${EVENT}/teams/t-901`]: { teamId: 't-901', name: 'U10 紅隊', divisionId: 'u10' },
   [`events/${EVENT}/boards/scorers`]: {
     boardId: 'scorers',
     rows: [
@@ -485,12 +486,12 @@ test('⭐ 首頁的射手榜 TOP 3 也要篩掉兒童組 @public @privacy', asyn
   await expect(page.locator('.pub')).not.toContainText('陳小＊');
 });
 
-test('⭐ 行為分讀自己那份文件，不會退回射手榜的列 @public', async ({ page }) => {
+test('⭐ 紅黃牌統計讀自己那份文件，不會退回射手榜的列 @public', async ({ page }) => {
   // 兩張榜的 rows 形狀不同（球員 vs 球隊）。互相當備援會畫出一張
   // 看起來很正常、但每個人都 0 分的錯表。
   await stub(page, withBoards());
   await go(page, '/#/stats?tab=fairplay');
-  await expect(page.locator('.ptop__row')).toHaveCount(1);
+  await expect(page.locator('.pdiscipline__row')).toHaveCount(1);
   await expect(page.locator('.pub')).toContainText('臺中市西屯區野狼');
   await expect(page.locator('.pub')).toContainText('-1 分');
 });

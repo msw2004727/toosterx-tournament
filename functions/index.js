@@ -98,7 +98,14 @@ export const onMatchWritten = onDocumentWritten(
     const { eventId, matchId } = event.params;
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
-    if (!after) return;                                   // 刪除：沒有東西可算
+    // 刪除與重開也要移除舊統計；用現存來源重建，不依賴事件送達的先後順序。
+    if ((!after && before) || ([before, after].some(m => DECIDED.includes(m?.status))
+      && changedAny(before, after, ['status', 'score', 'result', 'divisionId', 'teamIds', 'home', 'away']))) {
+      for (const divisionId of new Set([before?.divisionId, after?.divisionId].filter(Boolean))) {
+        await rebuildBoardsFor({ eventId, divisionId });
+      }
+    }
+    if (!after) return;
     if (!changedAny(before, after, ['status', 'score', 'result'])) return;
 
     const match = { matchId, ...after };
@@ -133,7 +140,6 @@ export const onMatchWritten = onDocumentWritten(
           if (d.applied?.length) logger.info('[onMatchWritten] 已解算晉級', { stageId: d.stageId, applied: d.applied.length });
           else if (!d.ready) logger.debug('[onMatchWritten] 晉級尚未就緒', { stageId: d.stageId, reason: d.reason });
         }
-        await rebuildBoardsFor({ eventId, divisionId });
       }
     } catch (err) {
       // 這裡**不吞例外**：吞掉的話積分榜會安靜地停在舊版，
@@ -146,8 +152,7 @@ export const onMatchWritten = onDocumentWritten(
 /**
  * 事件寫入 → 只做這一場的比分對帳。
  *
- * 刻意**不**在這裡重建射手榜：一顆進球就掃全組別的 timeline 太貴，
- * 而且未完賽的場次本來就不計入榜單。看板改由 onMatchWritten 在完賽時重建。
+ * 未完賽只對帳；完賽後補登或作廢事件，必須同步更新公開統計。
  */
 export const onTimelineWritten = onDocumentWritten(
   'events/{eventId}/matches/{matchId}/timeline/{timelineId}', async (event) => {
@@ -155,6 +160,10 @@ export const onTimelineWritten = onDocumentWritten(
     const r = await reconcileMatchScore({ eventId, matchId });
     if (r.changed) {
       logger.info('[onTimelineWritten] 比分對帳結果改變', { matchId, mismatch: r.mismatch, derived: r.derived });
+    }
+    const match = (await db().doc(`events/${eventId}/matches/${matchId}`).get()).data();
+    if (match?.divisionId && DECIDED.includes(match.status)) {
+      await rebuildBoardsFor({ eventId, divisionId: match.divisionId });
     }
   });
 
@@ -208,6 +217,11 @@ export const onTeamWritten = onDocumentWritten(
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
 
+    if (before && changedAny(before, after, ['name', 'shortName', 'divisionId', 'status', 'withdrawn'])) {
+      for (const divisionId of new Set([before.divisionId, after?.divisionId].filter(Boolean))) {
+        await rebuildBoardsFor({ eventId, divisionId });
+      }
+    }
     const oldCap = before?.captainUid ?? null;
     const newCap = after?.captainUid ?? null;
     if (oldCap === newCap && before && after) return;   // 隊長沒變，也不是建立／刪除

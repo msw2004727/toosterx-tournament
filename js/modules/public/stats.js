@@ -27,7 +27,7 @@ import { EVENT } from '../../config.js';
  */
 const BOARDS = [
   { key: 'scorers',  source: 'scorers',  label: '射手榜', icon: 'goal', valueKey: 'goals',          unit: '球', kind: 'player' },
-  { key: 'fairplay', source: 'fairplay', label: '行為分', icon: 'card', valueKey: 'fairPlayPoints', unit: '分', kind: 'team' }
+  { key: 'fairplay', source: 'fairplay', label: '紅黃牌統計', icon: 'card', valueKey: 'fairPlayPoints', unit: '分', kind: 'team' }
 ];
 
 export async function publicStats({ view, query }) {
@@ -36,13 +36,13 @@ export async function publicStats({ view, query }) {
   mount(root, skeleton(4));
 
   const state = {
-    boards: { scorers: null, fairplay: null }, featureFlags: {}, divisions: [], loaded: false,
+    boards: { scorers: null, fairplay: null }, featureFlags: {}, divisions: [], loaded: false, boardsError: false,
     tab: BOARDS.some(b => b.key === query?.get('tab')) ? query.get('tab') : 'scorers',
     divisionId: query?.get('division') || null
   };
 
   const [boards, divisions, flags] = await Promise.all([
-    data.getBoards().catch(() => ({ scorers: null, fairplay: null })),
+    readBoards(),
     data.getDivisions().catch(() => []),
     data.getFeatureFlags().catch(() => ({}))
   ]);
@@ -51,6 +51,11 @@ export async function publicStats({ view, query }) {
   state.featureFlags = flags;
   state.loaded = true;
   render();
+
+  async function readBoards() {
+    try { return await data.getBoards(); }
+    catch { state.boardsError = true; return { scorers: null, fairplay: null }; }
+  }
 
   function render() {
     setDivisionTheme(root, state.divisions.find(d => d.divisionId === state.divisionId) || state.divisionId);
@@ -97,6 +102,10 @@ export async function publicStats({ view, query }) {
     const conf = BOARDS.find(b => b.key === state.tab);
     const board = state.boards[conf.source];
 
+    if (state.boardsError) return empty('統計資料暫時讀取失敗', '請重新載入，或稍後再試。',
+      { label: '重新載入', onClick: () => location.reload() });
+    if (conf.kind === 'team') return disciplineBody(board);
+
     // ⚠️ 榜單由 Function 算好寫進 boards/*，前端**不自己從 timeline 重算**（R-ENG-001）。
     //    拿不到就誠實說「整理中」，不要生一份可能跟官方榜不一致的數字出來。
     //    每張榜看自己那一份文件，**不可以退回另一張榜的 rows** 當備援——
@@ -125,6 +134,43 @@ export async function publicStats({ view, query }) {
         rows.slice(0, 20).map((r, i) => boardRow(conf, r, i))));
   }
 
+  function disciplineBody(board) {
+    const rows = (board?.rows || []).filter(r => !state.divisionId || r.divisionId === state.divisionId);
+    const ids = [...new Set(rows.map(r => r.divisionId))];
+    const ordered = [...state.divisions.map(d => d.divisionId), ...ids.filter(id => !state.divisions.some(d => d.divisionId === id))];
+    const explanation = el('div', { class: 'pdiscipline__intro' }, [
+      el('p', { text: '依已完賽場次累計，包含小組賽與淘汰賽。每隊各列一筆，紀律扣分越接近 0，代表扣分越少。' }),
+      el('p', { class: 'muted', text: '紀律扣分不是比賽積分；運動精神獎由主辦評選。' }),
+      el('details', { class: 'pdiscipline__rules' }, [
+        el('summary', { text: '扣分怎麼計算？' }),
+        board?.scoringRules ? el('ul', {}, [
+          ['黃牌', 'yellow'], ['兩黃換紅', 'secondYellow'],
+          ['直接紅牌', 'directRed'], ['黃牌後直接紅牌', 'yellowThenRed']
+        ].map(([label, key]) => el('li', { text: `${label}：${board.scoringRules[key]} 分` }))) : null,
+        el('p', { text: '同一球員、同一場比賽按上述情況合併計算，不重複扣分。黃牌張數含第二張黃牌，紅牌張數含兩黃換紅。' })
+      ])
+    ]);
+    return el('div', { class: 'pdiscipline' }, [
+      sectionCard('紅黃牌統計', 'card', explanation),
+      ...ordered.filter(id => ids.includes(id)).map(id => {
+        const division = state.divisions.find(d => d.divisionId === id);
+        const card = sectionCard(division?.name || id, 'card', el('ul', { class: 'pdiscipline__list' },
+          rows.filter(r => r.divisionId === id).map(r => el('li', { class: 'pdiscipline__row' }, [
+            el('button', { class: 'pdiscipline__team', type: 'button',
+              onClick: () => navigate(`/team/${encodeURIComponent(r.teamId)}`) }, iconText('forward', r.name || r.teamId, { trailing: true })),
+            el('p', { class: 'pdiscipline__played', text: `已完賽 ${r.played ?? 0} 場` }),
+            el('dl', { class: 'pdiscipline__metrics' }, [
+              ['黃牌', `${r.yellow ?? 0} 張`], ['紅牌', `${r.red ?? 0} 張`], ['紀律扣分', `${r.fairPlayPoints ?? 0} 分`]
+            ].map(([label, value]) => el('div', {}, [el('dt', { text: label }), el('dd', { class: 'num', text: value })]))),
+            r.secondYellow ? el('p', { class: 'pdiscipline__played', text: `紅牌包含 ${r.secondYellow} 次兩黃換紅` }) : null
+          ]))));
+        setDivisionTheme(card, division || id);
+        return card;
+      }),
+      !rows.length ? empty('目前沒有可公布的紅黃牌統計', '有有效完賽紀錄後，會顯示球隊的牌數與紀律扣分；尚未出賽的球隊不列入。') : null
+    ]);
+  }
+
   /**
    * 一列。兩張榜的欄位不同：
    *   球員榜 name 是（已遮蔽的）球員名、teamName 是隊名、playerId 可以點進球員頁
@@ -133,18 +179,6 @@ export async function publicStats({ view, query }) {
   function boardRow(conf, r, i) {
     const rank = el('span', { class: 'ptop__rank num', text: String(r.rank ?? i + 1) });
     const value = el('span', { class: 'ptop__val num', text: `${r[conf.valueKey] ?? 0} ${conf.unit}` });
-
-    if (conf.kind === 'team') {
-      return el('li', { class: 'ptop__row', ...divisionThemeAttrs(r.divisionId) }, [
-        rank,
-        el('button', {
-          class: 'ptop__name', type: 'button',
-          onClick: () => r.teamId && navigate(`/team/${encodeURIComponent(r.teamId)}`)
-        }, r.name || ''),
-        el('span', { class: 'ptop__team', text: `${r.yellow ?? 0} 黃 / ${r.red ?? 0} 紅` }),
-        value
-      ]);
-    }
 
     // ⚠️ 看板上的球員鍵是 playerId（＝ memberId），不是 memberId。
     //    先前寫成 r.memberId，欄位不存在，點下去完全沒有反應。

@@ -189,19 +189,27 @@ export async function getTeamMatches(teamId) {
  *
  * **是兩份文件，不是一份**：
  *   boards/scorers   射手榜   rows 是球員（playerId / name / goals）
- *   boards/fairplay  行為分   rows 是**球隊**（teamId / fairPlayPoints / yellow / red）
+ *   boards/fairplay  紅黃牌統計   rows 是**球隊**（teamId / fairPlayPoints / yellow / red）
  * 兩者的 rows 形狀不同，畫面要分開渲染，不可以互相退回去當備援。
  *
  * ⚠️ 拿不到就回 null，畫面顯示「整理中」——
  *    **絕對不要在前端從 timeline 自己算一份**（R-ENG-001：只能有一份實作）。
  */
 export async function getBoards() {
-  const { doc, getDoc } = sdk();
+  const { doc, getDoc, getDocs } = sdk();
   const one = async id => {
     const snap = await getDoc(doc(db(), 'events', EVENT_ID, 'boards', id));
     return snap.exists() ? { boardId: snap.id, ...snap.data() } : null;
   };
   const [scorers, fairplay] = await Promise.all([one('scorers'), one('fairplay')]);
+  // 觸發器更新有短暫延遲；已刪除或移組的球隊不可繼續成為公開榜單連結。
+  if ([scorers, fairplay].some(board => board?.rows?.length)) {
+    const snap = await getDocs(evPath('teams'));
+    const teams = new Map(snap.docs.map(d => [d.id, d.data()]));
+    for (const board of [scorers, fairplay].filter(Boolean)) {
+      board.rows = (board.rows || []).filter(r => teams.get(r.teamId)?.divisionId === r.divisionId);
+    }
+  }
   return { scorers, fairplay };
 }
 

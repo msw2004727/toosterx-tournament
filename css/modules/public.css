@@ -167,6 +167,24 @@
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:8em}
 .ptop__val{font-weight:700;font-size:var(--fs-sm);white-space:nowrap}
 
+.pdiscipline{display:grid;gap:var(--sp-3);min-width:0;padding:0 var(--sp-3)}
+.pdiscipline .pcard{margin:0}
+.pdiscipline__intro{font-size:var(--fs-sm);line-height:1.7;overflow-wrap:anywhere}
+.pdiscipline__intro p{margin:0 0 var(--sp-2)}
+.pdiscipline__rules{border-top:1px solid var(--border);padding-top:var(--sp-2)}
+.pdiscipline__rules summary{cursor:pointer;font-weight:600;min-height:var(--tap);align-content:center}
+.pdiscipline__rules ul{padding-left:1.5em}
+.pdiscipline__list{list-style:none;margin:0;padding:0}
+.pdiscipline__row{padding:var(--sp-3) 0;border-top:1px solid var(--border);min-width:0}
+.pdiscipline__row:first-child{border-top:0;padding-top:0}
+.pdiscipline__team{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);width:100%;text-align:left;font-weight:700;color:var(--division-ink,var(--text));min-height:var(--tap);white-space:normal;overflow-wrap:anywhere}
+.pdiscipline__team span{min-width:0}
+.pdiscipline__team .icon{flex:none}
+.pdiscipline__played{margin:2px 0 var(--sp-2);font-size:var(--fs-xs);color:var(--text-muted)}
+.pdiscipline__metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-2);margin:0;padding:var(--sp-3);background:var(--division-soft,var(--bg));border-radius:12px}
+.pdiscipline__metrics dt{font-size:var(--fs-xs);color:var(--text-muted)}
+.pdiscipline__metrics dd{margin:var(--sp-1) 0 0;font-size:var(--fs-md);font-weight:700;white-space:nowrap}
+
 .psponsor{
   margin:var(--sp-4) var(--sp-3) 0;padding:var(--sp-3);
   border-top:1px solid var(--border);

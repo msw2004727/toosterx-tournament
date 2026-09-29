@@ -11,6 +11,7 @@
  * 少一個索引、交易讀寫順序寫反、或 serverTimestamp 填在錯的層級。
  */
 import { db as adminDb } from '../../functions/admin.js';
+import { onMatchWritten, onTeamWritten, onTimelineWritten } from '../../functions/index.js';
 
 import { FORMATS, RANKING_RULES } from '../../js/engine/formats.js';
 import {
@@ -442,15 +443,78 @@ describe('F13 看板', () => {
 
   test('F14c 重建某一組別時，其他組別的列不會被清掉', async () => {
     // 單一文件的代價：六個組別共用一份 rows。這裡守的是「換自己那幾列」。
+    await db.doc(`events/${E}/teams/x-team`).set({ name: '其他組別', divisionId: 'adult-open' });
     await db.doc(`events/${E}/boards/scorers`).set({
       boardId: 'scorers',
-      rows: [{ rank: 1, playerId: 'x-1', divisionId: 'adult-open', goals: 9 }]
+      rows: [{ rank: 1, playerId: 'x-1', teamId: 'x-team', divisionId: 'adult-open', goals: 9 }]
     });
     await play('g1', 2, 0);
     await rebuildBoardsFor({ eventId: E, divisionId: DIV });
 
     const rows = (await db.doc(`events/${E}/boards/scorers`).get()).data().rows;
     expect(rows.some(r => r.divisionId === 'adult-open' && r.playerId === 'x-1')).toBe(true);
+  });
+});
+
+describe('統計來源完整性與觸發器', () => {
+  const eventOf = (before, after, params = {}) => ({ params: { eventId: E, matchId: 'g1', ...params }, data: { before: { data: () => before }, after: { data: () => after } } });
+  const board = async id => (await db.doc(`events/${E}/boards/${id}`).get()).data().rows;
+  async function prepare() {
+    await db.doc(`events/${E}/matches/g1/timeline/card`).set({ matchId: 'g1', type: 'card', cardType: 'yellow', teamId: 't1', playerId: 'p-1', voided: false });
+    await db.doc(`events/${E}/matches/g1/timeline/goal`).set({ matchId: 'g1', type: 'goal', teamId: 't1', playerId: 'p-1', voided: false });
+    await play('g1', 1, 0);
+    await rebuildBoardsFor({ eventId: E, divisionId: DIV });
+  }
+  test('紅黃牌直接計完賽來源，不受過期積分榜影響，並包括淘汰賽', async () => {
+    await prepare();
+    await db.doc(`events/${E}/standings/stale`).set({ divisionId: DIV, rows: [{ teamId: 'deleted', name: '幽靈', fairPlayPoints: -99 }] });
+    await matchRef('F1').update({ home: { teamId: 't1' }, away: { teamId: 't2' }, teamIds: ['t1', 't2'], status: 'finished' });
+    await db.doc(`events/${E}/matches/F1/timeline/card`).set({ matchId: 'F1', type: 'card', cardType: 'red', teamId: 't1', playerId: 'p-1' });
+    await rebuildBoardsFor({ eventId: E, divisionId: DIV });
+    const rows = await board('fairplay');
+    expect(rows).toHaveLength(2);
+    expect((await db.doc(`events/${E}/boards/fairplay`).get()).data().scoringRules).toEqual({ yellow: -1, secondYellow: -3, directRed: -4, yellowThenRed: -5 });
+    expect(rows.find(r => r.teamId === 't1')).toMatchObject({ fairPlayPoints: -5, played: 2, yellow: 1, red: 1 });
+  });
+  test('刪除最後一場後，兩個看板即清空，不使用仍殘留的積分榜', async () => {
+    await prepare();
+    const before = (await matchRef('g1').get()).data();
+    await matchRef('g1').delete();
+    await onMatchWritten.run(eventOf(before, undefined));
+    expect(await board('fairplay')).toEqual([]);
+    expect(await board('scorers')).toEqual([]);
+  });
+  test('重開完賽場次後移除舊公開統計', async () => {
+    await prepare();
+    const before = (await matchRef('g1').get()).data();
+    await matchRef('g1').update({ status: 'live' });
+    await onMatchWritten.run(eventOf(before, { ...before, status: 'live' }));
+    expect(await board('fairplay')).toEqual([]);
+    expect(await board('scorers')).toEqual([]);
+  });
+  test('刪除球隊會重建看板，不留下幽靈射手與紀律紀錄', async () => {
+    await prepare();
+    const ref = db.doc(`events/${E}/teams/t1`), before = (await ref.get()).data();
+    await ref.delete();
+    await onTeamWritten.run(eventOf(before, undefined, { teamId: 't1' }));
+    expect(await board('fairplay')).toEqual([]);
+    expect(await board('scorers')).toEqual([]);
+  });
+  test('完賽後作廢紅黃牌與進球會更新看板', async () => {
+    await prepare();
+    for (const id of ['card', 'goal']) {
+      await db.doc(`events/${E}/matches/g1/timeline/${id}`).update({ voided: true });
+      await onTimelineWritten.run(eventOf({}, { voided: true }, { timelineId: id }));
+    }
+    expect((await board('fairplay')).find(r => r.teamId === 't1')).toMatchObject({ fairPlayPoints: 0, yellow: 0 });
+    expect(await board('scorers')).toEqual([]);
+  });
+  test('球隊更名後紀律卡使用最新完整隊名', async () => {
+    await prepare();
+    const ref = db.doc(`events/${E}/teams/t1`), before = (await ref.get()).data();
+    await ref.update({ name: '最新完整隊名' });
+    await onTeamWritten.run(eventOf(before, { ...before, name: '最新完整隊名' }, { teamId: 't1' }));
+    expect((await board('fairplay')).find(r => r.teamId === 't1').name).toBe('最新完整隊名');
   });
 });
 

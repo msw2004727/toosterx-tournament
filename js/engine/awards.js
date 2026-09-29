@@ -7,6 +7,8 @@
  * MVP／運動精神獎／Team Award 一律人工，這裡不做。
  */
 
+import { fairPlayByTeam } from './ranking.js';
+
 /** 計入射手榜的事件型別。烏龍球（own_goal）不計入射手（T15）。 */
 export const SCORING_TYPES = ['goal', 'penalty_scored'];
 
@@ -133,20 +135,38 @@ export function computeGoalkeepers(keeperAppearances, concededByMatchTeam, opts 
     a.goalsAgainstPerMatch === b.goalsAgainstPerMatch && a.cleanSheets === b.cleanSheets);
 }
 
-/** 行為分排行（運動精神獎的參考值，非決定值） */
-export function computeFairPlayBoard(standings) {
-  const rows = [];
-  for (const st of standings || []) {
-    for (const r of st.rows || []) {
-      rows.push({
-        teamId: r.teamId, name: r.name,
-        divisionId: st.divisionId,
-        fairPlayPoints: r.fairPlayPoints ?? 0,
-        yellow: r.yellow ?? 0, red: r.red ?? 0,
-        played: r.played ?? 0
+/** 紅黃牌統計：從有效完賽場次累計，避免舊積分榜殘留、跨階段重複與漏掉淘汰賽。 */
+export function computeFairPlayBoard({ matches = [], cardEvents = [], teams = {} } = {}) {
+  const counted = countedMatchIdsOf(matches);
+  const byMatch = new Map();
+  const byTeam = new Map();
+  for (const m of matches) {
+    const ids = [m.home?.teamId, m.away?.teamId];
+    if (!counted.has(m.matchId) || byMatch.has(m.matchId)) continue;
+    if (ids.some(id => !id || !teams[id]) || ids[0] === ids[1]) continue;
+    byMatch.set(m.matchId, new Set(ids));
+    for (const teamId of ids) {
+      const key = `${m.divisionId}|${teamId}`;
+      if (!byTeam.has(key)) byTeam.set(key, {
+        teamId, name: teams[teamId].name || teams[teamId].shortName || teamId,
+        divisionId: m.divisionId, fairPlayPoints: 0, yellow: 0, red: 0, secondYellow: 0, played: 0
       });
+      byTeam.get(key).played += 1;
     }
   }
+  for (const row of byTeam.values()) {
+    const cards = cardEvents.filter(c => c?.type === 'card' && !c.voided && c.teamId === row.teamId
+      && byMatch.get(c.matchId)?.has(c.teamId)
+      && matches.some(m => m.matchId === c.matchId && m.divisionId === row.divisionId));
+    const score = fairPlayByTeam(cards).get(row.teamId);
+    if (score) {
+      row.secondYellow = cards.filter(c => c.cardType === 'second_yellow').length;
+      row.yellow = score.yellow + row.secondYellow; // 牌數含第二黃；扣分仍沿用 −3 的合併規則。
+      row.red = score.red;
+      row.fairPlayPoints = score.fairPlayPoints;
+    }
+  }
+  const rows = [...byTeam.values()];
   rows.sort((a, b) => b.fairPlayPoints - a.fairPlayPoints || a.yellow - b.yellow);
   return assignRanks(rows, (a, b) => a.fairPlayPoints === b.fairPlayPoints && a.yellow === b.yellow);
 }

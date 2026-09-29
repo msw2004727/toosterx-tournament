@@ -22,6 +22,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { buildStanding, standingIdOf, isStaleWrite, diffRanking } from './engine/standing.js';
 import { resolveStage, canResolve, computeFinalRanking as computeFinalRankingPure } from './engine/advancement.js';
 import { computeScorers, computeFairPlayBoard, countedMatchIdsOf } from './engine/awards.js';
+import { FAIR_PLAY } from './engine/ranking.js';
 import { reconcileScore } from './engine/timeline.js';
 import { rosterProjection } from './engine/privacy.js';
 import { isPlayer } from './engine/review.js';
@@ -31,7 +32,7 @@ import { createHash } from 'node:crypto';
 import {
   db, evRef, loadRankingRule, loadFormat, loadDivision, loadGroups,
   loadDivisionMatches, loadStageMatchesTx, loadCardEvents, loadTeams, loadTimeline,
-  loadRosters, teamMetaOf, withdrawnIdsOf, standingRef, loadStandings, writeAudit,
+  teamMetaOf, withdrawnIdsOf, standingRef, loadStandings, writeAudit,
   loadChallenge, loadChallenges, loadPlayerAttempts, loadChallengeAttempts,
   loadPlayers, loadChallengeRewards, playerRef, leaderboardRef
 } from './store.js';
@@ -339,67 +340,63 @@ const BOARD_LIMIT = 20;
  *    名冊上查不到的球員寧可留 null（公開端顯示背號），也不要把真名寫上去。
  */
 export async function rebuildBoardsFor({ eventId, divisionId }) {
-  const matches = await loadDivisionMatches(eventId, divisionId);
-
-  // 「哪些場次算數」只認引擎這一份判定（countedMatchIdsOf）。
-  // 這裡本來在外層另外用 DECIDED 篩了一次——兩層一模一樣的過濾會互相遮蔽，
-  // 單獨改壞任何一層測試都抓不到（變異 FN#7 就是這樣逃掉的）。
-  // 現在同一個 Set 同時決定「要讀哪些 timeline」與「哪些進得了榜」。
-  const counted = countedMatchIdsOf(matches);
-
-  const events = [];
-  await Promise.all(matches.filter(m => counted.has(m.matchId)).map(async m => {
-    const snap = await evRef(eventId).collection('matches').doc(m.matchId)
-      .collection('timeline').get();
-    for (const d of snap.docs) events.push({ timelineId: d.id, ...d.data() });
-  }));
-
-  const teamIds = [...new Set(matches.flatMap(m => m.teamIds || []))];
-  const teams = await loadTeams(eventId, teamIds);
-  const roster = await loadRosters(eventId, teamIds);
-
-  const playerMeta = {};
-  for (const e of events) {
-    if (!e.playerId || playerMeta[e.playerId]) continue;
-    const r = roster[e.playerId];
-    playerMeta[e.playerId] = {
-      name: r?.displayName ?? null,          // ← 已遮蔽的公開名，查不到就留 null
-      teamId: r?.teamId ?? e.teamId ?? null,
-      teamName: teams[r?.teamId ?? e.teamId]?.shortName ?? teams[r?.teamId ?? e.teamId]?.name ?? null,
-      jerseyNo: r?.jerseyNo ?? null
-    };
-  }
-
-  const scorers = computeScorers(events, { countedMatchIds: counted, playerMeta })
-    .slice(0, BOARD_LIMIT)
-    .map(r => ({ ...r, divisionId }));
-
-  const standings = Object.values(await loadStandings(eventId, divisionId));
-  const fairPlay = computeFairPlayBoard(standings).slice(0, BOARD_LIMIT);
-
-  await Promise.all([
-    replaceDivisionRows(eventId, 'scorers', divisionId, scorers),
-    replaceDivisionRows(eventId, 'fairplay', divisionId, fairPlay)
-  ]);
-
-  return { scorers: scorers.length, fairPlay: fairPlay.length };
-}
-
-/**
- * 把單一看板文件裡「屬於這個組別」的列換成新的，其他組別保持不動。
- * 用交易而不是讀-改-寫：六個組別的完賽事件會同時打進來。
- */
-async function replaceDivisionRows(eventId, boardId, divisionId, rows) {
-  const ref = evRef(eventId).collection('boards').doc(boardId);
-  await db().runTransaction(async tx => {
-    const snap = await tx.get(ref);
-    const kept = (snap.data()?.rows || []).filter(r => r.divisionId !== divisionId);
-    tx.set(ref, {
-      boardId,
-      rows: [...kept, ...rows],
-      updatedAt: FieldValue.serverTimestamp(),
-      computedBy: 'fn:rebuildBoards'
-    }, { merge: true });
+  // 來源與看板在同一交易重讀，避免較慢的舊觸發器把已刪除的資料寫回來。
+  return db().runTransaction(async tx => {
+    const base = evRef(eventId);
+    const [matchSnap, teamSnap, ...boardSnaps] = await Promise.all([
+      tx.get(base.collection('matches').where('divisionId', '==', divisionId)),
+      tx.get(base.collection('teams')),
+      ...['scorers', 'fairplay'].map(boardId => tx.get(base.collection('boards').doc(boardId)))
+    ]);
+    const teams = Object.fromEntries(teamSnap.docs.map(d => [d.id, { ...d.data(), teamId: d.id }]));
+    const matches = matchSnap.docs.map(d => ({ ...d.data(), matchId: d.id })).filter(m =>
+      [m.home?.teamId, m.away?.teamId].every(id => teams[id]?.divisionId === divisionId)
+      && m.home.teamId !== m.away.teamId);
+    const counted = countedMatchIdsOf(matches);
+    const events = [];
+    const roster = {};
+    const played = matches.filter(m => counted.has(m.matchId));
+    const teamIds = [...new Set(played.flatMap(m => [m.home.teamId, m.away.teamId]))];
+    await Promise.all([
+      ...played.map(async m => {
+        const snap = await tx.get(base.collection('matches').doc(m.matchId).collection('timeline'));
+        for (const d of snap.docs) {
+          const row = { ...d.data(), timelineId: d.id, matchId: m.matchId };
+          if ([m.home.teamId, m.away.teamId].includes(row.teamId)) events.push(row);
+        }
+      }),
+      ...teamIds.map(async teamId => {
+        const snap = await tx.get(base.collection('teams').doc(teamId).collection('roster'));
+        for (const d of snap.docs) roster[d.id] = { ...d.data(), teamId };
+      })
+    ]);
+    const playerMeta = {};
+    for (const e of events) {
+      if (!e.playerId || playerMeta[e.playerId]) continue;
+      const r = roster[e.playerId];
+      playerMeta[e.playerId] = {
+        name: r?.displayName ?? null,          // ← 已遮蔽的公開名，查不到就留 null
+        teamId: e.teamId,
+        teamName: teams[e.teamId]?.shortName ?? teams[e.teamId]?.name ?? null,
+        jerseyNo: r?.jerseyNo ?? null
+      };
+    }
+    const scorers = computeScorers(events, { countedMatchIds: counted, playerMeta })
+      .slice(0, BOARD_LIMIT).map(r => ({ ...r, divisionId }));
+    const fairPlay = computeFairPlayBoard({ matches, cardEvents: events, teams });
+    for (const [i, rows] of [scorers, fairPlay].entries()) {
+      const snap = boardSnaps[i];
+      const boardId = snap.id;
+      const ref = evRef(eventId).collection('boards').doc(boardId);
+      const kept = (snap.data()?.rows || []).filter(r => r.divisionId !== divisionId
+        && teams[r.teamId]?.divisionId === r.divisionId);
+      tx.set(ref, {
+        boardId, rows: [...kept, ...rows], updatedAt: FieldValue.serverTimestamp(),
+        computedBy: 'fn:rebuildBoards',
+        ...(boardId === 'fairplay' ? { scoringRules: FAIR_PLAY } : {})
+      }, { merge: true });
+    }
+    return { scorers: scorers.length, fairPlay: fairPlay.length };
   });
 }
 

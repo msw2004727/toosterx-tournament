@@ -15,6 +15,10 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#EDISC1 公開端重新顯示不存在球隊', file: 'js/modules/public/data.js',
+    from: 'board.rows = (board.rows || []).filter(r => teams.get(r.teamId)?.divisionId === r.divisionId);', to: 'board.rows = board.rows || [];' },
+  { name: '#EDISC2 統計錯誤誤當作空資料', file: 'js/modules/public/stats.js',
+    from: 'state.boardsError = true;', to: 'state.boardsError = false;' },
   {
     name: '#ERANK1 首頁排名捷徑又沒有選組提示', file: 'js/modules/public/home.js',
     from: "closeRankingsToast = toast('請選擇組別查看排名');", to: 'closeRankingsToast = null;'
@@ -432,6 +436,6 @@ const MUTANTS = [
 
 process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/jersey-public-teams.spec.js tests/e2e/home-division-design.spec.js tests/e2e/button-system.spec.js tests/e2e/mobile-rosters.spec.js tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js tests/e2e/register.spec.js --project=chromium-mobile --reporter=dot',
+  testCmd: 'npx playwright test tests/e2e/discipline.spec.js tests/e2e/jersey-public-teams.spec.js tests/e2e/home-division-design.spec.js tests/e2e/button-system.spec.js tests/e2e/mobile-rosters.spec.js tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js tests/e2e/register.spec.js --project=chromium-mobile --reporter=dot',
   title: '前端時序｜E2E 變異測試'
 }));

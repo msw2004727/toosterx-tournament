@@ -508,12 +508,15 @@ id：`${matchId}__${memberId}`（同場次同人只會有一筆，天然防重�
   computedBy: 'fn:rebuildBoards'
 }
 
-// boards/fairplay  行為分排行（同上，rows 帶 divisionId）
-{ boardId: 'fairplay', rows: [ { rank, teamId, name, divisionId, fairPlayPoints, yellow, red, played } ], updatedAt }
+// boards/fairplay  紅黃牌統計（2026-09-30；有效完賽場次累計，不再合併積分榜）
+{ boardId: 'fairplay', rows: [ { rank, teamId, name, divisionId, fairPlayPoints, yellow, red, secondYellow, played } ],
+  scoringRules: { yellow: -1, secondYellow: -3, directRed: -4, yellowThenRed: -5 }, updatedAt }
+// 每隊每組別一列；yellow 含第二黃，red 含兩黃換紅，secondYellow 是兩黃換紅次數。
+// 公開 UI 按組別展示、不顯示 rank。原始扣分與比賽積分分開；運動精神獎仍由主辦評選。
 ```
 
-> **每個組別最多 20 列**，六組共用同一份 `rows`。重建某一組別時只換掉
-> `divisionId` 相符的那幾列，其他組別原封不動（交易保護，六組會同時完賽）。
+> 射手榜**每個組別最多 20 列**；紅黃牌統計保留每支有效出賽球隊。六組共用同一份 `rows`。
+> 重建時替換 `divisionId` 相符的列，並剔除已不存在或移組的隊伍；保留其他組別的有效紀錄（交易保護，六組會同時完賽）。
 >
 > ⚠️ **姓名一律取自 `teams/{teamId}/roster/{memberId}` 的 `displayName`**，
 > 不可以用 timeline 事件上的 `playerName`。後者是賽務端記的真名，
@@ -668,4 +671,3 @@ Cloud Functions 解晉級讀的就是這一份——只改 `division.formatId`
 而沒有把範本寫進來的話，晉級會在比賽當天才失敗。
 
 詳細內容見 `02-賽制引擎與排名規則.md`。
-

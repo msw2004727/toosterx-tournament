@@ -9,6 +9,10 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#DISC1 紅黃牌把未完賽也算進去', file: 'js/engine/awards.js',
+    from: 'if (!counted.has(m.matchId) || byMatch.has(m.matchId)) continue;', to: 'if (byMatch.has(m.matchId)) continue;' },
+  { name: '#DISC2 漏算兩黃換紅的第二張黃牌', file: 'js/engine/awards.js',
+    from: 'row.yellow = score.yellow + row.secondYellow;', to: 'row.yellow = score.yellow;' },
   {
     name: '#JER1 空背號錯誤轉成 0', file: 'js/engine/member-identity.js',
     from: "return { value: null, error: null };", to: "return { value: 0, error: null };"

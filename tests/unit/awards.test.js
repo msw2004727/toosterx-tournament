@@ -121,17 +121,29 @@ describe('門將榜（半自動）', () => {
   });
 });
 
-describe('行為分排行（運動精神獎參考）', () => {
-  test('罰分少者在前', () => {
-    const rows = computeFairPlayBoard([{
-      divisionId: 'd',
-      rows: [
-        { teamId: 'A', name: 'A', fairPlayPoints: -5, yellow: 1, red: 1, played: 3 },
-        { teamId: 'B', name: 'B', fairPlayPoints: 0, yellow: 0, red: 0, played: 3 },
-        { teamId: 'C', name: 'C', fairPlayPoints: -2, yellow: 2, red: 0, played: 3 }
-      ]
-    }]);
-    expect(rows.map(r => r.teamId)).toEqual(['B', 'C', 'A']);
-    expect(rows[0].rank).toBe(1);
+describe('紅黃牌統計（運動精神獎參考）', () => {
+  const teams = { A: { name: '甲隊' }, B: { name: '乙隊' }, C: { name: '未出賽' } };
+  const match = (matchId, status = 'finished', stageId = 'group') => ({ matchId, status, stageId, divisionId: 'd', home: { teamId: 'A' }, away: { teamId: 'B' } });
+  const card = (matchId, cardType, extra = {}) => ({ matchId, type: 'card', cardType, playerId: 'p1', teamId: 'A', ...extra });
+  test('從完賽場次計算，淘汰賽納入、跨階段同隊只有一列、未出賽不進榜', () => {
+    const rows = computeFairPlayBoard({ teams, matches: [match('m1'), match('m2', 'confirmed', 'final')], cardEvents: [card('m1', 'yellow'), card('m2', 'red')] });
+    expect(rows.map(r => r.teamId)).toEqual(['B', 'A']);
+    expect(rows.find(r => r.teamId === 'A')).toMatchObject({ name: '甲隊', fairPlayPoints: -5, yellow: 1, red: 1, played: 2 });
+  });
+  test('兩黃換紅顯示兩張黃與一張紅，扣分仍只計 −3', () => {
+    const rows = computeFairPlayBoard({ teams, matches: [match('m1')], cardEvents: [card('m1', 'yellow'), card('m1', 'second_yellow')] });
+    expect(rows.find(r => r.teamId === 'A')).toMatchObject({ fairPlayPoints: -3, yellow: 2, red: 1, secondYellow: 1 });
+  });
+  test('排除刪除、重開、取消場次與不存在球隊；零場不能變成零扣分榜首', () => {
+    expect(computeFairPlayBoard({ teams, matches: [match('live', 'live'), match('cancel', 'cancelled')], cardEvents: [card('deleted', 'red')] })).toEqual([]);
+    expect(computeFairPlayBoard({ teams: { A: teams.A }, matches: [match('m1')], cardEvents: [card('m1', 'red')] })).toEqual([]);
+  });
+  test('作廢卡、其他隊伍及來源不明的牌不計入', () => {
+    const rows = computeFairPlayBoard({ teams, matches: [match('m1')], cardEvents: [card('m1', 'red', { voided: true }), card('missing', 'red'), card('m1', 'red', { teamId: 'C' }), card(null, 'red')] });
+    expect(rows.every(r => r.fairPlayPoints === 0 && r.yellow === 0 && r.red === 0)).toBe(true);
+  });
+  test('重複讀入同一場不重複計場數', () => {
+    const rows = computeFairPlayBoard({ teams, matches: [match('m1'), match('m1')] });
+    expect(rows.every(r => r.played === 1)).toBe(true);
   });
 });

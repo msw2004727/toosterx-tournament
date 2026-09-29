@@ -12,6 +12,14 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#DISC1 刪除場次不更新公開榜', file: 'functions/index.js',
+    from: '// 刪除與重開也要移除舊統計；', to: 'if (!after) return; // 刪除與重開也要移除舊統計；' },
+  { name: 'FN#DISC2 重開比賽仍留舊分數', file: 'functions/index.js',
+    from: '[before, after].some(m => DECIDED.includes(m?.status))', to: '[after].some(m => DECIDED.includes(m?.status))' },
+  { name: 'FN#DISC3 完賽後作廢事件沒有更新榜單', file: 'functions/index.js',
+    from: 'if (match?.divisionId && DECIDED.includes(match.status)) {', to: 'if (false) {' },
+  { name: 'FN#DISC4 刪除球隊沒有更新榜單', file: 'functions/index.js',
+    from: "if (before && changedAny(before, after, ['name', 'shortName', 'divisionId', 'status', 'withdrawn'])) {", to: 'if (false) {' },
   {
     name: 'FN#JER1 球員 ID 又綁背號', file: 'functions/team-import.js',
     from: 'const memberId = `p-${team.teamId.slice(4)}-${index + 1}`;', to: 'const memberId = `p-${m.jerseyNo}`;'
@@ -96,7 +104,7 @@ const MUTANTS = [
   {
     name: 'FN#9 重建看板時把整份 rows 蓋掉（一個組別完賽，其他五組的榜全消失）',
     file: 'functions/pipeline.js',
-    from: "    const kept = (snap.data()?.rows || []).filter(r => r.divisionId !== divisionId);",
+    from: "    const kept = (snap.data()?.rows || []).filter(r => r.divisionId !== divisionId\n        && teams[r.teamId]?.divisionId === r.divisionId);",
     to: "    const kept = [];"
   },
   {
