@@ -36,6 +36,7 @@ test('CSV 多人留空與 0 號正常預覽，同隊 0/00 重複阻擋 @jersey',
 });
 
 test('空背號可補 0 再清空，錯誤不假成功，窄螢幕表單完整 @jersey', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
   await setup(page); await page.goto('/#/admin/teams');
   await page.getByRole('tab', { name: /已通過/ }).click();
   await page.locator('.adm__itemHead').filter({ hasText: '尚未排賽程隊' }).click();
@@ -77,6 +78,10 @@ test('報名關閉且無賽程積分榜仍公布已核准隊，其他狀態排�
   await expect(page.locator('.pteams__btn')).toHaveCount(2);
   await page.getByRole('button', { name: '尚未排賽程隊' }).click();
   await expect(page.locator('.proster__row')).toHaveCount(3);
+  await page.evaluate(({ teamPath }) => window.__fake.__seed({ [`${teamPath}/roster/p0`]: { memberId: 'p0', displayName: '測試球員0', jerseyNo: 9, role: 'player' } }), { teamPath });
+  await page.goto('/#/division/u10?tab=teams');
+  await page.getByRole('button', { name: '尚未排賽程隊' }).click();
+  await expect(page.locator('.proster__row').filter({ hasText: '測試球員0' }).locator('.proster__no')).toHaveText('9');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
