@@ -32,18 +32,18 @@ test('整份匯入直接核准，公開名冊白名單、私密資料與稽核�
   expect(result).toMatchObject({ teamCount: 2, playerCount: 2 });
   const ref = root().collection('teams').doc(result.teamIds[0]);
   expect((await ref.get()).data()).toMatchObject({ status: 'approved', rosterLocked: true, captainUid: null, playerCount: 1 });
-  const member = (await ref.collection('members').doc('p-7').get()).data();
+  const member = (await ref.collection('members').doc('p-11a0e9e231b01869997d7297bd4231f7-1').get()).data();
   expect(member).toMatchObject({ idLast4: '0012', nameKind: 'nickname', status: 'approved' });
-  const projection = (await ref.collection('roster').doc('p-7').get()).data();
+  const projection = (await ref.collection('roster').doc('p-11a0e9e231b01869997d7297bd4231f7-1').get()).data();
   expect(Object.keys(projection).sort()).toEqual([...ROSTER_FIELDS].sort());
   expect(projection.displayName).toBe('小飛');
   expect(projection).not.toHaveProperty('birthDate');
   expect((await root().collection('audits').doc(result.importId).get()).data()).toMatchObject({ action: 'team.import', actor: { uid: 'admin' }, after: { teamCount: 2 } });
-  await onMemberWritten.run({ params: { eventId: E, teamId: result.teamIds[0], memberId: 'p-7' }, data: { before: { data: () => undefined }, after: { data: () => member } } });
-  expect((await ref.collection('members').doc('p-7').get()).data().status).toBe('approved');
-  await syncRosterFor({ eventId: E, teamId: result.teamIds[0], memberId: 'p-7' });
+  await onMemberWritten.run({ params: { eventId: E, teamId: result.teamIds[0], memberId: 'p-11a0e9e231b01869997d7297bd4231f7-1' }, data: { before: { data: () => undefined }, after: { data: () => member } } });
+  expect((await ref.collection('members').doc('p-11a0e9e231b01869997d7297bd4231f7-1').get()).data().status).toBe('approved');
+  await syncRosterFor({ eventId: E, teamId: result.teamIds[0], memberId: 'p-11a0e9e231b01869997d7297bd4231f7-1' });
   await recountTeamMembers({ eventId: E, teamId: result.teamIds[0] });
-  expect((await ref.collection('roster').doc('p-7').get()).data()).toMatchObject(projection);
+  expect((await ref.collection('roster').doc('p-11a0e9e231b01869997d7297bd4231f7-1').get()).data()).toMatchObject(projection);
 });
 test.each([null, 'scorer', 'missing'])('未登入或非管理員不得匯入：%s', async uid => {
   await expect(importTeamsFor(request([row()], uid))).rejects.toMatchObject({ code: uid ? 'permission-denied' : 'unauthenticated' });
@@ -82,20 +82,83 @@ test('不存在的賽事與缺少日期一律擋下', async () => {
   await expect(importTeamsFor(request())).rejects.toMatchObject({ code: 'invalid-argument' });
 });
 
-const editRequest = (teamId, over = {}, uid = 'admin') => ({ auth: uid ? { uid } : null, data: { eventId: E, teamId, memberId: 'p-7', birthDate: '2017-01-02', idLast4: '0001', revision: 0, reason: '依證件補填', ...over } });
+const editRequest = (teamId, over = {}, uid = 'admin') => ({ auth: uid ? { uid } : null, data: { eventId: E, teamId, memberId: `p-${teamId.slice(4)}-1`, birthDate: '2017-01-02', idLast4: '0001', revision: 0, reason: '依證件補填', ...over } });
+
+test('多隊多人空背號不覆蓋，球員 ID 全部唯一；補填、更換、清空只更新原球員', async () => {
+  const { teamIds } = await importTeamsFor(request([
+    row({ playerName: '甲', jerseyNo: '' }), row({ playerName: '乙', jerseyNo: '', isCaptain: '' }),
+    row({ teamName: '另隊', playerName: '丙', jerseyNo: '' }), row({ teamName: '另隊', playerName: '丁', jerseyNo: '', isCaptain: '' })
+  ]));
+  const lists = await Promise.all(teamIds.map(id => root().collection('teams').doc(id).collection('members').get()));
+  expect(lists.map(s => s.size)).toEqual([2, 2]);
+  expect(new Set(lists.flatMap(s => s.docs.map(d => d.id))).size).toBe(4);
+  const ref = root().collection('teams').doc(teamIds[0]), memberId = lists[0].docs.find(d => d.data().name === '甲').id;
+  for (const [revision, jerseyNo] of [0, 9, null].entries()) {
+    const result = await updateMemberIdentityFor(editRequest(ref.id, { memberId, jerseyNo, revision }));
+    expect(result).toMatchObject({ memberId, jerseyNo, identityRevision: revision + 1 });
+    expect((await ref.collection('members').doc(memberId).get()).data()).toMatchObject({ name: '甲', jerseyNo });
+    expect((await ref.collection('roster').doc(memberId).get()).data()).toMatchObject({ memberId, jerseyNo });
+  }
+  expect((await ref.collection('members').get()).size).toBe(2);
+  expect((await ref.collection('roster').get()).size).toBe(2);
+});
+
+test('後端拒絕同隊重號及無效背號，允许維持本人的號碼與跨隊同號；舊客戶端不清空背號', async () => {
+  const { teamIds: [id] } = await importTeamsFor(request([row(), row({ jerseyNo: '0', isCaptain: '' })]));
+  const ref = root().collection('teams').doc(id), memberId = `p-${id.slice(4)}-1`;
+  for (const jerseyNo of [0, '00']) await expect(updateMemberIdentityFor(editRequest(id, { jerseyNo }))).rejects.toMatchObject({ code: 'already-exists' });
+  for (const jerseyNo of [100, -1, 1.1, true, {}, '1e1']) await expect(updateMemberIdentityFor(editRequest(id, { jerseyNo }))).rejects.toMatchObject({ code: 'invalid-argument' });
+  expect((await root().collection('audits').get()).size).toBe(1);
+  expect((await ref.collection('members').doc(memberId).get()).data().jerseyNo).toBe(7);
+  await expect(updateMemberIdentityFor(editRequest(id, { jerseyNo: 7 }))).resolves.toMatchObject({ jerseyNo: 7 });
+  await expect(updateMemberIdentityFor(editRequest(id, { revision: 1, idLast4: '0033' }))).resolves.toMatchObject({ jerseyNo: 7 });
+  const { teamIds: [other] } = await importTeamsFor(request([row({ teamName: '別隊', jerseyNo: '' })]));
+  await expect(updateMemberIdentityFor(editRequest(other, { jerseyNo: 7 }))).resolves.toMatchObject({ jerseyNo: 7 });
+});
+
+test('兩位管理員同時給不同球員同一背號，交易只讓一位成功', async () => {
+  const { teamIds: [id] } = await importTeamsFor(request([row({ jerseyNo: '' }), row({ jerseyNo: '', isCaptain: '' })]));
+  const members = await root().collection('teams').doc(id).collection('members').get();
+  const results = await Promise.allSettled(members.docs.map(d => updateMemberIdentityFor(editRequest(id, { memberId: d.id, jerseyNo: 0 }))));
+  expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+  expect(results.find(r => r.status === 'rejected').reason.code).toBe('already-exists');
+  expect((await root().collection('teams').doc(id).collection('members').get()).docs.filter(d => d.data().jerseyNo === 0)).toHaveLength(1);
+});
+
+test('既有 p-7 球員改號保留 ID、歷史進球與已開賽陣容，未開賽陣容同步且重新檢錄', async () => {
+  const { teamIds: [id] } = await importTeamsFor(request());
+  const ref = root().collection('teams').doc(id);
+  await ref.collection('members').doc('p-7').set({ source: 'csv', status: 'approved', name: '舊球員', birthDate: '2017-01-01', idLast4: '0012', jerseyNo: 8 });
+  for (const [matchId, status] of [['future', 'ready'], ['past', 'finished']]) {
+    await root().collection('matches').doc(matchId).set({ status, home: { teamId: id }, away: { teamId: 'other' }, checkin: { homeConfirmed: true, awayConfirmed: true }, score: { home: 1, away: 0 } });
+    await root().collection('matchSheets').doc(`${matchId}__${id}`).set({ matchId, teamId: id, confirmed: true, players: [{ memberId: 'p-7', jerseyNo: 8, role: 'start', displayName: '舊球員' }] });
+  }
+  await root().collection('checkins').doc('future__p-7').set({ matchId: 'future', teamId: id, memberId: 'p-7', result: 'pass' });
+  const goalRef = root().collection('matches').doc('past').collection('timeline').doc('goal');
+  const goal = { type: 'goal', playerId: 'p-7', jerseyNo: 8, side: 'home' };
+  await goalRef.set(goal);
+  const result = await updateMemberIdentityFor(editRequest(id, { memberId: 'p-7', birthDate: '2017-01-01', idLast4: '0012', jerseyNo: 0 }));
+  expect((await ref.collection('members').doc('p-7').get()).data().jerseyNo).toBe(0);
+  expect((await root().collection('matchSheets').doc(`future__${id}`).get()).data().players).toEqual([{ memberId: 'p-7', jerseyNo: 0, role: 'start', displayName: '舊球員' }]);
+  expect((await root().collection('matchSheets').doc(`past__${id}`).get()).data().players[0].jerseyNo).toBe(8);
+  expect((await root().collection('matches').doc('future').get()).data()).toMatchObject({ status: 'checkin', checkin: { homeConfirmed: false, awayConfirmed: true }, score: { home: 1, away: 0 } });
+  expect((await root().collection('checkins').doc('future__p-7').get()).data().result).toBeNull();
+  expect((await goalRef.get()).data()).toEqual(goal);
+  expect((await root().collection('audits').doc(result.auditId).get()).data()).toMatchObject({ before: { jerseyNo: 8 }, after: { jerseyNo: 0, updatedSheets: [`future__${id}`] } });
+});
 
 test('留白匯入、部分補件、補齊及再修改，私密欄位不外洩且稽核完整', async () => {
   const imported = await importTeamsFor(request([row({ birthDate: '', idLast4: '' }), row({ jerseyNo: '8', birthDate: '', idLast4: '', isCaptain: '' })]));
   const teamId = imported.teamIds[0], ref = root().collection('teams').doc(teamId);
   expect((await ref.get()).data().status).toBe('approved');
-  expect((await ref.collection('members').doc('p-7').get()).data().identityComplete).toBe(false);
+  expect((await ref.collection('members').doc('p-11a0e9e231b01869997d7297bd4231f7-1').get()).data().identityComplete).toBe(false);
   const part = await updateMemberIdentityFor(editRequest(teamId, { idLast4: '' }));
   expect(part.identityComplete).toBe(false);
   const full = await updateMemberIdentityFor(editRequest(teamId, { revision: 1 }));
   expect(full).toMatchObject({ identityComplete: true, idLast4: '0001', identityRevision: 2 });
   await updateMemberIdentityFor(editRequest(teamId, { revision: 2, idLast4: '0012' }));
-  expect((await ref.collection('members').doc('p-7').get()).data().idLast4).toBe('0012');
-  const projection = (await ref.collection('roster').doc('p-7').get()).data();
+  expect((await ref.collection('members').doc('p-11a0e9e231b01869997d7297bd4231f7-1').get()).data().idLast4).toBe('0012');
+  const projection = (await ref.collection('roster').doc('p-11a0e9e231b01869997d7297bd4231f7-1').get()).data();
   expect(Object.keys(projection).sort()).toEqual([...ROSTER_FIELDS].sort());
   expect(projection).not.toHaveProperty('identityComplete');
   const audit = (await root().collection('audits').doc(full.auditId).get()).data();
@@ -124,10 +187,10 @@ test('補件可與別隊同身分，同時修改後到者仍不能覆蓋新值',
 });
 test('更改身分讓舊檢錄失效，待開賽場次退回檢錄且不動對隊確認與比分', async () => {
   const { teamIds: [id] } = await importTeamsFor(request());
-  await root().collection('checkins').doc('match__p-7').set({ matchId: 'match', teamId: id, memberId: 'p-7', result: 'pass' });
+  await root().collection('checkins').doc('match__p-11a0e9e231b01869997d7297bd4231f7-1').set({ matchId: 'match', teamId: id, memberId: 'p-11a0e9e231b01869997d7297bd4231f7-1', result: 'pass' });
   await root().collection('matches').doc('match').set({ home: { teamId: id }, away: { teamId: 'other' }, status: 'ready', score: { home: 0, away: 0 }, checkin: { homeConfirmed: true, awayConfirmed: true, homePresent: 5 } });
   const saved = await updateMemberIdentityFor(editRequest(id));
-  expect((await root().collection('checkins').doc('match__p-7').get()).data()).toMatchObject({ result: null, failReason: 'IDENTITY_CHANGED' });
+  expect((await root().collection('checkins').doc('match__p-11a0e9e231b01869997d7297bd4231f7-1').get()).data()).toMatchObject({ result: null, failReason: 'IDENTITY_CHANGED' });
   expect((await root().collection('matches').doc('match').get()).data()).toMatchObject({ status: 'checkin', score: { home: 0, away: 0 }, checkin: { homeConfirmed: false, awayConfirmed: true, homePresent: null } });
-  expect((await root().collection('audits').doc(saved.auditId).get()).data().before.checkins).toEqual([{ checkinId: 'match__p-7', result: 'pass', scannedBy: null, scannedAt: null }]);
+  expect((await root().collection('audits').doc(saved.auditId).get()).data().before.checkins).toEqual([{ checkinId: 'match__p-11a0e9e231b01869997d7297bd4231f7-1', result: 'pass', scannedBy: null, scannedAt: null }]);
 });

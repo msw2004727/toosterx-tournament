@@ -1,8 +1,25 @@
-import { validateIdentity, csvIdentityPending } from '../../js/engine/member-identity.js';
+import { validateIdentity, csvIdentityPending, validateJerseyNo } from '../../js/engine/member-identity.js';
 import { validateTeamImport, parseTeamCsv } from '../../js/engine/team-import.js';
 import { buildCheckin, checkinSummary, presentIds } from '../../js/modules/staff/checkin-actions.js';
 const division = { divisionId: 'youth', eligibility: { bornOnOrAfter: '2016-09-01' } };
 const date = '2026-10-09';
+
+test.each([null, undefined, '', '  '])('未指定背號 %j 不變成 0', value => {
+  expect(validateJerseyNo(value)).toEqual({ value: null, error: null });
+});
+test.each([[0, 0], ['0', 0], ['00', 0], ['07', 7], [' 99 ', 99]])('有效背號 %j 正規化', (input, value) => {
+  expect(validateJerseyNo(input)).toEqual({ value, error: null });
+});
+test.each([-1, 100, 1.5, true, {}, [], NaN, '1e1', '+1', '7.0', '000', '０'])('拒絕非法背號 %j', value => {
+  expect(validateJerseyNo(value).error).toBeTruthy();
+});
+test('沒有背號不影響有效身分檢錄；0 號仍保留', () => {
+  for (const jerseyNo of [null, 0]) {
+    const member = { memberId: 'independent-id', source: 'csv', birthDate: '2017-01-01', idLast4: '0012', jerseyNo };
+    expect(csvIdentityPending(member)).toBe(false);
+    expect(buildCheckin({ member, result: 'pass' })).toMatchObject({ jerseyNo, memberId: 'independent-id', result: 'pass' });
+  }
+});
 
 test('省略身分欄位、多人留白不會誤判重複，仍可建立已核准球隊', () => {
   const rows = parseTeamCsv('divisionId,teamName,playerName,jerseyNo\nyouth,新隊,小飛,1\nyouth,新隊,小球,2');

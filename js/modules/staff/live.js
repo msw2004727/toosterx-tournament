@@ -455,7 +455,7 @@ export async function liveConsole({ params, scope, view }) {
     // 比分與事件分成兩筆寫入：即使其中一筆失敗，另一筆仍在，
     // 而且失敗的那筆會出現在待重送清單，不會靜靜消失。
     patchMatch(matchId, { score: nextScore }, `比分 ${nextScore.home}:${nextScore.away}`, { kind: 'score' });
-    addTimelineEvent(matchId, event, `記錄進球　${player.displayName ? '#' + (player.jerseyNo ?? '') + ' ' + player.displayName : '未指定球員'}`);
+    addTimelineEvent(matchId, event, `記錄進球　${player.displayName ? (player.jerseyNo != null ? '#' + player.jerseyNo + ' ' : '') + player.displayName : '未指定球員'}`);
     toast(`已記錄進球　${player.displayName ? playerShort(player) : '（未指定球員）'}`, 'success');
   }
 

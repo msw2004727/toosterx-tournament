@@ -38,7 +38,7 @@ export async function publicTeam({ params, view, query, scope }) {
   const state = {
     team: null, roster: [], matches: [], division: null,
     tab: TABS.some(t => t.key === query?.get('tab')) ? query.get('tab') : 'roster',
-    loaded: false, notFound: false, rosterHidden: false, registrationVisible: false
+    loaded: false, notFound: false, rosterHidden: false, rosterError: null, registrationVisible: false
   };
 
   // 隊長看自己的球隊時要有一條路通往管理頁（審核、送出、取消都在那裡）。
@@ -54,7 +54,7 @@ export async function publicTeam({ params, view, query, scope }) {
     state.rosterHidden = state.team.publicRoster === false;
 
     const [raw, matches, division] = await Promise.all([
-      state.rosterHidden ? Promise.resolve([]) : data.getRoster(teamId).catch(() => []),
+      state.rosterHidden ? Promise.resolve([]) : data.getRoster(teamId).catch(err => { state.rosterError = err; return []; }),
       data.getTeamMatches(teamId).catch(() => []),
       state.team.divisionId ? data.getDivision(state.team.divisionId).catch(() => null) : null
     ]);
@@ -149,7 +149,8 @@ export async function publicTeam({ params, view, query, scope }) {
     if (state.rosterHidden) {
       return empty('這支球隊不公開名單', `報名時選擇了不公開，僅顯示人數：${state.team.memberCount ?? '—'} 人`);
     }
-    if (!state.roster.length) return empty('名單準備中', '報名審核通過後公布。');
+    if (state.rosterError) return empty('讀不到球員名單', '請重新載入，或稍後再試。', { label: '重新載入', onClick: () => location.reload() });
+    if (!state.roster.length) return empty('名單準備中', '尚無可公開的球員資料，主辦更新後會顯示於此。');
 
     const players = state.roster.filter(m => m.role === 'player');
     const staffs = state.roster.filter(m => m.role !== 'player');

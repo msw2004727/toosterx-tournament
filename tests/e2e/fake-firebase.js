@@ -373,7 +373,7 @@ export const httpsCallable = (_fns, name) => async (payload) => {
   (window.__FAKE_CALLS ||= []).push({ name, payload });
   if (window.__FAKE_CALL_ERROR) throw new Error(window.__FAKE_CALL_ERROR);
   if (name === 'updateMemberIdentity') {
-    return { data: { ok: true, data: { memberId: payload.memberId, birthDate: payload.birthDate, idLast4: payload.idLast4, identityComplete: !!payload.birthDate && !!payload.idLast4, identityRevision: payload.revision + 1, auditId: 'fake-identity-audit' } } };
+    return { data: { ok: true, data: { memberId: payload.memberId, jerseyNo: payload.jerseyNo, birthDate: payload.birthDate, idLast4: payload.idLast4, identityComplete: !!payload.birthDate && !!payload.idLast4, identityRevision: payload.revision + 1, auditId: 'fake-identity-audit' } } };
   }
   if (name === 'importTeamsCsv') {
     // 僅確認 UI 接線；交易與實際資料驗證由 tests/functions/team-import.test.js 覆蓋。

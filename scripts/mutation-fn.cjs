@@ -13,6 +13,18 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
+    name: 'FN#JER1 球員 ID 又綁背號', file: 'functions/team-import.js',
+    from: 'const memberId = `p-${team.teamId.slice(4)}-${index + 1}`;', to: 'const memberId = `p-${m.jerseyNo}`;'
+  },
+  {
+    name: 'FN#JER2 修改漏掉同隊重號檢查', file: 'functions/member-identity.js',
+    from: 'fields.jerseyNo != null && membersSnap.docs.some', to: 'false && membersSnap.docs.some'
+  },
+  {
+    name: 'FN#JER3 改號後未開賽陣容仍留舊背號', file: 'functions/member-identity.js',
+    from: 'jerseyNo: fields.jerseyNo } : p)', to: 'jerseyNo: previous.jerseyNo } : p)'
+  },
+  {
     name: 'FN#CSV5 背景 trigger 錯誤恢復跨隊退件', file: 'functions/index.js',
     from: 'const r = await syncRosterFor({ eventId, teamId, memberId });',
     to: "if (!before && after?.idLast4) { const same = await db().collectionGroup('members').where('idLast4', '==', after.idLast4).get(); if (same.docs.some(d => d.ref.path.startsWith('events/' + eventId + '/teams/') && d.ref.parent.parent.id !== teamId && d.data().birthDate === after.birthDate)) { await db().doc('events/' + eventId + '/teams/' + teamId + '/members/' + memberId).update({ status: 'rejected' }); return; } } const r = await syncRosterFor({ eventId, teamId, memberId });"

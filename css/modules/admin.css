@@ -130,6 +130,7 @@
 .adm__identityDate label{flex:1;min-width:0}
 .adm__identityInput{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:var(--sp-2);font:inherit;color:inherit;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--r-sm)}
 .adm__identityField{display:block;margin-block:var(--sp-3)}
+.adm__identityPanel{max-height:100%;overflow-y:auto;overscroll-behavior:contain;overflow-wrap:anywhere}
 .adm__memberMeta{
   grid-area:meta;display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1) var(--sp-3);
   min-width:0;font-size:var(--fs-sm);line-height:1.6;color:var(--text-secondary);

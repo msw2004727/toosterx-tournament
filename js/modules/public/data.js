@@ -105,6 +105,17 @@ export function watchStandings(scope, divisionId, cb, onError) {
   return hold(scope, unsub, `standings:${divisionId}`);
 }
 
+/** 已核准球隊是名單來源，不必等排賽程或產生積分榜；匯入後即時更新。 */
+export function watchDivisionTeams(scope, divisionId, cb, onError) {
+  const { collection, onSnapshot, query, where } = sdk();
+  const q = query(collection(db(), 'events', EVENT_ID, 'teams'), where('divisionId', '==', divisionId));
+  const unsub = onSnapshot(q, snap => cb(snap.docs
+    .map(d => ({ ...d.data(), teamId: d.id }))
+    .filter(t => t.status === 'approved')
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh-Hant'))), err => onError?.(err));
+  return hold(scope, unsub, `teams:${divisionId}`);
+}
+
 /* ── 一次性讀取（含快取）─────────────────────────────────── */
 
 async function cached(key, loader, ms = CACHE_MS) {
@@ -146,12 +157,11 @@ export function getTeam(teamId) {
 }
 
 /** 公開名單投影。私密欄位由 selectors.publicMember() 再擋一次。 */
-export function getRoster(teamId) {
-  return cached(`pub:roster:${teamId}`, async () => {
-    const { collection, getDocs } = sdk();
-    const snap = await getDocs(collection(db(), 'events', EVENT_ID, 'teams', teamId, 'roster'));
-    return snap.docs.map(d => ({ memberId: d.id, ...d.data() }));
-  });
+export async function getRoster(teamId) {
+  // 管理員可隨時補改背號，重新進入名冊即讀最新公開投影。
+  const { collection, getDocs } = sdk();
+  const snap = await getDocs(collection(db(), 'events', EVENT_ID, 'teams', teamId, 'roster'));
+  return snap.docs.map(d => ({ memberId: d.id, ...d.data() }));
 }
 
 /** 某組別的所有場次（組別頁的賽程分頁）。單一 where，用不到複合索引。 */

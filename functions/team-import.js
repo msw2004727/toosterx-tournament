@@ -47,8 +47,9 @@ export async function importTeamsFor(request) {
         status: 'approved', rosterLocked: true, memberCount: team.members.length, playerCount: team.members.length,
         source: 'csv', importId: auditRef.id, reviewedBy: uid, reviewedAt: stamp, createdAt: stamp, updatedAt: stamp, updatedBy: uid
       });
-      for (const m of team.members) {
-        const memberId = `p-${m.jerseyNo}`;
+      for (const [index, m] of team.members.entries()) {
+        // 與背號分離，跨隊也唯一；同一交易重試仍得到相同 ID。
+        const memberId = `p-${team.teamId.slice(4)}-${index + 1}`;
         const member = { ...m, memberId, teamId: team.teamId, eventId, divisionId: team.divisionId,
           guardianUid: null, isSelf: false, source: 'csv', addedBy: uid, appliedAt: stamp, approvedAt: stamp, updatedAt: stamp };
         tx.create(ref.collection('members').doc(memberId), member);

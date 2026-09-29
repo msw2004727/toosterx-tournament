@@ -77,10 +77,7 @@ export function reviewTeam({ team, members = [], division, limits }) {
       `背號重複：${dup.join('、')} 號。賽務台靠背號認人，重複會把進球記到錯的球員身上。`,
       '系統限制');
   }
-  const noNumber = players.filter(m => typeof m?.jerseyNo !== 'number').length;
-  if (noNumber) {
-    add('warn', 'MISSING_JERSEY', `${noNumber} 位球員還沒有背號。`, '系統');
-  }
+  // 背號為選填；未指定不算重複，也不列為審核警告。
 
   // ── 參賽資格（規章第十一條）──────────────────────────────
   // 第十八條第 3 款：冒名頂替「立即停止該球隊繼續比賽資格」。

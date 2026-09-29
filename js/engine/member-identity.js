@@ -1,5 +1,13 @@
 import { parseYmd, checkAge } from './eligibility.js';
 
+/** 空白是未指定，不是 0；有填才驗證 0–99。前端、CSV 與 callable 共用。 */
+export function validateJerseyNo(value) {
+  if (value == null || (typeof value === 'string' && !value.trim())) return { value: null, error: null };
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 99) return { value, error: null };
+  if (typeof value === 'string' && /^\d{1,2}$/.test(value.trim())) return { value: parseInt(value.trim(), 10), error: null };
+  return { value: null, error: '背號請留空，或填 0–99 的整數。' };
+}
+
 /** 可先留白；填了就必須有效。補齊後才可核對證件。 */
 export function validateIdentity({ birthDate, idLast4 }, division, asOf) {
   const errors = [];

@@ -10,6 +10,19 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
+    name: '#JER1 空背號錯誤轉成 0', file: 'js/engine/member-identity.js',
+    from: "return { value: null, error: null };", to: "return { value: 0, error: null };"
+  },
+  {
+    name: '#JER2 多人空白被當成同隊重號', file: 'js/engine/team-import.js',
+    from: 'member.jerseyNo != null && team.members.some', to: 'team.members.some'
+  },
+  {
+    name: '#JER3 背號選填仍顯示審核警告', file: 'js/engine/review.js',
+    from: '// 背號為選填；未指定不算重複，也不列為審核警告。',
+    to: "if (players.some(m => m.jerseyNo == null)) add('warn', 'MISSING_JERSEY', '未填背號', '系統');"
+  },
+  {
     name: '#CSV11 待補資料誤判可檢錄', file: 'js/engine/member-identity.js',
     from: "return member?.source === 'csv' &&", to: 'return false &&'
   },

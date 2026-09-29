@@ -4,7 +4,7 @@ import { can, callFunction } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { EVENT_ID, EVENT } from '../../config.js';
 import { isoToRoc, rocToIso } from '../../lib/roc.js';
-import { validateIdentity } from '../../engine/member-identity.js';
+import { validateIdentity, validateJerseyNo } from '../../engine/member-identity.js';
 
 export function editCsvIdentity({ team, member, division, scope, onSaved }) {
   if (!can('team.manage')) return;
@@ -13,15 +13,17 @@ export function editCsvIdentity({ team, member, division, scope, onSaved }) {
   const field = (label, value, maxLength) => el('input', { class: 'adm__identityInput', 'aria-label': label, value: value ?? '', inputmode: 'numeric', maxlength: maxLength });
   const year = field('出生民國年', roc?.y, 3), month = field('出生月', roc?.m, 2), day = field('出生日', roc?.d, 2);
   const last4 = field('身分證後四碼', member.idLast4, 4);
+  const jersey = field('背號（可留空）', member.jerseyNo, 2);
   const reason = el('textarea', { class: 'adm__textarea', 'aria-label': '修改原因', maxlength: 200, rows: 2, placeholder: '例如：依教練提供的證件補齊資料' });
   const error = el('p', { role: 'alert', class: 'adm__blocked' });
   const cancel = el('button', { type: 'button', class: 'btn btn--lg', onClick: close }, '取消');
   const save = el('button', { type: 'submit', class: 'btn btn--lg btn--primary' }, '儲存資料');
   const status = el('p', { role: 'status', class: 'adm__note' });
-  const form = el('form', { class: 'modal__panel', ...divisionThemeAttrs(division || team.divisionId), onSubmit: submit }, [
-    el('h2', { class: 'modal__title', text: `補填／修改 #${member.jerseyNo} ${member.name}` }),
+  const form = el('form', { class: 'modal__panel adm__identityPanel', ...divisionThemeAttrs(division || team.divisionId), onSubmit: submit }, [
+    el('h2', { class: 'modal__title', text: `補填／修改 ${member.jerseyNo != null ? `#${member.jerseyNo} ` : ''}${member.name}` }),
     el('div', { class: 'modal__body' }, [
-      el('p', { class: 'adm__note', text: '生日與身分證後四碼可稍後補齊。未補齊不能確認出賽；更改後需重新核對證件，並留下修改紀錄。' }),
+      el('p', { class: 'adm__note', text: '背號可留空或清空；填寫 0–99，同隊已填背號不可重複。生日與身分證後四碼未補齊不能確認出賽。修改後需重新檢錄，並留下修改紀錄；賽務頁請重新載入最新名單。' }),
+      el('label', { class: 'adm__identityField' }, ['背號（0–99，可留空）', jersey]),
       el('fieldset', { class: 'adm__identityDate' }, [el('legend', { text: '出生日期（民國年；未知時三格全留空）' }),
         el('label', {}, ['年', year]), el('label', {}, ['月', month]), el('label', {}, ['日', day])]),
       el('label', { class: 'adm__identityField' }, ['身分證後四碼（保留開頭 0，可留空）', last4]),
@@ -34,7 +36,7 @@ export function editCsvIdentity({ team, member, division, scope, onSaved }) {
   document.addEventListener('keydown', onKey);
   document.body.append(dialog);
   hold(scope, () => dispose(), 'admin:identity-dialog');
-  year.focus();
+  jersey.focus();
 
   function dispose() { active = false; document.removeEventListener('keydown', onKey); dialog.remove(); }
   function close() { if (!busy) dispose(); }
@@ -47,12 +49,14 @@ export function editCsvIdentity({ team, member, division, scope, onSaved }) {
     const parts = [year.value, month.value, day.value].map(v => v.trim());
     const birthDate = parts.every(v => !v) ? '' : rocToIso(...parts);
     if (birthDate === null) { error.textContent = '請填完整且有效的民國出生年月日，或三格全留空。'; return; }
-    const fields = { birthDate, idLast4: last4.value.trim() };
+    const jerseyResult = validateJerseyNo(jersey.value);
+    if (jerseyResult.error) { error.textContent = jerseyResult.error; jersey.focus(); return; }
+    const fields = { birthDate, idLast4: last4.value.trim(), jerseyNo: jerseyResult.value };
     const validation = validateIdentity(fields, division, EVENT.dates[0]);
     if (validation.errors.length) { error.textContent = validation.errors.join(' '); return; }
     if (!reason.value.trim()) { error.textContent = '請填修改原因。'; reason.focus(); return; }
     busy = true;
-    for (const input of [year, month, day, last4, reason, cancel, save]) input.disabled = true;
+    for (const input of [year, month, day, last4, jersey, reason, cancel, save]) input.disabled = true;
     status.textContent = '儲存中，請勿重複送出…';
     try {
       const result = await callFunction('updateMemberIdentity', { eventId: EVENT_ID, teamId: team.teamId, memberId: member.memberId,
@@ -64,7 +68,7 @@ export function editCsvIdentity({ team, member, division, scope, onSaved }) {
     } catch (err) { if (active) error.textContent = err?.message || '儲存失敗，請稍後再試。'; }
     finally {
       busy = false;
-      for (const input of [year, month, day, last4, reason, cancel, save]) input.disabled = false;
+      for (const input of [year, month, day, last4, jersey, reason, cancel, save]) input.disabled = false;
       status.textContent = '';
     }
   }

@@ -16,6 +16,23 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
+    name: '#EJER2 背號表單超出窄螢幕', file: 'css/modules/admin.css',
+    from: '.adm__identityPanel{max-height:100%;overflow-y:auto;overscroll-behavior:contain;overflow-wrap:anywhere}',
+    to: '.adm__identityPanel{overflow-wrap:anywhere}'
+  },
+  {
+    name: '#EJER1 背號輸入未傳後端', file: 'js/modules/admin/member-identity.js',
+    from: 'jerseyNo: jerseyResult.value', to: 'jerseyNo: member.jerseyNo'
+  },
+  {
+    name: '#EPUB1 核准球隊又依賴賽程', file: 'js/modules/public/division.js',
+    from: 'const teams = state.teams;', to: 'const teams = state.matches.length ? state.teams : [];'
+  },
+  {
+    name: '#EPUB2 球員名單讀錯又當成空名单', file: 'js/modules/public/team.js',
+    from: 'state.rosterError = err; return [];', to: 'return [];'
+  },
+  {
     name: '#E58 主題切換後沒有目前狀態提示',
     file: 'js/core/theme.js',
     from: '    closeToast = toast(`主題：${stateLabel()}`);',
@@ -403,6 +420,6 @@ const MUTANTS = [
 
 process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/home-division-design.spec.js tests/e2e/button-system.spec.js tests/e2e/mobile-rosters.spec.js tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js tests/e2e/register.spec.js --project=chromium-mobile --reporter=dot',
+  testCmd: 'npx playwright test tests/e2e/jersey-public-teams.spec.js tests/e2e/home-division-design.spec.js tests/e2e/button-system.spec.js tests/e2e/mobile-rosters.spec.js tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js tests/e2e/register.spec.js --project=chromium-mobile --reporter=dot',
   title: '前端時序｜E2E 變異測試'
 }));

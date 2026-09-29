@@ -79,11 +79,11 @@ describe('T43-2 背號', () => {
     expect(r.findings.find(x => x.code === 'DUPLICATE_JERSEY').source).toBe('系統限制');
   });
 
-  test('沒有背號只是提醒，不擋核准', () => {
+  test('背號選填：沒有背號不警告、不擋核准', () => {
     // 背號之後還能改，卡在這裡會讓報名期間卡住
     const r = run([...squad(3), player({ memberId: 'nn', jerseyNo: null, idLast4: '5555' })]);
     expect(r.canApprove).toBe(true);
-    expect(codes(r)).toContain('MISSING_JERSEY');
+    expect(codes(r)).not.toContain('MISSING_JERSEY');
   });
 });
 

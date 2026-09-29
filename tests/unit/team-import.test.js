@@ -67,3 +67,15 @@ test('同一球員可同份 CSV 匯入不同隊，生日及後四碼相同不阻
   expect(plan.errors).toEqual([]);
   expect(plan.teams).toHaveLength(2);
 });
+
+test('多人沒有背號或省略背號欄皆可匯入，0 號是有效已填值', () => {
+  const plan = validateTeamImport([row({ jerseyNo: '' }), row({ jerseyNo: ' ' }), row({ jerseyNo: '0' })], ctx);
+  expect(plan.errors).toEqual([]);
+  expect(plan.teams[0].members.map(m => m.jerseyNo)).toEqual([null, null, 0]);
+  const missingColumn = parseTeamCsv('divisionId,teamName,playerName\nyouth,新隊,甲\nyouth,新隊,乙');
+  expect(validateTeamImport(missingColumn, ctx).errors).toEqual([]);
+});
+test.each([['0', '00'], ['7', '07']])('同隊已填背號 %s/%s 重複，跨隊可相同', (first, second) => {
+  expect(errors([row({ jerseyNo: first }), row({ jerseyNo: second })]).some(e => e.message.includes('號重複'))).toBe(true);
+  expect(errors([row({ jerseyNo: first }), row({ teamName: '別隊', jerseyNo: second })])).toEqual([]);
+});

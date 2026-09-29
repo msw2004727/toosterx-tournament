@@ -35,7 +35,7 @@ export async function publicDivision({ params, scope, view, query }) {
   mount(root, skeleton(4));
 
   const state = {
-    division: null, standings: [], matches: [],
+    division: null, standings: [], matches: [], teams: [], teamsLoaded: false, teamsError: null,
     tab: TABS.some(t => t.key === query?.get('tab')) ? query.get('tab') : 'table',
     loaded: false, error: null
   };
@@ -50,6 +50,10 @@ export async function publicDivision({ params, scope, view, query }) {
     render();
   }, err => { state.error = err; state.loaded = true; render(); });
 
+  data.watchDivisionTeams(scope, divisionId, teams => {
+    state.teams = teams; state.teamsLoaded = true; state.teamsError = null; render();
+  }, err => { state.teamsError = err; state.teamsLoaded = true; render(); });
+
   // 賽程分頁是次要資訊，用一次性讀取，不佔監聽預算
   data.getDivisionMatches(divisionId)
     .then(rows => { state.matches = rows; render(); })
@@ -59,14 +63,14 @@ export async function publicDivision({ params, scope, view, query }) {
 
   function render() {
     setDivisionTheme(root, state.division || divisionId);
-    if (!state.loaded) { mount(root, skeleton(4)); return; }
+    if (state.tab === 'table' && !state.loaded) { mount(root, skeleton(4)); return; }
     mount(root,
       pageHead(state.division?.name || divisionId, {
         sub: state.division ? `${state.division.playersOnField ?? ''}人制　·　每場 ${state.division.matchDurationMin ?? ''} 分鐘`.trim() : '',
         onBack: () => navigate('/')
       }),
       tabBar(),
-      state.error
+      state.tab === 'table' && state.error
         ? empty('讀不到積分榜', state.error.message || '請稍後再試。',
             { label: '重新載入', onClick: () => location.reload() })
         : body()
@@ -186,17 +190,10 @@ export async function publicDivision({ params, scope, view, query }) {
   }
 
   function teamsTab() {
-    // 從積分榜的 rows 取隊伍；沒有積分榜時退回從場次抓
-    const fromStandings = state.standings.flatMap(d => (d.rows || [])
-      .map(r => ({ teamId: r.teamId, name: r.name })));
-    const fromMatches = state.matches.flatMap(m => [m.home, m.away])
-      .filter(t => t?.teamId).map(t => ({ teamId: t.teamId, name: t.name }));
-    const seen = new Map();
-    for (const t of [...fromStandings, ...fromMatches]) {
-      if (t.teamId && !seen.has(t.teamId)) seen.set(t.teamId, t);
-    }
-    const teams = [...seen.values()];
-    if (!teams.length) return empty('球隊名單準備中', '報名截止後公布。');
+    if (!state.teamsLoaded) return skeleton(3);
+    if (state.teamsError) return empty('讀不到球隊名單', '請重新載入，或稍後再試。', { label: '重新載入', onClick: () => location.reload() });
+    const teams = state.teams;
+    if (!teams.length) return empty('球隊名單準備中', '此組別尚無已核准球隊，主辦匯入或核准後會顯示於此。');
     return el('ul', { class: 'pteams' }, teams.map(t => el('li', {}, el('button', {
       class: 'pteams__btn', type: 'button',
       onClick: () => navigate(`/team/${encodeURIComponent(t.teamId)}`)
