@@ -74,8 +74,8 @@
   font-variant-numeric:tabular-nums}
 .sb__step{
   display:inline-flex;align-items:center;justify-content:center;flex:none;
-  min-width:var(--tap);min-height:var(--tap);border-radius:var(--r-full);
-  background:var(--bg-elevated);color:var(--text-secondary);font-size:var(--fs-lg);font-weight:700;
+  min-width:var(--tap);min-height:var(--tap);border-radius:var(--control-radius);
+  background:var(--control-bg);border:1px solid var(--control-border);color:var(--accent);font-size:var(--fs-lg);font-weight:600;
 }
 .sb__mid{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);flex:none}
 .sb__mid .sb__team{visibility:hidden}      /* 佔位用，讓 "-" 對齊到數字那一列 */
@@ -95,14 +95,14 @@
 
 .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-2);padding:var(--sp-3)}
 .bigbtn{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-  min-height:72px;border-radius:var(--r-md);
-  background:var(--bg-card);border:1px solid var(--border);box-shadow:var(--shadow-1);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  min-height:84px;padding:var(--sp-3) var(--sp-2);border-radius:var(--control-radius);
+  background:var(--control-bg);border:1px solid var(--control-border);box-shadow:var(--control-shadow);
   color:var(--text-primary);
 }
-.bigbtn:active{transform:scale(.98)}
-.bigbtn__icon{font-size:var(--fs-xl);line-height:1;color:var(--accent)}
-.bigbtn__label{font-size:var(--fs-sm);font-weight:700}
+.bigbtn:active{transform:translateY(1px)}
+.bigbtn__icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:9px;background:var(--accent-bg);font-size:20px;line-height:1;color:var(--accent)}
+.bigbtn__label{font-size:var(--fs-sm);font-weight:600}
 
 .tl{flex:1;padding:0 var(--sp-3) var(--sp-4)}
 .tl__head{margin:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--text-muted)}
@@ -150,10 +150,10 @@
 
 /* ── 出場名單 ───────────────────────────────────────── */
 .tabs{display:flex;gap:var(--sp-2);padding:var(--sp-3)}
-.tabs__btn{flex:1;min-width:0;min-height:var(--tap);border-radius:var(--r-md);
-  background:var(--bg-elevated);color:var(--text-secondary);font-weight:700;
+.tabs__btn{flex:1;min-width:0;min-height:var(--tap);border-radius:var(--control-radius);
+  background:var(--control-bg);border:1px solid var(--control-border);color:var(--text-secondary);font-size:var(--fs-sm);font-weight:600;
   overflow-wrap:anywhere;line-height:1.5;padding:var(--sp-2)}
-.tabs__btn.is-active{background:var(--accent);color:var(--text-on-accent)}
+.tabs__btn.is-active{background:var(--control-selected-bg);border-color:var(--control-selected-border);color:var(--control-selected-text)}
 
 .roster{list-style:none;margin:0;padding:0 var(--sp-3) var(--sp-6)}
 .roster__row{
@@ -224,10 +224,10 @@
 .chk__tab{
   flex:1 1 0;min-width:0;min-height:var(--tap);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  padding:var(--sp-2);border:1px solid var(--border);border-radius:var(--r-md);
-  background:var(--bg-card);color:var(--text-secondary);font-family:inherit;
+  padding:var(--sp-2);border:1px solid var(--control-border);border-radius:var(--control-radius);
+  background:var(--control-bg);color:var(--text-secondary);font-family:inherit;
 }
-.chk__tab.is-on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+.chk__tab.is-on{border-color:var(--control-selected-border);background:var(--control-selected-bg);color:var(--control-selected-text)}
 .chk__tabName{
   font-size:var(--fs-sm);max-width:100%;
   overflow-wrap:anywhere;line-height:1.5;

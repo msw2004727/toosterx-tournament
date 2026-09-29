@@ -37,11 +37,11 @@
 .ptabs::-webkit-scrollbar{display:none}
 .ptabs__btn{
   display:inline-flex;align-items:center;gap:5px;flex:none;
-  min-height:var(--tap);padding:0 var(--sp-3);border-radius:var(--r-full);
-  background:var(--bg-elevated);color:var(--text-secondary);
-  font-size:var(--fs-sm);font-weight:700;white-space:nowrap;
+  min-height:var(--tap);padding:8px var(--sp-3);border-radius:var(--control-radius);
+  background:var(--control-bg);border:1px solid var(--control-border);color:var(--text-secondary);
+  font-size:var(--fs-sm);font-weight:600;white-space:nowrap;
 }
-.ptabs__btn.is-active{background:var(--accent);color:var(--text-on-accent)}
+.ptabs__btn.is-active{background:var(--control-selected-bg);border-color:var(--control-selected-border);color:var(--control-selected-text)}
 .ptabs--sub{padding-top:0}
 
 /* ── 篩選列 ─────────────────────────────────────────────── */
@@ -384,7 +384,7 @@ button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-colo
 .pchips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2)}
 .pdiv{
   justify-content:flex-start;gap:var(--sp-2);min-height:var(--tap);
-  border-radius:var(--r-md);background:var(--bg-elevated);font-weight:700;white-space:nowrap;overflow:hidden;
+  border-radius:var(--control-radius);background:var(--control-bg);font-weight:600;white-space:nowrap;overflow:hidden;
 }
 .pdiv__dot{width:10px;height:10px;border-radius:50%;background:var(--div,var(--accent));flex:none}
 .pdiv__name{overflow:hidden;text-overflow:ellipsis}

@@ -197,12 +197,12 @@
 .tut__tab{
   flex:1 1 0;min-width:0;min-height:var(--tap);padding:var(--sp-1) var(--sp-2);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
-  border-radius:var(--r-sm);border:1px solid var(--border);background:var(--bg-elevated);
+  border-radius:var(--control-radius);border:1px solid var(--control-border);background:var(--control-bg);
   color:var(--text-secondary);cursor:pointer;
 }
 .tut__tab strong{font-size:var(--fs-sm);color:inherit}
 .tut__tab span{font-size:var(--fs-xs);opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.tut__tab.is-on{background:var(--accent);border-color:var(--accent);color:var(--text-on-accent)}
+.tut__tab.is-on{background:var(--control-selected-bg);border-color:var(--control-selected-border);color:var(--control-selected-text)}
 .tut__tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* 進度圖（SVG 的顏色由 class 給，才會跟著主題換） */

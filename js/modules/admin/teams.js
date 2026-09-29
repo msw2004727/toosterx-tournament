@@ -275,18 +275,37 @@ export async function adminTeamsPage({ scope, view }) {
     await run(t, patch, 'team.withdraw', note || policy.text, `已取消「${t.name}」的報名，退費 NT$ ${amount.toLocaleString()}`);
   }
 
-  function withdrawButtons(t) {
+  function actionRow({ title, note, glyph, tone = 'warning', act, onClick }) {
+    return el('button', {
+      class: `action-row action-row--${tone}`, type: 'button', disabled: state.busy,
+      'aria-label': title, dataset: act ? { act } : {}, onClick
+    }, [
+      el('span', { class: 'action-row__icon', 'aria-hidden': 'true' }, icon(glyph)),
+      el('span', { class: 'action-row__copy' }, [
+        el('span', { class: 'action-row__title', text: title }),
+        el('span', { class: 'action-row__note', text: note })
+      ]),
+      el('span', { class: 'action-row__arrow', 'aria-hidden': 'true' }, icon('forward'))
+    ]);
+  }
+
+  function teamActionList(t, approved = false) {
     const div = divisionOf(t.divisionId);
-    return [
-      el('button', {
-        class: 'btn btn--lg', type: 'button', disabled: state.busy, dataset: { act: 'withdraw' },
+    return el('div', { class: 'action-list' }, [
+      el('h4', { class: 'action-list__heading', text: '球隊狀態調整' }),
+      actionRow({
+        title: approved ? '退回這支球隊' : '退回補件', note: '填寫退回原因，變更球隊審核狀態。', glyph: 'undo',
+        onClick: () => doReject(t, approved ? '（已通過後退回）' : undefined)
+      }),
+      actionRow({
+        title: '取消報名／退費', note: '取消參賽資格，依規章核算退費。', glyph: 'close', tone: 'danger', act: 'withdraw',
         onClick: () => doWithdraw(t, div, false)
-      }, iconText('close', '取消報名／退費')),
-      el('button', {
-        class: 'btn btn--lg', type: 'button', disabled: state.busy, dataset: { act: 'withdraw-fm' },
+      }),
+      actionRow({
+        title: '不可抗力：全額退費', note: '適用不可抗力事由，取消報名並全額退費。', glyph: 'ticket', tone: 'danger', act: 'withdraw-fm',
         onClick: () => doWithdraw(t, div, true)
-      }, '不可抗力：全額退費')
-    ];
+      })
+    ]);
   }
 
   function actions(t, r) {
@@ -296,12 +315,8 @@ export async function adminTeamsPage({ scope, view }) {
     }
     if (status === 'approved') {
       return el('div', { class: 'adm__actions' }, [
-        el('p', { class: 'adm__note', text: t.source === 'csv' ? '已通過，可安排賽程。生日與後四碼請使用球員旁的「補填資料／修改資料」，不必退回球隊。' : '已通過，名單已鎖定。要改名單請先退回。' }),
-        el('button', {
-          class: 'btn btn--lg', type: 'button', disabled: state.busy,
-          onClick: () => doReject(t, '（已通過後退回）')
-        }, '退回這支球隊'),
-        ...withdrawButtons(t)
+        el('p', { class: 'adm__note', text: t.source === 'csv' ? '已通過，可安排賽程。使用球員旁的鉛筆圖示補填或修改生日與後四碼。' : '已通過，名單已鎖定。要改名單請先退回。' }),
+        teamActionList(t, true)
       ]);
     }
     if (status === 'draft') {
@@ -317,11 +332,7 @@ export async function adminTeamsPage({ scope, view }) {
           }, iconText('check', '核准並鎖定名單'))
         : el('p', { class: 'adm__blocked' },
             iconText('warn', '有必須修正的問題，先請隊長改完再送。')),
-      el('button', {
-        class: 'btn btn--lg', type: 'button', disabled: state.busy,
-        onClick: () => doReject(t)
-      }, '退回補件'),
-      ...withdrawButtons(t)
+      teamActionList(t)
     ]);
   }
 

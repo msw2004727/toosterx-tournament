@@ -16,6 +16,12 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
+    name: '#E57 深色危險按鈕回到淺紅配白字，對比不足',
+    file: 'css/components.css',
+    from: 'background:var(--danger-btn-bg);border-color:var(--danger-btn-bg);color:#fff',
+    to: 'background:var(--danger);border-color:var(--danger);color:#fff'
+  },
+  {
     name: '#E55 名冊退回單列 flex，姓名與核對資料被擠壓',
     file: 'css/modules/admin.css',
     from: 'display:grid;grid-template-columns:2.2em minmax(0,1fr) var(--tap);',
@@ -385,6 +391,6 @@ const MUTANTS = [
 
 process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/mobile-rosters.spec.js tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js tests/e2e/register.spec.js --project=chromium-mobile --reporter=dot',
+  testCmd: 'npx playwright test tests/e2e/button-system.spec.js tests/e2e/mobile-rosters.spec.js tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js tests/e2e/register.spec.js --project=chromium-mobile --reporter=dot',
   title: '前端時序｜E2E 變異測試'
 }));

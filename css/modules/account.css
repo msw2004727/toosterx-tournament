@@ -36,7 +36,7 @@
 
 /* LINE 的品牌綠。這是外部服務的識別色，不走主題 token——
    使用者要一眼認出「這是 LINE 登入」，深色主題下也一樣。 */
-.btn--line{background:#06C755;color:#fff;border-color:#06C755}
+.btn--line{background:#06C755;color:#07341B;border-color:#06C755}
 .btn--line:hover{background:#05b34c;border-color:#05b34c}
 .btn--line:active{background:#049e43;border-color:#049e43}
 
@@ -113,15 +113,15 @@
   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2);
 }
 .acct__tile{
-  display:flex;flex-direction:column;align-items:flex-start;gap:2px;
-  min-height:var(--tap);padding:var(--sp-3);
-  background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--r-sm);
+  display:flex;flex-direction:column;align-items:flex-start;gap:6px;
+  min-height:var(--tap);padding:var(--sp-4);
+  background:var(--control-bg);border:1px solid var(--control-border);border-radius:var(--control-radius);
   color:var(--text-primary);font-family:inherit;text-align:left;cursor:pointer;
 }
-.acct__tile:hover{border-color:var(--accent);background:var(--accent-bg)}
+.acct__tile:hover{border-color:var(--control-selected-border);background:var(--control-hover)}
 .acct__tile:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.acct__tileIcon{color:var(--accent);display:inline-flex}
-.acct__tileLabel{font-size:var(--fs-md)}
+.acct__tileIcon{color:var(--accent);display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:9px;background:var(--accent-bg);font-size:18px;margin-bottom:2px}
+.acct__tileLabel{font-size:var(--fs-sm);font-weight:600}
 .acct__tileHint{font-size:var(--fs-xs);color:var(--text-secondary);line-height:1.5}
 
 .acct__soon{margin-top:var(--sp-3);padding-top:var(--sp-3);border-top:1px solid var(--border)}

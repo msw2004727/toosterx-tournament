@@ -45,11 +45,11 @@
 .adm__tab{
   flex:1 0 auto;min-width:0;min-height:var(--tap);white-space:nowrap;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  padding:var(--sp-2) 4px;border:1px solid var(--border);border-radius:var(--r-md);
-  background:var(--bg-card);color:var(--text-secondary);
-  font-family:inherit;font-size:var(--fs-sm);cursor:pointer;
+  padding:var(--sp-2) var(--sp-3);border:1px solid var(--control-border);border-radius:var(--control-radius);
+  background:var(--control-bg);color:var(--text-secondary);
+  font-family:inherit;font-size:var(--fs-sm);font-weight:600;cursor:pointer;
 }
-.adm__tab.is-on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+.adm__tab.is-on{border-color:var(--control-selected-border);background:var(--control-selected-bg);color:var(--control-selected-text)}
 .adm__tabCount{font-family:var(--font-num);font-size:var(--fs-xs)}
 
 /* ── 球隊清單 ───────────────────────────────────────────── */
@@ -121,7 +121,7 @@
 }
 .adm__memberEdit{
   grid-area:edit;align-self:start;width:var(--tap);min-width:var(--tap);height:var(--tap);
-  padding:0;font-size:20px;border-color:var(--border);background:var(--bg-card);
+  padding:0;font-size:20px;border-color:var(--control-border);background:var(--control-bg);color:var(--accent);
 }
 .adm__memberEdit:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* 隊職員排在球員後面，灰一階——審核看的是球員 */
@@ -141,6 +141,7 @@
 /* ── 動作 ───────────────────────────────────────────────── */
 .adm__actions{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
 .adm__actions > .btn{flex:1 1 auto;min-width:0}
+.adm__actions > .adm__note{flex-basis:100%;margin:var(--sp-2) 0}
 .adm__blocked{
   flex:1 1 100%;
   display:flex;align-items:center;gap:var(--sp-2);
@@ -179,22 +180,22 @@
   flex:1 1 8.5rem;min-width:0;min-height:var(--tap);
   display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;
   padding:var(--sp-2) var(--sp-3);
-  border:1px solid var(--border);border-radius:var(--r-md);
-  background:var(--bg-card);color:var(--text-secondary);
+  border:1px solid var(--control-border);border-radius:var(--control-radius);box-shadow:var(--control-shadow);
+  background:var(--control-bg);color:var(--text-secondary);
   font-family:inherit;text-align:left;cursor:pointer;
 }
-.adm__choice.is-on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
-.adm__choiceName{font-size:var(--fs-md);color:var(--text-primary)}
-.adm__choice.is-on .adm__choiceName{color:var(--accent)}
+.adm__choice.is-on{border-color:var(--control-selected-border);background:var(--control-selected-bg);color:var(--control-selected-text)}
+.adm__choiceName{font-size:var(--fs-sm);font-weight:600;color:var(--text-primary)}
+.adm__choice.is-on .adm__choiceName{color:var(--control-selected-text)}
 .adm__choiceNote{font-size:var(--fs-xs);opacity:.8;line-height:1.4}
 
 .adm__chip{
   min-height:var(--tap);padding:var(--sp-2) var(--sp-4);
-  border:1px solid var(--border);border-radius:999px;
-  background:var(--bg-card);color:var(--text-secondary);
+  border:1px solid var(--control-border);border-radius:var(--control-radius);
+  background:var(--control-bg);color:var(--text-secondary);
   font-family:inherit;font-size:var(--fs-sm);cursor:pointer;
 }
-.adm__chip.is-on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+.adm__chip.is-on{border-color:var(--control-selected-border);background:var(--control-selected-bg);color:var(--control-selected-text)}
 
 /* uid 是跨專案對帳唯一的鍵，要看得到也要選得起來 */
 .adm__uid{
@@ -286,7 +287,7 @@
    只能對調不能單獨搬走，不然兩組隊數不等，名次賽會少一個對手。 */
 .adm__chips{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
 .adm__chips .adm__chip[aria-pressed="true"]{
-  border-color:var(--accent);background:var(--accent-bg);color:var(--accent);
+  border-color:var(--control-selected-border);background:var(--control-selected-bg);color:var(--control-selected-text);
 }
 .adm__chips .adm__chip:disabled{opacity:1;cursor:default}
 

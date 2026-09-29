@@ -64,8 +64,8 @@
 .booth__pid{font-family:var(--font-num);font-size:var(--fs-sm);color:var(--text-muted)}
 .booth__clear{
   align-self:flex-start;min-height:var(--tap);padding:0 var(--sp-3);
-  border:1px solid var(--border);border-radius:999px;
-  background:transparent;color:var(--text-secondary);
+  border:1px solid var(--control-border);border-radius:var(--control-radius);
+  background:var(--control-bg);color:var(--text-secondary);
   font-family:inherit;font-size:var(--fs-sm);cursor:pointer;
 }
 
@@ -73,8 +73,8 @@
 .booth__stepper{display:flex;align-items:center;justify-content:center;gap:var(--sp-4)}
 .booth__stepBtn{
   width:calc(var(--tap) * 1.6);height:calc(var(--tap) * 1.6);
-  border:1px solid var(--border);border-radius:var(--r-md);
-  background:var(--bg-card);color:var(--text-primary);
+  border:1px solid var(--control-border);border-radius:var(--control-radius);
+  background:var(--control-bg);color:var(--accent);
   font-family:inherit;font-size:2rem;line-height:1;cursor:pointer;
 }
 .booth__stepValue{
@@ -88,11 +88,11 @@
 .booth__shotNo{flex:none;width:3.4rem;font-size:var(--fs-sm);color:var(--text-secondary)}
 .booth__shotBtn{
   flex:1;min-width:0;min-height:calc(var(--tap) * 1.15);
-  border:1px solid var(--border);border-radius:var(--r-md);
-  background:var(--bg-card);color:var(--text-secondary);
+  border:1px solid var(--control-border);border-radius:var(--control-radius);
+  background:var(--control-bg);color:var(--text-secondary);
   font-family:var(--font-num);font-size:var(--fs-lg);cursor:pointer;
 }
-.booth__shotBtn.is-on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);font-weight:700}
+.booth__shotBtn.is-on{border-color:var(--control-selected-border);background:var(--control-selected-bg);color:var(--control-selected-text);font-weight:700}
 .booth__shotTotal{
   text-align:right;font-family:var(--font-num);font-size:var(--fs-lg);
   font-weight:700;color:var(--text-primary);
@@ -102,11 +102,11 @@
 .booth__ladder{display:flex;flex-direction:column;gap:var(--sp-2)}
 .booth__ladderStep{
   min-height:calc(var(--tap) * 1.2);
-  border:1px solid var(--border);border-radius:var(--r-md);
-  background:var(--bg-card);color:var(--text-primary);
+  border:1px solid var(--control-border);border-radius:var(--control-radius);
+  background:var(--control-bg);color:var(--text-primary);
   font-family:var(--font-num);font-size:var(--fs-lg);cursor:pointer;
 }
-.booth__ladderStep.is-on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);font-weight:700}
+.booth__ladderStep.is-on{border-color:var(--control-selected-border);background:var(--control-selected-bg);color:var(--control-selected-text);font-weight:700}
 
 /* ── numpad（球速）──────────────────────────────────────── */
 .booth__numValue{
@@ -116,8 +116,8 @@
 .booth__keys{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-2)}
 .booth__key{
   min-height:calc(var(--tap) * 1.3);
-  border:1px solid var(--border);border-radius:var(--r-md);
-  background:var(--bg-card);color:var(--text-primary);
+  border:1px solid var(--control-border);border-radius:var(--control-radius);
+  background:var(--control-bg);color:var(--text-primary);
   font-family:var(--font-num);font-size:var(--fs-xl);cursor:pointer;
 }
 .booth__key--wide{grid-column:span 2;font-family:inherit;font-size:var(--fs-md)}
@@ -139,8 +139,8 @@
 .booth__recentMeta{font-size:var(--fs-xs);color:var(--text-secondary);font-family:var(--font-num)}
 .booth__voidBtn{
   flex:none;min-height:var(--tap);padding:0 var(--sp-3);
-  border:1px solid var(--border);border-radius:999px;
-  background:transparent;color:var(--text-secondary);
+  border:1px solid var(--danger-border);border-radius:var(--control-radius);
+  background:var(--bg-card);color:var(--danger-text);
   font-family:inherit;font-size:var(--fs-sm);cursor:pointer;
 }
 /* 作廢不了的時候要寫出原因，不要只把按鈕拿掉——

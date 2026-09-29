@@ -17,32 +17,89 @@
 /* ── 按鈕 ───────────────────────────────────────────── */
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);
-  min-height:var(--tap);padding:0 var(--sp-4);border-radius:var(--r-md);
-  background:var(--bg-elevated);color:var(--text-primary);font-weight:700;
-  border:1px solid transparent;
-  transition:transform .12s ease,background var(--transition),border-color var(--transition);
+  min-height:var(--tap);padding:10px var(--sp-4);border-radius:var(--control-radius);
+  background:var(--control-bg);color:var(--text-primary);font-size:var(--fs-sm);font-weight:600;
+  line-height:1.45;text-align:center;overflow-wrap:anywhere;
+  border:1px solid var(--control-border);box-shadow:var(--control-shadow);
+  transition:transform .12s ease,background var(--transition),border-color var(--transition),box-shadow var(--transition),color var(--transition);
 }
-.btn:active{transform:scale(.98)}
-.btn--primary{background:var(--primary-btn-bg);color:var(--text-on-accent)}
-.btn--primary:hover{background:var(--primary-btn-hover)}
-.btn--primary:active{background:var(--primary-btn-active)}
-.btn--danger{background:var(--danger);color:#fff}
-.btn--ghost{background:transparent;border-color:var(--border-strong);color:var(--text-secondary)}
-.btn--ghost:hover{border-color:var(--accent);color:var(--accent)}
-.btn--sm{min-height:36px;padding:0 var(--sp-3);font-size:var(--fs-sm)}
-.btn--lg{min-height:var(--tap-lg);font-size:var(--fs-lg);flex:1}
-.btn--xl{min-height:64px;font-size:var(--fs-lg);width:100%}
-.btn[disabled]{opacity:.45;pointer-events:none}
+.btn > .icon{width:18px;height:18px}
+.btn:active{transform:translateY(1px);box-shadow:none}
+.btn--primary{background:var(--primary-btn-bg);border-color:var(--primary-btn-bg);color:var(--text-on-accent);box-shadow:var(--control-primary-shadow)}
+.btn--primary:active{background:var(--primary-btn-active);border-color:var(--primary-btn-active)}
+.btn--danger{background:var(--danger-btn-bg);border-color:var(--danger-btn-bg);color:#fff}
+.btn--warning{background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn-text)}
+.btn--danger-outline{background:var(--bg-card);border-color:var(--danger-border);color:var(--danger-text)}
+.btn--ghost{background:transparent;border-color:var(--border);color:var(--text-secondary);box-shadow:none}
+.btn--sm{min-height:var(--tap);padding:8px var(--sp-3);font-size:var(--fs-sm)}
+.btn--lg{min-height:var(--tap-lg);font-size:var(--fs-md);flex:1}
+.btn--xl{min-height:var(--tap-lg);font-size:var(--fs-md);width:100%}
+.btn[disabled]{opacity:.45;pointer-events:none;box-shadow:none;transform:none}
 /* 只有圖示的按鈕不吃左右內距，否則 44px 的方形會被撐成長方形 */
 .btn--icon{padding:0;min-width:var(--tap)}
 
+input[type="file"]::file-selector-button{
+  min-height:var(--tap);margin-right:var(--sp-3);padding:8px var(--sp-3);
+  font:inherit;font-size:var(--fs-sm);font-weight:600;cursor:pointer;
+  border:1px solid var(--control-border);border-radius:var(--control-radius);
+  background:var(--control-bg);color:var(--text-primary);box-shadow:var(--control-shadow);
+}
+
+@media (hover:hover){
+  .btn:hover{background:var(--control-hover);border-color:var(--control-selected-border);box-shadow:var(--control-hover-shadow)}
+  .btn--primary:hover{background:var(--primary-btn-hover);border-color:var(--primary-btn-hover);color:var(--text-on-accent)}
+  .btn--danger:hover{background:var(--danger-btn-hover);border-color:var(--danger-btn-hover);color:#fff}
+  .btn--warning:hover{background:var(--warn-bg);border-color:var(--warning);color:var(--warn-text)}
+  .btn--danger-outline:hover{background:var(--danger-bg);border-color:var(--danger);color:var(--danger-text)}
+  .btn--ghost:hover{color:var(--accent);box-shadow:none}
+}
+
 .chip{
   display:inline-flex;align-items:center;gap:6px;
-  min-height:36px;padding:0 var(--sp-3);border-radius:var(--r-full);
-  border:1px solid var(--border-strong);color:var(--text-secondary);
-  font-size:var(--fs-sm);font-weight:700;background:transparent;
+  min-height:var(--tap);padding:6px var(--sp-3);border-radius:var(--control-radius);
+  border:1px solid var(--control-border);color:var(--text-secondary);
+  font-size:var(--fs-sm);font-weight:600;background:var(--control-bg);
 }
-.chip.is-on{background:var(--accent);border-color:var(--accent);color:var(--text-on-accent)}
+.chip.is-on{background:var(--control-selected-bg);border-color:var(--control-selected-border);color:var(--control-selected-text)}
+
+/* 同一套觸感：分頁、選項、數字鍵與功能入口；列表列維持原有資訊排列。 */
+:is(.chip,.sheet__opt,.bigbtn,.sb__step,.booth__stepBtn,.booth__shotBtn,.booth__ladderStep,.booth__key,.booth__clear,.booth__voidBtn,.chal__tab,.chal__chip,.adm__chip,.adm__tab,.ptabs__btn,.tabs__btn,.chk__tab,.tut__tab,.acct__tile,.pdiv){
+  min-height:var(--tap);border-radius:var(--control-radius);box-shadow:var(--control-shadow);
+  transition:background var(--transition),border-color var(--transition),box-shadow var(--transition),color var(--transition),transform .12s ease;
+}
+:is(.btn,.chip,.sheet__opt,.bigbtn,.sb__step,.booth__stepBtn,.booth__shotBtn,.booth__ladderStep,.booth__key,.booth__clear,.booth__voidBtn,.chal__tab,.chal__chip,.adm__chip,.adm__tab,.ptabs__btn,.tabs__btn,.chk__tab,.tut__tab,.acct__tile,.action-row):focus-visible{
+  outline:2px solid var(--accent);outline-offset:3px;
+}
+@media (hover:hover){
+  :is(.chip,.sheet__opt,.bigbtn,.sb__step,.booth__stepBtn,.booth__shotBtn,.booth__ladderStep,.booth__key,.booth__clear,.booth__voidBtn,.chal__tab,.chal__chip,.adm__chip,.adm__tab,.ptabs__btn,.tabs__btn,.chk__tab,.tut__tab,.acct__tile,.pdiv):not(:disabled):hover{
+    border-color:var(--control-selected-border);box-shadow:var(--control-hover-shadow);
+  }
+}
+:is(.chip,.sheet__opt,.bigbtn,.sb__step,.booth__stepBtn,.booth__shotBtn,.booth__ladderStep,.booth__key,.booth__clear,.booth__voidBtn,.chal__tab,.chal__chip,.adm__chip,.adm__tab,.ptabs__btn,.tabs__btn,.chk__tab,.tut__tab,.acct__tile):not(:disabled):active{transform:translateY(1px);box-shadow:none}
+:is(.chip,.sheet__opt,.bigbtn,.sb__step,.booth__stepBtn,.booth__shotBtn,.booth__ladderStep,.booth__key,.chal__tab,.chal__chip,.adm__chip,.adm__tab,.ptabs__btn,.tabs__btn,.chk__tab,.tut__tab,.acct__tile):disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+@media (prefers-reduced-motion:reduce){button:active,a.btn:active{transform:none!important}}
+
+/* 狀態調整等次要操作：一個有分隔線的操作群組，每列保留名稱與說明。 */
+.action-list{width:100%;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-card);overflow:hidden}
+.action-list__heading{margin:0;padding:var(--sp-3) var(--sp-4);font-size:var(--fs-xs);font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)}
+.action-row{
+  display:grid;grid-template-columns:36px minmax(0,1fr) 18px;align-items:center;gap:var(--sp-3);
+  width:100%;min-height:72px;padding:var(--sp-3) var(--sp-4);text-align:left;
+  border:0;border-top:1px solid var(--border);color:var(--text-primary);background:var(--bg-card);
+  transition:background var(--transition);
+}
+.action-list__heading + .action-row{border-top:0}
+.action-row__icon{width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:10px;background:var(--bg-root);color:var(--text-secondary);font-size:18px}
+.action-row__copy{display:flex;flex-direction:column;gap:3px;min-width:0;overflow-wrap:anywhere}
+.action-row__title{font-size:var(--fs-sm);font-weight:600;line-height:1.5}
+.action-row__note{font-size:var(--fs-xs);font-weight:400;color:var(--text-secondary);line-height:1.5}
+.action-row__arrow{color:var(--text-muted);display:flex;font-size:16px}
+.action-row--warning .action-row__icon{background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn-text)}
+.action-row--danger .action-row__icon{background:var(--danger-bg);border-color:var(--danger-border);color:var(--danger-text)}
+.action-row--danger .action-row__title{color:var(--danger-text)}
+.action-row:focus-visible{outline-offset:-3px;border-radius:8px}
+.action-row:disabled{opacity:.45;cursor:not-allowed}
+@media (hover:hover){.action-row:not(:disabled):hover{background:var(--control-hover)}}
 
 .muted{color:var(--text-muted);font-size:var(--fs-sm)}
 
@@ -65,7 +122,7 @@
 /* ── 主題切換（系統／淺色／深色）────────────────────── */
 .theme-switch{
   display:inline-flex;gap:2px;padding:3px;
-  background:var(--bg-elevated);border-radius:var(--r-full);
+  background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--r-full);
 }
 .theme-switch__opt{
   display:inline-flex;align-items:center;justify-content:center;gap:5px;
@@ -123,7 +180,7 @@
 .toast--error{background:#9E2A1F}
 .toast__msg{flex:1;font-size:var(--fs-sm);line-height:1.5;min-width:0}
 .toast__action,.toast__close{
-  color:#fff;font-weight:700;min-height:32px;padding:0 4px;flex:none;
+  color:#fff;font-weight:600;min-height:var(--tap);padding:0 var(--sp-2);flex:none;border-radius:var(--control-radius);
 }
 .toast__action{text-decoration:underline}
 .toast.is-leaving{opacity:0;transition:opacity .18s}
@@ -139,7 +196,7 @@
 }
 .modal__title{margin:0 0 var(--sp-3);font-size:var(--fs-lg)}
 .modal__body{margin-bottom:var(--sp-4);color:var(--text-secondary);font-size:var(--fs-sm)}
-.modal__actions{display:flex;gap:var(--sp-3)}
+.modal__actions{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
 .modal__actions .btn{flex:1}
 
 .sheet__panel{
@@ -160,14 +217,14 @@
 .sheet__opt{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   min-height:72px;padding:var(--sp-3);border-radius:var(--r-md);
-  background:var(--bg-elevated);border:2px solid transparent;text-align:center;
+  background:var(--control-bg);border:1px solid var(--control-border);text-align:center;
   color:var(--text-primary);
 }
 .sheet__opt:active{border-color:var(--accent)}
 .sheet__opt-icon{font-size:var(--fs-xl);line-height:1;display:flex}
 .sheet__opt-sub{font-family:var(--font-num);font-size:var(--fs-sm);color:var(--text-muted)}
-.sheet__opt-main{font-size:var(--fs-md);font-weight:700;line-height:1.3;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.sheet__opt-main{font-size:var(--fs-sm);font-weight:600;line-height:1.5;
+  overflow-wrap:anywhere;max-width:100%}
 .sheet__opt-note{font-size:var(--fs-xs);color:var(--text-muted)}
 .sheet__opt.is-disabled{opacity:.4}
 .sheet__opt--ghost{background:transparent;border:1px dashed var(--border-strong)}
@@ -272,12 +329,12 @@
 .apphead__link,.apphead__install{
   display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1);
   min-height:var(--tap);min-width:var(--tap);padding:0 var(--sp-2);
-  border-radius:var(--r-sm);border:0;background:none;
+  border-radius:var(--control-radius);border:1px solid transparent;background:none;
   color:var(--text-secondary);font-size:var(--fs-sm);font-family:inherit;
   text-decoration:none;cursor:pointer;flex:none;
 }
 .apphead__link:hover,.apphead__install:hover{background:var(--bg-elevated);color:var(--text-primary)}
-.apphead__link.is-current{color:var(--accent);background:var(--accent-bg)}
+.apphead__link.is-current{color:var(--control-selected-text);background:var(--control-selected-bg);border-color:var(--control-selected-border)}
 .apphead__link:focus-visible,.apphead__install:focus-visible{
   outline:2px solid var(--accent);outline-offset:1px;
 }
@@ -314,3 +371,12 @@
 /* ══ UI 打磨（2026-09-06 預覽版）═══════════════════════════════ */
 .card__head{color:var(--text-primary);font-weight:700}
 .card__head svg{color:var(--accent)}
+
+/* 圖示導覽與可點擊列表：同樣有明確焦點與細緻的互動回饋。 */
+:is(.adm__back,.reg__back,.chk__back,.sheet__close){border:1px solid var(--control-border);border-radius:var(--control-radius);background:var(--control-bg);box-shadow:var(--control-shadow)}
+:is(.phead__back,.live__back){border:1px solid rgba(255,255,255,.2);border-radius:var(--control-radius);background:rgba(255,255,255,.06)}
+:is(.adm__itemHead,.prow__btn,.proster__btn,.pteams__btn,.mlist__btn,.acct__row,.chal__item--link){transition:background var(--transition),color var(--transition)}
+@media (hover:hover){
+  :is(.adm__itemHead,.prow__btn,.proster__btn,.pteams__btn,.mlist__btn,.acct__row,.chal__item--link):hover{background:var(--control-hover)}
+}
+:is(.adm__itemHead,.prow__btn,.proster__btn,.pteams__btn,.mlist__btn,.acct__row,.chal__item--link):focus-visible{outline:2px solid var(--accent);outline-offset:-3px;border-radius:var(--control-radius)}

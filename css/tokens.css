@@ -30,6 +30,7 @@
   --page-max:600px;         /* 手機優先，桌機置中不拉寬 */
 
   --transition:.2s cubic-bezier(.4,0,.2,1);
+  --control-radius:10px;
 }
 
 /* ── 淺色（預設）─────────────────────────────────────
@@ -57,6 +58,17 @@
   --primary-btn-bg:#12704F;
   --primary-btn-hover:#0D5A3F;
   --primary-btn-active:#0A4732;
+  --control-bg:#FFFFFF;
+  --control-hover:#F4F8F5;
+  --control-border:#CAD8D0;
+  --control-selected-bg:#EAF4EE;
+  --control-selected-border:#86B39A;
+  --control-selected-text:#105B3B;
+  --control-shadow:0 1px 2px rgba(16,48,32,.06),inset 0 1px 0 rgba(255,255,255,.65);
+  --control-hover-shadow:0 3px 8px rgba(16,48,32,.08);
+  --control-primary-shadow:0 2px 4px rgba(10,71,50,.16),inset 0 1px 0 rgba(255,255,255,.12);
+  --danger-btn-bg:#B53128;
+  --danger-btn-hover:#97271F;
 
   --danger:#C8362A;
   --warning:#96600A;
@@ -105,8 +117,19 @@
   --primary:#0F3B2B;
 
   --primary-btn-bg:#17805C;   /* 白字 4.9:1；再亮就過不了 AA */
-  --primary-btn-hover:#1D9A6F;
+  --primary-btn-hover:#167653;
   --primary-btn-active:#12664A;
+  --control-bg:#1A2620;
+  --control-hover:#223329;
+  --control-border:#40564A;
+  --control-selected-bg:#203C2E;
+  --control-selected-border:#548D6B;
+  --control-selected-text:#ACE2BF;
+  --control-shadow:0 1px 2px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.035);
+  --control-hover-shadow:0 3px 8px rgba(0,0,0,.22);
+  --control-primary-shadow:0 2px 4px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.12);
+  --danger-btn-bg:#B53128;
+  --danger-btn-hover:#A42B23;
 
   --danger:#F2837A;
   --warning:#E2B04A;
