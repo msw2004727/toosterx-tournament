@@ -2,7 +2,8 @@ import { el, mount, confirmDialog } from '../../core/ui.js';
 import { can, callFunction, onAuth } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { EVENT_ID, EVENT } from '../../config.js';
-import { parseTeamCsv, validateTeamImport, teamCsvTemplate, IMPORT_MAX_BYTES, IMPORT_COLUMNS } from '../../engine/team-import.js';
+import { parseTeamCsv, validateTeamImport, teamCsvTemplate, IMPORT_COLUMNS } from '../../engine/team-import.js';
+import { readCsvFile, csvImportErrorMessage, CSV_ENCODINGS } from '../../lib/csv-file.js';
 import { adminHead, denied } from './bits.js';
 import * as data from './data.js';
 
@@ -21,7 +22,7 @@ const CSV_GUIDE = {
 export async function adminTeamImportPage({ scope, view }) {
   const root = el('div', { class: 'adm' });
   mount(view, root);
-  const state = { divisions: [], teams: [], csv: '', filename: '', plan: null, confirmed: false, busy: false, loading: true, error: '', result: null };
+  const state = { divisions: [], teams: [], csv: '', filename: '', file: null, encoding: 'auto', detectedEncoding: '', plan: null, confirmed: false, busy: false, loading: true, error: '', result: null };
   let active = true;
   hold(scope, () => { active = false; }, 'team-import:page');
   if (!can('team.manage')) { mount(root, denied('匯入球隊名冊', '管理員')); return; }
@@ -44,17 +45,16 @@ export async function adminTeamImportPage({ scope, view }) {
 
   async function choose(file) {
     state.csv = ''; state.plan = null; state.result = null; state.error = ''; state.confirmed = false;
+    state.file = file; state.detectedEncoding = '';
     state.filename = file?.name ?? '';
     if (!file) { render(); return; }
     state.busy = true; render();
     try {
-      if (!/\.csv$/i.test(file.name)) throw new Error('請選擇 .csv 檔案。');
-      if (file.size > IMPORT_MAX_BYTES) throw new Error('CSV 必須小於 1 MB。');
-      // fatal 避免 Big5 或毀損字元悄悄變成替代符號後寫入名冊。
-      state.csv = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
+      const decoded = await readCsvFile(file, state.encoding);
+      state.csv = decoded.text; state.detectedEncoding = decoded.label;
       const rows = parseTeamCsv(state.csv);
       state.plan = validateTeamImport(rows, { divisions: state.divisions, existingTeams: state.teams, asOf: EVENT.dates[0] });
-    } catch (err) { state.error = err instanceof TypeError ? '讀不到 UTF-8 文字，請從 Excel 另存為「CSV UTF-8（逗號分隔）」。' : err.message; }
+    } catch (err) { state.error = csvImportErrorMessage(err); }
     finally { state.busy = false; render(); }
   }
 
@@ -100,12 +100,18 @@ export async function adminTeamImportPage({ scope, view }) {
         el('a', { class: 'btn btn--lg', href: '#/admin/teams' }, '查看球隊清單')
       ]),
       el('p', { class: 'adm__note', text: '可用組別：' + state.divisions.map(d => `${d.divisionId}（${d.name}）`).join('、') }),
+      el('label', { class: 'adm__importFile' }, [el('span', { text: 'CSV 文字編碼' }), el('select', {
+        'aria-label': 'CSV 文字編碼', disabled: state.loading || state.busy,
+        onChange: e => { state.encoding = e.target.value; choose(state.file); }
+      }, CSV_ENCODINGS.map(([value, label]) => el('option', { value, selected: value === state.encoding }, label)))]),
+      el('p', { class: 'adm__note', text: '建議使用 CSV UTF-8；也支援 Excel 的 Big5 與含編碼標記的 UTF-16 CSV。若預覽中文字不正確，可切換文字編碼重新讀取。' }),
       el('label', { class: 'adm__importFile' }, [el('span', { text: '上傳 CSV 球隊名冊' }), el('input', {
         type: 'file', accept: '.csv,text/csv', 'aria-label': '上傳 CSV 球隊名冊',
         disabled: state.loading || state.busy || !state.divisions.length,
         onChange: e => choose(e.target.files?.[0])
       })]),
       state.filename ? el('p', { class: 'adm__note', text: `檔案：${state.filename}` }) : null,
+      state.detectedEncoding ? el('p', { class: 'adm__note', text: `讀取編碼：${state.detectedEncoding}。請核對預覽中的中文與名冊內容。` }) : null,
       state.busy ? el('p', { role: 'status', text: '處理中，請勿重複送出…' }) : null,
       state.result ? el('div', { class: 'adm__box', role: 'status' }, [
         el('strong', { text: `匯入完成：${state.result.teamCount} 支球隊、${state.result.playerCount} 位球員，已通過。` }),

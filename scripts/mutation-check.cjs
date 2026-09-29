@@ -10,6 +10,28 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
+    name: '#CSV5 只接受 UTF-8，Excel Big5 又被拒絕', file: 'js/lib/csv-file.js',
+    from: ": ['utf-8', 'big5'];", to: ": ['utf-8'];"
+  },
+  {
+    name: '#CSV6 收下已損壞的替代字元', file: 'js/lib/csv-file.js',
+    from: "if (text.includes('\\uFFFD')) fail", to: 'if (false) fail'
+  },
+  {
+    name: '#CSV7 UTF-16 忽略檔案的 BOM', file: 'js/lib/csv-file.js',
+    from: "bom ? [bom] : ['utf-8', 'big5']", to: "bom ? ['utf-8'] : ['utf-8', 'big5']"
+  },
+  {
+    name: '#CSV8 驗證 TypeError 又被誤報為 UTF-8', file: 'js/lib/csv-file.js',
+    from: 'if (error instanceof CsvFileError) return error.message;',
+    to: "if (error instanceof TypeError) return '讀不到 UTF-8'; if (error instanceof CsvFileError) return error.message;"
+  },
+  {
+    name: '#CSV9 arrayBuffer 失敗時沒有 FileReader 備援', file: 'js/lib/csv-file.js',
+    from: 'try { return await file.arrayBuffer(); } catch { /* 改用相容性較高的 FileReader */ }',
+    to: 'return await file.arrayBuffer();'
+  },
+  {
     name: '#CSV1 隱藏報名卻仍判定可開放', file: 'js/engine/registration.js',
     from: "if (cfg.hidden === true) return", to: "if (false) return"
   },

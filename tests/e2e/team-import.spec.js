@@ -25,6 +25,66 @@ async function stub(page, { roles = ['admin'], hidden = true } = {}) {
 async function upload(page, rows) {
   await page.getByLabel('上傳 CSV 球隊名冊').setInputFiles({ name: '名冊.csv', mimeType: 'text/csv', buffer: Buffer.from(csv(rows)) });
 }
+
+test('Excel Big5 CSV 能辨識中文並預覽，不會誤報 UTF-8 @csvencoding', async ({ page }) => {
+  await stub(page); await page.goto('/#/admin/team-import');
+  const buffer = Buffer.concat([
+    Buffer.from('divisionId,teamName,playerName,jerseyNo,birthDate,idLast4\r\nu10,'),
+    Buffer.from('adb8b9462ca470adb8', 'hex'),
+    Buffer.from(',7,2017-01-01,0012\r\n')
+  ]);
+  await page.getByLabel('上傳 CSV 球隊名冊').setInputFiles({ name: 'Excel名冊.csv', mimeType: 'text/csv', buffer });
+  await expect(page.getByText('匯入預覽：1 支球隊、1 位球員')).toBeVisible();
+  await expect(page.locator('.adm__importTeam summary')).toContainText('飛達');
+  await expect(page.getByText(/讀取編碼：Big5/)).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await page.getByLabel('CSV 文字編碼').selectOption('utf-8');
+  await expect(page.getByRole('alert')).toContainText('無法使用所選編碼');
+  await expect(page.getByText('匯入預覽：1 支球隊、1 位球員')).toHaveCount(0);
+  await page.getByLabel('CSV 文字編碼').selectOption('big5');
+  await expect(page.getByText('匯入預覽：1 支球隊、1 位球員')).toBeVisible();
+  await page.getByRole('checkbox').check();
+  await page.getByRole('button', { name: '匯入並核准球隊' }).click();
+  await page.getByRole('button', { name: '確認匯入', exact: true }).click();
+  await expect(page.getByText('匯入完成：1 支球隊、1 位球員，已通過。')).toBeVisible();
+  expect((await page.evaluate(() => window.__FAKE_CALLS))[0].payload.csv).toContain('飛達,小飛');
+});
+
+for (const encoding of ['utf-8', 'utf-8-bom', 'utf-16le', 'utf-16be']) {
+  test(`Excel ${encoding} CSV 保留中文與開頭 0 @csvencoding`, async ({ page }) => {
+    await stub(page); await page.goto('/#/admin/team-import');
+    const content = csv([row()]);
+    const buffer = encoding.startsWith('utf-16') ? Buffer.from(content, 'utf16le')
+      : Buffer.from(encoding === 'utf-8' ? content.replace(/^\uFEFF/, '') : content);
+    if (encoding === 'utf-16be') buffer.swap16();
+    await page.getByLabel('上傳 CSV 球隊名冊').setInputFiles({ name: 'Excel名冊.csv', mimeType: 'text/csv', buffer });
+    await expect(page.getByText('匯入預覽：1 支球隊、1 位球員')).toBeVisible();
+    await page.locator('.adm__importTeam summary').click();
+    await expect(page.getByText(/#7 小飛.*末四碼 0012/)).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  });
+}
+test('瀏覽器 arrayBuffer 拋 TypeError 仍可讀取 UTF-8；真正讀檔失敗不叫人另存 @csvencoding', async ({ page }) => {
+  await stub(page); await page.goto('/#/admin/team-import');
+  await page.evaluate(() => { Blob.prototype.arrayBuffer = async () => { throw new TypeError('File API unavailable'); }; });
+  await upload(page, [row()]);
+  await expect(page.getByText('匯入預覽：1 支球隊、1 位球員')).toBeVisible();
+  await page.evaluate(() => { FileReader.prototype.readAsArrayBuffer = () => { throw new DOMException('read failed', 'NotReadableError'); }; });
+  await upload(page, [row()]);
+  await expect(page.getByRole('alert')).toContainText('讀不到這個檔案');
+  await expect(page.getByRole('alert')).not.toContainText('UTF-8');
+  await expect(page.getByText('匯入預覽：1 支球隊、1 位球員')).toHaveCount(0);
+});
+test('驗證 TypeError 與壞掉的 UTF-8 分開提示 @csvencoding', async ({ page }) => {
+  await stub(page); await page.goto('/#/admin/team-import');
+  await page.getByLabel('上傳 CSV 球隊名冊').setInputFiles({ name: '壞檔.csv', mimeType: 'text/csv', buffer: Buffer.from([0xef, 0xbb, 0xbf, 0xff]) });
+  await expect(page.getByRole('alert')).toContainText('無法完整解碼');
+  await page.evaluate(() => { String.prototype.normalize = () => { throw new TypeError('欄位驗證失敗'); }; });
+  await upload(page, [row()]);
+  await expect(page.getByRole('alert')).toContainText('CSV 內容檢查失敗：欄位驗證失敗');
+  await expect(page.getByRole('alert')).not.toContainText('UTF-8');
+});
 test('多隊預覽、確認後才呼叫後端，成功可前往賽程 @admin', async ({ page }) => {
   await stub(page);
   await page.goto('/#/admin/team-import');

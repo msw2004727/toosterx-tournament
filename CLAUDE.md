@@ -212,6 +212,10 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 新增 8 條變異錨點，總計 453；完整變異仍以 CI Linux 執行結果為準。
 CSV 說明表逐欄標示必填、格式與範例，下載 CSV UTF-8 範本後填寫；公開投影不含生日或身分證後四碼。
 
+2026-09-29 主辦回報「另存 UTF-8 仍被拒絕」：修正前端把所有 TypeError 誤標為編碼錯誤的問題。
+`js/lib/csv-file.js` 支援 UTF-8／Big5／含 BOM 的 UTF-16，提供編碼選單及 FileReader 備援；
+讀檔、解碼、名冊驗證各自回報原因，BOM 損壞與替代字元仍拒絕。新增 17 個單元案例、21 個三尺寸 E2E 案例與 5 條變異。
+
 ## 現在的狀態（2026-09-07）
 
 | 關卡 | 狀態 |
