@@ -179,6 +179,8 @@ export async function adminTeamsPage({ scope, view }) {
 
       // ── 名單 ──
       el('h3', { class: 'adm__sectionHead', text: `名單（球員 ${r.players}・隊職員 ${r.staff}）` }),
+      members.some(m => m.source === 'csv') && can('team.manage')
+        ? el('p', { class: 'adm__note' }, iconText('note', '補填／修改資料')) : null,
       // ⚠️ 球員排前面。Firestore 的 orderBy('jerseyNo') 會把 null 排在最前，
       //    於是沒有背號的隊職員擋在名單開頭——而審核要看的是球員。
       el('ul', { class: 'adm__roster' }, sortForReview(members).map(m => el('li', {
@@ -186,20 +188,21 @@ export async function adminTeamsPage({ scope, view }) {
       }, [
           el('span', { class: 'adm__no num', text: m.jerseyNo != null ? String(m.jerseyNo) : '—' }),
           el('span', { class: 'adm__memberName', text: m.name || '（未填）' }),
-          el('span', {
-            class: 'adm__memberMeta',
-            // 審核要核對的就是這兩格；生日用民國年，跟證件一致
-            text: isStaffMember(m)
-              ? (KIND_LABEL[m.kind || m.role] || '隊職員')
-              : [csvIdentityPending(m) ? '待補資料' : null, m.birthDate ? rocShort(m.birthDate) : null,
-                 m.idLast4 ? `末四碼 ${m.idLast4}` : null].filter(Boolean).join('　·　')
-          }),
+          el('span', { class: 'adm__memberMeta' }, isStaffMember(m)
+            ? el('span', { class: 'adm__memberField', text: KIND_LABEL[m.kind || m.role] || '隊職員' })
+            : [
+              csvIdentityPending(m) ? el('span', { class: 'adm__memberPending', text: '待補資料' }) : null,
+              // 欄位各自保持完整，窄螢幕只在兩個欄位之間換行。
+              el('span', { class: 'adm__memberField', text: m.birthDate ? `生日 ${rocShort(m.birthDate)}` : '生日待補' }),
+              el('span', { class: 'adm__memberField', text: m.idLast4 ? `末四碼 ${m.idLast4}` : '末四碼待補' })
+            ]),
           m.source === 'csv' && can('team.manage') ? el('button', {
-            type: 'button', class: 'btn btn--sm', 'aria-label': `補填或修改 ${m.name} 的資料`,
+            type: 'button', class: 'btn adm__memberEdit', 'aria-label': `補填或修改 ${m.name} 的資料`,
+            title: csvIdentityPending(m) ? '補填資料' : '修改資料',
             onClick: () => editCsvIdentity({ team: t, member: m, division: div, scope, onSaved: result => {
               Object.assign(m, result); render(); toast('球員資料已儲存，修改紀錄已保留。', 'success');
             } })
-          }, csvIdentityPending(m) ? '補填資料' : '修改資料') : null
+          }, icon('note')) : null
         ]))),
       el('button', { type: 'button', class: 'btn btn--sm', onClick: async () => {
         try { state.members[t.teamId] = await data.getMembers(t.teamId); state.error = null; }

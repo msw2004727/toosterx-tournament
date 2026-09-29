@@ -350,6 +350,25 @@ test('攤位登記手機：格式不對留在畫面上，不送出 @booth @conta
   expect(await page.evaluate(() => (window.__FAKE_CALLS || []).some(c => c.name === 'setPlayerContact'))).toBe(false);
 });
 
+test('窄螢幕電話輸入、操作按鈕及長暱稱紀錄不互相擠壓 @mobileaudit', async ({ page }) => {
+  await stub(page);
+  await page.addInitScript(() => { window.__FAKE_SEED['events/feda-cup-2026/players/FEDA-0182'].nickname = '挑戰攤位長暱稱測試球員'; });
+  await go(page); await ready(page); await lookup(page);
+  await page.locator('#booth-phone').fill('0987654321');
+  for (const width of [320, 360, 390, 430]) {
+    await page.setViewportSize({ width, height: 800 });
+    const phone = await page.locator('#booth-phone').boundingBox();
+    const button = await page.locator('#booth-phone-save').boundingBox();
+    expect(phone.width).toBeGreaterThanOrEqual(128);
+    expect(button.x >= phone.x + phone.width || button.y >= phone.y + phone.height).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  }
+  await page.getByRole('button', { name: '加一', exact: true }).click();
+  await page.getByRole('button', { name: /送出成績/ }).click();
+  await expect(page.locator('.booth__recentName').first()).toContainText('挑戰攤位長暱稱測試球員');
+  expect(await page.locator('.booth__recentName').first().evaluate(n => n.scrollWidth <= n.clientWidth + 1)).toBe(true);
+});
+
 // ── 2026-09-06 主辦驗收 M-9：家長的第二個小孩要在哪裡建卡、「已連線」白字看不見 ──
 test('⭐ 代建新卡：系統配號、寫進 players、成績可以直接登錄 @booth', async ({ page }) => {
   await stub(page);

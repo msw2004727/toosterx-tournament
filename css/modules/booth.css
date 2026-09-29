@@ -129,12 +129,12 @@
 /* ── 最近登錄（10 分鐘內可作廢）─────────────────────────── */
 .booth__recent{display:flex;flex-direction:column;gap:var(--sp-2);margin:0;padding:0;list-style:none}
 .booth__recentRow{
-  display:flex;align-items:center;gap:var(--sp-3);
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);
   padding:var(--sp-3);border:1px solid var(--border);border-radius:var(--r-md);
   background:var(--bg-card);
 }
 .booth__recentRow.is-voided{opacity:.55}
-.booth__recentMain{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.booth__recentMain{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 12rem;overflow-wrap:anywhere}
 .booth__recentName{font-size:var(--fs-md);color:var(--text-primary)}
 .booth__recentMeta{font-size:var(--fs-xs);color:var(--text-secondary);font-family:var(--font-num)}
 .booth__voidBtn{
@@ -157,7 +157,8 @@
 }
 
 /* ── 攤位替玩家登記中獎聯絡手機（docs/06 §7.2）── */
-.booth__contact{display:flex;gap:var(--sp-2);align-items:center;margin-top:var(--sp-2)}
+.booth__contact{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center;margin-top:var(--sp-2)}
+.booth__contact .btn{flex:none;white-space:nowrap}
 .booth__contact input{flex:1 1 8rem;min-width:0}
 
 

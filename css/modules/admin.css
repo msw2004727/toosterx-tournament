@@ -68,7 +68,7 @@
 .adm__itemMain{display:flex;flex-direction:column;gap:2px;flex:1 1 auto;min-width:0}
 .adm__teamName{
   font-size:var(--fs-md);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  overflow-wrap:anywhere;line-height:1.5;
 }
 .adm__teamMeta{font-size:var(--fs-xs);color:var(--text-secondary)}
 
@@ -106,17 +106,24 @@
 /* 名單 */
 .adm__roster{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none}
 .adm__member{
-  display:flex;align-items:baseline;gap:var(--sp-2);
+  display:grid;grid-template-columns:2.2em minmax(0,1fr) var(--tap);
+  grid-template-areas:"number name edit" "meta meta meta";
+  align-items:center;gap:var(--sp-1) var(--sp-2);min-width:0;
   padding:var(--sp-2) var(--sp-3);background:var(--bg-elevated);border-radius:var(--r-sm);
 }
 .adm__no{
-  flex:none;min-width:2.2em;text-align:center;
+  grid-area:number;min-width:0;text-align:center;
   font-family:var(--font-num);color:var(--text-primary);
 }
 .adm__memberName{
-  flex:1 1 auto;min-width:0;font-size:var(--fs-sm);color:var(--text-primary);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  grid-area:name;min-width:0;font-size:var(--fs-sm);color:var(--text-primary);
+  font-weight:600;line-height:1.5;overflow-wrap:anywhere;
 }
+.adm__memberEdit{
+  grid-area:edit;align-self:start;width:var(--tap);min-width:var(--tap);height:var(--tap);
+  padding:0;font-size:20px;border-color:var(--border);background:var(--bg-card);
+}
+.adm__memberEdit:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* 隊職員排在球員後面，灰一階——審核看的是球員 */
 .adm__member--staff{opacity:.7}
 .adm__identityDate{display:flex;gap:var(--sp-2);border:0;padding:0;min-width:0;margin:0 0 var(--sp-3)}
@@ -124,9 +131,12 @@
 .adm__identityInput{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:var(--sp-2);font:inherit;color:inherit;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--r-sm)}
 .adm__identityField{display:block;margin-block:var(--sp-3)}
 .adm__memberMeta{
-  flex:none;font-size:var(--fs-xs);color:var(--text-muted);
-  font-family:var(--font-num);
+  grid-area:meta;display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1) var(--sp-3);
+  min-width:0;font-size:var(--fs-sm);line-height:1.6;color:var(--text-secondary);
+  font-family:var(--font-num);font-variant-numeric:tabular-nums;
 }
+.adm__memberField{white-space:nowrap}
+.adm__memberPending{white-space:nowrap;padding:0 var(--sp-1);border-radius:var(--r-sm);background:var(--warn-bg);color:var(--warn-text)}
 
 /* ── 動作 ───────────────────────────────────────────────── */
 .adm__actions{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
@@ -148,9 +158,6 @@
 @media (max-width:359px){
   .adm{padding-left:var(--sp-2);padding-right:var(--sp-2)}
   .adm__detail{padding-left:var(--sp-2);padding-right:var(--sp-2)}
-  /* 窄機把名單的核對欄換到下一行，才不會把名字擠成兩個字 */
-  .adm__member{flex-wrap:wrap}
-  .adm__memberMeta{flex:1 1 100%;padding-left:calc(2.2em + var(--sp-2))}
 }
 
 /* ── 身分授權 ───────────────────────────────────────────── */

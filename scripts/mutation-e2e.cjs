@@ -16,6 +16,17 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
   {
+    name: '#E55 名冊退回單列 flex，姓名與核對資料被擠壓',
+    file: 'css/modules/admin.css',
+    from: 'display:grid;grid-template-columns:2.2em minmax(0,1fr) var(--tap);',
+    to: 'display:flex;grid-template-columns:2.2em minmax(0,1fr) var(--tap);'
+  },
+  {
+    name: '#E56 SVG 編輯鈕退回文字，窄機又出現直排',
+    file: 'js/modules/admin/teams.js',
+    from: "}, icon('note')) : null", to: "}, '修改資料') : null"
+  },
+  {
     name: '#E1 切換身分後寫完 staff 不重載身分（切了卻一個權限都沒有）',
     file: 'js/modules/demo/index.js',
     from: `  await reloadIdentity();`,
@@ -374,6 +385,6 @@ const MUTANTS = [
 
 process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js tests/e2e/register.spec.js --project=chromium-mobile --reporter=dot',
+  testCmd: 'npx playwright test tests/e2e/mobile-rosters.spec.js tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js tests/e2e/register.spec.js --project=chromium-mobile --reporter=dot',
   title: '前端時序｜E2E 變異測試'
 }));

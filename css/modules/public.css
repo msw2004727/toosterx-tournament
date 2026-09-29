@@ -252,13 +252,13 @@ button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-colo
 .proster__btn{
   /* 五個子節點就要五欄：背號／姓名＋隊長／位置／進球／箭頭。
      欄數少一個，多出來的那個會掉到第二行（320px 上特別明顯）。 */
-  display:grid;grid-template-columns:2.4em 1fr auto auto auto;gap:var(--sp-2);
+  display:grid;grid-template-columns:2.4em minmax(0,1fr) auto auto auto;gap:var(--sp-2);
   align-items:center;width:100%;min-height:var(--tap);padding:var(--sp-2) 0;text-align:left;
 }
-.proster__nameWrap{display:flex;align-items:center;gap:6px;min-width:0}
+.proster__nameWrap{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
 .proster__no{color:var(--text-muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 .proster__name{font-weight:700;font-size:var(--fs-sm);min-width:0;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  overflow-wrap:anywhere;line-height:1.5}
 .proster__tag{font-size:var(--fs-xs);color:var(--accent);background:var(--accent-bg);
   padding:1px 6px;border-radius:var(--r-full);white-space:nowrap}
 .proster__pos,.proster__goals{font-size:var(--fs-xs);color:var(--text-muted);white-space:nowrap}
@@ -268,7 +268,7 @@ button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-colo
   width:100%;min-height:var(--tap);border-top:1px solid var(--border);color:var(--text-primary)}
 .pteams li:first-child .pteams__btn{border-top:0}
 .pteams__name{font-weight:700;font-size:var(--fs-sm);min-width:0;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  overflow-wrap:anywhere;line-height:1.5}
 
 .papp{list-style:none;margin:0;padding:0}
 .papp__row{display:grid;grid-template-columns:auto 1fr auto;gap:var(--sp-2);
@@ -332,8 +332,7 @@ button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-colo
   .plineup{grid-template-columns:1fr;gap:var(--sp-3)}
   .ptl__item{grid-template-columns:3em auto 1fr;row-gap:0}
   .ptl__team{grid-column:3;font-size:10px;max-width:100%;text-align:right}
-  .proster__btn{grid-template-columns:2.2em 1fr auto auto}   /* 進球欄在窄機隱藏 */
-  .proster__goals{display:none}
+  .proster__btn{grid-template-columns:2.2em minmax(0,1fr) auto auto auto}
   .prec__cell{min-width:48px;padding:6px 2px}
 }
 

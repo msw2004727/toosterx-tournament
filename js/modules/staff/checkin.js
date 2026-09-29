@@ -230,10 +230,14 @@ export async function checkinPage({ params, scope, view }) {
           //    為什麼看不到——直接顯示空白會被當成資料沒填。
           can('member.read')
             ? el('span', { class: 'chk__verify' }, [
-                el('span', { class: 'chk__vLabel', text: '生日' }),
-                el('span', { class: 'chk__vValue num', text: m.birthRoc || '—' }),
-                el('span', { class: 'chk__vLabel', text: '末四碼' }),
-                el('span', { class: 'chk__vValue num', text: m.idLast4 || '—' })
+                el('span', { class: 'chk__verifyField' }, [
+                  el('span', { class: 'chk__vLabel', text: '生日' }),
+                  el('span', { class: 'chk__vValue num', text: m.birthRoc || '—' })
+                ]),
+                el('span', { class: 'chk__verifyField' }, [
+                  el('span', { class: 'chk__vLabel', text: '末四碼' }),
+                  el('span', { class: 'chk__vValue num', text: m.idLast4 || '—' })
+                ])
               ])
             : el('span', { class: 'chk__verify chk__verify--hidden', text: '主辦已關閉個資顯示' })
         ])
