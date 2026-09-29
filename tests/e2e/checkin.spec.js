@@ -17,12 +17,19 @@ const FAKE = fs.readFileSync(path.join(process.cwd(), 'tests/e2e/fake-firebase.j
 const EVENT = 'feda-cup-2026';
 const MATCH = 'U10-G-A-01';
 
-test('CSV 待補資料不能勾出賽，完整 CSV 可正常檢錄 @csvidentity', async ({ page }) => {
+test('CSV 待補資料不能勾出賽，其他球員可正常檢錄 @csvidentity', async ({ page }) => {
   await stub(page, { memberOver: { source: 'csv', birthDate: '', idLast4: '', identityComplete: false } });
   await page.goto(`/#/staff/checkin/${MATCH}`);
   await expect(page.getByLabel('小豆子 出賽', { exact: true })).toBeDisabled();
   await expect(page.getByText('待補資料・請管理員補齊生日與後四碼後再檢錄')).toBeVisible();
   await expect(page.getByLabel('阿光 出賽', { exact: true })).toBeEnabled();
+});
+test('補齊後的 CSV 球員可勾出賽並攜帶新版身分號碼 @csvidentity', async ({ page }) => {
+  await stub(page, { memberOver: { source: 'csv', identityComplete: true, identityRevision: 3 } });
+  await page.goto(`/#/staff/checkin/${MATCH}`);
+  await page.getByLabel('小豆子 出賽', { exact: true }).check();
+  await expect(page.getByLabel('小豆子 出賽', { exact: true })).toBeChecked();
+  await expect.poll(async () => (await page.evaluate(() => window.__fake.__dump()))[`events/${EVENT}/checkins/${MATCH}__m-1`]?.identityRevision).toBe(3);
 });
 
 const staffDoc = (roles) => ({
