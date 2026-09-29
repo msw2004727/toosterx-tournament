@@ -293,7 +293,7 @@ export async function adminTeamsPage({ scope, view }) {
     }
     if (status === 'approved') {
       return el('div', { class: 'adm__actions' }, [
-        el('p', { class: 'adm__note', text: '已通過，名單已鎖定。要改名單請先退回。' }),
+        el('p', { class: 'adm__note', text: t.source === 'csv' ? '已通過，可安排賽程。生日與後四碼請使用球員旁的「補填資料／修改資料」，不必退回球隊。' : '已通過，名單已鎖定。要改名單請先退回。' }),
         el('button', {
           class: 'btn btn--lg', type: 'button', disabled: state.busy,
           onClick: () => doReject(t, '（已通過後退回）')
