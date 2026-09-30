@@ -9,6 +9,7 @@
  */
 const fs = require('fs');
 const { execSync } = require('child_process');
+const { createSession, writeSource } = require('./mutation-session.cjs');
 
 /**
  * 變異進行中的標記。
@@ -32,6 +33,15 @@ const LOCK = '.mutation-in-progress.json';
  * @returns {number} process exit code
  */
 function runMutants({ mutants, testCmd, title = '變異測試' }) {
+  if (fs.existsSync(LOCK)) {
+    console.error('Mutation lock already exists; run mutation-guard and rerun only after resolving it');
+    return 1;
+  }
+  // 定向驗證仍經過同一份備份／還原守衛；未指定時 CI 照跑全套。
+  if (process.env.MUTATION_FILTER) {
+    mutants = mutants.filter(m => m.name.includes(process.env.MUTATION_FILTER));
+    if (!mutants.length) { console.error('沒有符合 MUTATION_FILTER 的變異'); return 1; }
+  }
   const read = f => fs.readFileSync(f, 'utf8');
   const backups = new Map();
   for (const f of new Set(mutants.map(x => x.file))) backups.set(f, read(f));
@@ -46,25 +56,20 @@ function runMutants({ mutants, testCmd, title = '變異測試' }) {
     console.error('\n❌ 這些檔案是 CRLF 行尾，多行的變異樣式會全部對不上：');
     for (const f of crlf) console.error(`   ・${f}`);
     console.error('\n   .gitattributes 已把行尾釘成 LF。請重新取出檔案：');
-    console.error('     git rm --cached -r . && git reset --hard\n');
+    console.error('     請保留既有修改，將檔案行尾轉為 LF 後再試\n');
     return 1;
   }
 
   // 有變異失敗時要還原所有檔案，否則會留下壞掉的原始碼
   // 記下 pid：守衛靠它分辨「變異還在跑」與「上一次被砍掉留下的殘骸」。
   // 沒有這個的話，在另一個視窗跑 npm test 會把正在進行的那一次還原掉。
-  fs.writeFileSync(LOCK, JSON.stringify({
-    pid: process.pid,
-    startedAt: new Date().toISOString(),
-    files: Object.fromEntries(backups)
-  }), 'utf8');
+  const session = createSession([...backups.keys()]);
 
   let restored = false;
   const restoreAll = () => {
     if (restored) return;
+    session.dispose();
     restored = true;
-    for (const [f, s] of backups) fs.writeFileSync(f, s, 'utf8');
-    try { fs.unlinkSync(LOCK); } catch { /* 已經不在就算了 */ }
   };
   process.on('exit', restoreAll);
   // SIGKILL 攔不住，那一種靠上面的 LOCK 檔案與 mutation-guard 收尾
@@ -84,14 +89,14 @@ function runMutants({ mutants, testCmd, title = '變異測試' }) {
       escaped.push(m.name + '（變異失效）');
       continue;
     }
-    fs.writeFileSync(m.file, orig.replace(m.from, m.to), 'utf8');
+    writeSource(m.file, orig.replace(m.from, m.to));
     let failed = false;
     try {
-      execSync(testCmd, { stdio: 'pipe', env: { ...process.env, FEDA_MUTATION_RUN: '1' } });
+      execSync(m.testCmd || testCmd, { stdio: 'pipe', env: { ...process.env, ...session.env } });
     } catch {
       failed = true;
     }
-    fs.writeFileSync(m.file, backups.get(m.file), 'utf8');
+    writeSource(m.file, backups.get(m.file));
 
     if (failed) { console.log(`✅ 抓到　${m.name}`); caught++; }
     else { console.log(`❌ 漏掉　${m.name}`); escaped.push(m.name); }
@@ -99,7 +104,7 @@ function runMutants({ mutants, testCmd, title = '變異測試' }) {
 
   // 還原後必須仍是綠的——否則代表還原本身出了問題
   try {
-    execSync(testCmd, { stdio: 'pipe', env: { ...process.env, FEDA_MUTATION_RUN: '1' } });
+    execSync(testCmd, { stdio: 'pipe', env: { ...process.env, ...session.env } });
   } catch (e) {
     console.error('\n❌ 還原之後測試仍是紅的，原始碼可能沒有被正確還原');
     return 1;

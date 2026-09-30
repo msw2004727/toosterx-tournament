@@ -9,13 +9,16 @@ on:
 jobs:
   static-checks:
     name: Static checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.23.2'
 
       # 變異測試會把原始碼「改回錯的」再跑一次測試。被強制中止時還原沒有機會
       # 執行，原始碼就停在被改壞的狀態——2026-09-03 就這樣把兩個 rules 漏洞
@@ -123,55 +126,90 @@ jobs:
             [ -e "$f" ] || continue
             node --check "$f"
           done
-          node --check functions/index.js
+          for f in functions/*.js scripts/lib/*.cjs; do node --check "$f"; done
 
   unit-tests:
     name: Unit tests (engine T01-T31 + staff core + theme/icons/undo)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.23.2'
           cache: npm
       - run: npm ci
       - run: npm run test:unit
+        timeout-minutes: 5
+      - run: npm run test:tooling
 
       # Mutation check: prove the suite can actually detect the defects it
       # is supposed to guard. A green suite with no discriminating power is
       # worse than no suite at all - this job has caught that before.
       - run: node scripts/mutation-check.cjs
+        timeout-minutes: 35
 
   e2e-tests:
     name: E2E (staff console, offline queue)
-    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.23.2'
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      # 有些缺陷是畫面層的時序（切換身分沒重載權限、功能區沒依權限過濾），
-      # 純函式測不到。這一支只跑目標 spec 的單一寬度，每條約 5 秒。
-      - run: npm run test:mutation:e2e
+        timeout-minutes: 20
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: playwright-report
-          path: playwright-report/
+          path: |
+            playwright-report/
+            test-results/e2e/
           retention-days: 7
+
+  e2e-mutations:
+    name: E2E mutations (exact assertions)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:mutation:e2e
+        timeout-minutes: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-mutation-evidence
+          path: test-results/mutation-e2e/
+          retention-days: 14
 
   functions-tests:
     name: Functions pipeline (F01-F13 + mutation)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.23.2'
           cache: npm
       - uses: actions/setup-java@v4
         with:
@@ -181,19 +219,36 @@ jobs:
       # 直接執行 onMemberWritten.run 的接線測試需要真正的 Functions SDK。
       - run: npm ci --prefix functions
       - run: npm run test:fn
+        timeout-minutes: 5
 
       # 同一套鑑別力要求：fail-closed 的程式碼在 happy path 上跟 fail-open
       # 長得一模一樣，只有變異測試分得出來。
       - run: npm run test:mutation:fn
+        timeout-minutes: 25
+      - run: npm run test:mutation:consistency
+        timeout-minutes: 7
+      - run: npx firebase emulators:exec --only firestore --project demo-rules-test "node scripts/mutation-audit.cjs"
+        timeout-minutes: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: consistency-mutation-evidence
+          path: |
+            test-results/mutation-consistency/
+            test-results/mutation-audit/
+          retention-days: 14
 
   rules-tests:
     name: Firestore rules (R01-R64 + mutation)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.23.2'
           cache: npm
       - uses: actions/setup-java@v4
         with:
@@ -201,7 +256,29 @@ jobs:
           java-version: '17'
       - run: npm ci
       - run: npm run test:rules
+        timeout-minutes: 5
 
       # 權限規則是最容易寫出「假守衛」的地方：放寬一條線，happy path 完全不受
       # 影響，測試照樣全綠。每一條邊界都要反向驗證一次。
       - run: npm run test:mutation:rules
+        timeout-minutes: 40
+
+  storage-tests:
+    name: Storage rules (Firestore roles)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - run: npm run test:storage
+        timeout-minutes: 10

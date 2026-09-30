@@ -23,8 +23,6 @@ const LOCK = '.mutation-in-progress.json';
 //    它跑的就是 `npm run test:unit`，而那條指令前面掛著這支守衛——
 //    不放行的話每一條變異都會因為守衛而失敗，看起來「全部被抓到」，
 //    等於整個變異測試變成一盞永遠是綠的燈（R-TEST-001 講的就是這種）。
-if (process.env.FEDA_MUTATION_RUN === '1') process.exit(0);
-
 if (!fs.existsSync(LOCK)) process.exit(0);
 
 let lock;
@@ -33,7 +31,7 @@ try {
 } catch (e) {
   console.error(`\n❌ ${LOCK} 讀不出來（${e.message}）。`);
   console.error('   這代表上一次變異測試被中斷，而且原始檔案的備份也壞了。');
-  console.error('   請用 `git status` 檢查有沒有非預期的改動，必要時 git checkout 還原。\n');
+  console.error('   請保留來源與備份，以 `git status` 和原始內容人工比對；不要覆蓋既有未提交修改。\n');
   process.exit(1);
 }
 
@@ -48,6 +46,8 @@ function isAlive(pid) {
 // 只提醒使用者等它結束——變異測試會反覆改寫原始碼，
 // 這時候跑任何測試，量到的都不是你以為的那份程式碼。
 if (isAlive(lock.pid)) {
+  if (process.env.FEDA_MUTATION_RUN === '1' && lock.token
+      && process.env.FEDA_MUTATION_TOKEN === lock.token) process.exit(0);
   console.error(`\n⏳ 變異測試正在執行中（pid ${lock.pid}，從 ${lock.startedAt} 開始）。`);
   console.error('   它會反覆改寫原始碼，這時候跑測試量到的不是你以為的那一份。');
   console.error('   請等它結束再試。\n');
@@ -55,17 +55,35 @@ if (isAlive(lock.pid)) {
 }
 
 const backups = lock.files || {};
+if (!backups || Array.isArray(backups) || typeof backups !== 'object' || !Object.keys(backups).length
+    || (lock.version != null && lock.version !== 2)) {
+  console.error('Invalid mutation backup format; inspect the lock before restoring'); process.exit(1);
+}
+// 先驗完整份備份，再動任何來源，避免第二個損壞項目造成只還原一半。
+for (const [file, saved] of Object.entries(backups)) {
+  const relative = require('node:path').relative(process.cwd(), require('node:path').resolve(file));
+  if (!relative || relative.startsWith('..') || require('node:path').isAbsolute(relative) || typeof saved !== 'string'
+      || (lock.version === 2 && Buffer.from(saved, 'base64').toString('base64') !== saved)) {
+    console.error('Invalid mutation backup path/content; inspect the lock before restoring'); process.exit(1);
+  }
+}
 
 console.error('\n❌ 偵測到上一次變異測試沒有正常結束（可能是被強制中止）。');
 console.error('   以下檔案可能停在「被改壞」的狀態，現在自動還原：\n');
 
 let changed = 0;
-for (const [file, original] of Object.entries(backups)) {
-  const now = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
-  if (now === original) {
+for (const [file, saved] of Object.entries(backups)) {
+  const target = require('node:path').resolve(file);
+  const relative = require('node:path').relative(process.cwd(), target);
+  if (relative.startsWith('..') || require('node:path').isAbsolute(relative) || typeof saved !== 'string') {
+    console.error('Invalid mutation backup path/content; inspect the lock before restoring'); process.exit(1);
+  }
+  const original = Buffer.from(saved, lock.version === 2 ? 'base64' : 'utf8');
+  const now = fs.existsSync(file) ? fs.readFileSync(file) : null;
+  if (now?.equals(original)) {
     console.error(`   ・${file}　（本來就是對的）`);
   } else {
-    fs.writeFileSync(file, original, 'utf8');
+  require('./lib/mutation-session.cjs').writeSource(file, original);
     console.error(`   ・${file}　⚠️ 已還原`);
     changed++;
   }

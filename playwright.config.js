@@ -8,24 +8,20 @@
  * 純靜態站不需要任何建置步驟，少一個會壞的環節。
  */
 import { defineConfig, devices } from '@playwright/test';
-import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
-const PORT = 5173;
+const PORT = Number(process.env.E2E_PORT || 5187);
+const ROOT = fileURLToPath(new URL('.', import.meta.url));
 
 /**
- * 有些環境（含本專案的開發沙箱）已預裝 Chromium，但版本與 @playwright/test
- * 期待的建置編號不同，預設會去下載新的。若偵測到系統已有 Chromium 就直接用，
- * 免得每次跑測試都要下載幾百 MB。
+ * 預設使用 lockfile 的 Playwright Chromium；本機替代版本必須明確指定。
  */
 function launch() {
-  const candidates = [
-    process.env.PLAYWRIGHT_CHROMIUM_PATH,
-    '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-    '/usr/bin/chromium',
-    '/usr/bin/google-chrome'
-  ].filter(Boolean);
-  const found = candidates.find(p => existsSync(p));
-  return found ? { launchOptions: { executablePath: found } } : {};
+  if (process.env.CI && process.env.PLAYWRIGHT_CHROMIUM_PATH) {
+    throw new Error('CI must use the Chromium build installed by the lockfile Playwright version');
+  }
+  return process.env.PLAYWRIGHT_CHROMIUM_PATH
+    ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } } : {};
 }
 
 export default defineConfig({
@@ -34,7 +30,8 @@ export default defineConfig({
   expect: { timeout: 6_000 },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: process.env.FEDA_MUTATION_RUN ? 0 : (process.env.CI ? 1 : 0),
+  outputDir: process.env.E2E_OUTPUT_DIR || 'test-results/e2e',
   // ⚠️ 本機也要**明確限制**併發數，不能留 undefined（Playwright 會用一半的核心數）。
   //    套件長到四百多條之後，核心多的機器會同時開太多分頁，Windows 的暫時埠
   //    被 TIME_WAIT 吃光，瀏覽器端丟 ERR_NO_BUFFER_SPACE——表現成隨機一條
@@ -45,7 +42,10 @@ export default defineConfig({
 
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
-    trace: 'on-first-retry',
+    // 一般 UI 測試以 page.route 提供 Firebase 替身，SW 的 fetch 會繞過它。
+    // prelaunch.spec 明確開啟 SW，改用 context.route 驗證真實離線生命週期。
+    serviceWorkers: 'block',
+    trace: process.env.FEDA_MUTATION_RUN ? 'retain-on-failure' : 'on-first-retry',
     screenshot: 'only-on-failure',
     locale: 'zh-TW',
     timezoneId: 'Asia/Taipei'
@@ -71,9 +71,10 @@ export default defineConfig({
     // ⚠️ 不要換回 `python3 -m http.server`。它在 Windows 上每個連線開一條
     //    執行緒，套件長到四百多條之後會出現 WinError 10053，表現成隨機一條
     //    測試在 waitForFunction 逾時——看起來像那條測試壞了，其實是伺服器。
-    command: `node scripts/dev-server.mjs ${PORT}`,
+    command: `"${process.execPath}" scripts/dev-server.mjs ${PORT}`,
+    cwd: ROOT,
     port: PORT,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 20_000
   }
 });
