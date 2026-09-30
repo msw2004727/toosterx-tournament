@@ -16,15 +16,16 @@
   "emulators": {
     "firestore": {
       "host": "127.0.0.1",
-      "port": 8187
+      "port": 8187,
+      "websocketPort": 9187
     },
     "auth": {
       "host": "127.0.0.1",
-      "port": 9099
+      "port": 9197
     },
     "functions": {
       "host": "127.0.0.1",
-      "port": 5001
+      "port": 5087
     },
     "storage": {
       "host": "127.0.0.1",
