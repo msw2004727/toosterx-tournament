@@ -95,6 +95,38 @@ beforeAll(() => {
 
 beforeEach(async () => { await clearFirestore(); await seed(); });
 
+test('同一玩家在兩個攤位同時送出，完成關卡與抽獎張數不能互相覆蓋', async () => {
+  const ids = [CROSSBAR.challengeId, FILLER[0].challengeId];
+  await Promise.all(ids.map((challengeId, i) => db.doc(`events/${E}/attempts/concurrent-${i}`).set({
+    attemptId: `concurrent-${i}`, playerId: 'FEDA-0001', challengeId, rawValue: 2,
+    voided: false, attemptAt: T('10:00'), createdAt: T('10:00')
+  })));
+  // 把非交易讀取的回應留到兩個攤位都讀完才放行，固定重現兩者拿到同一份舊進度。
+  // 交易讀取仍交給真 emulator 的鎖及重試，不攔截或模擬交易的正確性。
+  const playerPath = `events/${E}/players/FEDA-0001`;
+  const proto = Object.getPrototypeOf(db.doc(playerPath));
+  const originalGet = proto.get;
+  let reads = 0;
+  let release;
+  const bothRead = new Promise(resolve => { release = resolve; });
+  proto.get = async function (...args) {
+    const snap = await originalGet.apply(this, args);
+    if (this.path === playerPath) {
+      if (++reads === 2) release();
+      await bothRead;
+    }
+    return snap;
+  };
+  try {
+    await Promise.all(ids.map(challengeId => onAttemptSubmitted({ eventId: E, playerId: 'FEDA-0001', challengeId })));
+  } finally {
+    proto.get = originalGet;
+  }
+  const result = await player('FEDA-0001');
+  expect(result.completedChallengeIds.sort()).toEqual(ids.sort());
+  expect(result.luckyDrawEntries).toBe(2);
+}, 20_000); // 真交易可能退避重試；逾時仍是環境錯誤，不能算抓到變異。
+
 // ══════════════════════════════════════════════════════════════
 describe('FC01–FC02 最佳成績與排行榜', () => {
   test('FC01 ⭐ 送出一筆成績：isBest、排行榜、關卡統計都真的寫回 Firestore', async () => {

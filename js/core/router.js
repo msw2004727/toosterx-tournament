@@ -49,7 +49,7 @@ export function lazy(load, url) {
       return await load();
     } catch (err) {
       console.warn('[router] 模組載入失敗，重試一次', url, err);
-      return import(/* @vite-ignore */ `${url}?retry=${Date.now()}`);
+      return import(/* @vite-ignore */ `${url}${url.includes('?') ? '&' : '?'}retry=${Date.now()}`);
     }
   };
 }
@@ -142,7 +142,7 @@ async function handle(force = false) {
 
   const { r, m } = match;
   const params = Object.fromEntries(r.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
-  const scope = `${r.pattern}|${JSON.stringify(params)}`;
+  const scope = `${r.pattern}|${JSON.stringify(params)}|${gen}`;
   currentScope = scope;
 
   if (r.opts.title) document.title = `${r.opts.title}｜FEDA CUP 2026`;

@@ -22,7 +22,7 @@ export async function makeEnv() {
     projectId: 'demo-rules-test',
     firestore: {
       host: '127.0.0.1',
-      port: 8080,
+      port: Number(process.env.FIRESTORE_EMULATOR_HOST?.split(':').at(-1) || 8080),
       rules: fs.readFileSync('firestore.rules', 'utf8')
     }
   });

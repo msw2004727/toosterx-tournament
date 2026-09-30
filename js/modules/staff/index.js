@@ -8,22 +8,9 @@
  */
 
 import { route, navigate, lazy } from '../../core/router.js';
-import { onAuth, user, staff } from '../../core/firebase.js';
+import { whenAuthReady, user } from '../../core/firebase.js';
 import { el } from '../../core/ui.js';
 import { CACHE_VERSION } from '../../config.js';
-
-/** 等待第一次 auth 狀態回報（避免重新整理時誤判為未登入） */
-function whenAuthReady() {
-  return new Promise(resolve => {
-    let done = false;
-    const off = onAuth((u, s) => {
-      if (done) return;
-      done = true;
-      // onAuth 會立刻用目前值呼叫一次；若當下還沒初始化完，等下一次
-      setTimeout(() => { off(); resolve({ user: u, staff: s }); }, 0);
-    });
-  });
-}
 
 async function requireStaff() {
   await whenAuthReady();

@@ -11,7 +11,7 @@
  * 少一個索引、交易讀寫順序寫反、或 serverTimestamp 填在錯的層級。
  */
 import { db as adminDb } from '../../functions/admin.js';
-import { onMatchWritten, onTeamWritten, onTimelineWritten } from '../../functions/index.js';
+import { onMatchWritten, onTeamWritten, onTimelineWritten, onMemberWritten, onAttemptWritten } from '../../functions/index.js';
 
 import { FORMATS, RANKING_RULES } from '../../js/engine/formats.js';
 import {
@@ -26,6 +26,12 @@ const DIV = 'women';                       // F4_RR_FINAL：4 隊單循環 ＋ �
 const PROJECT = process.env.GCLOUD_PROJECT || 'demo-fn-test';
 
 let db;
+
+test('結果與名冊觸發器明確啟用失敗重試，暫時錯誤不會遺失更新', () => {
+  for (const handler of [onMatchWritten, onTeamWritten, onTimelineWritten, onMemberWritten, onAttemptWritten]) {
+    expect(handler.__endpoint.eventTrigger.retry).toBe(true);
+  }
+});
 
 const TEAMS = [
   { teamId: 't1', name: '飛達女子一隊', shortName: '飛達一', abbr: 'FD1' },
@@ -94,6 +100,7 @@ async function seed({ rankingRuleId = 'RR_FEDA_DEFAULT' } = {}) {
   b.set(db.doc('config/formats'), { formats: FORMATS });
   b.set(db.doc('config/rankingRules'), { rules: RANKING_RULES });
   b.set(db.doc(`events/${E}`), { eventId: E, name: 'FEDA CUP 2026' });
+  b.set(db.doc('staff/u-admin'), { active: true, roles: ['admin'], name: '管理員' });
 
   b.set(db.doc(`events/${E}/divisions/${DIV}`), {
     divisionId: DIV, name: '女子組', shortName: '女子',
@@ -483,6 +490,7 @@ describe('統計來源完整性與觸發器', () => {
     await onMatchWritten.run(eventOf(before, undefined));
     expect(await board('fairplay')).toEqual([]);
     expect(await board('scorers')).toEqual([]);
+    expect((await standing()).rows.every(r => r.played === 0)).toBe(true);
   });
   test('重開完賽場次後移除舊公開統計', async () => {
     await prepare();
@@ -507,6 +515,7 @@ describe('統計來源完整性與觸發器', () => {
       await onTimelineWritten.run(eventOf({}, { voided: true }, { timelineId: id }));
     }
     expect((await board('fairplay')).find(r => r.teamId === 't1')).toMatchObject({ fairPlayPoints: 0, yellow: 0 });
+    expect((await standing()).rows.find(r => r.teamId === 't1').fairPlayPoints).toBe(0);
     expect(await board('scorers')).toEqual([]);
   });
   test('球隊更名後紀律卡使用最新完整隊名', async () => {

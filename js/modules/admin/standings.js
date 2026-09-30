@@ -128,7 +128,7 @@ export async function adminStandingsPage({ scope, view }) {
     try {
       await data.setManualRanking({
         divisionId: s.divisionId, stageId: s.stageId, groupId: s.groupId,
-        pins, reason, drawSeed: seed
+        pins, reason, drawSeed: seed, expectedVersion: s.version ?? 0
       });
       toast('已裁定，晉級會自動解算');
     } catch (err) {
@@ -157,7 +157,7 @@ export async function adminStandingsPage({ scope, view }) {
     try {
       await data.setManualRanking({
         divisionId: s.divisionId, stageId: s.stageId, groupId: s.groupId,
-        clear: true, reason
+        clear: true, reason, expectedVersion: s.version ?? 0
       });
       toast('已解除裁定');
     } catch (err) {

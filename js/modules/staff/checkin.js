@@ -26,7 +26,7 @@ import { el, mount, toast, skeleton, confirmDialog } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
 import { csvIdentityPending } from '../../engine/member-identity.js';
-import { user, can, canCheckin } from '../../core/firebase.js';
+import { user, can, canCheckin, assignedToVenue } from '../../core/firebase.js';
 import { watchMatch, getDivision, writeAudit } from './data.js';
 import { watchCheckins, saveCheckin, getCheckinRoster, confirmCheckin, stamp } from './checkin-data.js';
 import {
@@ -139,6 +139,10 @@ export async function checkinPage({ params, scope, view }) {
     if (!state.loaded) return;
     if (!state.match) {
       mount(root, errorBox('找不到這場比賽', null));
+      return;
+    }
+    if (!assignedToVenue(state.match.venueId)) {
+      mount(root, errorBox('此場次不在你的指派場地，請聯絡主辦調整指派。', null));
       return;
     }
 
