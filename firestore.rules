@@ -178,6 +178,19 @@ service cloud.firestore {
         return v is number && v >= c.minValue && v <= c.maxValue;
       }
 
+      // 同一場比賽的子紀錄沿用場地限制，不能從子集合繞過主文件守衛。
+      function assignedMatch(mid) {
+        let p = /databases/$(db)/documents/events/$(eventId)/matches/$(mid);
+        return exists(p) && assignedVenue(get(p).data.venueId);
+      }
+      function matchTeam(mid, tid) {
+        let p = /databases/$(db)/documents/events/$(eventId)/matches/$(mid);
+        return exists(p) && tid in [get(p).data.home.teamId, get(p).data.away.teamId];
+      }
+      function unlockedMatch(mid) {
+        return get(/databases/$(db)/documents/events/$(eventId)/matches/$(mid)).data.lock.locked == false;
+      }
+
       // ── 組別／階段／小組 ──
       match /divisions/{divisionId} {
         allow read:  if true;
@@ -474,11 +487,13 @@ service cloud.firestore {
         // ── 比賽事件：永不刪除，只作廢 ──
         match /timeline/{timelineId} {
           allow read:   if true;
-          allow create: if (isScorer() || isAdmin())
+          allow create: if (isAdmin() || (isScorer() && assignedMatch(matchId) && unlockedMatch(matchId)))
                         && request.resource.data.createdBy == uid()
                         && request.resource.data.matchId == matchId;
           allow update: if isAdmin()
                         || (isScorer()
+                            && assignedMatch(matchId) && unlockedMatch(matchId)
+                            && request.resource.data.voidedBy == uid()
                             && onlyChanged(['voided', 'voidedBy', 'voidedAt', 'voidReason']));
           allow delete: if false;
         }
@@ -494,7 +509,11 @@ service cloud.firestore {
       // isReferee() 已含 scorer／admin／super_admin，不必再串 isAdmin()。
       match /matchSheets/{sheetId} {
         allow read:  if true;
-        allow write: if isReferee();
+        allow create, update: if isAdmin() || (isReferee()
+          && sheetId == request.resource.data.matchId + '__' + request.resource.data.teamId
+          && assignedMatch(request.resource.data.matchId)
+          && matchTeam(request.resource.data.matchId, request.resource.data.teamId));
+        allow delete: if isAdmin();
       }
 
       // ── 檢錄：doc id = matchId__memberId，天然防重複 ──
@@ -512,6 +531,8 @@ service cloud.firestore {
         }
         allow read:   if isCheckin();
         allow create: if isCheckin()
+                      && assignedMatch(request.resource.data.matchId)
+                      && matchTeam(request.resource.data.matchId, request.resource.data.teamId)
                       && identityReady()
                       && request.resource.data.scannedBy == uid()
                       && checkinId == request.resource.data.matchId + '__'
@@ -522,6 +543,8 @@ service cloud.firestore {
                       || ( isCheckin()
                            && onlyChanged(['result', 'failReason', 'note',
                                            'method', 'scannedBy', 'scannedAt', 'syncedAt', 'identityRevision'])
+                           && assignedMatch(resource.data.matchId)
+                           && matchTeam(resource.data.matchId, resource.data.teamId)
                            && request.resource.data.scannedBy == uid() ));
         allow delete: if false;
       }
@@ -581,6 +604,7 @@ service cloud.firestore {
         allow create: if isBooth()
                       && assignedChallenge(request.resource.data.challengeId)
                       && request.resource.data.staffUid == uid()
+                      && request.resource.data.createdAt == request.time
                       && validChallengeScore(request.resource.data.challengeId,
                                              request.resource.data.rawValue);
         // 攤位只能作廢自己 10 分鐘內送出的紀錄
@@ -600,7 +624,7 @@ service cloud.firestore {
       // ── 報名：公開表單，只能建 pending ──
       match /registrations/{regId} {
         allow read:   if isAdmin();
-        allow create: if request.resource.data.status == 'pending';
+        allow create: if regOpen() && request.resource.data.status == 'pending';
         allow update: if isAdmin();
         allow delete: if false;
       }

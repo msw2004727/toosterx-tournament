@@ -142,6 +142,7 @@ describe('FR01–FR04 公開投影', () => {
 describe('FR05 已核准人數', () => {
   test('FR05 memberCount 只算 approved，而且是一個數字', async () => {
     await memberRef('m-1').set(member({ memberId: 'm-1', status: 'approved' }));
+    await memberRef('m-2').set(member({ memberId: 'm-2', status: 'pending' }));
     await memberRef('m-2').set(member({ memberId: 'm-2', status: 'approved' }));
     await memberRef('m-3').set(member({ memberId: 'm-3', status: 'pending' }));
     await memberRef('m-4').set(member({ memberId: 'm-4', status: 'removed' }));

@@ -14,20 +14,8 @@
  */
 
 import { route, lazy } from '../../core/router.js';
-import { onAuth, user } from '../../core/firebase.js';
+import { whenAuthReady, user } from '../../core/firebase.js';
 import { CACHE_VERSION } from '../../config.js';
-
-/** 等待第一次 auth 狀態回報（避免重新整理時誤判為未登入） */
-function whenAuthReady() {
-  return new Promise(resolve => {
-    let done = false;
-    const off = onAuth(() => {
-      if (done) return;
-      done = true;
-      setTimeout(() => { off(); resolve(); }, 0);
-    });
-  });
-}
 
 async function requireLogin() {
   await whenAuthReady();

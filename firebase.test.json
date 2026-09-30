@@ -1,0 +1,47 @@
+{
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs22",
+    "predeploy": [
+      "node scripts/sync-engine.js"
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "firestore": {
+      "host": "127.0.0.1",
+      "port": 8187,
+      "websocketPort": 9187
+    },
+    "auth": {
+      "host": "127.0.0.1",
+      "port": 9197
+    },
+    "functions": {
+      "host": "127.0.0.1",
+      "port": 5087
+    },
+    "storage": {
+      "host": "127.0.0.1",
+      "port": 9297
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true,
+    "hub": {
+      "host": "127.0.0.1",
+      "port": 4487
+    },
+    "logging": {
+      "host": "127.0.0.1",
+      "port": 4587
+    }
+  }
+}

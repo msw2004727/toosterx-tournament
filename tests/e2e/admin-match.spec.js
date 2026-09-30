@@ -83,6 +83,40 @@ test.beforeEach(({ page }) => {
   page.on('console', m => { if (m.type() === 'error') console.log('[browser error]', m.text()); });
 });
 
+test('管理改判離線時立即拒絕，不排進工作人員離線佇列 @management', async ({ page, context }) => {
+  await stub(page); await go(page); await ready(page);
+  const before = await matchOf(page);
+  await page.locator('#sc-home').fill('3');
+  await context.setOffline(true);
+  try {
+    answerPrompt(page, '錄影核對');
+    await page.getByRole('button', { name: /^改判比分$/ }).click();
+    await page.locator('.modal').getByRole('button', { name: /^改判比分$/ }).click();
+  await expect(page.locator('.toast--error')).toContainText('這項管理操作需要連線');
+    expect(await matchOf(page)).toEqual(before);
+    expect(await page.evaluate(() => window.__fake.__pendingCount())).toBe(0);
+    expect(await page.evaluate(() => window.__FAKE_CALLS ?? [])).toEqual([]);
+  } finally { await context.setOffline(false); }
+});
+
+test('管理請求失敗保留原資料，重送使用相同操作代碼 @management', async ({ page }) => {
+  await stub(page); await go(page); await ready(page);
+  const before = await matchOf(page);
+  await page.locator('#sc-home').fill('3');
+  await page.evaluate(() => window.__fake.__failNext('unavailable'));
+  async function submit() {
+    answerPrompt(page, '錄影核對');
+    await page.getByRole('button', { name: /^改判比分$/ }).click();
+    await page.locator('.modal').getByRole('button', { name: /^改判比分$/ }).click();
+  }
+  await submit(); await expect(page.locator('.toast--error')).toContainText('尚未確認這次操作的結果');
+  expect(await matchOf(page)).toEqual(before); expect(await auditsOf(page)).toEqual([]);
+  await submit(); await expect.poll(async () => (await matchOf(page)).score.home).toBe(3);
+  const calls = await page.evaluate(() => window.__FAKE_CALLS);
+  expect(calls).toHaveLength(2); expect(calls[1].payload.operationId).toBe(calls[0].payload.operationId);
+  expect(await auditsOf(page)).toHaveLength(1);
+});
+
 test('⭐ 記錄員進不來，而且看得到原因 @adminmatch', async ({ page }) => {
   await stub(page, { roles: ['scorer'] });
   await go(page);
@@ -324,7 +358,7 @@ test('⭐ 裁決不成立：保證金不予發還、徽章跟著變、留痕 @ad
   await expect.poll(async () => (await appealOf(page))?.status, { timeout: 15_000 }).toBe('dismissed');
   expect((await appealOf(page)).decision).toMatchObject({ upheld: false, depositReturned: false });
   expect((await matchOf(page)).appeal).toEqual({ status: 'dismissed', teamId: 't-1' });
-  expect((await auditsOf(page)).some(a => a.action === 'appeal.decided' && a.after?.depositReturned === false)).toBe(true);
+  expect((await auditsOf(page)).some(a => a.action === 'appeal.decided' && a.after?.appeal?.decision?.depositReturned === false)).toBe(true);
 });
 
 test('⭐ 裁決成立：退還保證金 @adminmatch @appeal', async ({ page }) => {
@@ -430,7 +464,7 @@ test('⭐ D-11 改判之後 walkoverSide 清掉（不再同時說「棄賽」與
   answerPrompt(page, '記錯了');
   await page.getByRole('button', { name: /^改判比分$/ }).click();
   await page.locator('.modal').getByRole('button', { name: /^改判比分$/ }).click();
-  await expect.poll(async () => (await matchOf(page))?.score?.away, { timeout: 15_000 }).toBe(1);
+  await expect.poll(async () => (await matchOf(page))?.score?.home, { timeout: 15_000 }).toBe(1);
   expect((await matchOf(page)).walkoverSide).toBeNull();
 });
 

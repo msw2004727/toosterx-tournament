@@ -12,6 +12,19 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#PRE1 刪除比賽不重算積分榜', file: 'functions/index.js',
+    from: 'if (group.exists) await recalcStandingForMatch', to: 'if (false) await recalcStandingForMatch',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/pipeline.test.js --testNamePattern=刪除最後一場 --silent' },
+  { name: 'FN#PRE2 作廢紅黃牌不重算積分榜', file: 'functions/index.js',
+    from: 'await recalcStandingForMatch({ eventId, match: { ...match, matchId } });', to: '',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/pipeline.test.js --testNamePattern=完賽後作廢 --silent' },
+  { name: 'FN#PRE3 玩家進度讀取移出交易', file: 'functions/pipeline.js',
+    from: 'const snap = await tx.get(ref);\n    const attempts = await loadPlayerAttempts',
+    to: 'const snap = await ref.get();\n    const attempts = await loadPlayerAttempts',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/challenge.test.js --testNamePattern=同一玩家 --silent' },
+  { name: 'FN#PRE4 移除失敗重試', file: 'functions/index.js',
+    from: "document: 'events/{eventId}/matches/{matchId}', retry: true", to: "document: 'events/{eventId}/matches/{matchId}', retry: false",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/pipeline.test.js --testNamePattern=明確啟用失敗重試 --silent' },
   { name: 'FN#DISC5 沒有讀取組別的退賽保留政策', file: 'functions/pipeline.js',
     from: 'const withdrawalPolicy = divisionSnap.data()?.withdrawalPolicy;', to: 'const withdrawalPolicy = undefined;' },
   { name: 'FN#DISC1 刪除場次不更新公開榜', file: 'functions/index.js',
@@ -70,7 +83,7 @@ const MUTANTS = [
   {
     name: 'FN#3 晉級解算不看前置條件（分組賽還沒打完就把 A1 填進冠軍賽）',
     file: 'functions/pipeline.js',
-    from: '  if (!gate.ready && !force) {',
+    from: '  if (!gate.ready && (!force || division.manualHold === true)) {',
     to: '  if (false) {'
   },
   {
@@ -124,20 +137,20 @@ const MUTANTS = [
   {
     name: 'FN#12 不是 approved 時不刪投影（被移除的隊員留在公開名冊上）',
     file: 'functions/pipeline.js',
-    from: `    await rosterRef.delete().catch(() => {});   // 本來就沒有也算成功`,
+    from: `    tx.delete(rosterRef);   // 不存在也成功；提交錯誤傳出，由 trigger 重試`,
     to: `    // noop`
   },
   {
     name: 'FN#13 重複申請退掉先送的那一筆（後來的把先來的擠掉）',
     file: 'functions/pipeline.js',
-    from: `    .filter(d => d.id !== memberId && d.data().status === 'pending');`,
-    to: `    .filter(d => d.id !== memberId);`
+    from: `  pending.sort((a, b) => (ms(a) - ms(b)) || a.id.localeCompare(b.id, 'en'));`,
+    to: `  pending.sort((a, b) => (ms(b) - ms(a)) || b.id.localeCompare(a.id, 'en'));`
   },
   {
     name: 'FN#14 已核准人數把待審的也算進去',
     file: 'functions/pipeline.js',
-    from: `    .collection('members').where('status', '==', 'approved').get();`,
-    to: `    .collection('members').get();`
+    from: `    .collection('members').where('status', '==', 'approved');`,
+    to: `    .collection('members');`
   },
   {
     name: 'FN#15 config/liff 讀不到就套一個預設 channelId（fail-open，等於誰的 token 都收）',
@@ -156,20 +169,20 @@ const MUTANTS = [
   {
     name: 'FN#17 ⭐ 抽獎張數用累加（觸發器重放就多發一張，而券收不回來）',
     file: 'functions/pipeline.js',
-    from: `  await ref.update({
-    completedChallengeIds: completed,
-    luckyDrawEntries: entries,`,
-    to: `  await ref.update({
-    completedChallengeIds: completed,
-    luckyDrawEntries: FieldValue.increment(1),`
+    from: `    tx.update(ref, {
+      completedChallengeIds: completed,
+      luckyDrawEntries: entries,`,
+    to: `    tx.update(ref, {
+      completedChallengeIds: completed,
+      luckyDrawEntries: FieldValue.increment(1),`
   },
   {
     name: 'FN#18 ⭐ 一關全部作廢時不從完成清單移除（玩家留著那張券）',
     file: 'functions/pipeline.js',
-    from: `  } else if (cur.includes(challengeId)) {
-    completed = cur.filter(id => id !== challengeId);      // 全部作廢 → 退回
-  }`,
-    to: `  }`
+    from: `    } else if (cur.includes(challengeId)) {
+      completed = cur.filter(id => id !== challengeId);      // 全部作廢 → 退回
+    }`,
+    to: `    }`
   },
   {
     name: 'FN#19 ⭐ 排行榜的 totalPlayers 用截斷後的列數（第 51 名之後算不出名次）',
@@ -182,10 +195,10 @@ const MUTANTS = [
   {
     name: 'FN#20 ⭐ 關卡統計把作廢的也算進去（活動成效報告虛胖）',
     file: 'functions/pipeline.js',
-    from: `  const live = attempts.filter(a => a?.voided !== true);
-  const stats = {`,
-    to: `  const live = attempts;
-  const stats = {`
+    from: `    const live = attempts.filter(a => a?.voided !== true);
+    const stats = {`,
+    to: `    const live = attempts;
+    const stats = {`
   },
   {
     name: 'FN#21 ⭐ 關卡設定讀不到就套一份預設（算錯的排行榜跟算對的長得一樣）',
@@ -238,8 +251,10 @@ const MUTANTS = [
 // 所以那個守衛不是承重牆，變異也就抓不到——留一條永遠漏掉的變異
 // 只會讓整份報告失去意義，不如寫清楚為什麼沒有它。
 
-process.exit(runMutants({
+module.exports = { MUTANTS };
+if (require.main === module) process.exit(runMutants({
   mutants: MUTANTS,
-  testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/ --silent',
+  // 原有四個套件保持完整；新一致性案例與可信變異由独立指令驗證。
+  testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/pipeline.test.js tests/functions/challenge.test.js tests/functions/registration.test.js tests/functions/team-import.test.js --silent',
   title: '結果管線｜變異測試'
 }));

@@ -36,7 +36,7 @@ import { navigate } from '../../core/router.js';
 import { hhmm, dateLabelFromYmd } from '../../lib/format.js';
 import {
   drawOrder, pickFormatFor, genericFormat, checkSchedule,
-  assignMatchNos, shiftMatches, kickoffMsOf, taipeiMs
+  shiftMatches, kickoffMsOf, taipeiMs
 } from '../../engine/schedule.js';
 import {
   approvedTeamsOf, scheduleConfigOf, venuesForDate, canRegenerate,
@@ -195,33 +195,9 @@ export async function adminSchedulePage({ scope, view }) {
 
     state.busy = 'generate'; render();
     try {
-      // 通用範本要先寫進 config/formats：Cloud Functions 解晉級時讀的是那一份，
-      // 只改 division.formatId 會讓晉級在比賽當天才失敗
-      if (source === 'generated') {
-        await data.addFormat(format);
-      }
-      if (existing().length) await data.deleteMatches(existing().map(m => m.matchId));
-
-      await data.writeStagesAndGroups(div.divisionId, plan.stages, plan.groupDocs);
-      await data.writeStandings(div.divisionId, plan.groupDocs, teamsById());
-      await data.writeTeamGroups(plan.assignments);
-      await data.writeMatches(plan.matches.map(m => ({
-        matchId: m.matchId,
-        merge: false,
-        data: matchDocOf({ m, division: div, eventId: EVENT_ID })
-      })));
-      await data.updateDivision(div.divisionId, {
-        formatId: format.formatId,
-        schedulePublished: false,
-        draw: { seed: d.seed, at: null, method: d.seed == null ? 'manual' : 'random' }
-      });
-      await data.writeAudit({
-        action: 'schedule.generate',
-        targetType: 'division', targetId: div.divisionId,
-        before: { matches: existing().length },
-        after: { matches: plan.matches.length, formatId: format.formatId, drawSeed: d.seed },
-        reason: d.seed == null ? '手動指定分組' : `抽籤（種子 ${d.seed}）`
-      });
+      await data.generateSchedule({ divisionId: div.divisionId, expectedRevision: div.scheduleRevision ?? 0,
+        orderedTeamIds: d.order.map(t => t.teamId), formatId: format.formatId,
+        generated: source === 'generated', groupCount: d.groupCount ?? null, drawSeed: d.seed ?? null });
       toast(`已產生 ${plan.matches.length} 場`);
       await load();
     } catch (err) {
@@ -254,20 +230,9 @@ export async function adminSchedulePage({ scope, view }) {
 
     state.busy = 'place'; render();
     try {
-      await data.writeMatches(placed.map(m => ({
-        matchId: m.matchId,
-        data: movePatch({
-          kickoffMs: m.kickoffMs, venueId: m.venueId,
-          venueName: state.venues.find(v => v.venueId === m.venueId)?.name ?? m.venueName
-        })
-      })));
-      await renumber(placed.map(m => ({ ...m, kickoffAt: m.kickoffMs })));
-      await data.writeAudit({
-        action: 'schedule.place',
-        targetType: 'division', targetId: div.divisionId,
-        before: null, after: { placed: placed.length, unplaced: unplaced.length },
-        reason: '自動排定時間與場地'
-      });
+      await data.manageSchedule(div, { action: 'schedule.place', reason: '自動排定時間與場地',
+        updates: placed.map(m => ({ matchId: m.matchId, patch: movePatch({ kickoffMs: m.kickoffMs,
+          venueId: m.venueId, venueName: state.venues.find(v => v.venueId === m.venueId)?.name ?? m.venueName }) })) });
       toast(`已排定 ${placed.length} 場`);
       await load();
     } catch (err) {
@@ -283,28 +248,13 @@ export async function adminSchedulePage({ scope, view }) {
    * 有場次開打之後就不重編（`frozen`）——那時候重編會讓紙本賽程表與
    * 現場廣播的「第 31 場」全部對不上。
    */
-  async function renumber(updatedSubset = []) {
-    const merged = state.matches.map(m => {
-      const hit = updatedSubset.find(x => x.matchId === m.matchId);
-      return hit ? { ...m, kickoffAt: hit.kickoffAt } : m;
-    });
-    const frozen = merged.some(m => !NOT_STARTED.includes(m.status) || hadResult(m));
-    const nos = assignMatchNos(merged, { frozen });
-    if (!nos.length) return;
-    await data.writeMatches(nos.map(n => ({ matchId: n.matchId, data: { matchNo: n.matchNo } })));
-  }
 
   async function moveOne(match, patch) {
     state.busy = match.matchId; render();
     try {
-      await data.writeMatches([{ matchId: match.matchId, data: patch }]);
-      await data.writeAudit({
-        action: 'schedule.move',
-        targetType: 'match', targetId: match.matchId,
-        before: { kickoffAt: kickoffMsOf(match), venueId: match.venueId ?? null },
-        after: { kickoffAt: patch.kickoffAt ? patch.kickoffAt.getTime() : null, venueId: patch.venueId },
-        reason: null
-      });
+      await data.manageSchedule(division(), { action: 'schedule.move', updates: [{ matchId: match.matchId, patch }] });
+      // 下一次操作必須使用新交易版本。
+      const div = division(); div.scheduleRevision = (div.scheduleRevision ?? 0) + 1;
       // patch 一定同時帶時間與場地，所以整包套用——用 `??` 保留舊值的話，
       // 「把時間清掉」會變成「什麼都沒發生」，而畫面看起來像成功了
       const i = state.matches.findIndex(m => m.matchId === match.matchId);
@@ -343,15 +293,8 @@ export async function adminSchedulePage({ scope, view }) {
 
     state.busy = 'shift'; render();
     try {
-      await data.writeMatches(plan.updates.map(u => ({
-        matchId: u.matchId, data: { kickoffAt: new Date(u.kickoffMs) }
-      })));
-      await data.writeAudit({
-        action: 'schedule.shift',
-        targetType: 'division', targetId: state.divisionId,
-        before: { fromMs }, after: { deltaMin: mins, moved: plan.updates.length },
-        reason: `整體順延 ${mins} 分鐘`
-      });
+      await data.manageSchedule(division(), { action: 'schedule.shift', reason: `整體順延 ${mins} 分鐘`,
+        updates: plan.updates.map(u => ({ matchId: u.matchId, patch: { kickoffAt: new Date(u.kickoffMs) } })) });
       toast(`已順延 ${plan.updates.length} 場`);
       await load();
     } catch (err) {
@@ -376,18 +319,7 @@ export async function adminSchedulePage({ scope, view }) {
     }
     state.busy = 'publish'; render();
     try {
-      // 發布是這份賽程定案的時刻，場次號在這裡補齊。
-      // 逐場改時間時不補：每改一格就重編一次號碼，會產生一整批
-      // 沒有必要的寫入，而且每一筆都要留痕。
-      if (next) await renumber();
-      await data.updateDivision(div.divisionId, { schedulePublished: next });
-      await data.writeAudit({
-        action: next ? 'schedule.publish' : 'schedule.unpublish',
-        targetType: 'division', targetId: div.divisionId,
-        before: { schedulePublished: div.schedulePublished !== false },
-        after: { schedulePublished: next },
-        reason: null
-      });
+      await data.manageSchedule(div, { action: next ? 'schedule.publish' : 'schedule.unpublish' });
       toast(next ? '已發布，公開端看得到了' : '已收回');
       await load();
     } catch (err) {

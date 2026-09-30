@@ -12,9 +12,19 @@
  *
  *   node scripts/mutation-e2e.cjs
  */
-const { runMutants } = require('./lib/mutate.cjs');
+const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#PRE1 不等 Firebase 恢復登入', file: 'js/core/firebase.js',
+    from: 'export const whenAuthReady = () => authReady;', to: 'export const whenAuthReady = () => Promise.resolve();',
+    testCmd: 'npx playwright test tests/e2e/prelaunch.spec.js --project=chromium-mobile --grep 恢復登入 --reporter=dot' },
+  { name: '#PRE2 停用帳號仍有前端權限', file: 'js/core/firebase.js',
+    from: 'currentStaff = nextStaff?.active === true ? nextStaff : null;', to: 'currentStaff = nextStaff;',
+    testCmd: 'npx playwright test tests/e2e/prelaunch.spec.js --project=chromium-mobile --grep 停用帳號 --reporter=dot' },
+  { name: '#PRE3 舊身分回應覆蓋新帳號', file: 'js/core/firebase.js',
+    from: '  if (gen !== identityGeneration) return currentStaff;\n  currentStaff = nextStaff?.active === true ? nextStaff : null;',
+    to: '  currentStaff = nextStaff?.active === true ? nextStaff : null;',
+    testCmd: 'npx playwright test tests/e2e/prelaunch.spec.js --project=chromium-mobile --grep 切換帳號 --reporter=dot' },
   { name: '#EDISC1 公開端重新顯示不存在球隊', file: 'js/modules/public/data.js',
     from: 'board.rows = (board.rows || []).filter(r => teams.get(r.teamId)?.divisionId === r.divisionId);', to: 'board.rows = board.rows || [];' },
   { name: '#EDISC2 統計錯誤誤當作空資料', file: 'js/modules/public/stats.js',
@@ -98,8 +108,16 @@ const MUTANTS = [
   {
     name: '#E4 ⭐ 權限開關整份覆蓋（同一個角色其他權限被靜靜抹掉）',
     file: 'js/modules/admin/data.js',
-    from: `  }, { merge: true });`,
-    to: `  });`
+    from: `  await setDoc(doc(db(), 'rolePermissions', role), {
+    ...patch,
+    updatedAt: serverTimestamp(),
+    updatedBy: uid()
+  }, { merge: true });`,
+    to: `  await setDoc(doc(db(), 'rolePermissions', role), {
+    ...patch,
+    updatedAt: serverTimestamp(),
+    updatedBy: uid()
+  });`
   },
   {
     name: '#E5 ⭐ 替身 SDK 的 merge 退回淺層（會證明「整份覆蓋」是對的）',
@@ -257,9 +275,9 @@ const MUTANTS = [
   },
   {
     name: '#E28 ⭐ 重開不讀事件流（timeline 打到下半場也退回第一期；D-06）',
-    file: 'js/modules/admin/match.js',
-    from: `      patch: buildReopenPatch(user()?.uid, events),`,
-    to: `      patch: buildReopenPatch(user()?.uid),`
+    file: 'js/engine/admin-match.js',
+    from: `    period: lastPlayedPeriod(events),`,
+    to: `    period: lastPlayedPeriod([]),`
   },
   {
     name: '#E29 ⭐ 賽務台的球員選單也列出教練（D-08）',
@@ -434,8 +452,20 @@ const MUTANTS = [
   }
 ];
 
-process.exit(runMutants({
-  mutants: MUTANTS,
-  testCmd: 'npx playwright test tests/e2e/discipline.spec.js tests/e2e/jersey-public-teams.spec.js tests/e2e/home-division-design.spec.js tests/e2e/button-system.spec.js tests/e2e/mobile-rosters.spec.js tests/e2e/demo-switch.spec.js tests/e2e/my-home.spec.js tests/e2e/admin-perms.spec.js tests/e2e/perm-effect.spec.js tests/e2e/checkin.spec.js tests/e2e/admin-audits.spec.js tests/e2e/admin-registration.spec.js tests/e2e/admin-match.spec.js tests/e2e/challenge.spec.js tests/e2e/admin-schedule.spec.js tests/e2e/audit-fixes.spec.js tests/e2e/booth.spec.js tests/e2e/register.spec.js --project=chromium-mobile --reporter=dot',
-  title: '前端時序｜E2E 變異測試'
-}));
+MUTANTS.push({name:'#E60 ⭐ 管理請求回應不明卻顯示一般失敗，無法區分未確認的結果',file:'js/modules/admin/data.js',
+  from:"if (['unavailable', 'deadline-exceeded', 'internal', 'unknown'].includes(code) || !err?.code)",to:'if (false)'});
+module.exports = { MUTANTS };
+if (require.main === module) {
+  const contracts = require('./mutation-e2e-contracts.cjs');
+  const mutants = MUTANTS.map(m => {
+    const id = /^#(\w+)\s/.exec(m.name)?.[1];
+    return { ...m, id, ...contracts[id] };
+  });
+  const args = process.argv.slice(2);
+  if (args[0] === '--list' && args.length === 1) {
+    console.log(JSON.stringify(mutants, null, 2));
+  } else if (!args.length || (args[0] === '--only' && args.length === 2)) {
+    runE2EMutants({ mutants, ids: args[1] }).then(code => { process.exitCode = code; })
+      .catch(e => { console.error(e); process.exitCode = 1; });
+  } else { console.error('Usage: node scripts/mutation-e2e.cjs [--list | --only E55,E56]'); process.exitCode = 1; }
+}
