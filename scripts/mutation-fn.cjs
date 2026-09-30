@@ -143,8 +143,8 @@ const MUTANTS = [
   {
     name: 'FN#13 重複申請退掉先送的那一筆（後來的把先來的擠掉）',
     file: 'functions/pipeline.js',
-    from: `  const pending = snap.docs.filter(d => d.data().status === 'pending');`,
-    to: `  const pending = snap.docs;`
+    from: `  pending.sort((a, b) => (ms(a) - ms(b)) || a.id.localeCompare(b.id, 'en'));`,
+    to: `  pending.sort((a, b) => (ms(b) - ms(a)) || b.id.localeCompare(a.id, 'en'));`
   },
   {
     name: 'FN#14 已核准人數把待審的也算進去',
