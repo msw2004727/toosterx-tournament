@@ -83,6 +83,7 @@ export async function recalcStandingForGroup({ eventId, divisionId, stageId, gro
     if (manualChange && !prev) throw new Error(`這一組還沒有積分榜可以裁定：${standingId}`);
     if (manualChange && manualPins?.some(p => !teamIds.includes(p.teamId))) throw new Error('裁定裡有不屬於這一組的隊伍');
     if (manualChange?.expectedVersion != null && prev.version !== manualChange.expectedVersion) throw Object.assign(new Error('積分榜已更新，請重新載入'), { code: 'aborted' });
+    if (manualChange && (division.scheduleRevision ?? 0) !== (manualChange.expectedScheduleRevision ?? 0)) throw Object.assign(new Error('賽程已重產，請重新載入積分榜後再裁定'), { code: 'aborted' });
 
     const teams = await loadTeams(eventId, teamIds, tx);
     const matches = stageMatches.filter(m => m.groupId === groupId);
@@ -113,15 +114,18 @@ export async function recalcStandingForGroup({ eventId, divisionId, stageId, gro
       pins: manualPins ?? (prev?.rows || []).filter(r => r.locked).map(r => ({ teamId: r.teamId, rank: r.rank })) });
     if (manualChange) doc.manualOverride = { enabled: manualChange.enabled, by: actorUid,
       at: FieldValue.serverTimestamp(), reason: manualChange.reason, drawSeed: manualChange.drawSeed ?? null };
-    tx.set(ref, { ...doc, sourceHash, computedAt: FieldValue.serverTimestamp() });
+    tx.set(ref, { ...doc, sourceHash, scheduleRevision: division.scheduleRevision ?? 0,
+      generationId: division.scheduleGenerationId ?? null, computedAt: FieldValue.serverTimestamp() });
     const diff = diffRanking(prev, doc);
     if (diff.changed) writeAudit(eventId, { entity: 'standing', entityId: standingId,
       action: 'standing.rankChanged', before: rankSnapshot(prev), after: rankSnapshot(doc), actor,
       reason: '依交易內最新場次、隊伍與紀律事件重算' }, tx);
     if (manualChange) writeAudit(eventId, { entity: 'standing', entityId: standingId,
       action: manualChange.enabled ? 'standing.manualRanking' : 'standing.clearManualRanking',
-      before: { rows: rankSnapshot(prev), hasUnresolvedTie: prev.hasUnresolvedTie ?? null },
-      after: { pins: manualPins, drawSeed: manualChange.drawSeed ?? null }, actor, reason: manualChange.reason }, tx);
+      before: { rows: rankSnapshot(prev), hasUnresolvedTie: prev.hasUnresolvedTie ?? null,
+        version: prev.version, scheduleRevision: division.scheduleRevision ?? 0 },
+      after: { pins: manualPins, drawSeed: manualChange.drawSeed ?? null,
+        version: doc.version, scheduleRevision: division.scheduleRevision ?? 0 }, actor, reason: manualChange.reason }, tx);
     if (division.finalRankingPublished === true && prev?.sourceHash !== sourceHash) {
       invalidateRankingTx(tx, eventId, divisionId, division, actor, '積分來源已變更');
     }
@@ -886,7 +890,7 @@ export async function playerProgress({ eventId, playerId }) {
  * @param {number|null} [o.drawSeed] 用抽籤決定時的亂數種子（要能重放）
  */
 export async function setManualRankingFor({
-  eventId, divisionId, stageId, groupId, pins, reason, actorUid = null, drawSeed = null, expectedVersion = null
+  eventId, divisionId, stageId, groupId, pins, reason, actorUid = null, drawSeed = null, expectedVersion = null, expectedScheduleRevision = 0
 }) {
   if (!eventId || !divisionId || !stageId || !groupId) throw new Error('需要 eventId / divisionId / stageId / groupId');
   if (!Array.isArray(pins) || !pins.length) throw new Error('需要至少一筆裁定名次');
@@ -895,15 +899,15 @@ export async function setManualRankingFor({
       || new Set(pins.map(p => p.rank)).size !== pins.length
       || new Set(pins.map(p => p.teamId)).size !== pins.length) throw new Error('同一個名次被指派給兩隊或名次不正確');
   const result = await recalcStandingForGroup({ eventId, divisionId, stageId, groupId, manualPins: pins, actorUid,
-    manualChange: { enabled: true, reason: String(reason).trim().slice(0, 500), drawSeed, expectedVersion } });
+    manualChange: { enabled: true, reason: String(reason).trim().slice(0, 500), drawSeed, expectedVersion, expectedScheduleRevision } });
   const downstream = await resolveDownstreamOf({ eventId, divisionId, stageId, actorUid });
   return { ...result, downstream };
 }
 
-export async function clearManualRankingFor({ eventId, divisionId, stageId, groupId, reason, actorUid = null, expectedVersion = null }) {
+export async function clearManualRankingFor({ eventId, divisionId, stageId, groupId, reason, actorUid = null, expectedVersion = null, expectedScheduleRevision = 0 }) {
   if (!String(reason ?? '').trim()) throw new Error('解除裁定一定要填原因');
   const result = await recalcStandingForGroup({ eventId, divisionId, stageId, groupId, manualPins: [], actorUid,
-    manualChange: { enabled: false, reason: String(reason).trim().slice(0, 500), expectedVersion } });
+    manualChange: { enabled: false, reason: String(reason).trim().slice(0, 500), expectedVersion, expectedScheduleRevision } });
   const downstream = await resolveDownstreamOf({ eventId, divisionId, stageId, actorUid });
   return { ...result, downstream };
 }

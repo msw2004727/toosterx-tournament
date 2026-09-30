@@ -282,3 +282,17 @@ test('MC31 0:0 開打後取消仍有期別紀錄，不能當成未開打重產',
   await expect(generateScheduleFor(generation())).rejects.toMatchObject({code:'failed-precondition'});
   expect((await match('g1').get()).exists).toBe(true);expect((await audit('schedule.generate')).size).toBe(0);
 });
+
+test('MC32 重產後積分榜版本重用，舊賽程的裁定仍必須拒絕且沒有稽核副作用',async()=>{
+  await generateScheduleFor(generation());
+  const ref=base().collection('standings').doc(`${D}__group__A`),before=(await ref.get()).data();
+  await generateScheduleFor(generation('generation-2',{expectedRevision:1}));
+  const after=(await ref.get()).data();expect(after.version).toBe(before.version);
+  const args={eventId:E,divisionId:D,stageId:'group',groupId:'A',actorUid:'admin',reason:'舊視窗裁定',
+    pins:['t1','t2','t3','t4'].map((teamId,i)=>({teamId,rank:i+1})),expectedVersion:before.version,expectedScheduleRevision:1};
+  await expect(setManualRankingFor(args)).rejects.toMatchObject({code:'aborted'});
+  expect((await audit('standing.manualRanking')).size).toBe(0);
+  await setManualRankingFor({...args,expectedScheduleRevision:2});
+  expect((await ref.get()).data()).toMatchObject({scheduleRevision:2,version:before.version+1});
+  expect((await audit('standing.manualRanking')).size).toBe(1);
+});

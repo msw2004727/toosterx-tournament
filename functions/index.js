@@ -344,21 +344,22 @@ export const rebuildBoards = onCall(async (req) => {
  */
 export const setManualRanking = onCall(async (req) => {
   await requireStaff(req, ADMIN);
-  const { eventId, divisionId, stageId, groupId, pins, reason, drawSeed = null, clear = false, expectedVersion = null } = req.data || {};
+  const { eventId, divisionId, stageId, groupId, pins, reason, drawSeed = null, clear = false, expectedVersion = null, expectedScheduleRevision = 0 } = req.data || {};
   if (!eventId || !divisionId || !stageId || !groupId) {
     fail('invalid-argument', '需要 eventId / divisionId / stageId / groupId');
   }
   if (!Number.isInteger(expectedVersion) || expectedVersion < 0) fail('invalid-argument', '請重新載入目前積分版本後再裁定');
+  if (!Number.isInteger(expectedScheduleRevision) || expectedScheduleRevision < 0) fail('invalid-argument', '請重新載入目前賽程版本後再裁定');
   try {
     if (clear === true) {
       return ok(await clearManualRankingFor({
-        eventId, divisionId, stageId, groupId, reason, actorUid: req.auth.uid, expectedVersion
+        eventId, divisionId, stageId, groupId, reason, actorUid: req.auth.uid, expectedVersion, expectedScheduleRevision
       }));
     }
     const r = await setManualRankingFor({
       eventId, divisionId, stageId, groupId, pins, reason,
       drawSeed: Number.isInteger(drawSeed) ? drawSeed : null,
-      actorUid: req.auth.uid, expectedVersion
+      actorUid: req.auth.uid, expectedVersion, expectedScheduleRevision
     });
     logger.info('[setManualRanking]', { by: req.auth.uid, standingId: r.standingId, drawSeed });
     return ok(r);

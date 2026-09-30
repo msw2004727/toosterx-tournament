@@ -79,7 +79,7 @@ export async function generateScheduleFor(request) {
       put(divRef.collection('stages').doc(g.stageId).collection('groups').doc(g.groupId), { ...g, generationId });
       const id = standingIdOf(divisionId, g.stageId, g.groupId);
       put(base.collection('standings').doc(id), { ...buildStanding({ eventId, divisionId, stageId: g.stageId,
-        groupId: g.groupId, teamIds: g.teamIds, matches: [], rule, opts: { teamMeta: Object.fromEntries(g.teamIds.map(id => [id, { name: teams[id].shortName ?? teams[id].name ?? null }])) } }), generationId, computedAt: stamp });
+        groupId: g.groupId, teamIds: g.teamIds, matches: [], rule, opts: { teamMeta: Object.fromEntries(g.teamIds.map(id => [id, { name: teams[id].shortName ?? teams[id].name ?? null }])) } }), generationId, scheduleRevision: expectedRevision + 1, computedAt: stamp });
     }
     for (const a of plan.assignments) put(base.collection('teams').doc(a.teamId), { groupId: a.groupId, seed: a.seed, updatedAt: stamp, updatedBy: uid }, true);
     for (const t of teamSnap.docs.filter(d => !teams[d.id])) put(t.ref, { groupId: null, seed: null, updatedAt: stamp, updatedBy: uid }, true);

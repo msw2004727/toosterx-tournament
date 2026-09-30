@@ -41,7 +41,8 @@ const MUTANTS=[
   m('C29',pipeline,'if (!team) {','if (false) {','MC29',["expect((await roster('member').get()).exists).toBe(false)"]),
   m('C30','functions/management.js',"if(action.startsWith('appeal.'))after.match={...m,...resultPatch};","if(action.startsWith('appeal.'))void 0;",'MC16',["expect((await audit('appeal.decided')).docs[0].data().after.match).toMatchObject({managementRevision:2,updatedBy:'admin'})"]),
   m('C31','functions/management.js','managementRevision:m.managementRevision??0,','', 'MC30',["await expect(manageEventFor(stale)).rejects.toMatchObject({code:'aborted'})"]),
-  m('C32',schedule,"|| (m.period != null && m.period !== 'pre')",'|| false','MC31',["await expect(generateScheduleFor(generation())).rejects.toMatchObject({code:'failed-precondition'})"])
+  m('C32',schedule,"|| (m.period != null && m.period !== 'pre')",'|| false','MC31',["await expect(generateScheduleFor(generation())).rejects.toMatchObject({code:'failed-precondition'})"]),
+  m('C33',pipeline,'if (manualChange && (division.scheduleRevision ?? 0) !== (manualChange.expectedScheduleRevision ?? 0))','if (false)','MC32',["await expect(setManualRankingFor(args)).rejects.toMatchObject({code:'aborted'})"])
 ];
 MUTANTS.find(m=>m.id==='C25').anchorCount=2;MUTANTS.find(m=>m.id==='C25').occurrence=1;
 for(const mutant of MUTANTS.filter(m=>m.id==='C20'||m.id==='C21')){mutant.grep='^ST[12] ';mutant.minTests=14;}

@@ -25,7 +25,7 @@ const SID = 'u6__group__A';
 /** 第 1、2 名完全同分（規章四項條件都相同）；第 3 名分得出來 */
 const tiedStanding = (over = {}) => ({
   standingId: SID, eventId: EVENT, divisionId: 'u6', stageId: 'group', groupId: 'A',
-  version: 4, hasUnresolvedTie: true,
+  version: 4, scheduleRevision: 7, hasUnresolvedTie: true,
   manualOverride: { enabled: false, by: null, at: null, reason: null },
   rows: [
     { teamId: 't-1', rank: 1, points: 3, goalsFor: 1, goalsAgainst: 1, goalDiff: 0, hasUnresolvedTie: true, tiedWith: ['t-2'], locked: false },
@@ -57,7 +57,7 @@ const seed = ({ roles = ['admin'], standings = [tiedStanding()], perms = null } 
       uid: UID, name: '金小麥', roles, active: true,
       assignment: { eventId: EVENT, venueIds: [], divisionIds: [], challengeIds: [] }
     },
-    [`events/${EVENT}/divisions/u6`]: { divisionId: 'u6', name: 'U6兒童組', order: 1 },
+    [`events/${EVENT}/divisions/u6`]: { divisionId: 'u6', name: 'U6兒童組', order: 1, scheduleRevision: 7 },
     [`events/${EVENT}/divisions/women`]: { divisionId: 'women', name: '女子組', order: 4 },
     [`events/${EVENT}/teams/t-1`]: { teamId: 't-1', name: '臺中雷霆', divisionId: 'u6' },
     [`events/${EVENT}/teams/t-2`]: { teamId: 't-2', name: '臺中黑豹', divisionId: 'u6' },
@@ -140,6 +140,8 @@ test('⭐ 送出裁定：名次與原因都送對了 @adminstandings', async ({ 
   expect(c.payload.reason).toBe('主辦當場抽籤');
   expect(c.payload.divisionId).toBe('u6');
   expect(c.payload.groupId).toBe('A');
+  expect(c.payload.expectedVersion).toBe(4);
+  expect(c.payload.expectedScheduleRevision).toBe(7);
 });
 
 test('⭐ 第 3、4 名同分時釘的是 3 與 4，不是 1 與 2 @adminstandings', async ({ page }) => {
