@@ -31,7 +31,7 @@ test('七個玩法均顯示簡介且改名中醫問診 @boothSop', async ({ page
   await setup(page); await page.goto('/#/challenge');
   await expect(page.locator('.chal__itemRule')).toHaveCount(7);
   await expect(page.locator('.chal__list')).toContainText('中醫問診');
-  await expect(page.locator('.chal__list')).not.toContainText('中醫看診');
+  await expect(page.locator('.chal')).not.toContainText('中醫看診');
   for (let i = 0; i < 7; i++) await expect(page.locator('.chal__itemRule').nth(i)).toHaveText(CHALLENGES[i].summary);
 });
 test('總管必須選攤位，存檔與重新編輯保留指派 @boothSop', async ({ page }) => {

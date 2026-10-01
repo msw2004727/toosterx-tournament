@@ -1,5 +1,7 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ESOP4: { spec: 'tests/e2e/booth-sop.spec.js', grep: '七個玩法均顯示簡介', minTests: 1,
+    failure: 'not.toContainText', assertions: ["expect(page.locator('.chal')).not.toContainText('中醫看診')"] },
   ESOP1: { spec: 'tests/e2e/booth-sop.spec.js', grep: '沒有內建辨識時相機', minTests: 1,
     failure: 'toBeEnabled', assertions: ["expect(page.getByRole('button', { name: '開啟相機掃描挑戰卡', exact: true })).toBeEnabled()"] },
   ESOP2: { spec: 'tests/e2e/booth-sop.spec.js', grep: '掃碼登入保留', minTests: 1,

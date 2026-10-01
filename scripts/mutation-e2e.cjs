@@ -15,6 +15,8 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#ESOP4 集章說明殘留舊的中醫名稱', file: 'js/modules/challenge/home.js',
+    from: '中醫問診只需現場簽到打卡。', to: '中醫看診只需現場簽到打卡。' },
   { name: '#ESOP1 缺少內建辨識又隱藏相機', file: 'js/modules/booth/scan.js',
     from: "return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;",
     to: "return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && 'BarcodeDetector' in window;" },
