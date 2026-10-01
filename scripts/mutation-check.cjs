@@ -9,6 +9,12 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#STREAM-URL 直播分享放行偽裝 YouTube 網域', file: 'js/engine/stream-share.js',
+    from: "if (!['youtube.com', 'youtu.be'].includes(host)) return null;", to: "if (false) return null;",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/stream-share.test.js --silent' },
+  { name: '#STREAM-DENSITY 單筆分享不再最大', file: 'js/engine/stream-share.js',
+    from: "count === 1 ? 'solo'", to: "count === 1 ? 'compact'",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/stream-share.test.js --silent' },
   { name: '#SOP-1 指派存檔清掉負責攤位', file: 'js/engine/assign.js',
     from: 'challengeIds: onlyStaffScoped(role) ? [...challengeIds] : []', to: 'challengeIds: []',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/booth-sop.test.js --silent' },

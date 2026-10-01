@@ -104,7 +104,7 @@ test('⭐ 管理員進不來，而且看得到原因 @admin', async ({ page }) =
 test('⭐ 每一條權限都列出來，預設全開 @admin', async ({ page }) => {
   await stub(page);
   await go(page);
-  await expect(page.locator('.adm__perm')).toHaveCount(22);
+  await expect(page.locator('.adm__perm')).toHaveCount(23);
   await expect(page.locator('.adm__perm.is-off')).toHaveCount(0);
   await expect(page.locator('.adm__head')).toContainText('全部維持預設');
 });
@@ -116,6 +116,7 @@ test('⭐ 每一列寫得出這是誰的權限 @admin', async ({ page }) => {
   await expect(row(page, '編輯出場名單')).toContainText('裁判（含以上）');
   await expect(row(page, '送出完賽')).toContainText('記錄員（含以上）');
   await expect(row(page, '審核報名與球隊')).toContainText('管理員（含以上）');
+  await expect(row(page, '移除用戶直播分享')).toContainText('管理員（含以上）');
 });
 
 test('⭐ 總管那三條不畫開關，只寫原因 @admin', async ({ page }) => {
@@ -218,7 +219,7 @@ test('⭐ 讀不到設定走預設，不是全部關閉 @admin', async ({ page }
   // 規矩 3：把賽務按鈕全部收掉，現場會以為系統壞了
   await stub(page, { matrix: null });
   await go(page);
-  await expect(page.locator('.adm__perm')).toHaveCount(22);
+  await expect(page.locator('.adm__perm')).toHaveCount(23);
   await expect(page.locator('.adm__perm.is-off')).toHaveCount(0);
 });
 

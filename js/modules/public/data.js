@@ -3,7 +3,7 @@
  * ------------------------------------------------------------------
  * 規格：docs/03-功能規格-公開端.md §2.2、§4.3、§12.4
  *
- * 公開端**只讀不寫**，所以這裡沒有 sync.track，也沒有任何 setDoc。
+ * 公開資料直接讀取；用戶直播分享以 callable 驗權與留痕，沒有直接 setDoc。
  *
  * 監聽預算：同時 ≤ 3（docs/03 §12.4，js/config.js 的 MAX_LISTENERS 是 4）。
  * 所有 onSnapshot 一律經 store.hold(scope, ...) 註冊，換頁自動回收（R-UI-003）。
@@ -88,6 +88,31 @@ export function watchTimeline(scope, matchId, cb, onError) {
     snap => cb(snap.docs.map(d => ({ timelineId: d.id, ...d.data() }))),
     err => onError?.(err));
   return hold(scope, unsub, `timeline:${matchId}`);
+}
+
+/** 直播分享只讀公開投影，分批載入；所有權另由登入者查詢私人集合。 */
+export function watchStreamShares(scope, matchId, maximum, cb, onError) {
+  const { collection, onSnapshot, query, orderBy, limit } = sdk();
+  const ref = collection(db(), 'events', EVENT_ID, 'matches', matchId, 'streamShares');
+  const unsub = onSnapshot(query(ref, orderBy('createdAt', 'asc'), limit(maximum + 1)),
+    snap => cb({ more: snap.docs.length > maximum,
+      rows: snap.docs.slice(0, maximum).map(doc => ({ ...doc.data(), shareId: doc.id })) }), onError);
+  return hold(scope, unsub, `streamShares:${matchId}`);
+}
+
+export async function getOwnedStreamShares(matchId, uid) {
+  const { collection, query, where, getDocs } = sdk();
+  const snapshot = await getDocs(query(collection(db(), 'events', EVENT_ID, 'matches', matchId, 'streamShareOwners'),
+    where('ownerUid', '==', uid)));
+  return new Set(snapshot.docs.map(doc => doc.id));
+}
+
+/** 分享與移除由後端驗權並留痕；客戶端不直接寫公開集合。 */
+export async function submitStreamShare(matchId, command) {
+  const { httpsCallable, _fns } = sdk();
+  const response = await httpsCallable(_fns, 'shareMatchStream')({ eventId: EVENT_ID, matchId, ...command });
+  if (response.data?.ok !== true || !response.data.data?.shareId) throw Error('直播分享未完成，請重試。');
+  return response.data.data;
 }
 
 /** 某組別的所有積分榜文件（組別頁）。 */

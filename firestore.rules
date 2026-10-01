@@ -494,6 +494,16 @@ service cloud.firestore {
                && validStatusTransition(resource.data.status, request.resource.data.status) );
 
         // ── 比賽事件：永不刪除，只作廢 ──
+        // 用戶直播分享由 callable 交易寫入；公開文件不含 LINE UID。
+        match /streamShares/{shareId} {
+          allow read: if true;
+          allow write: if false;
+        }
+        match /streamShareOwners/{shareId} {
+          allow read: if isAuth() && (resource.data.ownerUid == uid() || isAdmin());
+          allow write: if false;
+        }
+
         match /timeline/{timelineId} {
           allow read:   if true;
           allow create: if (isAdmin() || (isScorer() && assignedMatch(matchId) && unlockedMatch(matchId)))
