@@ -20,6 +20,8 @@
 import { el, mount, skeleton } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
+import { can, user, onAuth } from '../../core/firebase.js';
+import { hold } from '../../core/store.js';
 import { formatScore, completionProgress, settledDrawEntries } from '../../engine/challenge.js';
 import * as data from './data.js';
 import { savedPass } from './pass.js';
@@ -38,6 +40,7 @@ export async function challengeHomePage({ scope, view }) {
     rewards: null,
     error: null
   };
+  hold(scope, onAuth(() => render()), 'auth:challenge-home');
 
   data.getChallenges()
     .then(c => { state.challenges = c; render(); })
@@ -130,7 +133,7 @@ export async function challengeHomePage({ scope, view }) {
       el('strong', {}, iconText('ticket', '集章與抽獎規則')),
       el('ol', { class: 'chal__rules' }, [
         el('li', { text: '用 LINE 領取挑戰卡，到各項目出示同一張 QR。' }),
-        el('li', { text: '完成項目後，由現場工作人員登錄集章。中醫看診只需現場簽到打卡。' }),
+        el('li', { text: '完成項目後，由現場工作人員登錄集章。中醫問診只需現場簽到打卡。' }),
         el('li', { text: '七項全部完成，才取得 1 次抽獎機會；重複挑戰不增加抽獎次數。' })
       ]),
       el('p', { class: 'chal__hint', text: '資格由伺服器確認。離線登錄會在恢復連線後更新；作廢紀錄不計入集章。' })
@@ -148,6 +151,14 @@ export async function challengeHomePage({ scope, view }) {
 
       meCard(),
       rulesCard(),
+      el('div', { class: 'chal__card' }, [
+        el('strong', { text: '工作人員入口' }),
+        el('p', { class: 'chal__hint', text: can('challenge.attempt.write')
+          ? '進入負責攤位，以相機掃碼或手動卡號登錄參與及成績。'
+          : '請先用 LINE 登入，並由總管授權負責的挑戰攤位。' }),
+        el('button', { class: 'btn btn--lg chal__go', type: 'button',
+          onClick: () => navigate(user() ? '/booth' : '/login?next=%2Fbooth') }, iconText('qr', '攤位登錄'))
+      ]),
 
       state.error
         ? el('div', { class: 'chal__card chal__card--warn', role: 'alert' }, [

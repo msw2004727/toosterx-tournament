@@ -232,6 +232,16 @@ export async function getDocs(ref) {
   return querySnapOf({ prefix: ref.path, group: ref.__group, clauses: ref.clauses });
 }
 
+// Server-only reads reject offline; they must never silently return local cached rows.
+export async function getDocFromServer(ref) {
+  if (!S.online) throw Object.assign(new Error('無法從伺服器取得最新資料，請連線後重試。'), { code: 'unavailable' });
+  return getDoc(ref);
+}
+export async function getDocsFromServer(ref) {
+  if (!S.online) throw Object.assign(new Error('無法從伺服器取得最新資料，請連線後重試。'), { code: 'unavailable' });
+  return getDocs(ref);
+}
+
 export function onSnapshot(ref, a, b, c) {
   const cb = typeof a === 'function' ? a : b;
   const onErr = typeof a === 'function' ? b : c;

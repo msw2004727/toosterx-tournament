@@ -12,7 +12,7 @@ const cones = CHALLENGES.find(c => c.requireShotDetails);
 describe('七項集章與一次抽獎', () => {
   test('設定包含原五關、中醫簽到及一球三桶，七個不同圖示', () => {
     expect(CHALLENGES).toHaveLength(7);
-    expect(CHALLENGES.map(c => c.name)).toEqual(expect.arrayContaining(['中醫看診', '一球三桶']));
+    expect(CHALLENGES.map(c => c.name)).toEqual(expect.arrayContaining(['中醫問診', '一球三桶']));
     expect(new Set(CHALLENGES.map(c => c.icon)).size).toBe(7);
     expect(rewards.requiredChallengeIds).toEqual(ids);
   });

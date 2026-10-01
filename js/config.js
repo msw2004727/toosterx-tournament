@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20261001a';
+export const CACHE_VERSION = '0.20261001c';
 
 /**
  * PWA 安裝入口。主辦 2026-09-06 決定關閉：頁首不畫「安裝」，Chrome 自己的安裝橫幅也在
@@ -274,7 +274,7 @@ export const FEATURES = [
   { code: 'stream.manage',    label: '直播設定',   hint: 'YouTube 影片 ID 與開關',     route: '/admin/stream', icon: 'play' },
   { code: 'export',           label: '匯出資料',   hint: '抽獎名單 CSV',              route: '/admin/export', icon: 'install' },
   { code: 'audit.read',       label: '稽核紀錄',   hint: '誰在什麼時候改了什麼',      route: '/admin/audits', icon: 'note' },
-  { code: 'staff.assign',     label: '身分授權',   hint: '指派管理員／賽務／檢錄員',  route: '/admin/staff', icon: 'person' },
+  { code: 'staff.assign',     label: '身分授權',   hint: '指派工作人員與負責攤位',  route: '/admin/staff', icon: 'person' },
   { code: 'perms.manage',     label: '權限開關',   hint: '逐條調整每個身分能做的事',  route: '/admin/perms', icon: 'more' },
   { code: 'registration.manage', label: '報名開關', hint: '開放／截止與日期',        route: '/admin/registration', icon: 'clock' }
 ];

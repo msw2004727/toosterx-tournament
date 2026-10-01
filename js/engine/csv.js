@@ -20,6 +20,8 @@
  *    而後面每一欄都往左移一格——看起來像資料錯亂，不像格式問題。
  */
 
+import { completionProgress } from './challenge.js';
+
 /** UTF-8 BOM。用 fromCharCode 而不是字面上那個看不見的字元——
  *  U+FEFF 肉眼看不出來，被編輯器或工具吃掉時沒有人會發現 */
 const BOM = String.fromCharCode(0xFEFF);
@@ -101,7 +103,8 @@ const AGE_LABEL = { kid: '兒童', teen: '青少年', adult: '成人' };
 export function luckyDrawRows(players = [], { contacts = {}, rewards = null } = {}) {
   return players
     .filter(p => rewards?.rule !== 'allChallengesCompleted'
-      || (typeof rewards.version === 'string' && p.luckyDrawRuleVersion === rewards.version))
+      || (typeof rewards.version === 'string' && p.luckyDrawRuleVersion === rewards.version
+        && p.luckyDrawEntries === 1 && completionProgress(p.completedChallengeIds, [], rewards).allComplete))
     .map(p => ({
       playerId: p.playerId ?? '',
       nickname: p.nickname ?? '',

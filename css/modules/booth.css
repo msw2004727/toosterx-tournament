@@ -51,6 +51,7 @@
 
 /* ── 玩家 ID 輸入 ────────────────────────────────────────── */
 .booth__idRow{display:flex;gap:var(--sp-2);flex-wrap:wrap}
+.booth__scan{width:100%;justify-content:center}
 .booth__id{
   flex:1 1 9rem;min-width:0;min-height:calc(var(--tap) * 1.2);
   padding:0 var(--sp-3);border:1px solid var(--border);border-radius:var(--r-md);

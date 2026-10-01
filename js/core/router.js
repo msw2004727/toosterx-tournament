@@ -149,7 +149,7 @@ async function handle(force = false) {
 
   // 守衛（例如賽務頁需要登入）。回傳字串代表改導向該路徑。
   if (typeof r.opts.guard === 'function') {
-    const verdict = await r.opts.guard({ params });
+    const verdict = await r.opts.guard({ params, query: currentQuery() });
     if (stale()) return;
     if (typeof verdict === 'string') return navigate(verdict, { replace: true });
     if (verdict === false) return;

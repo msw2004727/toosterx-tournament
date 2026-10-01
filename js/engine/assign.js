@@ -46,7 +46,7 @@ export function impliedBy(role) {
  * @param {string[]} [o.knownVenueIds] 這場活動實際存在的場地
  * @returns {{ok:boolean, code:string|null, message:string}}
  */
-export function validateAssignment({ uid, role, venueIds = [], knownVenueIds = null }) {
+export function validateAssignment({ uid, role, venueIds = [], knownVenueIds = null, challengeIds = [], knownChallengeIds = null }) {
   if (!/^\S+$/.test(String(uid ?? ''))) {
     return { ok: false, code: 'NO_UID', message: '請先選一個人。' };
   }
@@ -82,6 +82,17 @@ export function validateAssignment({ uid, role, venueIds = [], knownVenueIds = n
       code: 'VENUE_NOT_APPLICABLE',
       message: `${ROLE_INFO[role]?.label ?? role}不受場地限制，不用指派場地。`
     };
+  }
+
+  if (!Array.isArray(challengeIds) || challengeIds.some(id => typeof id !== 'string' || !id)
+      || new Set(challengeIds).size !== challengeIds.length) {
+    return { ok: false, code: 'INVALID_CHALLENGES', message: '攤位指派格式不正確，請重新選擇。' };
+  }
+  if (role === 'booth' && challengeIds.length === 0) {
+    return { ok: false, code: 'NO_CHALLENGE', message: '請至少選擇一個負責的挑戰攤位。' };
+  }
+  if (knownChallengeIds && challengeIds.some(id => !knownChallengeIds.includes(id))) {
+    return { ok: false, code: 'UNKNOWN_CHALLENGE', message: '選到不存在的挑戰攤位，請重新整理後再指派。' };
   }
 
   return { ok: true, code: null, message: '' };
@@ -124,7 +135,7 @@ export const onlyStaffScoped = role => ASSIGNABLE_ROLES.includes(role) && role !
  *
  * 時間戳由呼叫端填 serverTimestamp（R-ENG-004）。
  */
-export function buildStaffDoc({ uid, name, role, venueIds = [], eventId }) {
+export function buildStaffDoc({ uid, name, role, venueIds = [], challengeIds = [], eventId }) {
   return {
     uid,
     name: name ?? null,
@@ -135,7 +146,7 @@ export function buildStaffDoc({ uid, name, role, venueIds = [], eventId }) {
       date: null,                       // 不綁日期：現場常常臨時調班
       venueIds: onlyStaffScoped(role) ? [...venueIds] : [],
       divisionIds: [],
-      challengeIds: []
+      challengeIds: onlyStaffScoped(role) ? [...challengeIds] : []
     },
     deviceLabel: null,
     active: true
@@ -168,7 +179,7 @@ export function mergeDirectory(users = [], staff = []) {
     byUid.set(u.uid, {
       uid: u.uid,
       name: u.displayName || u.name || null,
-      role: null, roles: [], active: false, assigned: false, venueIds: []
+      role: null, roles: [], active: false, assigned: false, venueIds: [], challengeIds: []
     });
   }
   for (const s of staff ?? []) {
@@ -183,7 +194,8 @@ export function mergeDirectory(users = [], staff = []) {
       roles: Array.isArray(s.roles) ? s.roles : [],
       active: s.active === true,
       assigned: true,
-      venueIds: s.assignment?.venueIds ?? []
+      venueIds: s.assignment?.venueIds ?? [],
+      challengeIds: s.assignment?.challengeIds ?? []
     });
   }
   // 有身分的排前面，其次照 level 由高到低，最後照名字

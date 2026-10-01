@@ -15,6 +15,15 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#ESOP4 集章說明殘留舊的中醫名稱', file: 'js/modules/challenge/home.js',
+    from: '中醫問診只需現場簽到打卡。', to: '中醫看診只需現場簽到打卡。' },
+  { name: '#ESOP1 缺少內建辨識又隱藏相機', file: 'js/modules/booth/scan.js',
+    from: "return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;",
+    to: "return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && 'BarcodeDetector' in window;" },
+  { name: '#ESOP2 掃碼登入遺失玩家卡號', file: 'js/modules/booth/index.js',
+    from: 'const search = query?.toString();', to: "const search = '';" },
+  { name: '#ESOP3 CSV 下載仍用開頁時的舊資格', file: 'js/modules/admin/export.js',
+    from: 'if (!await load()) throw state.error;', to: 'if (state.error) throw state.error;' },
   { name: '#PRE1 不等 Firebase 恢復登入', file: 'js/core/firebase.js',
     from: 'export const whenAuthReady = () => authReady;', to: 'export const whenAuthReady = () => Promise.resolve();',
     testCmd: 'npx playwright test tests/e2e/prelaunch.spec.js --project=chromium-mobile --grep 恢復登入 --reporter=dot' },

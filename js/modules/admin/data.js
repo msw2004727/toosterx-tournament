@@ -485,26 +485,29 @@ export async function setManualRanking(payload) {
  * ⚠️ 沒有分頁。現場規模是幾百人，一次讀回來沒有問題；
  *    真的破千再處理——分頁會讓「匯出的是同一個時間點」這件事變複雜。
  */
-export async function getPlayers() {
+export async function getPlayers({ server = false } = {}) {
   const { collection, getDocs, query, orderBy } = sdk();
-  const snap = await getDocs(query(
+  const read = server ? sdk().getDocsFromServer : getDocs;
+  const snap = await read(query(
     collection(db(), 'events', EVENT_ID, 'players'), orderBy('playerId', 'asc')
   ));
   return snap.docs.map(d => ({ playerId: d.id, ...d.data() }));
 }
 
 /** 關卡設定。只為了知道「幾關算全破」——不可以在畫面裡寫死 5 */
-export async function getChallenges() {
+export async function getChallenges({ server = false } = {}) {
   const { collection, getDocs, query, orderBy } = sdk();
-  const snap = await getDocs(query(
+  const read = server ? sdk().getDocsFromServer : getDocs;
+  const snap = await read(query(
     collection(db(), 'events', EVENT_ID, 'challenges'), orderBy('order', 'asc')
   ));
   return snap.docs.map(d => ({ challengeId: d.id, ...d.data() }));
 }
 
-export async function getChallengeRewards() {
+export async function getChallengeRewards({ server = false } = {}) {
   const { doc, getDoc } = sdk();
-  const snap = await getDoc(doc(db(), 'config', 'challengeRewards'));
+  const read = server ? sdk().getDocFromServer : getDoc;
+  const snap = await read(doc(db(), 'config', 'challengeRewards'));
   return snap.exists() ? snap.data() : null;
 }
 
@@ -528,8 +531,9 @@ export async function getAppealsOf(matchId) {
 
 
 // ── 抽獎中獎聯絡方式（只有管理員讀得到；寫入走 Function）──────
-export async function getPlayerContacts() {
+export async function getPlayerContacts({ server = false } = {}) {
   const { collection, getDocs } = sdk();
-  const snap = await getDocs(collection(db(), 'events', EVENT_ID, 'playerContacts'));
+  const read = server ? sdk().getDocsFromServer : getDocs;
+  const snap = await read(collection(db(), 'events', EVENT_ID, 'playerContacts'));
   return Object.fromEntries(snap.docs.map(d => [d.id, d.data()]));
 }

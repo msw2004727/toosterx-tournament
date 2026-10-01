@@ -27,6 +27,21 @@ const gamePass = (over = {}) => ({
 });
 
 describe('Challenge 成績', () => {
+  test('SOP 指派同名關卡仍不可跨活動寫入', async () => {
+    const other = 'other-event';
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'events', other, 'challenges', CHALLENGE),
+      { minValue: 0, maxValue: 5 }));
+    await assertFails(setDoc(doc(authed(env, 'u-booth'), 'events', other, 'attempts', 'cross-event'), attempt({ eventId: other })));
+    await assertSucceeds(setDoc(doc(authed(env, 'u-admin'), 'events', other, 'attempts', 'admin-event'),
+      attempt({ eventId: other, staffUid: 'u-admin' })));
+  });
+  test('SOP 撤回攤位指派與停用身分後拒絕新成績', async () => {
+    await env.withSecurityRulesDisabled(ctx => updateDoc(doc(ctx.firestore(), 'staff', 'u-booth'), { 'assignment.challengeIds': [] }));
+    await assertFails(setDoc(doc(authed(env, 'u-booth'), 'events', EVENT, 'attempts', 'no-assignment'), attempt()));
+    await env.withSecurityRulesDisabled(ctx => updateDoc(doc(ctx.firestore(), 'staff', 'u-booth'),
+      { 'assignment.challengeIds': [CHALLENGE], active: false }));
+    await assertFails(setDoc(doc(authed(env, 'u-booth'), 'events', EVENT, 'attempts', 'inactive'), attempt()));
+  });
   test('一球三桶拒絕漏球、非法成功值、分數與细項不一致及非整數', async () => {
     await env.withSecurityRulesDisabled(async ctx => {
       await setDoc(doc(ctx.firestore(), 'events', EVENT, 'challenges', CHALLENGE), {
