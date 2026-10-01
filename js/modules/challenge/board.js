@@ -180,7 +180,11 @@ export async function challengeBoardPage({ scope, view, params }) {
           ])
         : null,
 
-      list.length === 0
+      c.leaderboardEnabled === false
+        ? el('div', { class: 'chal__card' }, [
+            el('strong', { text: '現場簽到集章' }),
+            el('p', { class: 'chal__hint', text: '到現場向工作人員出示挑戰卡 QR，確認簽到後即可完成此項。此項不計分、不排名。' })
+          ]) : list.length === 0
         ? el('div', { class: 'chal__card' }, [
             el('strong', { text: '還沒有人挑戰這一關' }),
             el('p', { class: 'chal__hint', text: '你可以是第一個。' })
@@ -195,7 +199,7 @@ export async function challengeBoardPage({ scope, view, params }) {
           ]),
 
       // 已經在前 50 裡就不用再印一次
-      meInTop ? null : myLine(),
+      meInTop || c.leaderboardEnabled === false ? null : myLine(),
 
       el('button', {
         class: 'btn chal__back', type: 'button', onClick: () => navigate('/challenge')

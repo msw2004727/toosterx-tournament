@@ -13,6 +13,12 @@ const { runMutants } = require('./lib/mutate.cjs');
 const F = 'firestore.rules';
 
 const MUTANTS = [
+  { name: 'RU#S7-01 不驗三球細項', file: F,
+    from: "&& (!c.get('requireShotDetails', false) || validThreeShots(c, v));", to: ';',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/challenge.test.js --testNamePattern=一球三桶 --silent' },
+  { name: 'RU#S7-02 三球總分不核對', file: F,
+    from: '&& v == shots[0] + shots[1] + shots[2];', to: '&& true;',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/challenge.test.js --testNamePattern=一球三桶 --silent' },
   { name: 'RU#PRE5 舊報名入口繞過關閉', file: F,
     from: "allow create: if regOpen() && request.resource.data.status == 'pending';", to: "allow create: if request.resource.data.status == 'pending';",
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/prelaunch.test.js --silent' },

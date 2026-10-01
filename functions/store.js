@@ -185,8 +185,9 @@ export async function loadStandings(eventId, divisionId, tx = null) {
 export const loadChallenge = (eventId, challengeId) =>
   must(evRef(eventId).collection('challenges').doc(challengeId), `關卡 ${challengeId}`);
 
-export async function loadChallenges(eventId) {
-  const snap = await evRef(eventId).collection('challenges').get();
+export async function loadChallenges(eventId, tx = null) {
+  const ref = evRef(eventId).collection('challenges');
+  const snap = await (tx ? tx.get(ref) : ref.get());
   return snap.docs.map(d => ({ challengeId: d.id, ...d.data() }));
 }
 
@@ -233,8 +234,9 @@ export async function loadPlayers(eventId, playerIds, tx = null) {
  * ⚠️ 讀不到就回 null，**不要套一份預設值**——引擎收到 null 會回 0 張，
  *    而多發出去的抽獎券收不回來（docs/06 §7.1）。
  */
-export async function loadChallengeRewards() {
-  const snap = await db().doc('config/challengeRewards').get();
+export async function loadChallengeRewards(tx = null) {
+  const ref = db().doc('config/challengeRewards');
+  const snap = await (tx ? tx.get(ref) : ref.get());
   return snap.exists ? snap.data() : null;
 }
 

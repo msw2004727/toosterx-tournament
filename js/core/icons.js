@@ -91,6 +91,9 @@ const P = {
   'first-touch': '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.8"/>'
              + '<circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>',
 
+  medical: '<path d="M7 3v6a5 5 0 0 0 10 0V3M5 3h4M15 3h4M12 14v2a5 5 0 0 0 5 5h1v-4"/><circle cx="18" cy="15" r="2"/>',
+  'three-cones': '<path d="m3 17 2-8 2 8M9 17l3-12 3 12M17 17l2-8 2 8M2 20h20M3.8 14h2.4M10.5 11h3M17.8 14h2.4"/>',
+
   /* 主題 */
   'theme-light':  '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.1M12 19.3v2.1M4.6 4.6 6.1 6.1M17.9 17.9l1.5 1.5M2.6 12h2.1M19.3 12h2.1M4.6 19.4 6.1 17.9M17.9 6.1l1.5-1.5"/>',
   'theme-dark':   '<path d="M20.3 14.8A8.6 8.6 0 0 1 9.2 3.7a8.6 8.6 0 1 0 11.1 11.1z"/>',

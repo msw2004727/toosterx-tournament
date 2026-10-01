@@ -29,6 +29,18 @@
 }
 .chal__card--warn { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
 .chal__cardHead { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.chal__card--rules { border-color: var(--accent); background: var(--accent-bg); }
+.chal__rules { margin: 0; padding-left: 1.3em; font-size: var(--fs-sm); line-height: 1.7; }
+.chal__rules li + li { margin-top: var(--sp-2); }
+.chal__stamps { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.chal__stamp { display: flex; align-items: center; justify-content: center; aspect-ratio: 1;
+  border: 1px dashed var(--border); border-radius: 50%; color: var(--text-secondary); font-weight: 700; }
+.chal__stamp[data-done="true"] { background: var(--ok-bg); border: 1px solid var(--success); color: var(--success); }
+.chal__qualification { display: flex; flex-direction: column; gap: var(--sp-2); }
+.chal__qualification[data-qualified="true"] { color: var(--success); }
+.chal__itemRule { font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.5; }
+.chal__item:has(.chal__itemRule) { align-items: flex-start; padding: var(--sp-3) var(--sp-2); }
+.chal__item:has(.chal__itemRule) .chal__itemName { white-space: normal; overflow: visible; }
 .chal__count { font-variant-numeric: tabular-nums; font-weight: 700; }
 
 .chal__label { font-size: var(--fs-sm); color: var(--text-secondary); }

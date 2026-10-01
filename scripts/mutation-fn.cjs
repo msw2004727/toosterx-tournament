@@ -12,6 +12,13 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#S7-01 七項結算不標記規則版本', file: 'functions/pipeline.js',
+    from: 'luckyDrawRuleVersion: ruleVersion,', to: 'luckyDrawRuleVersion: null,',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/challenge.test.js --testNamePattern=七項 --silent' },
+  { name: 'FN#S7-02 作廢紀錄仍集章', file: 'functions/pipeline.js',
+    from: 'const hasLiveScore = attempts.some(a => completesChallenge(a, challenge));',
+    to: 'const hasLiveScore = attempts.length > 0;',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/challenge.test.js --testNamePattern=七項 --silent' },
   { name: 'FN#PRE1 刪除比賽不重算積分榜', file: 'functions/index.js',
     from: 'if (group.exists) await recalcStandingForMatch', to: 'if (false) await recalcStandingForMatch',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/pipeline.test.js --testNamePattern=刪除最後一場 --silent' },

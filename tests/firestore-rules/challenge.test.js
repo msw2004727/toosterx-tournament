@@ -27,6 +27,29 @@ const gamePass = (over = {}) => ({
 });
 
 describe('Challenge 成績', () => {
+  test('一球三桶拒絕漏球、非法成功值、分數與细項不一致及非整數', async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      await setDoc(doc(ctx.firestore(), 'events', EVENT, 'challenges', CHALLENGE), {
+        minValue: 0, maxValue: 3, integerOnly: true, requireShotDetails: true, shotCount: 3, shotOptions: [0, 1]
+      });
+    });
+    for (const [i, p] of [{ rawValue: 1, detail: [1, 0] }, { rawValue: 3, detail: [1, 2, 0] },
+      { rawValue: 3, detail: [1, 0, 0] }, { rawValue: 1.5, detail: [1, 0, 0.5] }].entries()) {
+      await assertFails(setDoc(doc(authed(env, 'u-booth'), 'events', EVENT, 'attempts', `cones-bad-${i}`), attempt(p)));
+    }
+    await assertSucceeds(setDoc(doc(authed(env, 'u-booth'), 'events', EVENT, 'attempts', 'cones-valid'),
+      attempt({ rawValue: 2, detail: [1, 0, 1] })));
+    await assertSucceeds(setDoc(doc(authed(env, 'u-booth'), 'events', EVENT, 'attempts', 'cones-zero'),
+      attempt({ rawValue: 0, detail: [0, 0, 0] })));
+  });
+
+  test('中醫簽到只接受工作人員登錄的確認值 1', async () => {
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'events', EVENT, 'challenges', CHALLENGE),
+      { minValue: 1, maxValue: 1, integerOnly: true }));
+    await assertFails(setDoc(doc(authed(env, 'u-booth'), 'events', EVENT, 'attempts', 'medical-zero'), attempt({ rawValue: 0 })));
+    await assertFails(setDoc(doc(guest(env), 'events', EVENT, 'attempts', 'medical-guest'), attempt({ rawValue: 1 })));
+    await assertSucceeds(setDoc(doc(authed(env, 'u-booth'), 'events', EVENT, 'attempts', 'medical-valid'), attempt({ rawValue: 1 })));
+  });
   test('R13 攤位不可寫非指派關卡的成績', async () => {
     // u-booth-x 只被指派 g01-nine-grid
     await assertFails(setDoc(

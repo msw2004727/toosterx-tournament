@@ -34,7 +34,7 @@ export const VOID_WINDOW_MS = 10 * 60 * 1000;
  */
 export function inputModeOf(challenge) {
   const m = challenge?.inputMode;
-  return ['stepper', 'shots', 'ladder', 'numpad'].includes(m) ? m : 'numpad';
+  return ['stepper', 'shots', 'ladder', 'numpad', 'checkin'].includes(m) ? m : 'numpad';
 }
 
 /**
@@ -51,6 +51,12 @@ export function inputModeOf(challenge) {
  */
 export function resolveScore({ challenge, value, detail }) {
   const mode = inputModeOf(challenge);
+
+  if (mode === 'checkin') {
+    if (value !== 1) return { ok: false, rawValue: null, detail: null, reason: '請先確認玩家已到現場簽到。' };
+    const v = validateScore(1, challenge);
+    return { ...v, rawValue: v.ok ? 1 : null, detail: null };
+  }
 
   if (mode === 'shots') {
     const r = sumShots(detail, challenge);

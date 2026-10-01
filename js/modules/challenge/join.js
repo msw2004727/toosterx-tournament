@@ -64,7 +64,7 @@ export async function challengeJoinPage({ scope, view }) {
     mount(root,
       el('div', { class: 'chal__hero' }, [
         el('strong', { class: 'chal__heroTitle', text: 'FEDA CUP 挑戰區' }),
-        el('p', { class: 'chal__heroSub', text: '完成一關就有一次抽獎機會' })
+        el('p', { class: 'chal__heroSub', text: '七項集章，全數完成才有抽獎機會' })
       ]),
       state.phase === 'checking' || state.phase === 'issuing'
         ? el('div', { class: 'chal__card' }, [

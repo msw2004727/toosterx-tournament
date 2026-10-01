@@ -46,6 +46,7 @@ export function numOf(v) {
 export function formatScore(rawValue, challenge) {
   const n = numOf(rawValue);
   if (n == null) return '—';
+  if (typeof challenge?.valueLabels?.[n] === 'string') return challenge.valueLabels[n];
   const d = Number.isInteger(challenge?.decimals) ? Math.max(0, Math.min(3, challenge.decimals)) : 0;
   return `${n.toFixed(d)}${challenge?.unit ?? ''}`;
 }
@@ -95,7 +96,16 @@ export function validateScore(rawValue, challenge) {
   if (n < min || n > max) {
     return { ok: false, reason: `成績要在 ${min}–${max} ${challenge.unit ?? ''}之間。` };
   }
+  if (challenge.integerOnly === true && !Number.isInteger(n)) return { ok: false, reason: '成績必須是整數。' };
   return { ok: true, reason: '' };
+}
+
+export function completesChallenge(attempt, challenge) {
+  if (!attempt || attempt.voided === true) return false;
+  if (!Object.hasOwn(challenge ?? {}, 'completionMinValue')) return true;
+  const threshold = numOf(challenge.completionMinValue);
+  const value = numOf(attempt.rawValue);
+  return threshold != null && value != null && value >= threshold;
 }
 
 /**
@@ -410,6 +420,18 @@ export function drawEntries({ completedChallengeIds = [], challengeTotal = 0, re
   const zero = { entries: 0, fromCompletion: 0, bonus: 0, allComplete: false };
   if (!rewards) return zero;
 
+  if (rewards.rule === 'allChallengesCompleted') {
+    const required = requiredChallengeIds(rewards);
+    if (!required.length) return zero;
+    const completed = new Set(Array.isArray(completedChallengeIds) ? completedChallengeIds : []);
+    const allComplete = required.every(id => completed.has(id));
+    const award = rewards.entriesOnAllComplete;
+    const cap = rewards.maxEntriesPerPlayer;
+    if (!Number.isInteger(award) || award < 0 || !Number.isInteger(cap) || cap < 0) return zero;
+    const entries = allComplete ? Math.min(award, cap) : 0;
+    return { entries, fromCompletion: 0, bonus: entries, allComplete };
+  }
+
   const per = numOf(rewards.entriesPerCompletion) ?? 0;
   const bonusAll = numOf(rewards.bonusAllComplete) ?? 0;
   const cap = numOf(rewards.maxEntriesPerPlayer);
@@ -423,6 +445,32 @@ export function drawEntries({ completedChallengeIds = [], challengeTotal = 0, re
   if (cap != null) entries = Math.min(entries, cap);
 
   return { entries, fromCompletion, bonus, allComplete };
+}
+
+/** 必須完成的是設定列出的項目，額外／失效的代碼不能湊數。 */
+export function requiredChallengeIds(rewards) {
+  const ids = rewards?.requiredChallengeIds;
+  return Array.isArray(ids) && ids.length > 0
+    && ids.every(id => typeof id === 'string' && id.length > 0)
+    && new Set(ids).size === ids.length ? ids : [];
+}
+
+export function completionProgress(completedChallengeIds, challenges = [], rewards = null) {
+  const required = rewards?.rule === 'allChallengesCompleted'
+    ? requiredChallengeIds(rewards) : challenges.map(c => c.challengeId);
+  const completed = new Set(Array.isArray(completedChallengeIds) ? completedChallengeIds : []);
+  const done = required.filter(id => completed.has(id));
+  return { required, done, missing: required.filter(id => !completed.has(id)),
+    total: required.length, allComplete: required.length > 0 && done.length === required.length };
+}
+
+/** 新規則的結算完成前不顯示舊張數；仍以後端寫入值為權威。 */
+export function settledDrawEntries(player, rewards) {
+  if (!rewards) return null;
+  if (rewards?.rule === 'allChallengesCompleted'
+    && (!rewards.version || player?.luckyDrawRuleVersion !== rewards.version)) return null;
+  return Number.isInteger(player?.luckyDrawEntries) && player.luckyDrawEntries >= 0
+    ? player.luckyDrawEntries : null;
 }
 
 /**
@@ -537,10 +585,10 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     SCORE_TYPES, DEFAULT_RANKING,
     numOf, formatScore, rankingOf, isBetter,
-    validateScore, sumShots, validateLadder,
+    validateScore, sumShots, validateLadder, completesChallenge,
     attemptMs, pickBest, diffBestFlags, attemptQuota,
     buildLeaderboard, myRank, compareEntries, rankInLadder,
-    drawEntries, nextCompleted,
+    drawEntries, nextCompleted, requiredChallengeIds, completionProgress, settledDrawEntries,
     formatPlayerId, parseScannedId, normalizePlayerId, newPlayerDoc,
     normalizePhone, maskPhone
   };

@@ -98,8 +98,10 @@ const AGE_LABEL = { kid: '兒童', teen: '青少年', adult: '成人' };
  * 排序：張數多的在前，同張數依代號——**穩定且可重放**，
  * 主辦重匯一次要拿到同一份名單（不然沒辦法比對）。
  */
-export function luckyDrawRows(players = [], { contacts = {} } = {}) {
+export function luckyDrawRows(players = [], { contacts = {}, rewards = null } = {}) {
   return players
+    .filter(p => rewards?.rule !== 'allChallengesCompleted'
+      || (typeof rewards.version === 'string' && p.luckyDrawRuleVersion === rewards.version))
     .map(p => ({
       playerId: p.playerId ?? '',
       nickname: p.nickname ?? '',
