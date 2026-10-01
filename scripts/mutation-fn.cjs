@@ -12,6 +12,9 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#SOP-1 文字發布可夾帶計分設定', file: 'functions/challenge-release.js',
+    from: 'allowed.includes(key) && ', to: '',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/challenge.test.js --testNamePattern=SOP --silent' },
   { name: 'FN#S7-01 七項結算不標記規則版本', file: 'functions/pipeline.js',
     from: 'luckyDrawRuleVersion: ruleVersion,', to: 'luckyDrawRuleVersion: null,',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/challenge.test.js --testNamePattern=七項 --silent' },

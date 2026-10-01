@@ -34,6 +34,7 @@ function seed({ roles = ['admin'], players = null, perms = null } = {}) {
   const s = {
     [`events/${EVENT}`]: { eventId: EVENT, name: 'FEDA CUP 2026' },
     'config/env': { env: 'demo' },
+    'config/challengeRewards': { rule: 'perChallengeCompleted', entriesPerCompletion: 1, bonusAllComplete: 2, maxEntriesPerPlayer: 10 },
     [`users/${UID}`]: { uid: UID, displayName: '金小麥' },
     [`staff/${UID}`]: {
       uid: UID, name: '金小麥', roles, active: true,

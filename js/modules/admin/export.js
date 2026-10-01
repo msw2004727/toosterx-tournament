@@ -50,19 +50,26 @@ export async function adminExportPage({ scope, view }) {
   // ── 具名函式（會被提升）───────────────────────────────────
 
   async function load() {
+    state.error = null;
     try {
       const [players, challenges, contacts, rewards] = await Promise.all([
-        data.getPlayers(), data.getChallenges(), data.getPlayerContacts(), data.getChallengeRewards()
+        data.getPlayers({ server: true }), data.getChallenges({ server: true }),
+        data.getPlayerContacts({ server: true }), data.getChallengeRewards({ server: true })
       ]);
+      if (!['allChallengesCompleted', 'perChallengeCompleted'].includes(rewards?.rule)) {
+        throw new Error('抽獎規則尚未設定或無法確認，請聯絡總管後再匯出。');
+      }
       state.players = players;
-      state.challengeTotal = challenges.length;
+      state.challengeTotal = rewards?.requiredChallengeIds?.length ?? challenges.length;
       state.contacts = contacts;
       state.rewards = rewards;
+      state.loadedAt = new Date(serverNow()).toLocaleTimeString('zh-TW', { hour12: false });
     } catch (err) {
       state.error = err;
       state.players = [];
     }
     render();
+    return !state.error;
   }
 
   function rows() {
@@ -87,11 +94,12 @@ export async function adminExportPage({ scope, view }) {
   }
 
   async function exportLuckyDraw() {
-    const list = rows();
-    if (!list.length) { toast('目前沒有人有抽獎資格', 'warn'); return; }
-
+    if (state.busy || !can('export')) return;
     state.busy = true; render();
     try {
+      if (!await load()) throw state.error;
+      const list = rows();
+      if (!list.length) { toast('目前沒有人有抽獎資格', 'warn'); return; }
       const csv = toCsv(LUCKY_DRAW_COLUMNS, list);
       const name = csvFilename('抽獎名單', new Date(serverNow()).toISOString());
       download(name, csv);
@@ -122,7 +130,13 @@ export async function adminExportPage({ scope, view }) {
         `有資格的玩家 ${s.players} 人・抽獎券合計 ${s.entries} 張`
         + (s.allDone == null ? '' : `・${state.challengeTotal} 關全破 ${s.allDone} 人`) }),
       el('p', { class: 'adm__permNote', text:
-        '只收抽獎張數 1 張以上的人。張數是系統算出來的權威值，跟玩家手機上看到的一致。' }),
+        state.rewards?.rule === 'allChallengesCompleted'
+          ? `僅匯出全部 ${state.challengeTotal} 項完成、且伺服器已確認資格的玩家，每人 1 張。下載前會重新讀取最新資料。`
+          : '只收抽獎張數 1 張以上的人。張數由伺服器確認，下載前會重新讀取最新資料。' }),
+      el('p', { class: 'adm__note', text: `請先確認所有攤位的待同步成績已送達，再更新與匯出。${state.loadedAt ? ` 最近更新 ${state.loadedAt}` : ''}` }),
+      el('button', { class: 'btn btn--lg', type: 'button', disabled: state.busy, onClick: async () => {
+        state.busy = true; render(); await load(); state.busy = false; render();
+      } }, iconText('retry', '更新抽獎名單')),
       el('button', {
         class: 'btn btn--lg btn--primary', type: 'button',
         disabled: state.busy || !list.length, onClick: exportLuckyDraw
@@ -155,6 +169,7 @@ export async function adminExportPage({ scope, view }) {
 
   function render() {
     if (state.players === undefined) { mount(root, adminHead('匯出資料'), skeleton(3)); return; }
+    if (!can('export')) { mount(root, denied('匯出資料', '管理員')); return; }
 
     mount(root,
       adminHead('匯出資料', { sub: 'CSV（Excel 直接開得起來）' }),
@@ -175,7 +190,7 @@ export async function adminExportPage({ scope, view }) {
           '編碼是 UTF-8 帶 BOM，Excel 直接打開不會變成亂碼。暱稱裡如果有等號或加號開頭，'
           + '會多一個單引號——那是為了不讓試算表把它當成公式執行。' }),
         el('p', { class: 'adm__permNote', text:
-          '「聯絡方式」目前一定是空的：填寫聯絡方式的表單還沒做（docs/06 §7.2）。' })
+          '聯絡方式取自私密的中獎聯絡手機；未填手機的玩家仍可符合資格，活動現場可用挑戰卡號唱名。' })
       ])
     );
   }

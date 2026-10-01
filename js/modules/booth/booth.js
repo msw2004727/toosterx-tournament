@@ -23,7 +23,9 @@
 
 import { el, mount, toast, skeleton, emptyState, confirmDialog, sheet } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
-import { can, staff, user, onAuth } from '../../core/firebase.js';
+import { can, staff, user, onAuth, reloadIdentity, hasRole } from '../../core/firebase.js';
+import { navigate } from '../../core/router.js';
+import { EVENT_ID } from '../../config.js';
 import { now as serverNow } from '../../core/clock.js';
 import { hold } from '../../core/store.js';
 import { hhmm } from '../../lib/format.js';
@@ -60,11 +62,14 @@ export async function boothPage({ scope, view, params, query }) {
     busy: false, lockUntil: 0,
     sent: []                       // 本機去重用
   };
+  const cameraAbort = new AbortController();
+  hold(scope, () => cameraAbort.abort(), 'booth:camera');
 
   hold(scope, onAuth(() => render()), 'auth:booth');
 
   if (!can('challenge.attempt.write')) {
-    mount(root, denied());
+    state.ready = true;
+    render();
     return;
   }
 
@@ -78,8 +83,9 @@ export async function boothPage({ scope, view, params, query }) {
       const me = staff();
       state.challenges = myChallenges(all, {
         challengeIds: me?.assignment?.challengeIds ?? [],
-        isAdmin: can('perms.manage') || can('team.manage')
+        isAdmin: hasRole('admin')
       });
+      if (!hasRole('admin') && me?.assignment?.eventId !== EVENT_ID) state.challenges = [];
       const wanted = params?.challengeId;
       state.challenge = wanted
         ? state.challenges.find(c => c.challengeId === wanted) ?? null
@@ -116,8 +122,9 @@ export async function boothPage({ scope, view, params, query }) {
   // ── 動作 ─────────────────────────────────────────────────
 
   async function scan() {
+    if (state.busy) return;
     try {
-      const text = await scanOnce();
+      const text = await scanOnce({ signal: cameraAbort.signal });
       if (!text) return;
       state.idInput = parseScannedId(text) ?? text;
       render();
@@ -128,8 +135,11 @@ export async function boothPage({ scope, view, params, query }) {
   }
 
   async function lookup(raw) {
+    if (state.busy || !state.challenge || !can('challenge.attempt.write')) return;
     const pid = parseScannedId(raw);
     if (!pid) { toast('ID 格式不對，應該像 FEDA-0182', 'warn'); return; }
+    Object.assign(state, { playerId: null, player: null, attempts: [], value: null, detail: null, result: null,
+      contactInput: '', contactNote: null });
     state.busy = true; render();
     try {
       const [player, attempts] = await Promise.all([
@@ -215,6 +225,7 @@ export async function boothPage({ scope, view, params, query }) {
   }
 
   async function submit() {
+    if (!can('challenge.attempt.write') || !state.playerId || serverNow() < state.lockUntil) return;
     const c = state.challenge;
     const r = resolveScore({ challenge: c, value: state.value, detail: state.detail });
     if (!r.ok) { toast(r.reason, 'warn'); return; }
@@ -306,7 +317,30 @@ export async function boothPage({ scope, view, params, query }) {
   function denied() {
     return el('div', { class: 'booth__box booth__box--warn' }, [
       el('strong', { text: '你沒有登錄挑戰成績的權限' }),
-      el('p', { class: 'booth__note', text: '這一頁需要「挑戰攤位」以上的身分。如果剛被指派，請重新整理一次。' })
+      el('p', { class: 'booth__note', text: '請先用 LINE 登入，讓總管在「身分授權」選擇挑戰攤位身分與負責關卡。授權後按下方更新權限。' }),
+      refreshButton()
+    ]);
+  }
+
+  function refreshButton() {
+    return el('button', { class: 'btn btn--lg', type: 'button', onClick: async () => {
+      await reloadIdentity();
+      const next = params?.challengeId ? `/booth/${encodeURIComponent(params.challengeId)}` : '/booth';
+      navigate(next + (state.idInput ? `?id=${encodeURIComponent(state.idInput)}` : ''));
+    } }, iconText('retry', '更新權限'));
+  }
+
+  function workflow() {
+    return el('div', { class: 'booth__box' }, [
+      el('strong', { text: '挑戰攤位登錄' }),
+      el('p', { class: 'booth__note', text: state.challenge
+        ? '1 選擇攤位 → 2 掃碼或輸入挑戰卡號 → 3 登錄參與／成績。七項完成後，由系統確認抽獎資格。'
+        : '請先選擇負責攤位，下一步就能開啟相機或手動輸入挑戰卡號。' }),
+      el('div', { class: 'booth__idRow' }, [
+        state.challenge && state.challenges.length > 1 ? el('button', { class: 'btn btn--lg', type: 'button',
+          onClick: () => navigate('/booth') }, iconText('back', '切換攤位')) : null,
+        refreshButton()
+      ].filter(Boolean))
     ]);
   }
 
@@ -327,7 +361,7 @@ export async function boothPage({ scope, view, params, query }) {
       el('div', { class: 'booth__choices' }, state.challenges.map(c =>
         el('button', {
           class: 'booth__choice', type: 'button',
-          onClick: () => { state.challenge = c; watchForChallenge(); render(); autoLookupIfReady(); }
+          onClick: () => navigate(`/booth/${encodeURIComponent(c.challengeId)}${state.idInput ? `?id=${encodeURIComponent(state.idInput)}` : ''}`)
         }, [
           icon(c.icon ?? 'goal'),
           el('span', { class: 'booth__choiceName', text: c.name }),
@@ -338,11 +372,14 @@ export async function boothPage({ scope, view, params, query }) {
 
   function idBox() {
     return el('div', { class: 'booth__box' }, [
-      el('label', { class: 'booth__label', for: 'booth-id', text: '玩家 ID' }),
+      el('button', { class: 'btn btn--primary btn--lg booth__scan', type: 'button', disabled: state.busy || !scanSupported(),
+        'aria-label': '開啟相機掃描挑戰卡', onClick: scan }, iconText('qr', '開啟相機掃碼')),
+      !scanSupported() ? el('p', { class: 'booth__warn', text: '此瀏覽器無法開啟相機。請改用 Safari／Chrome 開啟本頁，或在下方手動輸入卡號。' }) : null,
+      el('label', { class: 'booth__label', for: 'booth-id', text: '手動輸入玩家挑戰卡號' }),
       el('div', { class: 'booth__idRow' }, [
         el('input', {
           class: 'booth__id', id: 'booth-id', type: 'text', inputmode: 'numeric',
-          placeholder: 'FEDA-0182', autocomplete: 'off',
+          placeholder: 'FEDA-0182 或 0182', autocomplete: 'off', disabled: state.busy,
           value: state.idInput,
           onInput: e => { state.idInput = e.target.value; },
           onKeyDown: e => { if (e.key === 'Enter') lookup(state.idInput); }
@@ -350,13 +387,7 @@ export async function boothPage({ scope, view, params, query }) {
         el('button', {
           class: 'btn btn--primary btn--lg', type: 'button', disabled: state.busy,
           onClick: () => lookup(state.idInput)
-        }, iconText('check', '查詢')),
-        // 頁內掃描只在瀏覽器有 BarcodeDetector 時出現（Android Chrome）；
-        // 沒有的裝置用手機相機 App 掃，QR 會直接開這一頁並帶入代號
-        scanSupported() ? el('button', {
-          class: 'btn btn--lg', type: 'button', disabled: state.busy, 'aria-label': '用相機掃描玩家的 QR',
-          onClick: () => scan()
-        }, iconText('qr', '掃描')) : null
+        }, iconText('check', '查詢'))
       ]),
       el('p', { class: 'booth__hint' }, [
         document.createTextNode('沒有卡的玩家（家長的第二個小孩、沒有 LINE）：'),
@@ -436,7 +467,7 @@ export async function boothPage({ scope, view, params, query }) {
 
   function checkinInput() {
     return el('div', { class: 'booth__checkin' }, [
-      el('p', { class: 'booth__note', text: '確認玩家已到中醫看診現場，由工作人員簽到打卡即可完成。不記錄看診內容。' }),
+      el('p', { class: 'booth__note', text: state.challenge.rulesText ?? '確認玩家已到現場，由工作人員簽到打卡即可完成。' }),
       el('button', { class: `btn btn--xl${state.value === 1 ? ' btn--primary' : ''}`, type: 'button',
         'aria-pressed': String(state.value === 1), onClick: () => { state.value = state.value === 1 ? null : 1; render(); }
       }, iconText('check', state.value === 1 ? '已確認現場簽到' : '確認玩家已到現場'))
@@ -578,17 +609,19 @@ export async function boothPage({ scope, view, params, query }) {
     }
 
     if (!state.challenges.length) {
-      mount(root, emptyState({
+      mount(root, workflow(), emptyState({
         iconName: 'warn', title: '你還沒有被指派到任何攤位',
         note: '請總管在「身分授權」裡指派這個帳號負責的關卡。'
       }));
       return;
     }
 
-    if (!state.challenge) { mount(root, pickChallenge()); return; }
+    if (!state.challenge) { mount(root, workflow(), params?.challengeId ? el('p', { class: 'booth__warn',
+      role: 'alert', text: '網址中的攤位未授權給你或已不存在，請選擇下方可操作的攤位。' }) : null, pickChallenge()); return; }
 
     mount(root,
       head(),
+      workflow(),
       state.playerId ? playerBox() : idBox(),
       state.playerId && state.result ? resultBox() : null,
       state.playerId ? inputArea() : null,

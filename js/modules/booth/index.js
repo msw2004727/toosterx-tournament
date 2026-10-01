@@ -11,9 +11,11 @@ import { route, lazy } from '../../core/router.js';
 import { whenAuthReady, user } from '../../core/firebase.js';
 import { CACHE_VERSION } from '../../config.js';
 
-async function requireLogin() {
+async function requireLogin({ params, query }) {
   await whenAuthReady();
-  return user() ? true : '/login?next=/booth';
+  const path = params?.challengeId ? `/booth/${encodeURIComponent(params.challengeId)}` : '/booth';
+  const search = query?.toString();
+  return user() ? true : `/login?next=${encodeURIComponent(path + (search ? `?${search}` : ''))}`;
 }
 
 // 動態 import 帶版號＋lazy() 重試（同 staff/index.js，見 R-REL-016）
