@@ -183,7 +183,7 @@ const CHALLENGES = [
     minValue: 0, maxValue: 15, inputMode: 'shots', shotCount: 5, shotOptions: [0, 1, 2, 3] },
 
   { challengeId: 'g06-medical-checkin', order: 6, icon: 'medical',
-    name: '中醫問診', shortName: '中醫問診', boothLocation: '中醫問診現場',
+    name: '中醫問診', shortName: '中醫問診', boothLocation: '攤位 6',
     description: '到中醫問診現場，由工作人員簽到打卡即可完成。',
     summary: '現場簽到打卡即可集章',
     rulesText: '到中醫問診現場，向工作人員出示挑戰卡 QR 或代號。由人員確認並登錄簽到，即可完成此項；不計分、不排名，也不記錄問診內容。',
