@@ -174,7 +174,7 @@ describe('T58-G 畫面層修法釘在原始碼上（E2E 另外守行為）', () 
 
   test('D-02 登入頁先看 user() 再訂閱 onAuth（首次回呼是同步的，反過來會撞 TDZ）', () => {
     const src = read('js/modules/account/login.js');
-    const guard = src.indexOf('if (user()) { navigate(next); return; }');
+    const guard = src.indexOf('if (user() && user().isAnonymous !== true) { navigate(next); return; }');
     const sub = src.indexOf('const off = onAuth(');
     expect(guard).toBeGreaterThan(-1);
     expect(sub).toBeGreaterThan(guard);

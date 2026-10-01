@@ -39,8 +39,9 @@ export async function loginPage({ view, query }) {
   // 已登入就直接導走，不必訂閱。
   // ⚠️ onAuth() 會**同步**呼叫一次回呼——在回呼裡參考 `off` 會撞到 TDZ
   //    （已登入時整頁「Cannot access 'off' before initialization」，驗收 D-02）。
-  if (user()) { navigate(next); return; }
-  const off = onAuth(u => { if (u) { off(); navigate(next); } });
+  // Demo 模擬身分是匿名登入，仍須完成 LINE 授權才能使用一般用戶功能。
+  if (user() && user().isAnonymous !== true) { navigate(next); return; }
+  const off = onAuth(u => { if (u && u.isAnonymous !== true) { off(); navigate(next); } });
 
   render();
   if (state.phase === 'failed') return;      // 已經有導回失敗的原因，不要再蓋掉

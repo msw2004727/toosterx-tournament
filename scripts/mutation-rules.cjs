@@ -13,6 +13,9 @@ const { runMutants } = require('./lib/mutate.cjs');
 const F = 'firestore.rules';
 
 const MUTANTS = [
+  { name: 'RU#STREAM-PRIVACY 直播分享所有權向訪客公開', file: F,
+    from: 'allow read: if isAuth() && (resource.data.ownerUid == uid() || isAdmin());', to: 'allow read: if true;',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/stream-shares.test.js --silent' },
   { name: 'RU#SOP-1 攤位指派不驗活動範圍', file: F,
     from: "myAssignment().get('eventId', '') == eid && ", to: '',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/challenge.test.js --testNamePattern=SOP --silent' },

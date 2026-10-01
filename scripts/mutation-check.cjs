@@ -9,6 +9,12 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#STREAM-URL 直播分享放行偽裝 YouTube 網域', file: 'js/engine/stream-share.js',
+    from: "if (!['youtube.com', 'youtu.be'].includes(host)) return null;", to: "if (false) return null;",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/stream-share.test.js --silent' },
+  { name: '#STREAM-DENSITY 單筆分享不再最大', file: 'js/engine/stream-share.js',
+    from: "count === 1 ? 'solo'", to: "count === 1 ? 'compact'",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/stream-share.test.js --silent' },
   { name: '#SOP-1 指派存檔清掉負責攤位', file: 'js/engine/assign.js',
     from: 'challengeIds: onlyStaffScoped(role) ? [...challengeIds] : []', to: 'challengeIds: []',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/booth-sop.test.js --silent' },
@@ -1945,8 +1951,8 @@ const MUTANTS = [
   {
     name: '#AF10 ⭐ 登入頁先訂閱再看 user()（已登入時整頁 TDZ；D-02）',
     file: 'js/modules/account/login.js',
-    from: "  if (user()) { navigate(next); return; }\n  const off = onAuth(u => { if (u) { off(); navigate(next); } });",
-    to: "  const off = onAuth(u => { if (u) { off(); navigate(next); } });\n  if (user()) return;"
+    from: "  if (user() && user().isAnonymous !== true) { navigate(next); return; }\n  const off = onAuth(u => { if (u && u.isAnonymous !== true) { off(); navigate(next); } });",
+    to: "  const off = onAuth(u => { if (u && u.isAnonymous !== true) { off(); navigate(next); } });\n  if (user()) return;"
   },
   {
     name: '#AF11 ⭐ 攤位「最近登錄」的複合索引不見了（正式站 FAILED_PRECONDITION，模擬器看不到；D-03）',

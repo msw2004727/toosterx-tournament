@@ -6,7 +6,7 @@
  * 這是全站最重要的頁面。家長點進來只想知道兩件事：
  * 現在幾比幾、我的孩子有沒有上場。所以記分板最大、事件流是預設分頁。
  *
- * 監聽剛好 2 個（match ＋ timeline），在 docs/03 §12.4 的預算內。
+ * 監聽 3 個（match、timeline、用戶直播分享），換頁時依 scope 回收。
  */
 
 import { setDivisionTheme } from '../../core/division-theme.js';
@@ -25,6 +25,7 @@ import {
 } from './bits.js';
 import { EVENT_ICON } from '../staff/live-actions.js';
 import { APPEAL_STATUS_LABEL } from '../../lib/format.js';
+import { matchStreamShares } from './stream-shares.js';
 
 const TABS = [
   { key: 'events', label: '事件', icon: 'list' },
@@ -36,8 +37,12 @@ const TABS = [
 export async function publicMatch({ params, scope, view, query }) {
   const { matchId } = params;
   const root = el('div', { class: 'pub pmatch' });
+  const content = el('div', { class: 'pmatch__content' });
+  const sharedStreams = matchStreamShares({ matchId, scope });
+  sharedStreams.hidden = true;
   mount(view, root);
-  mount(root, skeleton(4));
+  mount(root, content, sharedStreams);
+  mount(content, skeleton(4));
 
   const state = {
     match: null, events: [], division: null, venue: null,
@@ -69,7 +74,8 @@ export async function publicMatch({ params, scope, view, query }) {
     if (changed) bounceScore();
   }, err => {
     state.loaded = true;
-    mount(root, pageHead('比賽', { onBack: () => navigate('/schedule') }),
+    sharedStreams.hidden = true;
+    mount(content, pageHead('比賽', { onBack: () => navigate('/schedule') }),
       empty('讀不到這場比賽', err?.message || '請回賽程頁重新選擇。',
         { label: '回賽程', onClick: () => navigate('/schedule') }));
   });
@@ -93,9 +99,10 @@ export async function publicMatch({ params, scope, view, query }) {
 
   function render() {
     setDivisionTheme(root, state.division || state.match?.divisionId);
-    if (!state.loaded) { mount(root, skeleton(4)); return; }
+    if (!state.loaded) { mount(content, skeleton(4)); return; }
     if (state.notFound) {
-      mount(root,
+      sharedStreams.hidden = true;
+      mount(content,
         pageHead('找不到這場比賽', { onBack: () => navigate('/schedule') }),
         empty('查無此比賽', `代碼 ${matchId} 不存在，可能是連結有誤。`,
           { label: '回賽程', onClick: () => navigate('/schedule') }));
@@ -103,7 +110,8 @@ export async function publicMatch({ params, scope, view, query }) {
     }
 
     const m = state.match;
-    mount(root,
+    sharedStreams.hidden = false;
+    mount(content,
       // 標題只放組別與輪次，場地跟時間放副標：三段串在標題上會在 390px 被截掉
       pageHead(
         [state.division?.name, m.label].filter(Boolean).join('　'),

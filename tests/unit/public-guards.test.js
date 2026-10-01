@@ -78,11 +78,12 @@ describe('T33-1 ⭐ 隱私：公開端不得碰私密集合', () => {
 });
 
 describe('T33-2 ⭐ 不重算：積分與榜單只讀不算', () => {
-  test('公開端不 import 任何引擎模組', () => {
+  test('公開端不 import 賽制重算引擎，只允許直播連結驗證器', () => {
     // R-ENG-001：積分／排名邏輯只能有一份實作，在 js/engine/，由 Function 執行。
-    // 公開端只要讀 standings.rows 直接畫。前端 import 引擎就代表有人想自己算。
+    // 公開端只讀 standings.rows；新分享功能僅共用 URL 驗證與按鈕密度，不計算賽事結果。
     const hits = Object.entries(code)
-      .filter(([, s]) => /from '.*\/engine\//.test(s))
+      .filter(([file, s]) => /from '.*\/engine\//.test(file === 'stream-shares.js'
+        ? s.replace("import { sharedYoutubeId, streamShareDensity, streamShareEmbed } from '../../engine/stream-share.js';", '') : s))
       .map(([f]) => f);
     expect(hits).toEqual([]);
   });

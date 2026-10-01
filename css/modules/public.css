@@ -458,3 +458,42 @@ button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-colo
 
 /* PK 決勝（正規時間平手時的勝負） */
 .prow__pk,.psb__pk{font-weight:700;color:var(--text-secondary)}
+
+/* 用戶直播：單筆醒目、多筆收緊；點擊區域保留至少 44px。 */
+.pshares{margin-top:var(--sp-4);padding:var(--sp-3);border:1px solid var(--border);border-radius:12px;background:var(--bg-card);min-width:0}
+.pshares[hidden]{display:none}
+.pshares__head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.pshares__head h2{font-size:var(--fs-md);margin:0}
+.pshares__head .btn{font-size:var(--fs-sm);padding-inline:8px}
+.pshares__note{font-size:var(--fs-sm);color:var(--text-muted);line-height:1.6;margin:8px 0}
+.pshares__grid{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.pshares__item{min-width:0;padding:8px;border:1px solid var(--border);border-radius:10px}
+.pshares__byline{display:flex;align-items:center;gap:4px;min-height:32px;margin-bottom:6px}
+.pshares__name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);font-weight:600}
+.pshares__remove{display:grid;place-items:center;width:44px;min-width:44px;height:44px;color:var(--text-muted);border-radius:8px}
+.pshares__remove:hover{background:var(--control-hover);color:var(--text-primary)}
+.pshares__yt{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;width:100%;padding:8px;border-radius:8px;background:var(--youtube-bg);color:var(--youtube-text);font-size:16px;font-weight:700}
+.pshares__yt:hover{background:var(--youtube-hover)}
+.pshares__ytLogo{display:grid;place-items:center;width:28px;height:22px;border-radius:6px;background:var(--youtube-text);color:var(--youtube-bg)}
+.pshares__ytLogo .icon{width:18px;height:18px;fill:currentColor;stroke-width:0}
+.pshares__grid[data-density="solo"]{grid-template-columns:minmax(0,1fr)}
+.pshares__grid[data-density="solo"] .pshares__item{padding:16px}
+.pshares__grid[data-density="solo"] .pshares__name{font-size:var(--fs-lg)}
+.pshares__grid[data-density="solo"] .pshares__yt{min-height:64px;font-size:21px}
+.pshares__grid[data-density="solo"] .pshares__ytLogo{width:38px;height:28px}
+.pshares__grid[data-density="compact"]{gap:6px}
+.pshares__grid[data-density="compact"] .pshares__item{padding:5px}
+.pshares__grid[data-density="compact"] .pshares__byline{margin-bottom:4px}
+.pshares__grid[data-density="compact"] .pshares__name{font-size:13px}
+.pshares__grid[data-density="compact"] .pshares__yt{min-height:44px;font-size:14px;gap:6px}
+.pshares__grid[data-density="compact"] .pshares__ytLogo{width:24px;height:18px}
+.pshares__more{width:100%;margin-top:8px}
+.pshares__form{display:flex;flex-direction:column;gap:8px;margin-top:12px;border-top:1px solid var(--border);padding-top:12px}
+.pshares__form label{font-size:var(--fs-sm);font-weight:600}
+.pshares__form input{width:100%;min-width:0;min-height:44px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-root);color:var(--text-primary)}
+.pshares__message{font-size:var(--fs-sm);margin:12px 0 0;color:var(--text-primary)}
+.pshares__player{margin-top:12px;min-width:0}
+.pshares__playerHead{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:var(--fs-sm);overflow-wrap:anywhere}
+.pshares__player .video{min-height:200px}
+.pshares__player .video iframe{min-height:200px}
+@media(min-width:600px){.pshares__grid[data-density="compact"]{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}}

@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20261001c';
+export const CACHE_VERSION = '0.20261001e';
 
 /**
  * PWA 安裝入口。主辦 2026-09-06 決定關閉：頁首不畫「安裝」，Chrome 自己的安裝橫幅也在
@@ -194,6 +194,7 @@ export const PERMISSIONS = [
   { code: 'team.manage',       label: '審核報名與球隊', group: '管理', minRole: 'admin', destructive: true },
   { code: 'appeal.manage',     label: '登記申訴與裁決', group: '管理', minRole: 'admin', destructive: true },
   { code: 'stream.manage',     label: '直播設定',       group: '管理', minRole: 'admin' },
+  { code: 'stream.share.remove', label: '移除用戶直播分享', group: '管理', minRole: 'admin', destructive: true },
   { code: 'audit.read',        label: '查看稽核紀錄',   group: '管理', minRole: 'admin' },
   { code: 'export',            label: '匯出資料',       group: '管理', minRole: 'admin' },
 

@@ -35,6 +35,7 @@ import { importTeamsFor, TeamImportError } from './team-import.js';
 import { updateMemberIdentityFor } from './member-identity.js';
 import { generateScheduleFor } from './schedule.js';
 import { manageEventFor } from './management.js';
+import { shareMatchStreamFor } from './stream-shares.js';
 
 ensureApp();
 setGlobalOptions({ region: 'asia-east1', maxInstances: 10 });
@@ -437,6 +438,7 @@ const managementCall = handler => onCall({ timeoutSeconds: 120 }, async request 
 });
 export const generateSchedule = managementCall(generateScheduleFor);
 export const manageEvent = managementCall(manageEventFor);
+export const shareMatchStream = managementCall(shareMatchStreamFor);
 export const scheduleMatches  = onCall(unimplemented('scheduleMatches', 'M4'));
 export const mergePlayers     = onCall(unimplemented('mergePlayers', 'M6'));
 export const exportCsv        = onCall(unimplemented('exportCsv', 'M7'));
