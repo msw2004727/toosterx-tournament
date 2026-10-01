@@ -57,7 +57,7 @@ test('從挑戰區找到入口，複數攤位先選關卡再看到相機與手�
   await setup(page); await page.goto('/#/challenge');
   await page.getByRole('button', { name: '攤位登錄', exact: true }).click();
   await expect(page.locator('.booth')).toContainText('下一步就能開啟相機');
-  await page.getByRole('button', { name: /中醫問診現場/ }).click();
+  await page.getByRole('button', { name: /中醫問診.*攤位 6/ }).click();
   await expect(page.getByRole('button', { name: '開啟相機掃描挑戰卡', exact: true })).toBeVisible();
   await expect(page.getByLabel('手動輸入玩家挑戰卡號')).toBeVisible();
   await page.locator('#booth-id').fill('0182'); await page.getByRole('button', { name: '查詢', exact: true }).click();
