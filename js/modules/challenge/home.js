@@ -20,6 +20,8 @@
 import { el, mount, skeleton } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
+import { can, user, onAuth } from '../../core/firebase.js';
+import { hold } from '../../core/store.js';
 import { formatScore, completionProgress, settledDrawEntries } from '../../engine/challenge.js';
 import * as data from './data.js';
 import { savedPass } from './pass.js';
@@ -38,6 +40,7 @@ export async function challengeHomePage({ scope, view }) {
     rewards: null,
     error: null
   };
+  hold(scope, onAuth(() => render()), 'auth:challenge-home');
 
   data.getChallenges()
     .then(c => { state.challenges = c; render(); })
@@ -148,6 +151,14 @@ export async function challengeHomePage({ scope, view }) {
 
       meCard(),
       rulesCard(),
+      el('div', { class: 'chal__card' }, [
+        el('strong', { text: '工作人員入口' }),
+        el('p', { class: 'chal__hint', text: can('challenge.attempt.write')
+          ? '進入負責攤位，以相機掃碼或手動卡號登錄參與及成績。'
+          : '請先用 LINE 登入，並由總管授權負責的挑戰攤位。' }),
+        el('button', { class: 'btn btn--lg chal__go', type: 'button',
+          onClick: () => navigate(user() ? '/booth' : '/login?next=%2Fbooth') }, iconText('qr', '攤位登錄'))
+      ]),
 
       state.error
         ? el('div', { class: 'chal__card chal__card--warn', role: 'alert' }, [

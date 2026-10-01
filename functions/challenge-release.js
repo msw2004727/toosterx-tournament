@@ -8,6 +8,39 @@ const actor = { uid: 'challenge-release-cli', role: 'system', name: '七項挑�
 const progressOf = p => ({ completedChallengeIds: p.completedChallengeIds ?? [], luckyDrawEntries: p.luckyDrawEntries ?? 0,
   luckyDrawRuleVersion: p.luckyDrawRuleVersion ?? null });
 
+/** 僅更新玩法展示文字；保留統計、計分政策、完成紀錄與抽獎設定。 */
+export async function updateChallengeMetadata({ eventId, updates, expectedUpdateTimes, releaseId, reason }) {
+  const allowed = ['summary', 'name', 'shortName', 'boothLocation', 'description', 'rulesText'];
+  if (typeof eventId !== 'string' || typeof releaseId !== 'string' || typeof reason !== 'string'
+    || !/^[A-Za-z0-9_-]+$/.test(eventId) || !/^[A-Za-z0-9_-]+$/.test(releaseId) || !reason.trim()
+    || !Array.isArray(updates) || updates.length === 0 || new Set(updates.map(u => u.challengeId)).size !== updates.length
+    || !updates.every(u => /^[A-Za-z0-9_-]+$/.test(u.challengeId) && u.patch && Object.keys(u.patch).length > 0
+      && Object.entries(u.patch).every(([key, value]) => allowed.includes(key) && typeof value === 'string' && value.trim().length > 0))) {
+    throw Error('玩法文字更新只能包含非空的展示欄位');
+  }
+  const requestHash = createHash('sha256').update(JSON.stringify(updates)).digest('hex');
+  const base = evRef(eventId), receipt = base.collection('challengeReleases').doc(releaseId);
+  const refs = updates.map(u => base.collection('challenges').doc(u.challengeId));
+  return db().runTransaction(async tx => {
+    const [previous, ...snapshots] = await Promise.all([tx.get(receipt), ...refs.map(ref => tx.get(ref))]);
+    if (previous.exists) {
+      if (previous.data().requestHash !== requestHash || snapshots.some((s, i) => !s.exists
+        || Object.entries(updates[i].patch).some(([key, value]) => s.data()[key] !== value))) throw Error('文字發布收據與目前設定不一致');
+      return { changed: false, count: updates.length };
+    }
+    if (snapshots.some(s => !s.exists || !expectedUpdateTimes?.[s.id]
+      || s.updateTime.toDate().toISOString() !== expectedUpdateTimes[s.id])) throw Error('攤位設定已變更，請重新產生發布計畫');
+    const releaseActor = { uid: 'challenge-metadata-cli', role: 'system', name: '挑戰玩法與攤位 SOP 發布' };
+    const stamp = FieldValue.serverTimestamp();
+    for (let i = 0; i < updates.length; i++) tx.update(refs[i], { ...updates[i].patch, updatedAt: stamp });
+    writeAudit(eventId, { entity: 'challenge', entityId: releaseId, action: 'challenge.metadata.update', actor: releaseActor,
+      before: snapshots.map((s, i) => ({ challengeId: s.id, ...Object.fromEntries(Object.keys(updates[i].patch).map(k => [k, s.data()[k] ?? null])) })),
+      after: updates, reason }, tx);
+    tx.create(receipt, { requestHash, releaseId, actor: releaseActor, reason, createdAt: stamp });
+    return { changed: true, count: updates.length };
+  });
+}
+
 export async function installChallengeRelease({ eventId, challenges, rewards, reason, expectedRewardsUpdateTime }) {
   const ids = requiredChallengeIds(rewards);
   if (!/^[A-Za-z0-9_-]+$/.test(eventId) || !reason || rewards?.rule !== 'allChallengesCompleted'

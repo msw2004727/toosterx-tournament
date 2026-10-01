@@ -65,9 +65,9 @@ service cloud.firestore {
         || myAssignment().venueIds.size() == 0
         || venueId in myAssignment().venueIds;
     }
-    function assignedChallenge(cid) {
+    function assignedChallenge(cid, eid) {
       return myRoles().hasAny(['admin', 'super_admin'])
-        || cid in myAssignment().challengeIds;
+        || (myAssignment().get('eventId', '') == eid && cid in myAssignment().challengeIds);
     }
 
     // ── 報名（M4，docs/10 §2.3／§5.2）───────────────────────
@@ -611,7 +611,7 @@ service cloud.firestore {
       match /attempts/{attemptId} {
         allow read:   if true;
         allow create: if isBooth()
-                      && assignedChallenge(request.resource.data.challengeId)
+                      && assignedChallenge(request.resource.data.challengeId, eventId)
                       && request.resource.data.staffUid == uid()
                       && request.resource.data.createdAt == request.time
                       && validChallengeScore(request.resource.data.challengeId,

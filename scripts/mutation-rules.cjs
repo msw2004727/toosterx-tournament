@@ -13,6 +13,9 @@ const { runMutants } = require('./lib/mutate.cjs');
 const F = 'firestore.rules';
 
 const MUTANTS = [
+  { name: 'RU#SOP-1 攤位指派不驗活動範圍', file: F,
+    from: "myAssignment().get('eventId', '') == eid && ", to: '',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/challenge.test.js --testNamePattern=SOP --silent' },
   { name: 'RU#S7-01 不驗三球細項', file: F,
     from: "&& (!c.get('requireShotDetails', false) || validThreeShots(c, v));", to: ';',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/challenge.test.js --testNamePattern=一球三桶 --silent' },

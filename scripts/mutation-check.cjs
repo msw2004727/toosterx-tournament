@@ -9,6 +9,16 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#SOP-1 指派存檔清掉負責攤位', file: 'js/engine/assign.js',
+    from: 'challengeIds: onlyStaffScoped(role) ? [...challengeIds] : []', to: 'challengeIds: []',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/booth-sop.test.js --silent' },
+  { name: '#SOP-2 CSV 不驗七項集章', file: 'js/engine/csv.js',
+    from: '&& p.luckyDrawEntries === 1 && completionProgress(p.completedChallengeIds, [], rewards).allComplete',
+    to: '&& p.luckyDrawEntries === 1',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/booth-sop.test.js --silent' },
+  { name: '#SOP-3 取消後晚回來的相機串流未停止', file: 'js/modules/booth/scan.js',
+    from: 'if (done) { stop(acquired); return; }', to: 'if (done) { return; }',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/booth-scan.test.js --silent' },
   { name: '#S7-01 七項資格錯用任一項完成', file: 'js/engine/challenge.js',
     from: 'const allComplete = required.every(id => completed.has(id));',
     to: 'const allComplete = required.some(id => completed.has(id));',

@@ -39,7 +39,7 @@ export async function adminStaffPage({ scope, view }) {
   mount(root, skeleton(4));
 
   const state = {
-    staff: null, users: [], venues: [],
+    staff: null, users: [], venues: [], challenges: [], challengesError: null,
     q: '',                 // 搜尋字串
     open: null,            // 展開中的 uid
     draft: null,           // { role, venueIds }
@@ -61,6 +61,13 @@ export async function adminStaffPage({ scope, view }) {
   });
 
   hold(scope, onAuth(() => render()), 'auth:admin-staff');
+  void loadChallenges();
+
+  async function loadChallenges() {
+    try { state.challenges = await data.getChallenges(); state.challengesError = null; }
+    catch (err) { state.challengesError = err; }
+    render();
+  }
 
   // ── 具名函式（會被提升）───────────────────────────────────
 
@@ -94,6 +101,11 @@ export async function adminStaffPage({ scope, view }) {
     }
     const label = ROLE_INFO[r.role]?.label ?? r.role;
     if (!r.active) return `${label}（已停用）`;
+    if (onlyStaffScoped(r.role) && r.challengeIds?.length) {
+      const venue = r.role !== 'booth' && r.venueIds?.length ? ` · ${r.venueIds.map(venueName).join('、')}` : '';
+      return `${label}${venue} · ${r.challengeIds.map(id => state.challenges.find(c => c.challengeId === id)?.shortName ?? id).join('、')}`;
+    }
+    if (r.role === 'booth') return `${label} · 尚未指派攤位`;
     // ⚠️ 只有受場地限制的角色才印場地。管理員以上在 rules 裡不受場地限制
     //    （`assignedVenue()` 對 admin 直接放行），印出「管理員 · A場」
     //    等於告訴總管一個根本不成立的限制。demo 上真的有這種舊資料
@@ -110,7 +122,7 @@ export async function adminStaffPage({ scope, view }) {
     state.open = uid_;
     // 已經有身分就帶出來當預設，沒有就留空——預選一個身分等於誘導誤按
     state.draft = { role: row?.role && ASSIGNABLE_ROLES.includes(row.role) ? row.role : '',
-                    venueIds: [...(row?.venueIds ?? [])] };
+                    venueIds: [...(row?.venueIds ?? [])], challengeIds: [...(row?.challengeIds ?? [])] };
     render();
   }
 
@@ -118,6 +130,8 @@ export async function adminStaffPage({ scope, view }) {
     state.draft.role = role;
     // 換成管理員時把場地清掉：留著會顯示一組其實不生效的限制
     if (!onlyStaffScoped(role)) state.draft.venueIds = [];
+    if (role === 'booth') state.draft.venueIds = [];
+    if (!onlyStaffScoped(role)) state.draft.challengeIds = [];
     render();
   }
 
@@ -129,16 +143,17 @@ export async function adminStaffPage({ scope, view }) {
   }
 
   async function save(row) {
-    const { role, venueIds } = state.draft;
+    const { role, venueIds, challengeIds } = state.draft;
+    if (state.challengesError) { toast('讀不到攤位設定，請重新整理後再指派。', 'warn'); return; }
     const check = validateAssignment({
-      uid: row.uid, role, venueIds,
+      uid: row.uid, role, venueIds, challengeIds, knownChallengeIds: state.challenges.map(c => c.challengeId),
       knownVenueIds: state.venues.length ? state.venues.map(v => v.venueId) : null
     });
     if (!check.ok) { toast(check.message, 'warn'); return; }
 
-    const before = row.role ? { roles: [row.role], active: row.active, venueIds: row.venueIds } : null;
+    const before = row.role ? { roles: [row.role], active: row.active, venueIds: row.venueIds, challengeIds: row.challengeIds } : null;
     const doc_ = buildStaffDoc({
-      uid: row.uid, name: row.name, role, venueIds, eventId: EVENT_ID
+      uid: row.uid, name: row.name, role, venueIds, challengeIds, eventId: EVENT_ID
     });
 
     state.busy = true; render();
@@ -148,7 +163,7 @@ export async function adminStaffPage({ scope, view }) {
         action: before ? 'staff.update' : 'staff.assign',
         targetType: 'staff', targetId: row.uid,
         before,
-        after: { roles: doc_.roles, active: true, venueIds: doc_.assignment.venueIds },
+        after: { roles: doc_.roles, active: true, venueIds: doc_.assignment.venueIds, challengeIds: doc_.assignment.challengeIds },
         reason: null
       });
       toast(`已把「${ROLE_INFO[role]?.label ?? role}」指派給 ${row.name ?? row.uid}`);
@@ -215,7 +230,7 @@ export async function adminStaffPage({ scope, view }) {
 
   function venuePicker() {
     if (!state.venues.length) return null;
-    if (!onlyStaffScoped(state.draft.role)) return null;
+    if (!onlyStaffScoped(state.draft.role) || state.draft.role === 'booth') return null;
     return el('div', { class: 'adm__field' }, [
       el('span', { class: 'adm__fieldLabel', text: '指派場地（不選＝全部場地）' }),
       el('div', { class: 'adm__choices' }, state.venues.map(v =>
@@ -224,6 +239,24 @@ export async function adminStaffPage({ scope, view }) {
           type: 'button', 'aria-pressed': state.draft.venueIds.includes(v.venueId) ? 'true' : 'false',
           onClick: () => toggleVenue(v.venueId)
         }, el('span', { text: v.name ?? v.venueId }))))
+    ]);
+  }
+
+  function challengePicker() {
+    if (!onlyStaffScoped(state.draft.role)) return null;
+    return el('div', { class: 'adm__field', id: 'staff-challenges' }, [
+      el('span', { class: 'adm__fieldLabel', text: '負責的挑戰攤位（可複選）' }),
+      el('p', { class: 'adm__note', text: '挑戰攤位身分必須至少選一關；其他賽務人員只可登錄這裡勾選的攤位。管理員與總管可登錄所有攤位。' }),
+      state.challengesError ? errBox('讀不到攤位設定', state.challengesError) : null,
+      el('div', { class: 'adm__choices', role: 'group', 'aria-label': '負責的挑戰攤位' }, state.challenges.map(c =>
+        el('button', { class: `adm__chip${state.draft.challengeIds.includes(c.challengeId) ? ' is-on' : ''}`,
+          type: 'button', 'aria-pressed': String(state.draft.challengeIds.includes(c.challengeId)),
+          onClick: () => {
+            const ids = state.draft.challengeIds;
+            state.draft.challengeIds = ids.includes(c.challengeId) ? ids.filter(id => id !== c.challengeId) : [...ids, c.challengeId];
+            render();
+          }
+        }, c.shortName ?? c.name)))
     ]);
   }
 
@@ -256,6 +289,8 @@ export async function adminStaffPage({ scope, view }) {
       // 總管是這一頁唯一給不出去的身分，講清楚為什麼比讓人到處找好
       el('p', { class: 'adm__note', text: '總管不在清單裡：那是唯一能指派身分的人，只能用後台腳本建立。' }),
       venuePicker(),
+      challengePicker(),
+      el('p', { class: 'adm__note', text: '儲存後，請人員到「FEDA CUP 挑戰區 → 攤位登錄」並按「更新權限」，即可掃碼或輸入挑戰卡號。' }),
       el('div', { class: 'adm__actions' }, [
         el('button', {
           class: 'btn btn--primary btn--lg', type: 'button',

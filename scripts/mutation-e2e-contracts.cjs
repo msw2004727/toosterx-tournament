@@ -1,5 +1,11 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ESOP1: { spec: 'tests/e2e/booth-sop.spec.js', grep: '沒有內建辨識時相機', minTests: 1,
+    failure: 'toBeEnabled', assertions: ["expect(page.getByRole('button', { name: '開啟相機掃描挑戰卡', exact: true })).toBeEnabled()"] },
+  ESOP2: { spec: 'tests/e2e/booth-sop.spec.js', grep: '掃碼登入保留', minTests: 1,
+    failure: 'toBe', assertions: ["expect(next).toBe(`/booth/${ids[5]}?id=${PID}`)"] },
+  ESOP3: { spec: 'tests/e2e/booth-sop.spec.js', grep: 'CSV 下載重新讀取', minTests: 1,
+    failure: 'toContain', assertions: ["expect.poll(() => page.evaluate(() => window.__CSV)).toContain('FEDA-0199')"] },
   E60: {spec:'tests/e2e/admin-match.spec.js',grep:'管理請求失敗保留原資料',minTests:1,
     failure:'尚未確認這次操作的結果',assertions:["expect(page.locator('.toast--error')).toContainText('尚未確認這次操作的結果')"]},
   "PRE1": {

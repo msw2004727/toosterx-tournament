@@ -16,7 +16,7 @@ import { onAttemptSubmitted, playerProgress, setPlayerContactFor, issueGamePassF
 import { createHash } from 'node:crypto';
 import { rankInLadder } from '../../js/engine/challenge.js';
 import { CHALLENGES, buildSeed } from '../../scripts/seed/build.js';
-import { installChallengeRelease, refreshChallengeQualification } from '../../functions/challenge-release.js';
+import { installChallengeRelease, refreshChallengeQualification, updateChallengeMetadata } from '../../functions/challenge-release.js';
 
 const E = 'feda-cup-2026';
 const PROJECT = process.env.GCLOUD_PROJECT || 'demo-fn-test';
@@ -47,6 +47,43 @@ const FILLER = ['g01-nine-grid', 'g02-header-king', 'g04-speed-king', 'g05-first
   }));
 
 const REWARDS = { rule: 'perChallengeCompleted', entriesPerCompletion: 1, bonusAllComplete: 2, maxEntriesPerPlayer: 10 };
+
+describe('SOP 玩法文字發布', () => {
+  const ref = () => db.doc(`events/${E}/challenges/${CROSSBAR.challengeId}`);
+  async function request() {
+    const snap = await ref().get();
+    return { eventId: E, releaseId: 'sop-metadata-test', reason: '主辦更新玩法簡介',
+      updates: [{ challengeId: CROSSBAR.challengeId, patch: { summary: '指定距離踢五球，記錄擊中次數' } }],
+      expectedUpdateTimes: { [snap.id]: snap.updateTime.toDate().toISOString() } };
+  }
+  test('文字更新保留計分、統計、玩家與抽獎設定並留下單筆稽核，重試不重複', async () => {
+    const plan = await request(), before = (await ref().get()).data();
+    const peopleBefore = (await db.collection(`events/${E}/players`).get()).docs.map(d => d.data());
+    const rewardsBefore = (await db.doc('config/challengeRewards').get()).data();
+    expect(await updateChallengeMetadata(plan)).toMatchObject({ changed: true, count: 1 });
+    const after = (await ref().get()).data();
+    expect(after.summary).toBe(plan.updates[0].patch.summary);
+    for (const key of Object.keys(before)) expect(after[key]).toEqual(before[key]);
+    expect((await db.collection(`events/${E}/players`).get()).docs.map(d => d.data())).toEqual(peopleBefore);
+    expect((await db.doc('config/challengeRewards').get()).data()).toEqual(rewardsBefore);
+    expect(await updateChallengeMetadata(plan)).toMatchObject({ changed: false });
+    const audits = await db.collection(`events/${E}/audits`).where('action', '==', 'challenge.metadata.update').get();
+    expect(audits.size).toBe(1);
+  });
+  test('設定在 dry-run 後變更則停止文字发布，不覆寫現場統計', async () => {
+    const plan = await request();
+    await ref().update({ 'stats.attempts': 8 });
+    await expect(updateChallengeMetadata(plan)).rejects.toThrow('已變更');
+    expect((await ref().get()).data().summary).toBeUndefined();
+    expect((await ref().get()).data().stats.attempts).toBe(8);
+  });
+  test('文字發布禁止夾帶計分或其他欄位變更', async () => {
+    const plan = await request();
+    plan.updates[0].patch.maxValue = '1000';
+    await expect(updateChallengeMetadata(plan)).rejects.toThrow('展示欄位');
+    expect((await ref().get()).data().maxValue).toBe(5);
+  });
+});
 
 const T = s => new Date(`2026-10-11T${s}:00+08:00`);
 
