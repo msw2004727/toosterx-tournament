@@ -133,7 +133,7 @@ export async function challengeHomePage({ scope, view }) {
       el('strong', {}, iconText('ticket', '集章與抽獎規則')),
       el('ol', { class: 'chal__rules' }, [
         el('li', { text: '用 LINE 領取挑戰卡，到各項目出示同一張 QR。' }),
-        el('li', { text: '完成項目後，由現場工作人員登錄集章。中醫看診只需現場簽到打卡。' }),
+        el('li', { text: '完成項目後，由現場工作人員登錄集章。中醫問診只需現場簽到打卡。' }),
         el('li', { text: '七項全部完成，才取得 1 次抽獎機會；重複挑戰不增加抽獎次數。' })
       ]),
       el('p', { class: 'chal__hint', text: '資格由伺服器確認。離線登錄會在恢復連線後更新；作廢紀錄不計入集章。' })
