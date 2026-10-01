@@ -204,7 +204,13 @@ export const where = (field, op, value) => ({ kind: 'where', field, op, value })
 export const orderBy = (field, dir = 'asc') => ({ kind: 'orderBy', field, dir });
 export const limit = n => ({ kind: 'limit', n });
 
-export async function getDoc(ref) { S.stats.getDoc += 1; return snapOf(ref.path); }
+export async function getDoc(ref) {
+  S.stats.getDoc += 1;
+  const snapshot = snapOf(ref.path);
+  const delay = globalThis.window?.__FAKE_READ_DELAYS?.[ref.path] ?? 0;
+  if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+  return snapshot;
+}
 /**
  * 模擬伺服器對某一種查詢回錯（缺複合索引、規則變更）：
  *   window.__FAKE_SNAPSHOT_FAIL = { path: 'attempts', field: 'staffUid', code: 'failed-precondition' }
@@ -332,7 +338,13 @@ export const setLogLevel = () => {};
 
 // ── firebase-auth ────────────────────────────────────────────
 export const getAuth = () => ({ __fake: true });
-export function onAuthStateChanged(_auth, cb) { authCbs.add(cb); cb(S.currentUser); return () => authCbs.delete(cb); }
+export function onAuthStateChanged(_auth, cb) {
+  authCbs.add(cb);
+  const delay = globalThis.window?.__FAKE_AUTH_DELAY ?? 0;
+  if (delay) setTimeout(() => cb(S.currentUser), delay);
+  else cb(S.currentUser);
+  return () => authCbs.delete(cb);
+}
 export async function signInAnonymously() {
   S.currentUser = { uid: 'u-e2e', isAnonymous: true, displayName: null };
   for (const cb of authCbs) cb(S.currentUser);
@@ -371,7 +383,12 @@ export const httpsCallable = (_fns, name) => async (payload) => {
   // 所以「裁定之後積分榜長什麼樣」只能靠 test:fn 守——這裡守的是
   // 「畫面有沒有把正確的東西送出去」。
   (window.__FAKE_CALLS ||= []).push({ name, payload });
-  if (window.__FAKE_CALL_ERROR) throw new Error(window.__FAKE_CALL_ERROR);
+  if (window.__FAKE_CALL_ERROR) {
+    const failure = window.__FAKE_CALL_ERROR;
+    throw Object.assign(new Error(typeof failure === 'string' ? failure : failure.message),
+      { code: typeof failure === 'string' ? 'functions/failed-precondition' : failure.code });
+  }
+  if (name === 'generateSchedule' || name === 'manageEvent') return fakeManagement(name, payload);
   if (name === 'updateMemberIdentity') {
     return { data: { ok: true, data: { memberId: payload.memberId, jerseyNo: payload.jerseyNo, birthDate: payload.birthDate, idLast4: payload.idLast4, identityComplete: !!payload.birthDate && !!payload.idLast4, identityRevision: payload.revision + 1, auditId: 'fake-identity-audit' } } };
   }
@@ -413,3 +430,61 @@ export const httpsCallable = (_fns, name) => async (payload) => {
   }
   return { data: { ok: true, data: {} } };
 };
+
+/** 僅供 UI 接線；真正交易、競態、容量及稽核失敗由 Functions Emulator 驗證。 */
+async function fakeManagement(name, p) {
+  if (!S.online) throw Object.assign(new Error('管理操作需要連線'), { code: 'unavailable' });
+  if (S.failNext) { const code=S.failNext;S.failNext=null;throw Object.assign(new Error(code),{code}); }
+  const base=`events/${p.eventId}`, actor={uid:S.currentUser?.uid??null}, ops=[];
+  const put=(path,data,merge=false)=>ops.push({path,data,merge});
+  const rows=prefix=>[...store.entries()].filter(([key])=>key.startsWith(prefix)&&key.slice(prefix.length).split('/').length===1).map(([key,data])=>({...data,_path:key}));
+  const audit=(action,entity,entityId,before,after,reason)=>put(`${base}/audits/${p.operationId}`,{action,entity,entityId,before,after,reason,actor,createdAt:new Date().toISOString()});
+  if(name==='generateSchedule'){
+    const {planGeneration,matchDocOf}=await import(location.origin+'/js/engine/schedule-doc.js');
+    const {genericFormat}=await import(location.origin+'/js/engine/schedule.js');
+    const division=store.get(`${base}/divisions/${p.divisionId}`), teams=Object.fromEntries(rows(`${base}/teams/`).map(t=>[t.teamId,t]));
+    const format=p.generated?genericFormat(p.orderedTeamIds.length,{groupCount:p.groupCount??undefined}):store.get('config/formats')?.formats?.[p.formatId];
+    const plan=planGeneration({division,orderedTeams:p.orderedTeamIds.map(id=>teams[id]),format});
+    for(const m of rows(`${base}/matches/`).filter(m=>m.divisionId===p.divisionId))ops.push({path:m._path,remove:true});
+    for(const st of plan.stages)put(`${base}/divisions/${p.divisionId}/stages/${st.stageId}`,st);
+    for(const g of plan.groupDocs){
+      put(`${base}/divisions/${p.divisionId}/stages/${g.stageId}/groups/${g.groupId}`,g);
+      put(`${base}/standings/${p.divisionId}__${g.stageId}__${g.groupId}`,{divisionId:p.divisionId,stageId:g.stageId,groupId:g.groupId,rows:[],version:0});
+    }
+    for(const a of plan.assignments)put(`${base}/teams/${a.teamId}`,{seed:a.seed,groupId:a.groupId},true);
+    for(const m of plan.matches){const id=`${m.matchId}__g-${p.operationId}`;put(`${base}/matches/${id}`,matchDocOf({m:{...m,matchId:id},division,eventId:p.eventId}));}
+    if(p.generated)put('config/formats',{formats:{[format.formatId]:format}},true);
+    put(`${base}/divisions/${p.divisionId}`,{formatId:p.formatId,schedulePublished:false,scheduleRevision:(division.scheduleRevision??0)+1,draw:{seed:p.drawSeed,method:p.drawSeed==null?'manual':'random'}},true);
+    audit('schedule.generate','division',p.divisionId,null,{matches:plan.matches.length,formatId:p.formatId,drawSeed:p.drawSeed},p.drawSeed==null?'手動指定分組':`抽籤（種子 ${p.drawSeed}）`);
+  }else if(p.matchId){
+    const actions=await import(location.origin+'/js/engine/admin-match.js');
+    const appeal=await import(location.origin+'/js/engine/appeal.js');
+    const path=`${base}/matches/${p.matchId}`,m=store.get(path);let patch=p.patch,before=m,after=null;
+    if(p.action==='match.confirm')patch=actions.buildConfirmPatch(actor.uid);
+    if(p.action==='match.reopen')patch=actions.buildReopenPatch(actor.uid,rows(path+'/timeline/'));
+    if(p.action==='match.override')patch=actions.buildOverridePatch({match:m,score:p.patch.score,penaltyScore:p.patch.penaltyScore,uid:actor.uid});
+    if(p.action==='match.walkover')patch=actions.buildWalkoverPatch({side:p.patch.walkoverSide,uid:actor.uid});
+    if(['match.postponed','match.cancelled'].includes(p.action))patch=actions.buildStatusPatch(p.action.slice(6),actor.uid);
+    if(p.action.startsWith('appeal.')){
+      const ap=`${base}/appeals/${p.appeal.appealId}`,previous=store.get(ap);
+      const doc=p.action==='appeal.filed'?p.appeal.doc:{...previous,...appeal.buildAppealDecision({upheld:p.appeal.patch.decision.upheld,note:p.appeal.patch.decision.note,actorUid:actor.uid})};
+      put(ap,doc);patch={appeal:appeal.matchAppealFlag(doc)};
+      before={match:m,appeal:previous??null};after={match:{...m,...patch},appeal:doc};
+    }
+    if(patch.lock?.locked===true)patch={...patch,lock:{...patch.lock,lockedAt:serverTimestamp()}};
+    put(path,{...patch,managementRevision:(m.managementRevision??0)+1,updatedAt:serverTimestamp(),updatedBy:actor.uid},true);
+    audit(p.action,'match',p.matchId,before,after??{...m,...patch},p.reason);
+  }else{
+    const path=`${base}/divisions/${p.divisionId}`,division=store.get(path);
+    for(const u of p.updates)put(`${base}/matches/${u.matchId}`,u.patch,true);
+    if(['schedule.place','schedule.publish'].includes(p.action)){
+      const {assignMatchNos}=await import(location.origin+'/js/engine/schedule.js');
+      const current=rows(`${base}/matches/`).map(m=>({...m,...p.updates.find(u=>u.matchId===m.matchId)?.patch}));
+      for(const n of assignMatchNos(current,{frozen:current.some(m=>!['scheduled','checkin','ready','postponed','cancelled'].includes(m.status))}))put(`${base}/matches/${n.matchId}`,{matchNo:n.matchNo},true);
+    }
+    const patch={scheduleRevision:(division.scheduleRevision??0)+1,...(p.action==='schedule.publish'?{schedulePublished:true}:{}),...(p.action==='schedule.unpublish'?{schedulePublished:false}:{})};
+    put(path,patch,true);audit(p.action,'division',p.divisionId,division,{...division,...patch},p.reason);
+  }
+  for(const op of ops){if(op.remove)store.delete(op.path);else store.set(op.path,resolveSentinels(op.merge?deepMerge(store.get(op.path)||{},op.data):op.data));}
+  notify();return {data:{ok:true,data:{operationId:p.operationId}}};
+}

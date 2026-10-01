@@ -53,6 +53,9 @@ describe('賽前報名', () => {
   });
 
   test('R20 公開報名只能建立 pending，不可自行核准', async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      await setDoc(doc(ctx.firestore(), 'config', 'registration'), { open: true, hidden: false });
+    });
     await assertSucceeds(setDoc(
       doc(guest(env), 'events', EVENT, 'registrations', 'reg-1'), reg()
     ));

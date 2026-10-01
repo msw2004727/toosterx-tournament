@@ -19,25 +19,25 @@ export { db };
 export const evRef = eventId => db().collection('events').doc(eventId);
 
 /** 讀單一文件，不存在就丟錯（附上路徑，現場才查得到） */
-async function must(ref, what) {
-  const snap = await ref.get();
+async function must(ref, what, tx = null) {
+  const snap = await (tx ? tx.get(ref) : ref.get());
   if (!snap.exists) throw new Error(`${what} 不存在：${ref.path}`);
   return snap.data();
 }
 
 // ── 設定 ─────────────────────────────────────────────────────
 
-export async function loadRankingRule(rankingRuleId) {
+export async function loadRankingRule(rankingRuleId, tx = null) {
   if (!rankingRuleId) throw new Error('缺少 rankingRuleId');
-  const { rules } = await must(db().doc('config/rankingRules'), 'config/rankingRules');
+  const { rules } = await must(db().doc('config/rankingRules'), 'config/rankingRules', tx);
   const rule = rules?.[rankingRuleId];
   if (!rule) throw new Error(`config/rankingRules 沒有 ${rankingRuleId}`);
   return rule;
 }
 
-export async function loadFormat(formatId) {
+export async function loadFormat(formatId, tx = null) {
   if (!formatId) throw new Error('缺少 formatId');
-  const { formats } = await must(db().doc('config/formats'), 'config/formats');
+  const { formats } = await must(db().doc('config/formats'), 'config/formats', tx);
   const format = formats?.[formatId];
   if (!format) throw new Error(`config/formats 沒有 ${formatId}`);
   return format;
@@ -45,15 +45,16 @@ export async function loadFormat(formatId) {
 
 // ── 組別 / 階段 / 小組 ───────────────────────────────────────
 
-export const loadDivision = (eventId, divisionId) =>
-  must(evRef(eventId).collection('divisions').doc(divisionId), '組別');
+export const loadDivision = (eventId, divisionId, tx = null) =>
+  must(evRef(eventId).collection('divisions').doc(divisionId), '組別', tx);
 
 /** 某階段的所有小組。淘汰賽階段沒有小組，回空陣列。 */
-export async function loadGroups(eventId, divisionId, stageId) {
-  const snap = await evRef(eventId)
+export async function loadGroups(eventId, divisionId, stageId, tx = null) {
+  const query = evRef(eventId)
     .collection('divisions').doc(divisionId)
     .collection('stages').doc(stageId)
-    .collection('groups').get();
+    .collection('groups');
+  const snap = await (tx ? tx.get(query) : query.get());
   return snap.docs.map(d => ({ groupId: d.id, ...d.data() }));
 }
 
@@ -61,9 +62,9 @@ export async function loadGroups(eventId, divisionId, stageId) {
 
 const rowsOf = snap => snap.docs.map(d => ({ matchId: d.id, ...d.data() }));
 
-export async function loadDivisionMatches(eventId, divisionId) {
-  return rowsOf(await evRef(eventId).collection('matches')
-    .where('divisionId', '==', divisionId).get());
+export async function loadDivisionMatches(eventId, divisionId, tx = null) {
+  const query = evRef(eventId).collection('matches').where('divisionId', '==', divisionId);
+  return rowsOf(await (tx ? tx.get(query) : query.get()));
 }
 
 /**
@@ -95,13 +96,13 @@ export async function loadStageMatchesTx(tx, eventId, divisionId, stageId) {
  * 那會掃到整個 event 所有組別的牌，一個小組的重算沒必要付那個錢，
  * 而且 engine 本來就只採 countedMatchIds 之內的卡片（R-ENG-003）。
  */
-export async function loadCardEvents(eventId, matchIds) {
+export async function loadCardEvents(eventId, matchIds, tx = null) {
   const out = [];
-  const reads = matchIds.map(id =>
-    evRef(eventId).collection('matches').doc(id)
-      .collection('timeline').where('type', '==', 'card').get()
-      .then(snap => snap.docs.forEach(d => out.push({ timelineId: d.id, ...d.data() })))
-  );
+  const reads = matchIds.map(async id => {
+    const query = evRef(eventId).collection('matches').doc(id).collection('timeline').where('type', '==', 'card');
+    const snap = await (tx ? tx.get(query) : query.get());
+    for (const d of snap.docs) out.push({ ...d.data(), timelineId: d.id, matchId: id });
+  });
   await Promise.all(reads);
   return out;
 }
@@ -116,11 +117,11 @@ export async function loadTimeline(eventId, matchId) {
 // ── 隊伍 ─────────────────────────────────────────────────────
 
 /** teamId → 隊伍文件。缺的隊伍不會補預設值，呼叫端自己決定怎麼辦。 */
-export async function loadTeams(eventId, teamIds) {
+export async function loadTeams(eventId, teamIds, tx = null) {
   const ids = [...new Set(teamIds.filter(Boolean))];
   if (!ids.length) return {};
   const refs = ids.map(id => evRef(eventId).collection('teams').doc(id));
-  const snaps = await db().getAll(...refs);
+  const snaps = await (tx ?? db()).getAll(...refs);
   const out = {};
   for (const s of snaps) if (s.exists) out[s.id] = { teamId: s.id, ...s.data() };
   return out;
@@ -166,9 +167,9 @@ export const withdrawnIdsOf = teams =>
 export const standingRef = (eventId, standingId) =>
   evRef(eventId).collection('standings').doc(standingId);
 
-export async function loadStandings(eventId, divisionId) {
-  const snap = await evRef(eventId).collection('standings')
-    .where('divisionId', '==', divisionId).get();
+export async function loadStandings(eventId, divisionId, tx = null) {
+  const query = evRef(eventId).collection('standings').where('divisionId', '==', divisionId);
+  const snap = await (tx ? tx.get(query) : query.get());
   const out = {};
   for (const d of snap.docs) out[d.id] = { standingId: d.id, ...d.data() };
   return out;
@@ -184,8 +185,9 @@ export async function loadStandings(eventId, divisionId) {
 export const loadChallenge = (eventId, challengeId) =>
   must(evRef(eventId).collection('challenges').doc(challengeId), `關卡 ${challengeId}`);
 
-export async function loadChallenges(eventId) {
-  const snap = await evRef(eventId).collection('challenges').get();
+export async function loadChallenges(eventId, tx = null) {
+  const ref = evRef(eventId).collection('challenges');
+  const snap = await (tx ? tx.get(ref) : ref.get());
   return snap.docs.map(d => ({ challengeId: d.id, ...d.data() }));
 }
 
@@ -195,32 +197,32 @@ export async function loadChallenges(eventId) {
  * ⚠️ 不在查詢裡篩 `voided`：作廢的那幾筆要拿來算 `diffBestFlags`
  *    （把舊的 isBest 關掉），查詢就濾掉的話它們永遠留著旗標。
  */
-export async function loadPlayerAttempts(eventId, challengeId, playerId) {
-  const snap = await evRef(eventId).collection('attempts')
+export async function loadPlayerAttempts(eventId, challengeId, playerId, tx = null) {
+  const query = evRef(eventId).collection('attempts')
     .where('challengeId', '==', challengeId)
-    .where('playerId', '==', playerId)
-    .get();
+    .where('playerId', '==', playerId);
+  const snap = await (tx ? tx.get(query) : query.get());
   return snap.docs.map(d => ({ attemptId: d.id, ...d.data() }));
 }
 
 /** 一關的全部成績（排行榜用） */
-export async function loadChallengeAttempts(eventId, challengeId) {
-  const snap = await evRef(eventId).collection('attempts')
-    .where('challengeId', '==', challengeId).get();
+export async function loadChallengeAttempts(eventId, challengeId, tx = null) {
+  const query = evRef(eventId).collection('attempts').where('challengeId', '==', challengeId);
+  const snap = await (tx ? tx.get(query) : query.get());
   return snap.docs.map(d => ({ attemptId: d.id, ...d.data() }));
 }
 
 export const playerRef = (eventId, playerId) =>
   evRef(eventId).collection('players').doc(playerId);
 
-export async function loadPlayers(eventId, playerIds) {
+export async function loadPlayers(eventId, playerIds, tx = null) {
   const ids = [...new Set((playerIds || []).filter(Boolean))];
   const out = {};
   // Firestore 的 getAll 一次上限 300，分批
   for (let i = 0; i < ids.length; i += 300) {
     const refs = ids.slice(i, i + 300).map(id => playerRef(eventId, id));
     if (!refs.length) continue;
-    const snaps = await db().getAll(...refs);
+    const snaps = await (tx ?? db()).getAll(...refs);
     for (const s of snaps) if (s.exists) out[s.id] = { playerId: s.id, ...s.data() };
   }
   return out;
@@ -232,8 +234,9 @@ export async function loadPlayers(eventId, playerIds) {
  * ⚠️ 讀不到就回 null，**不要套一份預設值**——引擎收到 null 會回 0 張，
  *    而多發出去的抽獎券收不回來（docs/06 §7.1）。
  */
-export async function loadChallengeRewards() {
-  const snap = await db().doc('config/challengeRewards').get();
+export async function loadChallengeRewards(tx = null) {
+  const ref = db().doc('config/challengeRewards');
+  const snap = await (tx ? tx.get(ref) : ref.get());
   return snap.exists ? snap.data() : null;
 }
 
@@ -242,11 +245,26 @@ export const leaderboardRef = (eventId, challengeId) =>
 
 // ── 稽核（R-SEC-002：只新增，不改不刪）──────────────────────
 
-export function writeAudit(eventId, { entity, entityId, action, before = null, after = null, reason = null }) {
-  return evRef(eventId).collection('audits').add({
+export function writeAudit(eventId, { entity, entityId, action, before = null, after = null, reason = null, actor = null }, tx = null, auditRef = null) {
+  const ref = auditRef ?? evRef(eventId).collection('audits').doc();
+  const doc = {
+    auditId: ref.id, eventId,
     entity, entityId, action,
-    actor: { uid: null, name: 'system', source: 'function' },
+    actor: actor ?? { uid: null, name: 'system', source: 'function' },
     before, after, reason,
     createdAt: FieldValue.serverTimestamp()
-  });
+  };
+  if (tx) { tx.create(ref, doc); return ref.id; }
+  return ref.create(doc);
+}
+
+/** 呼叫者 uid 只由 callable 的 Firebase Auth 取得；在提交交易內再次驗角色。 */
+export async function adminActor(tx, uid) {
+  if (uid == null) return { uid: null, name: 'system', source: 'function' };
+  const staff = (await tx.get(db().doc(`staff/${uid}`))).data();
+  if (staff?.active !== true || !Array.isArray(staff.roles)
+      || !staff.roles.some(r => ['admin', 'super_admin'].includes(r))) {
+    throw Object.assign(new Error('管理權限已失效'), { code: 'permission-denied' });
+  }
+  return { uid, name: staff.name ?? null, source: 'function' };
 }

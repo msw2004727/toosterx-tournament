@@ -375,6 +375,7 @@ test('⭐ 代建新卡：系統配號、寫進 players、成績可以直接登�
   await go(page);
   await ready(page);
   await page.locator('#booth-new-card').click();
+  await expect(page.locator('.modal'), '[M:E45] 代建新卡應先出現確認對話框').toBeVisible();
   await page.locator('.modal .btn--primary').click();
   await expect(page.locator('.booth__nick')).toContainText('FEDA-', { timeout: 15_000 });
   const created = Object.entries(await dump(page)).filter(([k]) => k.includes('/players/FEDA-')).map(([, v]) => v)

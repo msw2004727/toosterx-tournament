@@ -73,3 +73,14 @@ export function reconcileScore(score, events) {
 function strictNum(v) {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
+
+export function lastPlayedPeriod(events) {
+  let best = null;
+  for (const e of events || []) {
+    if (!isLive(e) || e.type !== 'period_start') continue;
+    if (best === null || (e.seq ?? 0) >= (best.seq ?? 0)) best = e;
+  }
+  // 沒有任何 period_start 的場次，依定義沒打過下半場；六個組別都是 periods:1，
+  // 退回 'h2' 會讓賽務台顯示「下半場」、時鐘從 13 分開始（驗收 D-06）
+  return best?.periodId ?? 'h1';
+}

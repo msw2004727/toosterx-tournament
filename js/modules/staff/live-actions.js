@@ -9,14 +9,14 @@
  */
 
 import { FAIR_PLAY } from '../../engine/ranking.js';
-import { GOAL_EVENT_TYPES, isLive, scoreFromTimeline, reconcileScore } from '../../engine/timeline.js';
+import { GOAL_EVENT_TYPES, isLive, scoreFromTimeline, reconcileScore, lastPlayedPeriod } from '../../engine/timeline.js';
 import { matchResult } from '../../engine/result.js';
 import { periodLabel } from '../../lib/format.js';
 
 // 比分推算搬去 js/engine/timeline.js 了：Cloud Function 對帳要用同一份邏輯，
 // 而 R-ENG-001 不允許有第二份實作。這裡只保留 re-export，
 // 讓既有的 import 路徑（與它們的測試）不必跟著動。
-export { isLive, scoreFromTimeline };
+export { isLive, scoreFromTimeline, lastPlayedPeriod };
 
 /** 會改變比分的事件型別（docs/01b §1.8 事件型別表）。⚠️ 含 own_goal。 */
 export const SCORING_TYPES = GOAL_EVENT_TYPES;
@@ -258,17 +258,6 @@ function toMs(v) {
 }
 
 /** 送出完賽之後、實際打過的最後一個期別（撤回要退回這裡，不能一律當成下半場） */
-export function lastPlayedPeriod(events) {
-  let best = null;
-  for (const e of events || []) {
-    if (!isLive(e) || e.type !== 'period_start') continue;
-    if (best === null || (e.seq ?? 0) >= (best.seq ?? 0)) best = e;
-  }
-  // 沒有任何 period_start 的場次，依定義沒打過下半場；六個組別都是 periods:1，
-  // 退回 'h2' 會讓賽務台顯示「下半場」、時鐘從 13 分開始（驗收 D-06）
-  return best?.periodId ?? 'h1';
-}
-
 /** 出場名單上球員的兩種身分：先發／替補（docs/04 §7） */
 export const SHEET_ROLES = ['start', 'bench'];
 

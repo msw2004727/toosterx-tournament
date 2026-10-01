@@ -169,7 +169,7 @@ export async function publicHome({ scope, view, query }) {
         el('span', { class: 'pub__challengeIcon' }, icon('goal')),
         el('span', { class: 'pub__challengeMain' }, [
           el('strong', { text: '足球挑戰區' }),
-          el('span', { class: 'pub__challengeSub', text: '五個關卡，完成一關就有一次抽獎機會' })
+          el('span', { class: 'pub__challengeSub', text: '七項集章，全數完成才有抽獎機會' })
         ]),
         el('span', { class: 'pub__challengeGo' }, icon('forward'))
       ]),

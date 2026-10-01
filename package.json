@@ -1,6 +1,6 @@
 {
   "name": "toosterx-tournament",
-  "version": "0.20260930b",
+  "version": "0.20261001a",
   "private": true,
   "description": "ToosterX 賽事營運系統｜Tournament + Challenge",
   "type": "module",
@@ -34,7 +34,11 @@
     "test:mutation:rules": "firebase emulators:exec --only firestore --project demo-rules-test \"node scripts/mutation-rules.cjs\"",
     "mutation:guard": "node scripts/mutation-guard.cjs",
     "perms:usage": "node scripts/perm-usage.cjs",
-    "test:mutation:e2e": "node scripts/mutation-e2e.cjs"
+    "test:mutation:e2e": "node scripts/mutation-e2e.cjs",
+    "test:tooling": "node --test tests/tooling/*.test.cjs",
+    "test:storage:unit": "node scripts/mutation-guard.cjs && node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/storage-rules/",
+    "test:storage": "firebase emulators:exec --only firestore,storage --project demo-storage-test \"npm run test:storage:unit\"",
+    "test:mutation:consistency": "node scripts/sync-engine.js && firebase emulators:exec --only firestore,storage --project demo-storage-test \"node scripts/mutation-consistency.cjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",

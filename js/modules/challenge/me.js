@@ -29,7 +29,7 @@ import { navigate } from '../../core/router.js';
 import { onAuth } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { qrSvg } from '../../lib/qr-render.js';
-import { formatScore, drawEntries, normalizePhone, maskPhone } from '../../engine/challenge.js';
+import { formatScore, drawEntries, normalizePhone, maskPhone, completionProgress, settledDrawEntries } from '../../engine/challenge.js';
 import * as data from './data.js';
 import { savedPass, savePass } from './pass.js';
 
@@ -161,8 +161,9 @@ export async function challengeMePage({ scope, view }) {
   }
 
   function progressCard() {
-    const done = completedIds();
-    const total = state.challenges.length;
+    const progress = completionProgress(completedIds(), state.challenges, state.rewards);
+    const done = progress.done;
+    const total = progress.total;
     return el('div', { class: 'chal__card' }, [
       el('div', { class: 'chal__cardHead' }, [
         el('strong', { text: '我的進度' }),
@@ -179,7 +180,8 @@ export async function challengeMePage({ scope, view }) {
                 el('strong', { class: 'chal__itemName', text: c.shortName || c.name || c.challengeId }),
                 el('span', { class: 'chal__itemVenue', text: c.boothLocation ?? '' })
               ]),
-              el('span', { class: 'chal__itemScore', text: b ? formatScore(b.rawValue, c) : '未挑戰' }),
+              el('span', { class: 'chal__itemScore', text: b ? formatScore(b.rawValue, c)
+                : ok ? (c.inputMode === 'checkin' ? '已簽到' : '已完成') : (c.inputMode === 'checkin' ? '未簽到' : '未挑戰') }),
               ok ? el('span', { class: 'chal__itemDone' }, icon('check')) : null
             ].filter(Boolean));
           }))
@@ -187,8 +189,9 @@ export async function challengeMePage({ scope, view }) {
   }
 
   function drawCard() {
-    const authoritative = Number.isInteger(state.player?.luckyDrawEntries)
-      ? state.player.luckyDrawEntries : null;
+    const authoritative = settledDrawEntries(state.player, state.rewards);
+    const allRequired = state.rewards?.rule === 'allChallengesCompleted';
+    const progress = completionProgress(completedIds(), state.challenges, state.rewards);
     const derived = state.rewards
       ? drawEntries({
           completedChallengeIds: completedIds(),
@@ -196,7 +199,7 @@ export async function challengeMePage({ scope, view }) {
           rewards: state.rewards
         })
       : null;
-    const pending = authoritative != null && derived != null && derived.entries !== authoritative;
+    const pending = derived != null && (authoritative == null || derived.entries !== authoritative);
 
     return el('div', { class: 'chal__card chal__card--draw' }, [
       el('div', { class: 'chal__cardHead' }, [
@@ -204,7 +207,12 @@ export async function challengeMePage({ scope, view }) {
         el('span', { class: 'chal__count', text: authoritative == null ? '—' : `${authoritative} 張` })
       ]),
       derived
-        ? el('ul', { class: 'chal__breakdown' }, [
+        ? allRequired ? el('div', { class: 'chal__qualification', 'data-qualified': String(authoritative > 0) }, [
+            el('strong', { text: authoritative > 0 ? '已取得 1 次抽獎機會' : '尚未取得抽獎資格' }),
+            el('p', { class: 'chal__hint', text: progress.allComplete
+              ? (authoritative > 0 ? '七項集章完成。重複挑戰不增加抽獎次數。' : '七項集章完成，等待伺服器確認。')
+              : `已完成 ${progress.done.length} / ${progress.total} 項，還差 ${progress.missing.length} 項。` })
+          ]) : el('ul', { class: 'chal__breakdown' }, [
             el('li', { text: `完成關卡 ${completedIds().length} / ${state.challenges.length}　→　${derived.fromCompletion} 張` }),
             derived.bonus ? el('li', { text: `全破獎勵　→　${derived.bonus} 張` }) : null
           ].filter(Boolean))

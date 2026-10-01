@@ -286,6 +286,7 @@ test('⭐ D-04 現場代建的卡可以直接送出 0 分（不必先按 ＋ 再
   await page.getByRole('button', { name: /查詢/ }).click();
   await page.locator('.modal').getByRole('button', { name: /^代建$/ }).click();
   await expect(page.locator('.booth__nick')).toContainText('FEDA-9999');
+  await expect(page.getByRole('button', { name: /送出成績/ }), '[M:E20] 代建後應能直接送出零分').toBeEnabled();
   await page.getByRole('button', { name: /送出成績/ }).click();
   await expect.poll(async () => Object.entries(await dump(page))
     .filter(([k]) => k.includes('/attempts/')).map(([, v]) => v)

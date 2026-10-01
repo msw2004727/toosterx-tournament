@@ -9,6 +9,27 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#S7-01 七項資格錯用任一項完成', file: 'js/engine/challenge.js',
+    from: 'const allComplete = required.every(id => completed.has(id));',
+    to: 'const allComplete = required.some(id => completed.has(id));',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-seven.test.js --silent' },
+  { name: '#S7-02 六項就提前發券', file: 'js/engine/challenge.js',
+    from: 'const allComplete = required.every(id => completed.has(id));',
+    to: 'const allComplete = required.slice(0, -1).every(id => completed.has(id));',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-seven.test.js --silent' },
+  { name: '#S7-03 顯示尚未重算的舊抽獎張數', file: 'js/engine/challenge.js',
+    from: "&& (!rewards.version || player?.luckyDrawRuleVersion !== rewards.version)) return null;",
+    to: '&& false) return null;',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-seven.test.js --silent' },
+  { name: '#S7-04 允許全倒成績為小數', file: 'js/engine/challenge.js',
+    from: 'if (challenge.integerOnly === true && !Number.isInteger(n))', to: 'if (false)',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-seven.test.js --silent' },
+  { name: '#PRE1 路由重進共用監聽範圍', file: 'js/core/router.js',
+    from: '|${gen}`;', to: '`;',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/router.test.js --silent' },
+  { name: '#PRE2 離線快取不儲存成功回應', file: 'sw.js',
+    from: 'if (response.ok) {', to: 'if (false) {',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/service-worker.test.js --silent' },
   { name: '#DISC3 忽略退賽作廢規則', file: 'js/engine/awards.js',
     from: 'withdrawnTeamIds: Object.entries(opts.teams).filter(([, t]) => t.withdrawn === true).map(([id]) => id)', to: 'withdrawnTeamIds: []' },
   { name: '#DISC1 紅黃牌把未完賽也算進去', file: 'js/engine/awards.js',
@@ -191,7 +212,7 @@ const MUTANTS = [
   },
   {
     name: '#17 撤回一律退回下半場（延長賽／PK 會被退錯期別）',
-    file: 'js/modules/staff/live-actions.js',
+    file: 'js/engine/timeline.js',
     from: `  return best?.periodId ?? 'h1';`,
     to: `  return 'h2';`
   },
@@ -1288,7 +1309,7 @@ const MUTANTS = [
   },
   {
     name: '#S15 ⭐ 還沒排時間的場次填一個假的開賽時間',
-    file: 'js/modules/admin/schedule-actions.js',
+    file: 'js/engine/schedule-doc.js',
     from: '    kickoffAt: m.kickoffMs != null ? new Date(m.kickoffMs) : null,',
     to: '    kickoffAt: new Date(m.kickoffMs ?? Date.now()),'
   },
@@ -1440,7 +1461,7 @@ const MUTANTS = [
   {
     name: '#BT1 ⭐ inputMode 讀不到就丟錯（現場最不需要的就是「這一關打不開」）',
     file: 'js/modules/booth/actions.js',
-    from: "  return ['stepper', 'shots', 'ladder', 'numpad'].includes(m) ? m : 'numpad';",
+    from: "  return ['stepper', 'shots', 'ladder', 'numpad', 'checkin'].includes(m) ? m : 'numpad';",
     to: "  return m;"
   },
   {
@@ -1521,7 +1542,7 @@ const MUTANTS = [
   // ── 場次改判（M4-c 補救工具）─────────────────────────────────
   {
     name: '#MA1 ⭐ 改判比分不重算 result（畫面 2:1，積分卻記著對手贏）',
-    file: 'js/modules/admin/match-actions.js',
+    file: 'js/engine/admin-match.js',
     from: '  const result = resultOf({ home: h, away: a }, pk);',
     to: '  const result = match?.result ?? resultOf({ home: h, away: a }, pk);'
   },
@@ -1539,43 +1560,43 @@ const MUTANTS = [
   },
   {
     name: '#MA4 ⭐ 重開時 lock 只寫 locked（updateDoc 整包取代，另外兩個欄位被刪掉）',
-    file: 'js/modules/admin/match-actions.js',
+    file: 'js/engine/admin-match.js',
     from: "    lock: { locked: false, lockedAt: null, lockedBy: null },\n    scoreSubmittedAt: null,",
     to: '    lock: { locked: false },\n    scoreSubmittedAt: null,'
   },
   {
     name: '#MA5 ⭐ 棄賽比分手填成 3:0（規章第十八條第 6 款是 0:2）',
-    file: 'js/modules/admin/match-actions.js',
+    file: 'js/engine/admin-match.js',
     from: '  const wo = { ...DEFAULT_WALKOVER, ...(walkover || {}) };',
     to: '  const wo = { ...DEFAULT_WALKOVER, scoreFor: 3, scoreAgainst: 0, ...(walkover || {}) };'
   },
   {
     name: '#MA6 ⭐ walkoverSide 記成「獲勝那一方」（積分判給棄賽的隊伍）',
-    file: 'js/modules/admin/match-actions.js',
+    file: 'js/engine/admin-match.js',
     from: "  const winnerSide = side === 'home' ? 'away' : 'home';",
     to: '  const winnerSide = side;'
   },
   {
     name: '#MA7 ⭐ 已覆核的場次還可以再覆核一次',
-    file: 'js/modules/admin/match-actions.js',
+    file: 'js/engine/admin-match.js',
     from: "  if (match.status === 'confirmed') return no('這一場已經覆核過了。');",
     to: '  if (false) return no(\'\');'
   },
   {
     name: '#MA8 ⭐ 還沒開打的場次也給改判（繞過賽務台的記分流程）',
-    file: 'js/modules/admin/match-actions.js',
+    file: 'js/engine/admin-match.js',
     from: '  if (NOT_STARTED_STATUSES.includes(match.status)) {',
     to: '  if (false) {'
   },
   {
     name: '#MA9 ⭐ 改判次數不累加（查不出這一場被改過幾次）',
-    file: 'js/modules/admin/match-actions.js',
+    file: 'js/engine/admin-match.js',
     from: '    revisionCount: (Number.isInteger(match?.revisionCount) ? match.revisionCount : 0) + 1,',
     to: '    revisionCount: match?.revisionCount ?? 0,'
   },
   {
     name: '#MA10 ⭐ 延期／取消時把比分一起清掉（延期的場次改天還要打）',
-    file: 'js/modules/admin/match-actions.js',
+    file: 'js/engine/admin-match.js',
     from: "  return {\n    status,\n    clock: { running: false, periodStartedAt: null, elapsedSecAtPause: 0, addedTimeSec: 0 },\n    updatedBy: uid\n  };",
     to: "  return {\n    status,\n    score: { home: 0, away: 0 },\n    result: null,\n    clock: { running: false, periodStartedAt: null, elapsedSecAtPause: 0, addedTimeSec: 0 },\n    updatedBy: uid\n  };"
   },
@@ -1865,7 +1886,7 @@ const MUTANTS = [
   },
   {
     name: '#AF2 ⭐ 沒有 period_start 就退回下半場（單節組別重開後顯示「下半場」、時鐘從 13 分起；D-06）',
-    file: 'js/modules/staff/live-actions.js',
+    file: 'js/engine/timeline.js',
     from: "  return best?.periodId ?? 'h1';",
     to: "  return best?.periodId ?? 'h2';"
   },
@@ -1889,13 +1910,13 @@ const MUTANTS = [
   },
   {
     name: '#AF6 ⭐ 重開一律退回下半場（D-06）',
-    file: 'js/modules/admin/match-actions.js',
+    file: 'js/engine/admin-match.js',
     from: "    period: lastPlayedPeriod(events),",
     to: "    period: 'h2',"
   },
   {
     name: '#AF7 ⭐ 改判比分不清 walkoverSide（文件同時說「客隊棄賽」與「1:1 平手」；D-11）',
-    file: 'js/modules/admin/match-actions.js',
+    file: 'js/engine/admin-match.js',
     from: "    walkoverSide: match?.status === 'walkover' ? (match?.walkoverSide ?? null) : null,\n",
     to: ""
   },
@@ -2037,7 +2058,8 @@ const MUTANTS = [
   }
 ];
 
-process.exit(runMutants({
+module.exports = { MUTANTS };
+if (require.main === module) process.exit(runMutants({
   mutants: MUTANTS,
   testCmd: 'npm run test:unit --silent',
   title: '引擎與前端｜變異測試'

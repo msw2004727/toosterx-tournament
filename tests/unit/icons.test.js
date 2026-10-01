@@ -80,7 +80,7 @@ describe('T30-2 程式裡引用的圖示名稱都存在', () => {
     // 攤位工作人員整天只看自己那一關的畫面，圖示沒出來他也不會回報
     // 「圖示不見了」——只會覺得這個系統做得很粗糙。
     const { CHALLENGES } = await import('../../scripts/seed/build.js');
-    expect(CHALLENGES).toHaveLength(5);
+    expect(CHALLENGES).toHaveLength(7);
     for (const c of CHALLENGES) {
       expect(ICON_NAMES).toContain(c.icon);
     }

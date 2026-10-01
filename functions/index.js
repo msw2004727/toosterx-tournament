@@ -26,13 +26,15 @@ import {
   rebuildBoardsFor, reconcileMatchScore,
   syncRosterFor, recountTeamMembers, recountUserTeams, rejectDuplicateApplication,
   enforceRosterCap,
-  onAttemptSubmitted, setManualRankingFor, clearManualRankingFor
+  onAttemptSubmitted, setManualRankingFor, clearManualRankingFor, refreshDivisionFor, invalidateFinalRankingFor
 } from './pipeline.js';
 import { setPlayerContactFor, issueGamePassFor } from './pipeline.js';
 import { writeAudit } from './store.js';
 import { loginWithLine } from './line.js';
 import { importTeamsFor, TeamImportError } from './team-import.js';
 import { updateMemberIdentityFor } from './member-identity.js';
+import { generateScheduleFor } from './schedule.js';
+import { manageEventFor } from './management.js';
 
 ensureApp();
 setGlobalOptions({ region: 'asia-east1', maxInstances: 10 });
@@ -69,7 +71,7 @@ async function requireStaff(request, roles = []) {
   const snap = await db().doc(`staff/${request.auth.uid}`).get();
   const staff = snap.data();
   if (!snap.exists || staff.active !== true) fail('permission-denied', '你尚未被指派為工作人員');
-  if (roles.length && !roles.some(r => staff.roles.includes(r))) fail('permission-denied', '權限不足');
+  if (!Array.isArray(staff.roles) || (roles.length && !roles.some(r => staff.roles.includes(r)))) fail('permission-denied', '權限不足');
   return staff;
 }
 
@@ -94,7 +96,7 @@ const DECIDED = ['finished', 'confirmed', 'walkover'];
  * 賽務每按一次計時暫停都會把整組積分榜重算一遍。
  */
 export const onMatchWritten = onDocumentWritten(
-  'events/{eventId}/matches/{matchId}', async (event) => {
+  { document: 'events/{eventId}/matches/{matchId}', retry: true }, async (event) => {
     const { eventId, matchId } = event.params;
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
@@ -105,7 +107,18 @@ export const onMatchWritten = onDocumentWritten(
         await rebuildBoardsFor({ eventId, divisionId });
       }
     }
-    if (!after) return;
+    if (!after) {
+      // 排程重產可能連小組一起刪除；僅重算仍存在的小組。
+      if (before?.divisionId && before.stageId && before.groupId) {
+        const group = await db().doc(`events/${eventId}/divisions/${before.divisionId}/stages/${before.stageId}/groups/${before.groupId}`).get();
+        if (group.exists) await recalcStandingForMatch({ eventId, match: { ...before, matchId } });
+      }
+      if (before?.divisionId && before.stageId) {
+        await resolveDownstreamOf({ eventId, divisionId: before.divisionId, stageId: before.stageId });
+        await invalidateFinalRankingFor({ eventId, divisionId: before.divisionId });
+      }
+      return;
+    }
     if (!changedAny(before, after, ['status', 'score', 'result'])) return;
 
     const match = { matchId, ...after };
@@ -123,24 +136,18 @@ export const onMatchWritten = onDocumentWritten(
           changed: standing.changed, hasUnresolvedTie: standing.hasUnresolvedTie
         });
 
-        // 名次真的動了 → 留一筆稽核給 Admin 看（docs/02 §10 / T12）。
-        // 下游若已經填過人，Admin 需要知道那份晉級名單的依據已經變了。
-        if (standing.changed && standing.diff) {
-          await writeAudit(eventId, {
-            entity: 'standing', entityId: standing.standingId, action: 'standing.rankChanged',
-            after: standing.diff, reason: `${matchId} 的結果變動造成名次改變`
-          });
-        }
+        // 名次差異的稽核已在 standing 交易內與結果一起提交。
       }
 
       // 這一場已經有勝負，才值得去試下游與看板
-      if (DECIDED.includes(after.status)) {
+      if (DECIDED.includes(after.status) || DECIDED.includes(before?.status)) {
         const downstream = await resolveDownstreamOf({ eventId, divisionId, stageId });
         for (const d of downstream) {
           if (d.applied?.length) logger.info('[onMatchWritten] 已解算晉級', { stageId: d.stageId, applied: d.applied.length });
           else if (!d.ready) logger.debug('[onMatchWritten] 晉級尚未就緒', { stageId: d.stageId, reason: d.reason });
         }
       }
+      await invalidateFinalRankingFor({ eventId, divisionId });
     } catch (err) {
       // 這裡**不吞例外**：吞掉的話積分榜會安靜地停在舊版，
       // 現場只會看到「怎麼沒更新」而沒有任何線索。讓它重試並留 log。
@@ -155,7 +162,7 @@ export const onMatchWritten = onDocumentWritten(
  * 未完賽只對帳；完賽後補登或作廢事件，必須同步更新公開統計。
  */
 export const onTimelineWritten = onDocumentWritten(
-  'events/{eventId}/matches/{matchId}/timeline/{timelineId}', async (event) => {
+  { document: 'events/{eventId}/matches/{matchId}/timeline/{timelineId}', retry: true }, async (event) => {
     const { eventId, matchId } = event.params;
     const r = await reconcileMatchScore({ eventId, matchId });
     if (r.changed) {
@@ -163,6 +170,9 @@ export const onTimelineWritten = onDocumentWritten(
     }
     const match = (await db().doc(`events/${eventId}/matches/${matchId}`).get()).data();
     if (match?.divisionId && DECIDED.includes(match.status)) {
+      await recalcStandingForMatch({ eventId, match: { ...match, matchId } });
+      if (match.stageId) await resolveDownstreamOf({ eventId, divisionId: match.divisionId, stageId: match.stageId });
+      await invalidateFinalRankingFor({ eventId, divisionId: match.divisionId });
       await rebuildBoardsFor({ eventId, divisionId: match.divisionId });
     }
   });
@@ -174,7 +184,7 @@ export const onTimelineWritten = onDocumentWritten(
  * 未滿 13 歲遮蔽姓名、照片預設不公開、白名單以外的欄位一個都不帶。
  */
 export const onMemberWritten = onDocumentWritten(
-  'events/{eventId}/teams/{teamId}/members/{memberId}', async (event) => {
+  { document: 'events/{eventId}/teams/{teamId}/members/{memberId}', retry: true }, async (event) => {
     const { eventId, teamId, memberId } = event.params;
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
@@ -187,7 +197,7 @@ export const onMemberWritten = onDocumentWritten(
       });
       if (rejected) {
         logger.info('[onMemberWritten] 重複申請已退件', { teamId, memberId });
-        return;                    // 退件那次寫入會再觸發一次，投影與計數交給它
+        // 同一次事件也清理投影與人數；重放仍讀目前來源。
       }
     }
     // 三天為不同盃賽，同一球員可參加不同球隊；不做跨隊身分查重。
@@ -212,13 +222,16 @@ export const onMemberWritten = onDocumentWritten(
  * （隊名、公告、狀態），每一次都去 count 一遍球隊集合太浪費。
  */
 export const onTeamWritten = onDocumentWritten(
-  'events/{eventId}/teams/{teamId}', async (event) => {
+  { document: 'events/{eventId}/teams/{teamId}', retry: true }, async (event) => {
     const { eventId } = event.params;
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
 
     if (before && changedAny(before, after, ['name', 'shortName', 'divisionId', 'status', 'withdrawn'])) {
       for (const divisionId of new Set([before.divisionId, after?.divisionId].filter(Boolean))) {
+        if (changedAny(before, after, ['withdrawn', 'divisionId'])) {
+          await refreshDivisionFor({ eventId, divisionId });
+        }
         await rebuildBoardsFor({ eventId, divisionId });
       }
     }
@@ -244,7 +257,7 @@ export const onTeamWritten = onDocumentWritten(
  *    只有「會影響結果的欄位」變了才往下走，不然兩次寫入互相打不完。
  */
 export const onAttemptWritten = onDocumentWritten(
-  'events/{eventId}/attempts/{attemptId}', async (event) => {
+  { document: 'events/{eventId}/attempts/{attemptId}', retry: true }, async (event) => {
     const { eventId } = event.params;
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
@@ -331,27 +344,29 @@ export const rebuildBoards = onCall(async (req) => {
  */
 export const setManualRanking = onCall(async (req) => {
   await requireStaff(req, ADMIN);
-  const { eventId, divisionId, stageId, groupId, pins, reason, drawSeed = null, clear = false } = req.data || {};
+  const { eventId, divisionId, stageId, groupId, pins, reason, drawSeed = null, clear = false, expectedVersion = null, expectedScheduleRevision = 0 } = req.data || {};
   if (!eventId || !divisionId || !stageId || !groupId) {
     fail('invalid-argument', '需要 eventId / divisionId / stageId / groupId');
   }
+  if (!Number.isInteger(expectedVersion) || expectedVersion < 0) fail('invalid-argument', '請重新載入目前積分版本後再裁定');
+  if (!Number.isInteger(expectedScheduleRevision) || expectedScheduleRevision < 0) fail('invalid-argument', '請重新載入目前賽程版本後再裁定');
   try {
     if (clear === true) {
       return ok(await clearManualRankingFor({
-        eventId, divisionId, stageId, groupId, reason, actorUid: req.auth.uid
+        eventId, divisionId, stageId, groupId, reason, actorUid: req.auth.uid, expectedVersion, expectedScheduleRevision
       }));
     }
     const r = await setManualRankingFor({
       eventId, divisionId, stageId, groupId, pins, reason,
       drawSeed: Number.isInteger(drawSeed) ? drawSeed : null,
-      actorUid: req.auth.uid
+      actorUid: req.auth.uid, expectedVersion, expectedScheduleRevision
     });
     logger.info('[setManualRanking]', { by: req.auth.uid, standingId: r.standingId, drawSeed });
     return ok(r);
   } catch (err) {
     // 參數錯誤要回 invalid-argument 而不是 internal——前端的錯誤翻譯靠 code 分流，
     // 一律 internal 的話「名次重複」會顯示成「系統發生錯誤」。
-    fail('invalid-argument', err.message);
+    fail(['permission-denied', 'aborted'].includes(err.code) ? err.code : 'invalid-argument', err.message);
   }
 });
 
@@ -413,7 +428,15 @@ export const issuePlayerQr = onCall(async (req) => {
 });
 export const revokePlayerQr   = onCall(unimplemented('revokePlayerQr', 'M6'));
 export const verifyCheckin    = onCall(unimplemented('verifyCheckin', 'M6'));
-export const generateSchedule = onCall(unimplemented('generateSchedule', 'M4'));
+const managementCall = handler => onCall({ timeoutSeconds: 120 }, async request => {
+  try { return ok(await handler(request)); }
+  catch (err) {
+    if (['invalid-argument','unauthenticated','permission-denied','not-found','already-exists','aborted','failed-precondition','resource-exhausted'].includes(err.code)) fail(err.code, err.message);
+    throw err;
+  }
+});
+export const generateSchedule = managementCall(generateScheduleFor);
+export const manageEvent = managementCall(manageEventFor);
 export const scheduleMatches  = onCall(unimplemented('scheduleMatches', 'M4'));
 export const mergePlayers     = onCall(unimplemented('mergePlayers', 'M6'));
 export const exportCsv        = onCall(unimplemented('exportCsv', 'M7'));

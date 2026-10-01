@@ -20,7 +20,7 @@
 import { el, mount, skeleton } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
-import { formatScore, drawEntries } from '../../engine/challenge.js';
+import { formatScore, completionProgress, settledDrawEntries } from '../../engine/challenge.js';
 import * as data from './data.js';
 import { savedPass } from './pass.js';
 
@@ -64,10 +64,10 @@ export async function challengeHomePage({ scope, view }) {
   // ── 畫面 ─────────────────────────────────────────────────
 
   function meCard() {
-    const done = completedIds().length;
-    const total = state.challenges?.length ?? 0;
-    const entries = Number.isInteger(state.player?.luckyDrawEntries)
-      ? state.player.luckyDrawEntries : null;
+    const progress = completionProgress(completedIds(), state.challenges ?? [], state.rewards);
+    const done = progress.done.length;
+    const total = progress.total;
+    const entries = settledDrawEntries(state.player, state.rewards);
 
     if (!pass) {
       return el('div', { class: 'chal__card' }, [
@@ -88,11 +88,23 @@ export async function challengeHomePage({ scope, view }) {
       entries != null
         ? el('p', { class: 'chal__hint' }, iconText('ticket', `目前有 ${entries} 張抽獎資格`))
         : null,
+      progressMeter(progress),
+      state.rewards?.rule === 'allChallengesCompleted'
+        ? el('p', { class: 'chal__hint', text: entries > 0 ? '七項集章完成，已取得 1 次抽獎機會。'
+          : progress.allComplete ? '集章完成，抽獎資格正在由伺服器確認。' : `再完成 ${progress.missing.length} 項，就能取得抽獎機會。` }) : null,
       el('button', {
         class: 'btn btn--lg btn--primary chal__go', type: 'button',
         onClick: () => navigate('/challenge/me')
       }, iconText('qr', '我的 QR'))
     ].filter(Boolean));
+  }
+
+  function progressMeter(progress) {
+    return el('div', { class: 'chal__stamps', role: 'group', 'aria-label': `已完成 ${progress.done.length} / ${progress.total} 項` },
+      progress.required.map((id, i) => el('span', { class: 'chal__stamp', 'data-done': String(progress.done.includes(id)),
+        title: state.challenges?.find(c => c.challengeId === id)?.name ?? id,
+        'aria-label': `第 ${i + 1} 項${progress.done.includes(id) ? '已完成' : '未完成'}`
+      }, progress.done.includes(id) ? icon('check') : String(i + 1))));
   }
 
   function challengeRow(c) {
@@ -105,11 +117,24 @@ export async function challengeHomePage({ scope, view }) {
       el('span', { class: 'chal__itemIcon' }, icon(c.icon || 'target')),
       el('div', { class: 'chal__itemMain' }, [
         el('strong', { class: 'chal__itemName', text: c.shortName || c.name || c.challengeId }),
-        el('span', { class: 'chal__itemVenue', text: c.boothLocation ?? '' })
+        el('span', { class: 'chal__itemVenue', text: c.boothLocation ?? '' }),
+        c.summary ? el('span', { class: 'chal__itemRule', text: c.summary }) : null
       ]),
-      el('span', { class: 'chal__itemScore', text: b ? formatScore(b.rawValue, c) : (ok ? '已完成' : '') }),
+      el('span', { class: 'chal__itemScore', text: b ? formatScore(b.rawValue, c) : (ok ? (c.inputMode === 'checkin' ? '已簽到' : '已完成') : '') }),
       el('span', { class: 'chal__itemGo' }, icon('forward'))
     ]));
+  }
+
+  function rulesCard() {
+    return el('div', { class: 'chal__card chal__card--rules' }, [
+      el('strong', {}, iconText('ticket', '集章與抽獎規則')),
+      el('ol', { class: 'chal__rules' }, [
+        el('li', { text: '用 LINE 領取挑戰卡，到各項目出示同一張 QR。' }),
+        el('li', { text: '完成項目後，由現場工作人員登錄集章。中醫看診只需現場簽到打卡。' }),
+        el('li', { text: '七項全部完成，才取得 1 次抽獎機會；重複挑戰不增加抽獎次數。' })
+      ]),
+      el('p', { class: 'chal__hint', text: '資格由伺服器確認。離線登錄會在恢復連線後更新；作廢紀錄不計入集章。' })
+    ]);
   }
 
   function render() {
@@ -118,10 +143,11 @@ export async function challengeHomePage({ scope, view }) {
     mount(root,
       el('div', { class: 'chal__hero' }, [
         el('strong', { class: 'chal__heroTitle', text: 'FEDA CUP 挑戰區' }),
-        el('p', { class: 'chal__heroSub', text: '完成一關就有一次抽獎機會' })
+        el('p', { class: 'chal__heroSub', text: '七項集章，全數完成才有抽獎機會' })
       ]),
 
       meCard(),
+      rulesCard(),
 
       state.error
         ? el('div', { class: 'chal__card chal__card--warn', role: 'alert' }, [

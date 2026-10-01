@@ -5,7 +5,16 @@ service firebase.storage {
 
     function isStaff() {
       return request.auth != null
-        && firestore.exists(/databases/(default)/documents/staff/$(request.auth.uid));
+        && firestore.exists(/databases/(default)/documents/staff/$(request.auth.uid))
+        && staffData().get('active', false) == true
+        && staffData().get('roles', []) is list
+        && staffData().get('roles', []).hasAny(['booth', 'checkin', 'referee', 'scorer', 'admin', 'super_admin']);
+    }
+    function staffData() {
+      return firestore.get(/databases/(default)/documents/staff/$(request.auth.uid)).data;
+    }
+    function canReadOriginal() {
+      return isStaff() && staffData().roles.hasAny(['checkin', 'referee', 'scorer', 'admin', 'super_admin']);
     }
     function isImage()  { return request.resource.contentType.matches('image/.*'); }
     function under(mb)  { return request.resource.size < mb * 1024 * 1024; }
@@ -18,7 +27,7 @@ service firebase.storage {
 
     // 球員照原圖：僅賽務以上可讀（含未成年肖像）
     match /members/{teamId}/{fileName} {
-      allow read:  if isStaff();
+      allow read:  if canReadOriginal();
       allow write: if isStaff() && isImage() && under(1);
     }
 

@@ -13,6 +13,27 @@ const { runMutants } = require('./lib/mutate.cjs');
 const F = 'firestore.rules';
 
 const MUTANTS = [
+  { name: 'RU#S7-01 不驗三球細項', file: F,
+    from: "&& (!c.get('requireShotDetails', false) || validThreeShots(c, v));", to: ';',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/challenge.test.js --testNamePattern=一球三桶 --silent' },
+  { name: 'RU#S7-02 三球總分不核對', file: F,
+    from: '&& v == shots[0] + shots[1] + shots[2];', to: '&& true;',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/challenge.test.js --testNamePattern=一球三桶 --silent' },
+  { name: 'RU#PRE5 舊報名入口繞過關閉', file: F,
+    from: "allow create: if regOpen() && request.resource.data.status == 'pending';", to: "allow create: if request.resource.data.status == 'pending';",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/prelaunch.test.js --silent' },
+  { name: 'RU#PRE1 子紀錄移除場地限制', file: F,
+    from: 'return exists(p) && assignedVenue(get(p).data.venueId);', to: 'return exists(p);',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/prelaunch.test.js --silent' },
+  { name: 'RU#PRE2 已鎖定比賽仍可更改事件', file: F,
+    from: 'return get(/databases/$(db)/documents/events/$(eventId)/matches/$(mid)).data.lock.locked == false;', to: 'return true;',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/prelaunch.test.js --silent' },
+  { name: 'RU#PRE3 挑戰時間可以偽造', file: F,
+    from: '&& request.resource.data.createdAt == request.time', to: '&& true',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/prelaunch.test.js --silent' },
+  { name: 'RU#PRE4 名單與檢錄不驗證對戰球隊', file: F,
+    from: 'return exists(p) && tid in [get(p).data.home.teamId, get(p).data.away.teamId];', to: 'return exists(p);',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/prelaunch.test.js --silent' },
   {
     name: 'RU#CSV3 待補身分也能完成檢錄', file: F,
     from: "return r.get('result', null) != 'pass'", to: 'return true'
@@ -164,11 +185,9 @@ const MUTANTS = [
   {
     name: 'RU#20 檢錄不檢查 scannedBy 是自己（可冒名記檢錄）',
     file: F,
-    from: `        allow create: if isCheckin()
-                      && identityReady()
+    from: `                      && identityReady()
                       && request.resource.data.scannedBy == uid()`,
-    to: `        allow create: if isCheckin()
-                      && identityReady()`
+    to: `                      && identityReady()`
   },
   {
     name: 'RU#21 檢錄文件 id 可以自訂（同場同人會出現兩筆結果不同的紀錄）',
@@ -180,21 +199,11 @@ const MUTANTS = [
   {
     name: 'RU#22 檢錄紀錄可以刪除（誰放行了誰查不到）',
     file: F,
-    from: `        allow update: if identityReady() && (isAdmin()
-                      || ( isCheckin()
-                           && onlyChanged(['result', 'failReason', 'note',
-                                           'method', 'scannedBy', 'scannedAt', 'syncedAt', 'identityRevision'])
-                           && request.resource.data.scannedBy == uid() ));
-        allow delete: if false;
+    from: `        allow delete: if false;
       }
 
       match /venues/{venueId} {`,
-    to: `        allow update: if identityReady() && (isAdmin()
-                      || ( isCheckin()
-                           && onlyChanged(['result', 'failReason', 'note',
-                                           'method', 'scannedBy', 'scannedAt', 'syncedAt', 'identityRevision'])
-                           && request.resource.data.scannedBy == uid() ));
-        allow delete: if isCheckin();
+    to: `        allow delete: if isCheckin();
       }
 
       match /venues/{venueId} {`
@@ -223,8 +232,8 @@ const MUTANTS = [
   {
     name: 'RU#27 出場名單只給記錄員（裁判編不了名單）',
     file: F,
-    from: `        allow write: if isReferee();`,
-    to: `        allow write: if isScorer();`
+    from: `        allow create, update: if isAdmin() || (isReferee()`,
+    to: `        allow create, update: if isAdmin() || (isScorer()`
   },
   {
     name: 'RU#28 繼承鏈含 venue_owner（FC 的場主自動變成記錄員）',
@@ -435,7 +444,8 @@ const MUTANTS = [
   }
 ];
 
-process.exit(runMutants({
+module.exports = { MUTANTS };
+if (require.main === module) process.exit(runMutants({
   mutants: MUTANTS,
   testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/ --silent',
   title: 'firestore.rules｜變異測試'

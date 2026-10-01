@@ -137,7 +137,7 @@ const BUFFER_MIN = 10;
 /** 同一隊兩場之間的休息下限。規章沒有這一條，是我們自己給的預設值 */
 const MIN_REST_MIN = 20;
 
-// ─── Challenge 五關 ───────────────────────────────────────────────
+// ─── Challenge 七項（2026-10-01 主辦更新）────────────────────────────
 const CHALLENGES = [
   { challengeId: 'g01-nine-grid', order: 1, icon: 'target',
     name: '九宮格射門挑戰', shortName: '九宮格', boothLocation: '攤位 1',
@@ -175,7 +175,27 @@ const CHALLENGES = [
     description: '利用發球設備將球送向玩家，玩家必須完成第一腳停球控制。',
     rulesText: '5 次停球。完美區 3 分、控制區 2 分、外圍 1 分、失敗 0 分。',
     scoreType: 'points', unit: '分', rankingRule: 'higher', decimals: 0,
-    minValue: 0, maxValue: 15, inputMode: 'shots', shotCount: 5, shotOptions: [0, 1, 2, 3] }
+    minValue: 0, maxValue: 15, inputMode: 'shots', shotCount: 5, shotOptions: [0, 1, 2, 3] },
+
+  { challengeId: 'g06-medical-checkin', order: 6, icon: 'medical',
+    name: '中醫看診', shortName: '中醫看診', boothLocation: '中醫看診現場',
+    description: '到中醫看診現場，由工作人員簽到打卡即可完成。',
+    summary: '現場簽到打卡即可集章',
+    rulesText: '到中醫看診現場，向工作人員出示挑戰卡 QR 或代號。由人員確認並登錄簽到，即可完成此項；不計分、不排名，也不記錄看診內容。',
+    scoreType: 'boolean', unit: '', rankingRule: 'higher', decimals: 0,
+    minValue: 1, maxValue: 1, integerOnly: true, inputMode: 'checkin',
+    valueLabels: { 1: '已簽到' }, leaderboardEnabled: false,
+    attemptPolicy: { maxAttemptsPerPlayer: 1, allowRepeat: false, rankBy: 'first' } },
+
+  { challengeId: 'g07-three-cones', order: 7, icon: 'three-cones',
+    name: '一球三桶', shortName: '一球三桶', boothLocation: '攤位 7',
+    description: '三個標桶緊密並排，一腳推射，讓它們全部倒下。',
+    summary: '一腳推射，三桶全倒才算成功；完成體驗即可集章',
+    rulesText: '三個標桶緊密並排，每球以一腳推射讓三桶全部倒下；全部倒下記成功，否則記失敗。每輪 3 球，工作人員逐球記錄，成績為 3 球內全倒次數（0–3 次）；排名取最佳一輪。完成體驗即可集章，0 次成功也算完成。',
+    scoreType: 'count', unit: '次全倒', rankingRule: 'higher', decimals: 0,
+    minValue: 0, maxValue: 3, integerOnly: true, inputMode: 'shots',
+    shotCount: 3, shotOptions: [0, 1], shotLabels: { 0: '失敗', 1: '三桶全倒' }, shotTotalLabel: '全倒次數',
+    requireShotDetails: true, completionMinValue: 0 }
 ];
 
 const DEFAULT_ATTEMPT_POLICY = { maxAttemptsPerPlayer: 3, allowRepeat: true, rankBy: 'best' };
@@ -432,8 +452,10 @@ export function buildSeed({ seed = 20261009 } = {}) {
   });
   add('config/rankingRules',     { rules: RANKING_RULES });
   add('config/challengeRewards', {
-    rule: 'perChallengeCompleted', entriesPerCompletion: 1,
-    bonusAllComplete: 2, maxEntriesPerPlayer: 10
+    rule: 'allChallengesCompleted', version: 'seven-stamps-v1',
+    requiredChallengeIds: CHALLENGES.map(c => c.challengeId),
+    entriesOnAllComplete: 1, entriesPerCompletion: 0,
+    bonusAllComplete: 0, maxEntriesPerPlayer: 1
   });
   add('config/featureFlags', {
     liveTimeline: true, scorerBoard: true, photoWall: false, youthScorerBoard: false

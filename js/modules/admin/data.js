@@ -8,8 +8,40 @@
 import { db, sdk, user, callFunction } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { EVENT_ID } from '../../config.js';
+import { summary as syncSummary } from '../../core/sync.js';
 
 const uid = () => user()?.uid ?? null;
+
+const managementRequests = new Map();
+const matchBasis = m => ({ status: m.status, score: m.score ?? null, penaltyScore: m.penaltyScore ?? null,
+  result: m.result ?? null, revisionCount: m.revisionCount ?? 0, managementRevision: m.managementRevision ?? 0, locked: m.lock?.locked === true,
+  home: m.home?.teamId ?? null, away: m.away?.teamId ?? null });
+async function onlineManagement(name, payload) {
+  if (!syncSummary().online || navigator.onLine === false) throw Object.assign(new Error('這項管理操作需要連線，請連上網路後再送出。'), { code: 'unavailable' });
+  const data = { eventId: EVENT_ID, ...payload };
+  const key = JSON.stringify({ name, uid: uid(), data });
+  const operationId = managementRequests.get(key) ?? crypto.randomUUID();
+  managementRequests.set(key, operationId);
+  let result;
+  try { result = await callFunction(name, { ...data, operationId }); }
+  catch (err) {
+    const code = String(err?.code ?? '').replace(/^functions\//, '');
+    if (['unavailable', 'deadline-exceeded', 'internal', 'unknown'].includes(code) || !err?.code) {
+      throw Object.assign(new Error('尚未確認這次操作的結果，請重新載入核對；恢復連線後可重送原請求。'), { code: 'management-unconfirmed', cause: err });
+    }
+    throw err;
+  }
+  // 成功後仍保留同一收據；重新載入得到新版本時自然使用新的請求。
+  return result;
+}
+export const generateSchedule = payload => onlineManagement('generateSchedule', payload);
+export const manageMatch = (matchId, { action, match, patch = {}, reason = null, appeal = null }) =>
+  onlineManagement('manageEvent', { action, matchId, expected: matchBasis(match), patch, reason, appeal });
+export const manageSchedule = (division, { action, updates = [], reason = null }) => onlineManagement('manageEvent', {
+  action, divisionId: division.divisionId, expected: division.scheduleRevision ?? 0, reason,
+  updates: updates.map(u => ({ ...u, patch: { ...u.patch, ...(Object.hasOwn(u.patch, 'kickoffAt')
+    ? { kickoffAt: u.patch.kickoffAt instanceof Date ? u.patch.kickoffAt.getTime() : u.patch.kickoffAt } : {}) } }))
+});
 
 // ── 球隊與名單 ───────────────────────────────────────────────
 
@@ -111,14 +143,12 @@ export async function writeAudit({ action, targetType, targetId, before, after, 
 
 /** 把 Firestore 的錯誤碼翻成人話 */
 export function explain(err, fallback = '操作沒有成功，請稍後再試。') {
-  const code = err?.code || '';
+  const code = String(err?.code ?? '').replace(/^functions\//, '');
   if (code === 'permission-denied') {
     return '你的身分沒有這項權限。如果剛被指派，請重新整理一次；還是不行請聯絡總管。';
   }
   if (code === 'unauthenticated') return '登入已失效，請重新用 LINE 登入。';
-  if (code === 'unavailable' || code === 'failed-precondition') {
-    return '現在連不上伺服器。請確認網路後再試一次。';
-  }
+  if (code === 'unavailable') return err?.message || '現在連不上伺服器。請確認網路後再試一次。';
   return err?.message || fallback;
 }
 
@@ -316,28 +346,6 @@ export function watchMatch(scope, matchId, cb, onError) {
   return hold(scope, unsub, `admin:match:${matchId}`);
 }
 
-/**
- * 改判場次。
- *
- * ⚠️ `lock` 這種巢狀 map 由呼叫端（match-actions.js）整包給齊——
- *    `updateDoc` 對巢狀 map 是整包取代，少列一個欄位就等於刪掉它。
- *
- * ⚠️ 時間戳一律 serverTimestamp：改判的時間軸是稽核的依據，
- *    本機時間被調過就失真了。
- */
-export async function patchMatch(matchId, patch) {
-  const { doc, updateDoc, serverTimestamp } = sdk();
-  await updateDoc(doc(db(), 'events', EVENT_ID, 'matches', matchId), {
-    ...patch,
-    // lock.lockedAt 只有在 patch 真的帶 lock 時才補（buildWalkoverPatch 會帶）
-    ...(patch.lock && patch.lock.locked === true
-      ? { lock: { ...patch.lock, lockedAt: serverTimestamp() } }
-      : {}),
-    updatedAt: serverTimestamp(),
-    updatedBy: uid()
-  });
-}
-
 /** 這一場的稽核紀錄。單一 where，用不到複合索引。 */
 export async function getMatchAudits(matchId, max = 50) {
   const { collection, getDocs, query, where, limit } = sdk();
@@ -420,108 +428,6 @@ export async function getAllMatches() {
   return snap.docs.map(d => ({ matchId: d.id, ...d.data() }));
 }
 
-/** 場次寫入。分批送出（Firestore 一批上限 500，這裡遠遠用不到）。 */
-export async function writeMatches(docsToWrite) {
-  const { doc, writeBatch } = sdk();
-  const CHUNK = 400;
-  for (let i = 0; i < docsToWrite.length; i += CHUNK) {
-    const batch = writeBatch(db());
-    for (const d of docsToWrite.slice(i, i + CHUNK)) {
-      batch.set(doc(db(), 'events', EVENT_ID, 'matches', d.matchId), d.data, { merge: d.merge !== false });
-    }
-    await batch.commit();
-  }
-}
-
-/**
- * 刪除場次（重新產生時用）。
- *
- * ⚠️ Firestore 刪文件**不會刪子集合**，所以 `timeline` 會留下來成為孤兒，
- *    而且 matchId 是決定性的（`{組別碼}-{階段碼}-{小組}-{序}`）——
- *    重新產生會產出同樣的 id，舊事件就會黏回新場次上。
- *
- *    這件事被 `canRegenerate()` 擋住了：只要有任何一場開打就不准重產，
- *    而沒開打的場次不會有 timeline 事件（那是賽務台在比賽中才寫的）。
- *    **所以那個守衛不只是資料一致性的問題，也是這裡的前提。**
- *    日後若放寬重產條件，這裡要一併處理子集合。
- */
-export async function deleteMatches(matchIds) {
-  const { doc, writeBatch } = sdk();
-  const CHUNK = 400;
-  for (let i = 0; i < matchIds.length; i += CHUNK) {
-    const batch = writeBatch(db());
-    for (const id of matchIds.slice(i, i + CHUNK)) {
-      batch.delete(doc(db(), 'events', EVENT_ID, 'matches', id));
-    }
-    await batch.commit();
-  }
-}
-
-/** 階段與小組（積分榜與晉級解算都靠它）。 */
-export async function writeStagesAndGroups(divisionId, stages, groups) {
-  const { doc, writeBatch } = sdk();
-  const batch = writeBatch(db());
-  const base = ['events', EVENT_ID, 'divisions', divisionId, 'stages'];
-  for (const st of stages) batch.set(doc(db(), ...base, st.stageId), st, { merge: true });
-  for (const g of groups) {
-    batch.set(doc(db(), ...base, g.stageId, 'groups', g.groupId), {
-      groupId: g.groupId, name: g.name, teamIds: g.teamIds, order: g.order
-    }, { merge: true });
-  }
-  await batch.commit();
-}
-
-/**
- * 空的積分榜。
- *
- * 產生賽程時就要建立：`resolveAdvancement` 找不到積分榜文件時是
- * fail-closed（回「找不到積分榜」），晉級會永遠解不開。
- */
-export async function writeStandings(divisionId, groups, teamsById) {
-  const { doc, writeBatch, serverTimestamp } = sdk();
-  const batch = writeBatch(db());
-  for (const g of groups) {
-    const standingId = `${divisionId}__${g.stageId}__${g.groupId}`;
-    batch.set(doc(db(), 'events', EVENT_ID, 'standings', standingId), {
-      standingId, eventId: EVENT_ID, divisionId, stageId: g.stageId, groupId: g.groupId,
-      rows: g.teamIds.map((teamId, i) => {
-        const t = teamsById[teamId] ?? {};
-        return {
-          rank: i + 1, teamId, name: t.shortName ?? t.name ?? null, abbr: t.abbr ?? null,
-          logoUrl: t.logoUrl ?? null,
-          played: 0, win: 0, draw: 0, loss: 0,
-          goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0,
-          yellow: 0, red: 0, fairPlayPoints: 0, form: [], tieBreakTrace: [],
-          locked: false, note: ''
-        };
-      }),
-      version: 0, hasUnresolvedTie: false,
-      manualOverride: { enabled: false, by: null, at: null, reason: null },
-      updatedAt: serverTimestamp()
-    });
-  }
-  await batch.commit();
-}
-
-/** 球隊的小組與種子序回填。 */
-export async function writeTeamGroups(assignments) {
-  const { doc, writeBatch, serverTimestamp } = sdk();
-  const batch = writeBatch(db());
-  for (const a of assignments) {
-    batch.set(doc(db(), 'events', EVENT_ID, 'teams', a.teamId), {
-      groupId: a.groupId, seed: a.seed, updatedAt: serverTimestamp(), updatedBy: uid()
-    }, { merge: true });
-  }
-  await batch.commit();
-}
-
-/** 組別設定（賽制、發布狀態、抽籤紀錄）。 */
-export async function updateDivision(divisionId, patch) {
-  const { doc, setDoc, serverTimestamp } = sdk();
-  await setDoc(doc(db(), 'events', EVENT_ID, 'divisions', divisionId), {
-    ...patch, updatedAt: serverTimestamp(), updatedBy: uid()
-  }, { merge: true });
-}
 
 /** 最早的比賽日與彩排日，給日期提醒用。讀不到就不提醒，不擋儲存。 */
 export async function getScheduleBounds() {
@@ -565,7 +471,7 @@ export function watchStandings(scope, cb, onError) {
  *    呼叫端一定要接住並把原因留在畫面上。
  */
 export async function setManualRanking(payload) {
-  return callFunction('setManualRanking', { eventId: EVENT_ID, ...payload });
+  return onlineManagement('setManualRanking', payload);
 }
 
 // ── 匯出（M6-d）────────────────────────────────────────────
@@ -596,6 +502,12 @@ export async function getChallenges() {
   return snap.docs.map(d => ({ challengeId: d.id, ...d.data() }));
 }
 
+export async function getChallengeRewards() {
+  const { doc, getDoc } = sdk();
+  const snap = await getDoc(doc(db(), 'config', 'challengeRewards'));
+  return snap.exists() ? snap.data() : null;
+}
+
 // ── 直播設定（docs/03 §5，#/admin/stream）──────────────────
 /** 場地整日直播：整包 stream map 寫回（updateDoc 對巢狀 map 是整包取代，欄位要寫齊） */
 export async function saveVenueStream(venueId, stream) {
@@ -614,20 +526,6 @@ export async function getAppealsOf(matchId) {
   return snap.docs.map(d => ({ appealId: d.id, ...d.data() }));
 }
 
-/** 登記：id 是 場次-隊伍（R-ID-007：doc(id).set()，不用 add） */
-export async function saveAppeal(appealId, doc_) {
-  const { doc, setDoc, serverTimestamp } = sdk();
-  await setDoc(doc(db(), 'events', EVENT_ID, 'appeals', appealId), {
-    ...doc_, receivedAt: serverTimestamp(), createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-  });
-}
-
-export async function decideAppeal(appealId, patch) {
-  const { doc, updateDoc, serverTimestamp } = sdk();
-  await updateDoc(doc(db(), 'events', EVENT_ID, 'appeals', appealId), {
-    ...patch, decidedAt: serverTimestamp(), updatedAt: serverTimestamp()
-  });
-}
 
 // ── 抽獎中獎聯絡方式（只有管理員讀得到；寫入走 Function）──────
 export async function getPlayerContacts() {

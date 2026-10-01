@@ -24,6 +24,11 @@ let ctx = null;
 const authListeners = new Set();
 let currentUser = null;
 let currentStaff = null;
+let identityGeneration = 0;
+let resolveAuthReady;
+const authReady = new Promise(resolve => { resolveAuthReady = resolve; });
+/** 第一個 Firebase 身分及角色讀取完成後才允許路由判斷登入。 */
+export const whenAuthReady = () => authReady;
 
 export function fb() {
   if (!ctx) throw new Error('[firebase] 尚未初始化，請先 await initFirebase()');
@@ -119,13 +124,14 @@ let permMatrix = {};
 export const permissionMatrix = () => permMatrix;
 
 export async function loadPermissionMatrix() {
+  const gen = identityGeneration;
   try {
     const { collection, getDocs } = ctx.sdk;
     const snap = await getDocs(collection(ctx.db, 'rolePermissions'));
-    permMatrix = Object.fromEntries(snap.docs.map(d => [d.id, d.data()]));
+    if (gen === identityGeneration) permMatrix = Object.fromEntries(snap.docs.map(d => [d.id, d.data()]));
   } catch (e) {
     console.warn('[firebase] 讀取權限矩陣失敗，改走預設', e);
-    permMatrix = {};
+    if (gen === identityGeneration) permMatrix = {};
   }
   return permMatrix;
 }
@@ -171,10 +177,17 @@ export function assignedToVenue(venueId) {
  *    畫面看起來只是「這個角色沒有功能」，不像壞掉（2026-09-03 回報）。
  */
 export async function reloadIdentity() {
-  currentStaff = currentUser ? await loadStaff(currentUser.uid) : null;
+  const gen = ++identityGeneration;
+  const identityUser = currentUser;
+  currentStaff = null;
+  const nextStaff = identityUser ? await loadStaff(identityUser.uid) : null;
+  if (gen !== identityGeneration) return currentStaff;
+  currentStaff = nextStaff?.active === true ? nextStaff : null;
   // 有身分的人才需要權限矩陣；一般使用者與訪客不必多打一次讀取
   if (currentStaff?.roles?.length) await loadPermissionMatrix();
   else permMatrix = {};
+  if (gen !== identityGeneration) return currentStaff;
+  resolveAuthReady();
   for (const fn of authListeners) {
     try { fn(currentUser, currentStaff); } catch (e) { console.error('[firebase] auth listener', e); }
   }

@@ -105,6 +105,7 @@ export async function adminMatchPage({ scope, view, params }) {
 
   /** 每一個動作都走這一支：問原因 → 講後果 → 寫入 → 留痕 */
   async function act({ action, label, patch, before, after, tone = 'danger', needReason = true }) {
+    const basisMatch = state.match;
     const lines = consequencesOf(state.match, action);
     const ok = await confirmDialog({
       title: label,
@@ -125,12 +126,7 @@ export async function adminMatchPage({ scope, view, params }) {
 
     state.busy = action; render();
     try {
-      await data.patchMatch(matchId, patch);
-      await data.writeAudit({
-        action: `match.${action}`,
-        targetType: 'match', targetId: matchId,
-        before, after, reason
-      });
+      await data.manageMatch(matchId, { action: `match.${action}`, match: basisMatch, patch, reason });
       state.draft = null;
       toast('已改判，積分榜會自動重算');
       data.getMatchAudits(matchId).then(rows => { state.audits = rows; render(); }).catch(() => {});
@@ -227,6 +223,7 @@ export async function adminMatchPage({ scope, view, params }) {
   }
 
   async function doFileAppeal() {
+    const basisMatch = state.match;
     const f = state.appealForm;
     const nowMs = Date.now();
     const w = appealWindow({ matchEndedAtMs: matchEndedAtMs(), filedAtMs: nowMs });
@@ -253,15 +250,8 @@ export async function adminMatchPage({ scope, view, params }) {
 
     state.busy = 'appeal'; render();
     try {
-      await data.saveAppeal(built.appealId, built.doc);
-      // 公開端的徽章：只放狀態與隊伍，不放事由與電話
-      await data.patchMatch(matchId, { appeal: matchAppealFlag(built.doc) });
-      await data.writeAudit({
-        action: 'appeal.filed', targetType: 'match', targetId: matchId,
-        before: null,
-        after: { appealId: built.appealId, teamId: f.teamId, role: f.role, late, minutesAfter: built.doc.minutesAfter },
-        reason: built.doc.reason
-      });
+      await data.manageMatch(matchId, { action: 'appeal.filed', match: basisMatch,
+        appeal: { appealId: built.appealId, doc: built.doc }, reason: built.doc.reason });
       state.appealForm = null;
       toast('已登記申訴，公開端會顯示「申訴審理中」');
       await loadAppeals();
@@ -271,6 +261,7 @@ export async function adminMatchPage({ scope, view, params }) {
   }
 
   async function doDecideAppeal(a, upheld) {
+    const basisMatch = state.match;
     let patch;
     try { patch = buildAppealDecision({ upheld, note: state.decisionNote, actorUid: user()?.uid ?? null }); }
     catch (err) { toast(err.message, 'warn'); return; }
@@ -284,14 +275,8 @@ export async function adminMatchPage({ scope, view, params }) {
     if (!ok) return;
     state.busy = 'appeal'; render();
     try {
-      await data.decideAppeal(a.appealId, patch);
-      await data.patchMatch(matchId, { appeal: matchAppealFlag({ ...a, ...patch }) });
-      await data.writeAudit({
-        action: 'appeal.decided', targetType: 'match', targetId: matchId,
-        before: { appealId: a.appealId, status: a.status },
-        after: { appealId: a.appealId, status: patch.status, depositReturned: patch.decision.depositReturned },
-        reason: patch.decision.note
-      });
+      await data.manageMatch(matchId, { action: 'appeal.decided', match: basisMatch,
+        appeal: { appealId: a.appealId, patch }, reason: patch.decision.note });
       state.decisionNote = '';
       toast(upheld ? '已記錄：申訴成立，退還保證金' : '已記錄：申訴不成立，保證金不予發還');
       await loadAppeals();
@@ -309,11 +294,7 @@ export async function adminMatchPage({ scope, view, params }) {
     const stream = videoId ? { provider: 'youtube', videoId, status: 'live' } : { provider: 'youtube', videoId: null, status: 'off' };
     state.busy = 'stream'; render();
     try {
-      await data.patchMatch(matchId, { stream });
-      await data.writeAudit({
-        action: 'stream.update', targetType: 'match', targetId: matchId,
-        before: state.match?.stream ?? null, after: stream, reason: null
-      });
+      await data.manageMatch(matchId, { action: 'stream.update', match: state.match, patch: { stream } });
       state.streamInput = null;    // 下一筆快照重建
       toast(videoId ? `這一場改用影片 ${videoId}` : '已清掉單場直播，改用場地設定');
     } catch (err) {
