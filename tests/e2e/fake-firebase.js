@@ -348,6 +348,9 @@ export const setLogLevel = () => {};
 
 // ── firebase-auth ────────────────────────────────────────────
 export const getAuth = () => ({ __fake: true });
+export async function getIdTokenResult(current) {
+  return { signInProvider: current?.provider ?? (current?.isAnonymous ? 'anonymous' : 'custom') };
+}
 export function onAuthStateChanged(_auth, cb) {
   authCbs.add(cb);
   const delay = globalThis.window?.__FAKE_AUTH_DELAY ?? 0;
@@ -397,6 +400,26 @@ export const httpsCallable = (_fns, name) => async (payload) => {
     const failure = window.__FAKE_CALL_ERROR;
     throw Object.assign(new Error(typeof failure === 'string' ? failure : failure.message),
       { code: typeof failure === 'string' ? 'functions/failed-precondition' : failure.code });
+  }
+  if (name === 'shareMatchStream') {
+    // UI 接線替身；實際身份、交易、稽核與所有權由 Functions Emulator 測試驗證。
+    const { sharedYoutubeId } = await import(location.origin + '/js/engine/stream-share.js');
+    const base = `events/${payload.eventId}/matches/${payload.matchId}`;
+    const uid = S.currentUser?.uid;
+    if (!uid) throw Error('請先用 LINE 登入');
+    let shareId = payload.shareId;
+    if (payload.action === 'share') {
+      const videoId = sharedYoutubeId(payload.url);
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([payload.eventId, payload.matchId, uid, videoId])));
+      shareId = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+      const displayName = store.get(`users/${uid}`)?.displayName || S.currentUser.displayName;
+      await setDoc(doc(null, `${base}/streamShares/${shareId}`), { shareId, videoId, displayName, createdAt: new Date().toISOString() });
+      await setDoc(doc(null, `${base}/streamShareOwners/${shareId}`), { ownerUid: uid });
+    } else {
+      await deleteDoc(doc(null, `${base}/streamShares/${shareId}`));
+      await deleteDoc(doc(null, `${base}/streamShareOwners/${shareId}`));
+    }
+    return { data: { ok: true, data: { shareId, action: payload.action, changed: true } } };
   }
   if (name === 'generateSchedule' || name === 'manageEvent') return fakeManagement(name, payload);
   if (name === 'updateMemberIdentity') {

@@ -12,6 +12,12 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#STREAM-LINE 非 LINE 身份也能分享直播', file: 'functions/stream-shares.js',
+    from: "const isLine = request.auth.token?.firebase?.sign_in_provider === 'custom';", to: 'const isLine = true;',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/stream-shares.test.js --silent' },
+  { name: 'FN#STREAM-OWNER 他人也能移除直播分享', file: 'functions/stream-shares.js',
+    from: "if (action === 'remove' && !isAdmin && (!isLine || !owner.exists || owner.data().ownerUid !== uid))", to: 'if (false)',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/stream-shares.test.js --silent' },
   { name: 'FN#SOP-1 文字發布可夾帶計分設定', file: 'functions/challenge-release.js',
     from: 'allowed.includes(key) && ', to: '',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/challenge.test.js --testNamePattern=SOP --silent' },

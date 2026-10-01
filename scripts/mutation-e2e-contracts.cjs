@@ -1,5 +1,7 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ESTREAM1: { spec: 'tests/e2e/stream-shares.spec.js', grep: '本人可移除自己的分享', minTests: 1,
+    failure: 'toHaveCount', assertions: ["expect(page.locator('.pshares__remove')).toHaveCount(1)"] },
   ESOP4: { spec: 'tests/e2e/booth-sop.spec.js', grep: '七個玩法均顯示簡介', minTests: 1,
     failure: 'not.toContainText', assertions: ["expect(page.locator('.chal')).not.toContainText('中醫看診')"] },
   ESOP1: { spec: 'tests/e2e/booth-sop.spec.js', grep: '沒有內建辨識時相機', minTests: 1,
