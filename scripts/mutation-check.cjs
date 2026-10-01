@@ -1951,8 +1951,8 @@ const MUTANTS = [
   {
     name: '#AF10 ⭐ 登入頁先訂閱再看 user()（已登入時整頁 TDZ；D-02）',
     file: 'js/modules/account/login.js',
-    from: "  if (user()) { navigate(next); return; }\n  const off = onAuth(u => { if (u) { off(); navigate(next); } });",
-    to: "  const off = onAuth(u => { if (u) { off(); navigate(next); } });\n  if (user()) return;"
+    from: "  if (user() && user().isAnonymous !== true) { navigate(next); return; }\n  const off = onAuth(u => { if (u && u.isAnonymous !== true) { off(); navigate(next); } });",
+    to: "  const off = onAuth(u => { if (u && u.isAnonymous !== true) { off(); navigate(next); } });\n  if (user()) return;"
   },
   {
     name: '#AF11 ⭐ 攤位「最近登錄」的複合索引不見了（正式站 FAILED_PRECONDITION，模擬器看不到；D-03）',

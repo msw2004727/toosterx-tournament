@@ -1,5 +1,7 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ESTREAM2: { spec: 'tests/e2e/stream-shares.spec.js', grep: '低階角色與非 LINE 登入', minTests: 1,
+    failure: 'toBeVisible', assertions: ["await expect(page.getByRole('button', { name: '使用 LINE 登入', exact: true })).toBeVisible();"] },
   ESTREAM1: { spec: 'tests/e2e/stream-shares.spec.js', grep: '本人可移除自己的分享', minTests: 1,
     failure: 'toHaveCount', assertions: ["expect(page.locator('.pshares__remove')).toHaveCount(1)"] },
   ESOP4: { spec: 'tests/e2e/booth-sop.spec.js', grep: '七個玩法均顯示簡介', minTests: 1,

@@ -92,10 +92,16 @@ for (const role of ['admin', 'super_admin']) test(`管理員以上可移除他�
 
 test('低階角色與非 LINE 登入不能冒用分享或管理入口 @streamShares', async ({ page }) => {
   await setup(page, { count: 2, role: 'booth', provider: 'anonymous' });
+  await page.route('https://static.line-scdn.net/**', route => route.fulfill({ contentType: 'text/javascript', body:
+    'window.liff={init:async()=>{},isInClient:()=>false,isLoggedIn:()=>false,login:()=>{window.__liffLoginCalled=true;}};' }));
   await expect(page.getByRole('button', { name: 'LINE 登入分享', exact: true })).toBeVisible();
   await expect(page.locator('.pshares__remove')).toHaveCount(0);
   await page.getByRole('button', { name: 'LINE 登入分享', exact: true }).click();
   await expect(page).toHaveURL(/login\?next=%2Fmatch%2Fstream-match/);
+  await expect(page.getByRole('button', { name: '使用 LINE 登入', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '使用 LINE 登入', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__liffLoginCalled === true)).toBe(true);
+  expect(await page.evaluate(() => sessionStorage.getItem('feda:loginNext'))).toBe('/match/stream-match');
 });
 
 test('分享越多按鈕越密集，仍可點擊，支援深色、分頁與不可信名稱 @streamShares', async ({ page }, info) => {
