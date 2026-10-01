@@ -502,6 +502,12 @@ export async function getChallenges() {
   return snap.docs.map(d => ({ challengeId: d.id, ...d.data() }));
 }
 
+export async function getChallengeRewards() {
+  const { doc, getDoc } = sdk();
+  const snap = await getDoc(doc(db(), 'config', 'challengeRewards'));
+  return snap.exists() ? snap.data() : null;
+}
+
 // ── 直播設定（docs/03 §5，#/admin/stream）──────────────────
 /** 場地整日直播：整包 stream map 寫回（updateDoc 對巢狀 map 是整包取代，欄位要寫齊） */
 export async function saveVenueStream(venueId, stream) {

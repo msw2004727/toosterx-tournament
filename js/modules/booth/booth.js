@@ -427,10 +427,20 @@ export async function boothPage({ scope, view, params, query }) {
   function inputArea() {
     const c = state.challenge;
     const mode = inputModeOf(c);
+    if (mode === 'checkin') return checkinInput();
     if (mode === 'stepper') return stepperInput(c);
     if (mode === 'shots') return shotsInput(c);
     if (mode === 'ladder') return ladderInput(c);
     return numpadInput(c);
+  }
+
+  function checkinInput() {
+    return el('div', { class: 'booth__checkin' }, [
+      el('p', { class: 'booth__note', text: '確認玩家已到中醫看診現場，由工作人員簽到打卡即可完成。不記錄看診內容。' }),
+      el('button', { class: `btn btn--xl${state.value === 1 ? ' btn--primary' : ''}`, type: 'button',
+        'aria-pressed': String(state.value === 1), onClick: () => { state.value = state.value === 1 ? null : 1; render(); }
+      }, iconText('check', state.value === 1 ? '已確認現場簽到' : '確認玩家已到現場'))
+    ]);
   }
 
   function stepperInput(c) {
@@ -462,9 +472,9 @@ export async function boothPage({ scope, view, params, query }) {
               state.detail = next;
               render();
             }
-          }, String(o)))
+          }, c.shotLabels?.[o] ?? String(o)))
         ])),
-      el('div', { class: 'booth__shotTotal', text: `總分 ${total} ${c.unit ?? ''}` })
+      el('div', { class: 'booth__shotTotal', text: `${c.shotTotalLabel ?? '總分'} ${total} ${c.unit ?? ''}` })
     ]);
   }
 
@@ -507,7 +517,7 @@ export async function boothPage({ scope, view, params, query }) {
         class: 'btn btn--primary btn--xl', type: 'button',
         disabled: !r.ok || locked,
         onClick: () => submit()
-      }, iconText('check', locked ? '請稍候…' : '送出成績')),
+      }, iconText('check', locked ? '請稍候…' : (inputModeOf(state.challenge) === 'checkin' ? '送出簽到' : '送出成績'))),
       !r.ok && (state.value != null || state.detail)
         ? el('p', { class: 'booth__note', text: r.reason })
         : null
@@ -517,10 +527,10 @@ export async function boothPage({ scope, view, params, query }) {
   function resultBox() {
     const rank = state.board ? myRank(state.board.rows ?? [], state.playerId) : null;
     return el('div', { class: 'booth__box booth__box--ok' }, [
-      el('strong', {}, iconText('check', '成績已記錄')),
+      el('strong', {}, iconText('check', inputModeOf(state.challenge) === 'checkin' ? '簽到已登錄' : '成績已記錄')),
       el('p', { class: 'booth__resultLine', text: state.result.headline }),
-      el('p', { class: 'booth__note', text: `${state.result.sub}・${state.result.best}` }),
-      rank ? el('p', { class: 'booth__note', text: `目前排名 第 ${rank.rank} 名` }) : null,
+      inputModeOf(state.challenge) === 'checkin' ? null : el('p', { class: 'booth__note', text: `${state.result.sub}・${state.result.best}` }),
+      rank && state.challenge?.leaderboardEnabled !== false ? el('p', { class: 'booth__note', text: `目前排名 第 ${rank.rank} 名` }) : null,
       el('p', { class: 'booth__permNote', text: '排名與抽獎資格由伺服器結算，離線時會在恢復連線後補上。' })
     ].filter(Boolean));
   }

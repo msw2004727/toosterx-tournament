@@ -34,7 +34,7 @@ export const ROLES = [
   { value: 'scorer',  note: '多了：記分、時鐘、完賽送出（其餘同裁判；A 場）' },
   { value: 'referee', note: '多了：出場名單（其餘同檢錄員）' },
   { value: 'checkin', note: '多了：檢錄勾選、看球員個資（其餘同挑戰攤位）' },
-  { value: 'booth',   note: '挑戰區成績登錄（五關都能登錄）' }
+  { value: 'booth',   note: '挑戰區成績與現場簽到登錄' }
 // 標籤一律從 js/config.js 的角色字典取，不要在這裡再寫一份——
 // 那一份與 FC-Football 對齊，兩邊分岔會讓同一個角色在兩個系統裡叫不同名字。
 ].map(r => ({ ...r, label: roleLabel(r.value), sub: `${r.value}　level ${ROLE_INFO[r.value].level}` }));

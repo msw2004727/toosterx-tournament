@@ -175,7 +175,16 @@ service cloud.firestore {
 
       function validChallengeScore(cid, v) {
         let c = get(/databases/$(db)/documents/events/$(eventId)/challenges/$(cid)).data;
-        return v is number && v >= c.minValue && v <= c.maxValue;
+        return v is number && v >= c.minValue && v <= c.maxValue
+               && (!c.get('integerOnly', false) || v is int)
+               && (!c.get('requireShotDetails', false) || validThreeShots(c, v));
+      }
+
+      function validThreeShots(c, v) {
+        let shots = request.resource.data.detail;
+        return c.shotCount == 3 && shots is list && shots.size() == 3
+               && shots[0] in c.shotOptions && shots[1] in c.shotOptions && shots[2] in c.shotOptions
+               && v == shots[0] + shots[1] + shots[2];
       }
 
       // 同一場比賽的子紀錄沿用場地限制，不能從子集合繞過主文件守衛。

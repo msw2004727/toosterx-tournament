@@ -36,7 +36,7 @@ import {
   loadPlayers, loadChallengeRewards, playerRef, leaderboardRef
 } from './store.js';
 import {
-  diffBestFlags, buildLeaderboard, drawEntries, nextCompleted
+  diffBestFlags, buildLeaderboard, drawEntries, nextCompleted, completesChallenge
 } from './engine/challenge.js';
 
 /** 已產生勝負、會被計入統計的狀態 */
@@ -721,7 +721,7 @@ export async function onAttemptSubmitted({ eventId, challengeId, playerId }) {
   const completion = await syncPlayerCompletion({ eventId, challengeId, playerId, challenge });
 
   // ④ 排行榜
-  const board = await rebuildLeaderboard({ eventId, challengeId, challenge });
+  const board = challenge.leaderboardEnabled === false ? {} : await rebuildLeaderboard({ eventId, challengeId, challenge });
 
   // ⑤ 關卡統計
   const stats = await recountChallengeStats({ eventId, challengeId });
@@ -741,8 +741,8 @@ export async function onAttemptSubmitted({ eventId, challengeId, playerId }) {
  */
 async function syncPlayerCompletion({ eventId, challengeId, playerId, challenge }) {
   const ref = playerRef(eventId, playerId);
-  const [rewards, all] = await Promise.all([loadChallengeRewards(), loadChallenges(eventId)]);
   return db().runTransaction(async tx => {
+    const [rewards, all] = await Promise.all([loadChallengeRewards(tx), loadChallenges(eventId, tx)]);
     const snap = await tx.get(ref);
     const attempts = await loadPlayerAttempts(eventId, challengeId, playerId, tx);
     if (!snap.exists) {
@@ -756,7 +756,7 @@ async function syncPlayerCompletion({ eventId, challengeId, playerId, challenge 
     }
 
     const player = snap.data();
-    const hasLiveScore = attempts.some(a => a?.voided !== true);
+    const hasLiveScore = attempts.some(a => completesChallenge(a, challenge));
     const cur = Array.isArray(player.completedChallengeIds) ? player.completedChallengeIds : [];
 
     let completed = cur;
@@ -772,12 +772,15 @@ async function syncPlayerCompletion({ eventId, challengeId, playerId, challenge 
       rewards
     });
 
-    const changed = completed.length !== cur.length || entries !== (player.luckyDrawEntries ?? 0);
+    const ruleVersion = rewards?.rule === 'allChallengesCompleted' ? rewards.version ?? null : null;
+    const changed = completed.length !== cur.length || entries !== (player.luckyDrawEntries ?? 0)
+      || ruleVersion !== (player.luckyDrawRuleVersion ?? null);
     if (!changed) return { completedChanged: false, entries };
 
     tx.update(ref, {
       completedChallengeIds: completed,
       luckyDrawEntries: entries,
+      luckyDrawRuleVersion: ruleVersion,
       lastActiveAt: FieldValue.serverTimestamp()
     });
     return { completedChanged: true, entries, completedCount: completed.length, challengeName: challenge?.name ?? null };

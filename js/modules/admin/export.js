@@ -51,12 +51,13 @@ export async function adminExportPage({ scope, view }) {
 
   async function load() {
     try {
-      const [players, challenges, contacts] = await Promise.all([
-        data.getPlayers(), data.getChallenges(), data.getPlayerContacts()
+      const [players, challenges, contacts, rewards] = await Promise.all([
+        data.getPlayers(), data.getChallenges(), data.getPlayerContacts(), data.getChallengeRewards()
       ]);
       state.players = players;
       state.challengeTotal = challenges.length;
       state.contacts = contacts;
+      state.rewards = rewards;
     } catch (err) {
       state.error = err;
       state.players = [];
@@ -65,7 +66,7 @@ export async function adminExportPage({ scope, view }) {
   }
 
   function rows() {
-    return luckyDrawRows(state.players ?? [], { contacts: state.contacts ?? {} });
+    return luckyDrawRows(state.players ?? [], { contacts: state.contacts ?? {}, rewards: state.rewards });
   }
 
   /**
@@ -135,7 +136,7 @@ export async function adminExportPage({ scope, view }) {
     if (!list.length) {
       return el('div', { class: 'adm__box' }, [
         el('strong', {}, iconText('info', '還沒有人有抽獎資格')),
-        el('p', { class: 'adm__note', text: '玩家完成第一關之後就會出現在這裡。' })
+        el('p', { class: 'adm__note', text: '玩家完成全部必要項目，且伺服器確認抽獎資格後，就會出現在這裡。' })
       ]);
     }
     return el('div', { class: 'adm__box' }, [

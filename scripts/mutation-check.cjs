@@ -9,6 +9,21 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#S7-01 七項資格錯用任一項完成', file: 'js/engine/challenge.js',
+    from: 'const allComplete = required.every(id => completed.has(id));',
+    to: 'const allComplete = required.some(id => completed.has(id));',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-seven.test.js --silent' },
+  { name: '#S7-02 六項就提前發券', file: 'js/engine/challenge.js',
+    from: 'const allComplete = required.every(id => completed.has(id));',
+    to: 'const allComplete = required.slice(0, -1).every(id => completed.has(id));',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-seven.test.js --silent' },
+  { name: '#S7-03 顯示尚未重算的舊抽獎張數', file: 'js/engine/challenge.js',
+    from: "&& (!rewards.version || player?.luckyDrawRuleVersion !== rewards.version)) return null;",
+    to: '&& false) return null;',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-seven.test.js --silent' },
+  { name: '#S7-04 允許全倒成績為小數', file: 'js/engine/challenge.js',
+    from: 'if (challenge.integerOnly === true && !Number.isInteger(n))', to: 'if (false)',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-seven.test.js --silent' },
   { name: '#PRE1 路由重進共用監聽範圍', file: 'js/core/router.js',
     from: '|${gen}`;', to: '`;',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/router.test.js --silent' },
@@ -1446,7 +1461,7 @@ const MUTANTS = [
   {
     name: '#BT1 ⭐ inputMode 讀不到就丟錯（現場最不需要的就是「這一關打不開」）',
     file: 'js/modules/booth/actions.js',
-    from: "  return ['stepper', 'shots', 'ladder', 'numpad'].includes(m) ? m : 'numpad';",
+    from: "  return ['stepper', 'shots', 'ladder', 'numpad', 'checkin'].includes(m) ? m : 'numpad';",
     to: "  return m;"
   },
   {

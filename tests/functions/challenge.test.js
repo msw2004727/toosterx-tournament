@@ -15,6 +15,8 @@ import { db as adminDb } from '../../functions/admin.js';
 import { onAttemptSubmitted, playerProgress, setPlayerContactFor, issueGamePassFor } from '../../functions/pipeline.js';
 import { createHash } from 'node:crypto';
 import { rankInLadder } from '../../js/engine/challenge.js';
+import { CHALLENGES, buildSeed } from '../../scripts/seed/build.js';
+import { installChallengeRelease, refreshChallengeQualification } from '../../functions/challenge-release.js';
 
 const E = 'feda-cup-2026';
 const PROJECT = process.env.GCLOUD_PROJECT || 'demo-fn-test';
@@ -94,6 +96,67 @@ beforeAll(() => {
 });
 
 beforeEach(async () => { await clearFirestore(); await seed(); });
+
+test('七項設定發布有版本守衛、原子提交、留痕與可重跑的資格重算', async () => {
+  const rewards = buildSeed().docs.find(d => d.path === 'config/challengeRewards').data;
+  const config = await db.doc('config/challengeRewards').get();
+  const request = { eventId: E, rewards, challenges: CHALLENGES.slice(5), reason: '主辦變更為七項集章',
+    expectedRewardsUpdateTime: config.updateTime.toDate().toISOString() };
+  await expect(installChallengeRelease({ ...request, expectedRewardsUpdateTime: 'stale' })).rejects.toThrow('已變更');
+  expect((await db.collection(`events/${E}/challenges`).get()).size).toBe(5);
+  expect((await db.doc('config/challengeRewards').get()).data().rule).toBe(REWARDS.rule);
+  await db.doc(`events/${E}/players/FEDA-0001`).update({ completedChallengeIds: rewards.requiredChallengeIds.slice(0, 5), luckyDrawEntries: 7 });
+  await expect(installChallengeRelease(request)).resolves.toMatchObject({ changed: true });
+  expect((await db.collection(`events/${E}/challenges`).get()).size).toBe(7);
+  expect((await challenge(CROSSBAR.challengeId)).name).toBe(CROSSBAR.name);
+  await refreshChallengeQualification({ eventId: E, playerId: 'FEDA-0001', version: rewards.version, reason: request.reason });
+  expect(await player('FEDA-0001')).toMatchObject({ completedChallengeIds: rewards.requiredChallengeIds.slice(0, 5),
+    luckyDrawEntries: 0, luckyDrawRuleVersion: rewards.version });
+  const count = (await db.collection(`events/${E}/audits`).get()).size;
+  await expect(installChallengeRelease(request)).resolves.toMatchObject({ changed: false });
+  await expect(refreshChallengeQualification({ eventId: E, playerId: 'FEDA-0001', version: rewards.version, reason: request.reason }))
+    .resolves.toMatchObject({ changed: false });
+  expect((await db.collection(`events/${E}/audits`).get()).size).toBe(count);
+  await db.doc('config/challengeRewards').update({ maxEntriesPerPlayer: 2 });
+  await expect(installChallengeRelease(request)).rejects.toThrow('不一致');
+});
+
+test('七項才發一次：重放、同時最後兩項與作廢會保持正確資格', async () => {
+  const rewards = buildSeed().docs.find(d => d.path === 'config/challengeRewards').data;
+  await seed({ rewards, challenges: CHALLENGES });
+  const ids = rewards.requiredChallengeIds;
+  for (let i = 0; i < 5; i++) {
+    await submit(`seven-${i}`, { challengeId: ids[i], rawValue: CHALLENGES[i].minValue });
+    expect((await player('FEDA-0001')).luckyDrawEntries).toBe(0);
+  }
+  await Promise.all(ids.slice(5).map((id, i) => db.doc(`events/${E}/attempts/seven-${i + 5}`).set({
+    attemptId: `seven-${i + 5}`, challengeId: id, playerId: 'FEDA-0001', rawValue: CHALLENGES[i + 5].minValue,
+    voided: false, createdAt: T('10:00'), attemptAt: T('10:00')
+  })));
+  await Promise.all(ids.slice(5).map(challengeId => onAttemptSubmitted({ eventId: E, challengeId, playerId: 'FEDA-0001' })));
+  let result = await player('FEDA-0001');
+  expect(new Set(result.completedChallengeIds)).toEqual(new Set(ids));
+  expect(result.luckyDrawEntries).toBe(1);
+  expect(result.luckyDrawRuleVersion).toBe(rewards.version);
+  await onAttemptSubmitted({ eventId: E, challengeId: ids[6], playerId: 'FEDA-0001' });
+  expect((await player('FEDA-0001')).luckyDrawEntries).toBe(1);
+  await db.doc(`events/${E}/attempts/seven-6`).update({ voided: true });
+  await onAttemptSubmitted({ eventId: E, challengeId: ids[6], playerId: 'FEDA-0001' });
+  result = await player('FEDA-0001');
+  expect(result.completedChallengeIds).not.toContain(ids[6]);
+  expect(result.luckyDrawEntries).toBe(0);
+}, 20_000);
+
+test('新規則下舊五關的七張資格會退回零並記錄版本', async () => {
+  const rewards = buildSeed().docs.find(d => d.path === 'config/challengeRewards').data;
+  await seed({ rewards, challenges: CHALLENGES });
+  await db.doc(`events/${E}/players/FEDA-0001`).update({ completedChallengeIds: rewards.requiredChallengeIds.slice(0, 5), luckyDrawEntries: 7 });
+  await submit('old-rule-replay', { challengeId: rewards.requiredChallengeIds[0], rawValue: 2 });
+  const p = await player('FEDA-0001');
+  expect(p.completedChallengeIds).toHaveLength(5);
+  expect(p.luckyDrawEntries).toBe(0);
+  expect(p.luckyDrawRuleVersion).toBe(rewards.version);
+});
 
 test('同一玩家在兩個攤位同時送出，完成關卡與抽獎張數不能互相覆蓋', async () => {
   const ids = [CROSSBAR.challengeId, FILLER[0].challengeId];
