@@ -1,5 +1,7 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ELOGO1: { spec: 'tests/e2e/challenge.spec.js', grep: '公開首頁最上面有挑戰區入口', minTests: 1,
+    failure: 'toBeLessThan', assertions: ['expect(y).toBeLessThan(600)'] },
   ESTREAM2: { spec: 'tests/e2e/stream-shares.spec.js', grep: '低階角色與非 LINE 登入', minTests: 1,
     failure: 'toBeVisible', assertions: ["await expect(page.getByRole('button', { name: '使用 LINE 登入', exact: true })).toBeVisible();"] },
   ESTREAM1: { spec: 'tests/e2e/stream-shares.spec.js', grep: '本人可移除自己的分享', minTests: 1,
