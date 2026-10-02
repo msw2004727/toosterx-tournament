@@ -246,7 +246,10 @@ export async function publicHome({ scope, view, query }) {
     return el('section', { class: 'p-homeHero' }, [
       el('div', { class: 'p-homeHero__copy' }, [
         el('p', { class: 'p-homeHero__eyebrow', text: parts.length > 1 ? parts[0] : 'TOURNAMENT' }),
-        el('h1', { class: 'p-homeHero__title', 'aria-label': EVENT.name, text: parts.at(-1) }),
+        el('div', { class: 'p-homeHero__heading' }, [
+          el('h1', { class: 'p-homeHero__title', 'aria-label': EVENT.name, text: parts.at(-1) }),
+          sponsorLogo('p-homeHero__logo')
+        ]),
         el('p', { class: 'p-homeHero__slogan', text: EVENT.slogan }),
         el('p', { class: 'p-homeHero__meta', text: `${range} / ${EVENT.venueName}` })
       ]),
@@ -288,9 +291,15 @@ export async function publicHome({ scope, view, query }) {
     closeRankingsToast = toast('請選擇組別查看排名');
   }
 
+  function sponsorLogo(className, loading = 'eager') {
+    return el('img', { class: className, src: `/img/brands/hongming-sports.png?v=${CACHE_VERSION}`,
+      alt: '宏明體育用品社', width: 1254, height: 1254, loading, decoding: 'async' });
+  }
+
   function sponsorCard() {
     return el('section', { class: 'psponsor' }, [
       el('span', { class: 'psponsor__label', text: '贊助合作夥伴' }),
+      sponsorLogo('psponsor__logo', 'lazy'),
       el('span', { class: 'psponsor__name', text: '台灣美津濃股份有限公司' })
     ]);
   }
