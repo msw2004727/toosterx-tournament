@@ -6,10 +6,10 @@ import { qrMatrix } from '../../js/lib/qr-render.js';
 
 const ids = CHALLENGES.map(c => c.challengeId);
 const rewards = buildSeed().docs.find(d => d.path === 'config/challengeRewards').data;
-test('七項均有簡介，中醫問診保持原 ID 與簽到政策', () => {
+test('七項均有簡介，中醫運動恢復站保持原 ID 與簽到政策', () => {
   expect(CHALLENGES).toHaveLength(7);
   for (const c of CHALLENGES) expect(c.summary.length).toBeGreaterThan(8);
-  expect(CHALLENGES[5]).toMatchObject({ challengeId: 'g06-medical-checkin', name: '中醫問診', inputMode: 'checkin', leaderboardEnabled: false });
+  expect(CHALLENGES[5]).toMatchObject({ challengeId: 'g06-medical-checkin', name: '中醫運動恢復站', inputMode: 'checkin', leaderboardEnabled: false });
 });
 test('攤位指派必須選關卡且只允許有效的不重複 ID', () => {
   const base = { uid: 'worker', role: 'booth', knownChallengeIds: ids };

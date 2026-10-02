@@ -43,7 +43,7 @@ test('七項清單、規則、六項進度與手機集章 @challenge', async ({ 
   await expect(page.locator('.chal__item')).toHaveCount(7);
   await expect(page.locator('.chal__itemScore').nth(5)).toHaveText('已簽到');
   await expect(page.locator('.chal__list')).not.toContainText('未挑戰');
-  await expect(page.locator('.chal')).toContainText('中醫問診');
+  await expect(page.locator('.chal')).toContainText('中醫運動恢復站');
   await expect(page.locator('.chal')).toContainText('一球三桶');
   await expect(page.locator('.chal__heroSub')).toHaveText('七項集章，全數完成才有抽獎機會');
   await expect(page.locator('.chal__stamps [data-done="true"]')).toHaveCount(6);
