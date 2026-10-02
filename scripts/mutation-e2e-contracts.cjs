@@ -1,5 +1,7 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ESPONSOR1: { spec: 'tests/e2e/home-division-design.spec.js', grep: '首頁 A、固定六組色', minTests: 2,
+    failure: 'Expected: < 1', assertions: ['expect(Math.abs(partners[0].top - partners[1].top)).toBeLessThan(1);'] },
   ELOGO1: { spec: 'tests/e2e/challenge.spec.js', grep: '公開首頁最上面有挑戰區入口', minTests: 1,
     failure: 'toBeLessThan', assertions: ['expect(y).toBeLessThan(600)'] },
   ESTREAM2: { spec: 'tests/e2e/stream-shares.spec.js', grep: '低階角色與非 LINE 登入', minTests: 1,
