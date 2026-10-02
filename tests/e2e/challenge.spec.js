@@ -418,8 +418,11 @@ test('⭐ 公開首頁最上面有挑戰區入口 @challenge', async ({ page }) 
   await expect(entry).toContainText('挑戰區');
   // ⚠️ 現場立牌的 QR 掃進來就是首頁，掃立牌的人多半是來玩遊戲的。
   //    藏在最底下的話攤位就沒有人——所以它要在第一屏。
-  const y = await entry.evaluate(n => n.getBoundingClientRect().top);
-  expect(y).toBeLessThan(600);
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const y = await entry.evaluate(n => n.getBoundingClientRect().top);
+    expect(y).toBeLessThan(600);
+  }
 
   await entry.click();
   await expect(page).toHaveURL(/#\/challenge$/);

@@ -14,9 +14,9 @@
 .p-homeHero{position:relative;overflow:hidden;padding:var(--sp-5);border-radius:18px;background:var(--primary);color:var(--text-on-accent);margin-bottom:var(--sp-4)}
 .p-homeHero__copy{position:relative;z-index:1}
 .p-homeHero__eyebrow{font-size:var(--fs-xs);letter-spacing:.16em;font-weight:600;margin:0;opacity:.85}
-.p-homeHero__heading{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3)}
+.p-homeHero__heading{--home-logo-size:clamp(96px,20vw,136px);position:relative;display:flex;align-items:center;gap:var(--sp-3);padding-inline-end:calc(var(--home-logo-size) + var(--sp-3))}
 .p-homeHero__title{font-size:clamp(32px,9vw,46px);line-height:1.2;letter-spacing:.08em;margin:12px 0}
-.p-homeHero__logo{display:block;flex:none;width:clamp(96px,20vw,136px);height:auto;object-fit:contain;filter:brightness(0) invert(1)}
+.p-homeHero__logo{display:block;position:absolute;inset-inline-end:0;top:50%;transform:translateY(-50%);width:var(--home-logo-size);height:auto;object-fit:contain;filter:brightness(0) invert(1)}
 .p-homeHero__slogan{font-size:var(--fs-md);margin:0 0 var(--sp-5)}
 .p-homeHero__meta{font-size:var(--fs-xs);margin:0;font-variant-numeric:tabular-nums}
 .p-homeHero__foot{position:relative;font-size:var(--fs-xs);border-top:1px solid currentColor;padding-top:var(--sp-3);margin:var(--sp-5) 0 0;opacity:.8}
