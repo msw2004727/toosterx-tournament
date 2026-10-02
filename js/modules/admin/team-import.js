@@ -78,7 +78,7 @@ export async function adminTeamImportPage({ scope, view }) {
     const plan = state.plan;
     mount(root,
       adminHead('匯入球隊名冊', { sub: 'CSV 批次新增球隊與球員' }),
-      el('p', { class: 'adm__note', text: '一列一位球員；同組別、同隊名會合併為一支球隊。最多 100 隊、1,000 位球員、1 MB，每隊最多 15 位球員。' }),
+      el('p', { class: 'adm__note', text: '一列一位球員；同組別、同隊名會合併為一支球隊。CSV 匯入不受每隊 15 人上限限制；每份檔案最多 100 隊、1,000 位球員、1 MB。' }),
       el('p', { class: 'adm__note', text: '同一球員可參加不同球隊／盃賽，不因生日與身分證後四碼相同而阻擋。相同球隊仍不可重複匯入；背號可留空，只有同隊已填寫的背號不可重複。' }),
       el('p', { class: 'adm__note', text: '未滿 18 歲只填暱稱，請勿填真名。出生日期填西元 YYYY-MM-DD，身分證只填後四碼；Excel 請保留開頭的 0，另存為 CSV UTF-8。守門員、隊長填「是／否」，可留白。' }),
       el('p', { class: 'adm__note', text: '生日與身分證後四碼可先留空，之後到「查看球隊清單 → 已通過 → 展開球隊 → 補填資料／修改資料」處理。球隊可先排賽程；未補齊的球員標示待補資料，不能確認出賽。公開名冊不顯示生日與後四碼。' }),

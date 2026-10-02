@@ -2,7 +2,6 @@
 import { parseYmd } from './eligibility.js';
 import { validateIdentity, validateJerseyNo } from './member-identity.js';
 import { isMinor } from './privacy.js';
-import { REGISTRATION_LIMITS } from './formats.js';
 import { toCsv } from './csv.js';
 
 export const IMPORT_MAX_BYTES = 1024 * 1024;
@@ -113,6 +112,6 @@ export function validateTeamImport(rows, { divisions = [], existingTeams = [], a
     team.members.push(member);
   }
   if (teams.size > 100) add(0, '每份 CSV 最多 100 支球隊。');
-  for (const team of teams.values()) if (team.members.length > REGISTRATION_LIMITS.maxPlayers) add(team.row, `「${team.name}」超過每隊 ${REGISTRATION_LIMITS.maxPlayers} 位球員上限。`);
+  // 主辦方 CSV 名冊不套用線上報名的每隊人數上限；仍檢查整份檔案與球員資料。
   return { teams: [...teams.values()], errors };
 }

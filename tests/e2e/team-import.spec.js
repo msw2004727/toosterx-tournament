@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
-import { IMPORT_COLUMNS } from '../../js/engine/team-import.js';
+import { IMPORT_COLUMNS, parseTeamCsv } from '../../js/engine/team-import.js';
 import { toCsv } from '../../js/engine/csv.js';
 const FAKE = fs.readFileSync('tests/e2e/fake-firebase.js', 'utf8');
 const E = 'feda-cup-2026', UID = 'u-import-admin';
@@ -25,6 +25,25 @@ async function stub(page, { roles = ['admin'], hidden = true } = {}) {
 async function upload(page, rows) {
   await page.getByLabel('上傳 CSV 球隊名冊').setInputFiles({ name: '名冊.csv', mimeType: 'text/csv', buffer: Buffer.from(csv(rows)) });
 }
+
+test('CSV 同隊 30 人可完整預覽及確認匯入，無 15 人上限阻擋 @csvcap', async ({ page }) => {
+  await stub(page); await page.goto('/#/admin/team-import');
+  await expect(page.getByText(/CSV 匯入不受每隊 15 人上限限制/)).toBeVisible();
+  const rows = Array.from({ length: 30 }, (_, i) => row({ playerName: `球員${i + 1}`, jerseyNo: '', isCaptain: i === 0 ? '是' : '' }));
+  await upload(page, rows);
+  await expect(page.getByText('匯入預覽：1 支球隊、30 位球員')).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await page.locator('.adm__importTeam summary').click();
+  await expect(page.locator('.adm__importTeam li')).toHaveCount(30);
+  await page.locator('.adm__importConfirm input').check();
+  await page.getByRole('button', { name: '匯入並核准球隊' }).click();
+  await expect(page.getByRole('dialog')).toContainText('30 位球員');
+  await page.getByRole('button', { name: '確認匯入', exact: true }).click();
+  await expect(page.getByText('匯入完成：1 支球隊、30 位球員，已通過。')).toBeVisible();
+  const calls = await page.evaluate(() => window.__FAKE_CALLS);
+  expect(calls).toHaveLength(1);
+  expect(parseTeamCsv(calls[0].payload.csv)).toEqual(rows);
+});
 
 test('生日後四碼可留空，多位球員能預覽並提示後補入口 @csvidentity', async ({ page }) => {
   await stub(page); await page.goto('/#/admin/team-import');
