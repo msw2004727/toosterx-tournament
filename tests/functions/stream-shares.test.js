@@ -81,6 +81,7 @@ test.each([UID, 'admin', 'super'])('本人、管理員與總管可以移除，�
   const removed = (await audits()).docs.map(doc => doc.data()).find(a => a.action === 'streamShare.removed');
   expect(removed).toMatchObject({ actor: { uid }, before: { matchId: MATCH, videoId: 'dQw4w9WgXcQ' }, after: null });
 });
+// Firestore 交易競爭會退避重試，CI Emulator 可能超過 Jest 預設的 5 秒。
 test('收據不能重用於另一個連結，並行同片分享只成立一次', async () => {
   await share();
   await expect(shareMatchStreamFor(req({ url: 'https://youtu.be/M7lc1UVf-VE' }))).rejects.toMatchObject({ code: 'already-exists' });
@@ -89,4 +90,4 @@ test('收據不能重用於另一個連結，並行同片分享只成立一次',
   expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
   expect((await base().collection('streamShares').get()).size).toBe(2);
   expect((await audits()).size).toBe(2);
-});
+}, 20_000);
