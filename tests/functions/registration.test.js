@@ -343,4 +343,17 @@ describe('FR15 球員最多 15 人（規章第十二條）', () => {
     await enforceRosterCap({ eventId: E, teamId: TEAM });
     expect(await enforceRosterCap({ eventId: E, teamId: TEAM })).toEqual({ rejected: [] });
   });
+
+  test.each([
+    { source: 'csv', captainUid: 'u-captain', rosterLocked: false },
+    { source: 'csv', captainUid: 'u-captain', rosterLocked: true },
+    { source: 'csv', captainUid: null, rosterLocked: false }
+  ])('⭐ FR15f 一般球隊偽造 CSV 標記仍不能繞過 15 人上限 %j', async patch => {
+    await teamRef().set(patch, { merge: true });
+    await fill(16);
+    const result = await enforceRosterCap({ eventId: E, teamId: TEAM });
+    expect(result.rejected).toEqual(['m-player-16']);
+    expect((await memberRef('m-player-16').get()).data().status).toBe('rejected');
+    expect((await teamRef().get()).data().playerCount).toBe(15);
+  });
 });

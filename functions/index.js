@@ -207,7 +207,7 @@ export const onMemberWritten = onDocumentWritten(
     const c = await recountTeamMembers({ eventId, teamId });
     logger.info('[onMemberWritten]', { teamId, memberId, projected: r.projected, memberCount: c.memberCount, playerCount: c.playerCount });
 
-    // 球員最多 15 人（規章第十二條）。rules 用 playerCount 擋在前面，
+    // 一般報名球員最多 15 人（規章第十二條），管理員 CSV 名冊除外。rules 用 playerCount 擋在前面，
     // 但那個數字是上面才剛算好的——兩位教練同一秒各加一人時兩筆都會過，
     // 所以這裡才是權威：超過的那幾筆退件。
     if (after?.status === 'approved') {
