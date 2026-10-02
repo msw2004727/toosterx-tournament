@@ -11,14 +11,15 @@
 
 /* 首頁 A：墨綠品牌主視覺、快捷入口、分層比分卡。資料仍由原公開查詢提供。 */
 .p-home{padding:var(--sp-4) var(--sp-3) var(--sp-6)}
-.p-homeHero{overflow:hidden;padding:12px 18px;border-radius:18px;background:var(--primary);color:var(--text-on-accent);margin-bottom:var(--sp-4);text-align:center}
-.p-homeHero__badge{width:80px;height:80px;display:grid;place-items:center;margin:0 auto var(--sp-2);padding:5px;border-radius:var(--r-lg);background:var(--bg-card);isolation:isolate}
-.p-homeHero__eyebrow{font-size:var(--fs-xs);letter-spacing:.12em;font-weight:600;margin:0;opacity:.85}
-.p-homeHero__title{font-size:clamp(38px,8.5vw,50px);line-height:1.2;letter-spacing:.12em;padding-inline-start:.12em;margin:6px 0}
-.p-homeHero__logo{display:block;width:100%;height:auto;object-fit:contain;filter:brightness(0) invert(1);mix-blend-mode:difference}
+.p-homeHero{overflow:hidden;padding:10px 18px;border-radius:18px;background:var(--primary);color:var(--text-on-accent);margin-bottom:var(--sp-3);text-align:center}
+.p-homeHero__brand{display:inline-grid;grid-template-columns:minmax(0,max-content);max-width:100%}
+/* 1254px 原圖的透明留白：可見圖案為 (98,53)–(1156,1212)，與標題共用欄寬。 */
+.p-homeHero__logoCrop{position:relative;overflow:hidden;width:100%;aspect-ratio:1058/1159}
+.p-homeHero__eyebrow{font-size:var(--fs-xs);letter-spacing:.12em;font-weight:600;margin:4px 0 0;opacity:.85}
+.p-homeHero__title{font-size:38px;line-height:1.2;letter-spacing:.12em;padding-inline-start:.12em;margin:4px 0}
+.p-homeHero__logo{position:absolute;display:block;left:calc(-100% * 98 / 1058);top:calc(-100% * 53 / 1159);width:calc(100% * 1254 / 1058);max-width:none;height:auto;filter:brightness(0) invert(1)}
 .p-homeHero__slogan{font-size:var(--fs-sm);line-height:1.5;margin:0}
-.p-homeHero__meta{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-3);font-size:var(--fs-xs);margin:8px 0 0;font-variant-numeric:tabular-nums}
-.p-homeHero__foot{font-size:var(--fs-xs);border-top:1px solid currentColor;padding-top:6px;margin:6px 0 0;opacity:.8}
+.p-homeHero__meta{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-3);font-size:var(--fs-xs);margin:6px 0 0;font-variant-numeric:tabular-nums}
 .p-homeShortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--border);border-radius:12px;background:var(--bg-card);margin-bottom:var(--sp-4);overflow:hidden}
 .p-homeShortcuts button{min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;font-size:var(--fs-sm);font-weight:600;padding:12px 4px}
 .p-homeShortcuts button+button::before{content:'';position:absolute;left:0;height:30px;border-left:1px solid var(--border)}
