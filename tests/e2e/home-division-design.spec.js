@@ -49,6 +49,15 @@ for(const scheme of ['light','dark']){
   });
   test(`首頁 A、固定六組色、完整名稱及所有快捷入口 ${scheme}`,async({page})=>{
     await stub(page,scheme);await page.goto('/');await expect(page.locator('.p-homeHero')).toBeVisible();
+    await expect(page.locator('.p-homeHero img')).toHaveCount(0);
+    await expect(page.locator('.p-homeHero__sponsor')).toHaveText('主要贊助商：宏明體育用品社');
+    await expect(page.locator('.psponsor img')).toHaveCount(2);
+    await expect(page.locator('.psponsor img[alt="宏明體育用品社"]')).toHaveCount(1);
+    await expect(page.locator('.psponsor img[alt="美津濃 Mizuno"]')).toHaveCount(1);
+    await page.locator('.psponsor').scrollIntoViewIfNeeded();
+    for (const logo of await page.locator('.psponsor img').all()) {
+      expect(await logo.evaluate(async image => { await image.decode(); return image.naturalWidth; })).toBe(1254);
+    }
     await expect(page.locator('.p-homeShortcuts button')).toHaveCount(3);
     for(const d of DIVISIONS){const tile=page.locator(`.pdiv[data-division="${d.divisionId}"]`);await expect(tile).toHaveAttribute('data-division-tone',d.colorToken);expect(await contrast(tile)).toBeGreaterThanOrEqual(4.5)}
     await expect(page.locator('.prow[data-division-tone]').first()).toBeVisible();
@@ -57,6 +66,11 @@ for(const scheme of ['light','dark']){
       await page.setViewportSize({width,height:950});
       const over=await page.locator('.p-home').evaluate(n=>[...n.querySelectorAll('button,.prow__team,.p-homeHero__copy')].filter(x=>x.scrollWidth>x.clientWidth+1).map(x=>x.className));expect(over).toEqual([]);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      const partners = await page.locator('.psponsor__partner').evaluateAll(nodes => nodes.map(node => {
+        const bounds = node.getBoundingClientRect(); return { top: bounds.top, left: bounds.left, right: bounds.right };
+      }));
+      expect(Math.abs(partners[0].top - partners[1].top)).toBeLessThan(1);
+      expect(partners[0].right).toBeLessThan(partners[1].left);
     }
     await page.setViewportSize({width:390,height:980});await page.screenshot({path:`tools/home-final-${scheme}-${test.info().project.name}.png`,fullPage:true});
     await page.locator('.pchips').screenshot({path:`tools/division-palette-${scheme}-${test.info().project.name}.png`});

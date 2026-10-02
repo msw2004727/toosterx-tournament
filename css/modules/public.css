@@ -13,11 +13,9 @@
 .p-home{padding:var(--sp-4) var(--sp-3) var(--sp-6)}
 .p-homeHero{overflow:hidden;padding:10px 18px;border-radius:18px;background:var(--primary);color:var(--text-on-accent);margin-bottom:var(--sp-3);text-align:center}
 .p-homeHero__brand{display:inline-grid;grid-template-columns:minmax(0,max-content);max-width:100%}
-/* 1254px 原圖的透明留白：可見圖案為 (98,53)–(1156,1212)，與標題共用欄寬。 */
-.p-homeHero__logoCrop{position:relative;overflow:hidden;width:100%;aspect-ratio:1058/1159}
 .p-homeHero__eyebrow{font-size:var(--fs-xs);letter-spacing:.12em;font-weight:600;margin:4px 0 0;opacity:.85}
 .p-homeHero__title{font-size:38px;line-height:1.2;letter-spacing:.12em;padding-inline-start:.12em;margin:4px 0}
-.p-homeHero__logo{position:absolute;display:block;left:calc(-100% * 98 / 1058);top:calc(-100% * 53 / 1159);width:calc(100% * 1254 / 1058);max-width:none;height:auto;filter:brightness(0) invert(1)}
+.p-homeHero__sponsor{font-size:var(--fs-sm);line-height:1.5;font-weight:600;margin:4px 0 8px}
 .p-homeHero__slogan{font-size:var(--fs-sm);line-height:1.5;margin:0}
 .p-homeHero__meta{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-3);font-size:var(--fs-xs);margin:6px 0 0;font-variant-numeric:tabular-nums}
 .p-homeShortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--border);border-radius:12px;background:var(--bg-card);margin-bottom:var(--sp-4);overflow:hidden}
@@ -189,9 +187,18 @@
   display:flex;flex-direction:column;gap:var(--sp-2);align-items:center;text-align:center;
 }
 .psponsor__label{font-size:var(--fs-xs);color:var(--text-muted)}
-.psponsor__logo{display:block;width:clamp(160px,28vw,200px);height:auto;max-width:100%;object-fit:contain;margin:var(--sp-2) 0}
+.psponsor__partners{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:clamp(12px,4vw,32px);width:100%;max-width:480px}
+.psponsor__partner{min-width:0;margin:0;display:flex;flex-direction:column;align-items:center;gap:var(--sp-2)}
+.psponsor__art{--sponsor-height:clamp(116px,30vw,180px);height:var(--sponsor-height);width:100%;display:flex;align-items:center;justify-content:center}
+/* 裁掉兩張透明圖的留白，保留圖案比例；兩欄在 320px 仍然並排。 */
+.psponsor__logoCrop{position:relative;overflow:hidden;flex:none}
+.psponsor__logoCrop--hongming{width:min(100%,160px,calc(var(--sponsor-height) * 1058 / 1159));aspect-ratio:1058/1159}
+.psponsor__logoCrop--mizuno{width:min(100%,200px);aspect-ratio:1000/555}
+.psponsor__logo{position:absolute;display:block;height:auto;max-width:none;filter:brightness(0)}
+.psponsor__logo--hongming{left:calc(-100% * 98 / 1058);top:calc(-100% * 53 / 1159);width:calc(100% * 1254 / 1058)}
+.psponsor__logo--mizuno{left:calc(-100% * 135 / 1000);top:calc(-100% * 370 / 555);width:calc(100% * 1254 / 1000)}
 [data-theme="dark"] .psponsor__logo{filter:brightness(0) invert(1)}
-.psponsor__name{font-size:var(--fs-sm);font-weight:700;color:var(--text-secondary)}
+.psponsor__name{font-size:var(--fs-sm);line-height:1.5;font-weight:700;color:var(--text-secondary);overflow-wrap:anywhere;text-wrap:balance}
 /* 版號：回報問題時要唸得出來（驗收 P-1） */
 .pver{margin:var(--sp-2) var(--sp-3) 0;text-align:center;font-size:var(--fs-xs);color:var(--text-muted);font-variant-numeric:tabular-nums}
 
