@@ -16,7 +16,8 @@ const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
   { name: '#ELOGO1 首頁 Logo 撐高主視覺，挑戰入口掉出第一屏', file: 'css/modules/public.css',
-    from: '.p-homeHero__badge{width:80px;height:80px;', to: '.p-homeHero__badge{width:240px;height:240px;' },
+    from: '.p-homeHero__logoCrop{position:relative;overflow:hidden;width:100%;aspect-ratio:1058/1159}',
+    to: '.p-homeHero__logoCrop{position:relative;overflow:hidden;width:100%;height:320px;aspect-ratio:1058/1159}' },
   { name: '#ESTREAM2 Demo 匿名身分被誤認為完成 LINE 登入', file: 'js/modules/account/login.js',
     from: 'if (user() && user().isAnonymous !== true) { navigate(next); return; }',
     to: 'if (user()) { navigate(next); return; }' },
