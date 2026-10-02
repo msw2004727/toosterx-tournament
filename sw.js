@@ -4,7 +4,7 @@
  * ⚠️ R-REL-013：HTML 一律 network-first，禁止 cache-first。
  * ⚠️ R-REL-014：新資源必須由 scripts/bump-version.js 納管。
  */
-const CACHE_NAME = 'feda-cup-0.20261002';
+const CACHE_NAME = 'feda-cup-0.20261002a';
 
 // 由 bump-version.js 依 js/ 目錄產生，新增模組不會漏掉離線快取。
 const OFFLINE_MODULES = [
@@ -140,6 +140,7 @@ const APP_SHELL = [
   '/css/modules/challenge.css',
   '/app.js',
   '/manifest.json',
+  `/img/brands/hongming-sports.png?v=${CACHE_NAME.replace('feda-cup-', '')}`,
   // PWA 圖示。裝到主畫面之後第一次離線開啟時，圖示與 manifest 都要拿得到，
   // 不然 iOS 會退回一張網頁截圖當圖示。由 scripts/make-icons.mjs 產生。
   //
