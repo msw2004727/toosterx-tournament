@@ -124,9 +124,9 @@
 
 ---
 
-### 3.6 Game 06｜中醫看診
+### 3.6 Game 06｜中醫運動恢復站
 
-`g06-medical-checkin`：現場人員確認到場，登錄簽到值 `1`。`inputMode: 'checkin'`、`scoreType: 'boolean'`、`minValue/maxValue: 1`。只集章，不計分、不排名，不收集或儲存看診內容。原有攤位權限與指派限制照常適用。
+`g06-medical-checkin`：現場人員確認到場，登錄簽到值 `1`。`inputMode: 'checkin'`、`scoreType: 'boolean'`、`minValue/maxValue: 1`。攤位 6。只集章，不計分、不排名，不收集或儲存問診內容。原有攤位權限與指派限制照常適用。
 
 ### 3.7 Game 07｜一球三桶
 
