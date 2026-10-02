@@ -942,7 +942,8 @@ export async function enforceRosterCap({ eventId, teamId, maxPlayers = REGISTRAT
   const teamRef = evRef(eventId).collection('teams').doc(teamId);
   const team = await tx.get(teamRef);
   // CSV 匯入由 Admin SDK 建立無帳號隊長且鎖定的名冊。
-  // 一般客戶端建立球隊必須以自己為隊長且未鎖定，也不能自行修改這兩個欄位。
+  // 一般客戶端建立球隊必須以自己為隊長且未鎖定；隊長能在草稿期轉移帳號，
+  // 但不能自行修改來源或鎖定名冊，因此豁免必須同時檢查以下三項。
   const imported = team.data();
   if (imported?.source === 'csv' && imported.captainUid === null && imported.rosterLocked === true) return { rejected: [] };
   const players = snap.docs.filter(d => isPlayer(d.data()));
