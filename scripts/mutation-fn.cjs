@@ -85,6 +85,18 @@ const MUTANTS = [
     from: 'const prepared = plan.teams.map', to: "const allMembers = await Promise.all(teamSnap.docs.map(t => tx.get(t.ref.collection('members')))); if (plan.teams.some(t => t.members.some(m => allMembers.some(s => s.docs.some(d => m.birthDate && m.idLast4 && d.data().birthDate === m.birthDate && d.data().idLast4 === m.idLast4))))) fail('already-exists', '同人跨隊'); const prepared = plan.teams.map"
   },
   {
+    name: 'FN#CSV-CAP 匯入後第 16 人起又被自動退件', file: 'functions/pipeline.js',
+    from: "if (imported?.source === 'csv' && imported.captainUid === null && imported.rosterLocked === true)",
+    to: 'if (false)',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-import.test.js --testNamePattern=超過 --silent'
+  },
+  {
+    name: 'FN#CSV-CAP-SOURCE 一般球隊偽造 CSV 標記就繞過上限', file: 'functions/pipeline.js',
+    from: "imported?.source === 'csv' && imported.captainUid === null && imported.rosterLocked === true",
+    to: "imported?.source === 'csv'",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/registration.test.js --testNamePattern=偽造 --silent'
+  },
+  {
     name: 'FN#1 rankingRule 找不到就套預設（fail-open → 用錯規則排出一份看似正常的積分榜）',
     file: 'functions/store.js',
     from: '  if (!rule) throw new Error(`config/rankingRules 沒有 ${rankingRuleId}`);',

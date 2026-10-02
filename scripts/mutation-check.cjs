@@ -108,8 +108,10 @@ const MUTANTS = [
     from: 'team.members.push(member);', to: "if (identity.complete && [...teams.values()].some(t => t !== team && t.members.some(m => m.birthDate === r.birthDate && m.idLast4 === r.idLast4))) add(rowNo, '同人跨隊'); team.members.push(member);"
   },
   {
-    name: '#CSV4 匯入放行超過 15 位球員', file: 'js/engine/team-import.js',
-    from: 'team.members.length > REGISTRATION_LIMITS.maxPlayers', to: 'false'
+    name: '#CSV4 CSV 匯入錯誤恢復每隊 15 人限制', file: 'js/engine/team-import.js',
+    from: 'return { teams: [...teams.values()], errors };',
+    to: "for (const team of teams.values()) if (team.members.length > 15) add(team.row, '每隊最多 15 人'); return { teams: [...teams.values()], errors };",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/team-import.test.js --silent'
   },
   {
     name: '#1 用 Number() 判比分（null → 0，會判成 0:0 平手）',

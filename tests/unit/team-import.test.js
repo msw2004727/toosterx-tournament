@@ -44,12 +44,18 @@ test('同隊背號重複、簡稱不同與兩位隊長均擋下', () => {
 test('同組同隊不得覆蓋，含全形及空格正規化', () => {
   expect(errors([row({ teamName: 'Ａ ＦＣ' })], { ...ctx, existingTeams: [{ divisionId: 'youth', name: 'a  fc' }] })).not.toEqual([]);
 });
-test('15 人可匯入，16 人不行；缺設定及 1,001 列失敗', () => {
-  const rows = Array.from({ length: 16 }, (_, i) => row({ jerseyNo: String(i), idLast4: String(1000 + i) }));
-  expect(errors(rows.slice(0, 15))).toEqual([]);
-  expect(errors(rows).some(e => e.message.includes('15'))).toBe(true);
+test.each([15, 16, 30, 1000])('CSV 同隊 %i 人可完整匯入，不套用線上報名 15 人上限', count => {
+  const rows = Array.from({ length: count }, (_, i) => row({ playerName: `球員${i + 1}`, jerseyNo: '', idLast4: String(1000 + i) }));
+  const plan = validateTeamImport(parseTeamCsv(csv(rows)), ctx);
+  expect(plan.errors).toEqual([]);
+  expect(plan.teams).toHaveLength(1);
+  expect(plan.teams[0].members).toHaveLength(count);
+});
+
+test('放寬每隊人數仍拒絕缺設定、1,001 列與超過 100 隊', () => {
   expect(errors([row()], {})).not.toEqual([]);
   expect(errors(Array(1001).fill(row()))).not.toEqual([]);
+  expect(errors(Array.from({ length: 101 }, (_, i) => row({ teamName: `球隊${i}` })))).not.toEqual([]);
 });
 test('未成年成人組也用暱稱，成年使用姓名；忽略額外的管理欄位', () => {
   const context = { ...ctx, divisions: [{ divisionId: 'youth' }] };

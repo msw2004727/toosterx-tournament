@@ -924,7 +924,7 @@ function rankSnapshot(standing) {
 // ══════════════════════════════════════════════════════════════
 
 /**
- * 球員最多 15 人——超過的那幾筆退件。
+ * 一般報名球員最多 15 人——超過的那幾筆退件；管理員 CSV 匯入名冊除外。
  *
  * rules 用 `teams.playerCount < 15` 擋在前面，但那個數字是這裡**事後**維護的：
  * 兩位教練同一秒各加一人，兩筆都會過。所以這裡是權威：已核准的球員
@@ -941,6 +941,10 @@ export async function enforceRosterCap({ eventId, teamId, maxPlayers = REGISTRAT
   const snap = await tx.get(col.where('status', '==', 'approved'));
   const teamRef = evRef(eventId).collection('teams').doc(teamId);
   const team = await tx.get(teamRef);
+  // CSV 匯入由 Admin SDK 建立無帳號隊長且鎖定的名冊。
+  // 一般客戶端建立球隊必須以自己為隊長且未鎖定，也不能自行修改這兩個欄位。
+  const imported = team.data();
+  if (imported?.source === 'csv' && imported.captainUid === null && imported.rosterLocked === true) return { rejected: [] };
   const players = snap.docs.filter(d => isPlayer(d.data()));
   if (players.length <= maxPlayers) return { rejected: [] };
 

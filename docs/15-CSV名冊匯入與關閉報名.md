@@ -6,10 +6,17 @@
 
 三天為不同盃賽，主辦取消原規章「每人限報乙隊」的系統限制。
 同一球員可出現在不同球隊名冊；同份 CSV、後續匯入、管理員補件及背景名冊更新均不以生日、後四碼或本人帳號跨隊退件。
-不另加日期限制。同一球隊重複匯入、同隊背號重複、年齡資格及每隊 15 位球員上限仍有效。
+不另加日期限制。同一球隊重複匯入、同隊背號重複及年齡資格仍檢查；CSV 每隊人數依下方 2026-10-02 調整。
 `REGISTRATION_LIMITS.onePlayerOneTeam` 及線上 `config/registration.onePlayerOneTeam` 均為 `false`。
 部署須更新 `importTeamsCsv`、`updateMemberIdentity`、`onMemberWritten` 三支 Function；設定以 `scripts/set-registration.mjs --project PROJECT_ID --allow-multi-team` 更新並留下稽核。
 此決議優先於早期文件中的每人一隊規定；舊退件稽核仍保留原始原因。
+
+## CSV 每隊人數（2026-10-02 主辦調整）
+
+管理員上傳的 CSV 名冊不受每隊 15 位球員上限限制。前端預覽及伺服器重新驗證採同一規則；匯入後的背景 trigger、重放及球員補件不會再以人數超限退件。
+背景程序以球隊的 `source: 'csv'`、`captainUid: null` 與 `rosterLocked: true` 辨識管理員匯入名冊。一般客戶端建立球隊必須以自身帳號為隊長且未鎖定，隊長後續不能修改來源、隊長帳號或鎖定欄位，因此單獨偽造 CSV 標記無法取得豁免。
+一般線上報名仍遵守 15 人上限。整份 CSV 的容量、格式、年齡資格、重複隊名、背號及資料隱私檢查繼續有效。
+部署先更新 `onMemberWritten`，再更新 `importTeamsCsv`，最後發布前端，避免新名冊被舊版背景程序退件。
 
 ## 操作
 
@@ -36,7 +43,7 @@ Excel 請另存「CSV UTF-8（逗號分隔）」，生日及後四碼欄建議�
 上傳後顯示讀取編碼，請核對中文。若文字不正確，可使用「CSV 文字編碼」選單重新解碼，不必重新選檔。
 讀檔失敗、編碼錯誤、欄位內容錯誤會分別提示；不能把 `.xlsx` 直接改名為 `.csv`。
 欄位也接受英文 key：divisionId、teamName、shortName、playerName、jerseyNo、birthDate、idLast4、isGoalkeeper、isCaptain。
-每份上限 1 MB、100 隊、1,000 位球員；每隊依規章最多 15 位球員。
+每份上限 1 MB、100 隊、1,000 位球員；CSV 匯入不設每隊 15 人限制。
 
 ## 儲存與權限
 

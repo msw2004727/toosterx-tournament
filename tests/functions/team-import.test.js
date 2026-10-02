@@ -45,6 +45,34 @@ test('整份匯入直接核准，公開名冊白名單、私密資料與稽核�
   await recountTeamMembers({ eventId: E, teamId: result.teamIds[0] });
   expect((await ref.collection('roster').doc('p-11a0e9e231b01869997d7297bd4231f7-1').get()).data()).toMatchObject(projection);
 });
+
+test('CSV 同隊超過 15 人完整匯入，trigger 重放與補件後都保留核准名冊及人數', async () => {
+  const rows = Array.from({ length: 30 }, (_, i) => row({
+    playerName: `球員${i + 1}`, jerseyNo: '', idLast4: String(1000 + i), isCaptain: i === 0 ? '是' : ''
+  }));
+  const result = await importTeamsFor(request(rows));
+  expect(result).toMatchObject({ teamCount: 1, playerCount: 30 });
+  const ref = root().collection('teams').doc(result.teamIds[0]);
+  const members = await ref.collection('members').get();
+  expect(members.size).toBe(30);
+  for (const member of [members.docs[0], members.docs[15], members.docs[29]]) {
+    const event = { params: { eventId: E, teamId: ref.id, memberId: member.id },
+      data: { before: { data: () => undefined }, after: { data: () => member.data() } } };
+    await onMemberWritten.run(event);
+    await onMemberWritten.run(event);
+  }
+  const memberId = members.docs[29].id;
+  await updateMemberIdentityFor(editRequest(ref.id, { memberId, idLast4: '0099' }));
+  const edited = (await ref.collection('members').doc(memberId).get()).data();
+  await onMemberWritten.run({ params: { eventId: E, teamId: ref.id, memberId },
+    data: { before: { data: () => members.docs[29].data() }, after: { data: () => edited } } });
+  expect((await ref.get()).data()).toMatchObject({ source: 'csv', captainUid: null, rosterLocked: true, memberCount: 30, playerCount: 30 });
+  expect((await ref.collection('members').get()).docs.every(d => d.data().status === 'approved')).toBe(true);
+  const roster = await ref.collection('roster').get();
+  expect(roster.size).toBe(30);
+  expect(roster.docs.every(d => !('birthDate' in d.data()) && !('idLast4' in d.data()))).toBe(true);
+  expect((await root().collection('audits').get()).docs.some(d => d.data().action === 'member.capRejected')).toBe(false);
+});
 test.each([null, 'scorer', 'missing'])('未登入或非管理員不得匯入：%s', async uid => {
   await expect(importTeamsFor(request([row()], uid))).rejects.toMatchObject({ code: uid ? 'permission-denied' : 'unauthenticated' });
   expect((await root().collection('teams').get()).empty).toBe(true);
