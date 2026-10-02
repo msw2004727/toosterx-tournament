@@ -27,11 +27,12 @@ async function setup(page, { role = 'booth', assignment = ids, active = true, ev
   }, { seed, uid: UID, loggedIn });
 }
 const dump = page => page.evaluate(() => window.__fake.__dump());
-test('七個玩法均顯示簡介且改名中醫問診 @boothSop', async ({ page }) => {
+test('七個玩法均顯示簡介且改名中醫運動恢復站 @boothSop', async ({ page }) => {
   await setup(page); await page.goto('/#/challenge');
   await expect(page.locator('.chal__itemRule')).toHaveCount(7);
-  await expect(page.locator('.chal__list')).toContainText('中醫問診');
+  await expect(page.locator('.chal__list')).toContainText('中醫運動恢復站');
   await expect(page.locator('.chal')).not.toContainText('中醫看診');
+  await expect(page.locator('.chal')).not.toContainText('中醫問診');
   for (let i = 0; i < 7; i++) await expect(page.locator('.chal__itemRule').nth(i)).toHaveText(CHALLENGES[i].summary);
 });
 test('總管必須選攤位，存檔與重新編輯保留指派 @boothSop', async ({ page }) => {
@@ -41,7 +42,7 @@ test('總管必須選攤位，存檔與重新編輯保留指派 @boothSop', asyn
   await page.getByRole('button', { name: '指派身分', exact: true }).click();
   await expect(page.locator('.toast')).toContainText('至少選擇');
   expect((await dump(page))['staff/new-worker']).toBeUndefined();
-  await page.locator('#staff-challenges').getByRole('button', { name: '中醫問診', exact: true }).click();
+  await page.locator('#staff-challenges').getByRole('button', { name: '中醫運動恢復站', exact: true }).click();
   await page.locator('#staff-challenges').getByRole('button', { name: '一球三桶', exact: true }).click();
   await page.getByRole('button', { name: '指派身分', exact: true }).click();
   await expect.poll(async () => (await dump(page))['staff/new-worker']?.assignment.challengeIds).toEqual(ids.slice(5));
@@ -57,7 +58,7 @@ test('從挑戰區找到入口，複數攤位先選關卡再看到相機與手�
   await setup(page); await page.goto('/#/challenge');
   await page.getByRole('button', { name: '攤位登錄', exact: true }).click();
   await expect(page.locator('.booth')).toContainText('下一步就能開啟相機');
-  await page.getByRole('button', { name: /中醫問診.*攤位 6/ }).click();
+  await page.getByRole('button', { name: /中醫運動恢復站.*攤位 6/ }).click();
   await expect(page.getByRole('button', { name: '開啟相機掃描挑戰卡', exact: true })).toBeVisible();
   await expect(page.getByLabel('手動輸入玩家挑戰卡號')).toBeVisible();
   await page.locator('#booth-id').fill('0182'); await page.getByRole('button', { name: '查詢', exact: true }).click();
@@ -76,7 +77,7 @@ test('被授權後可按更新權限取得負責攤位 @boothSop', async ({ page
   } }), { uid: UID, id: ids[5], eventId: EVENT });
   await page.getByRole('button', { name: '更新權限', exact: true }).click();
   await expect(page.locator('#booth-id')).toBeVisible();
-  await expect(page.locator('.booth__head')).toContainText('中醫問診');
+  await expect(page.locator('.booth__head')).toContainText('中醫運動恢復站');
 });
 test('掃碼登入保留攤位與玩家卡號 @boothSop', async ({ page }) => {
   await setup(page, { loggedIn: false }); await page.goto(`/#/booth/${ids[5]}?id=${PID}`);
@@ -85,7 +86,7 @@ test('掃碼登入保留攤位與玩家卡號 @boothSop', async ({ page }) => {
   expect(next).toBe(`/booth/${ids[5]}?id=${PID}`);
   await page.evaluate(uid => window.__fake.__setUser({ uid }), UID);
   await expect(page.locator('.booth__nick')).toHaveText('體驗玩家');
-  await expect(page.locator('.booth__head')).toContainText('中醫問診');
+  await expect(page.locator('.booth__head')).toContainText('中醫運動恢復站');
 });
 test('單攤位人員無法用網址切到未指派關卡 @boothSop', async ({ page }) => {
   await setup(page, { assignment: [ids[5]] }); await page.goto(`/#/booth/${ids[6]}?id=${PID}`);
