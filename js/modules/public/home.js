@@ -245,16 +245,13 @@ export async function publicHome({ scope, view, query }) {
     const range = [EVENT.dates[0], EVENT.dates.at(-1)].filter(Boolean).map(date).join(' — ');
     return el('section', { class: 'p-homeHero' }, [
       el('div', { class: 'p-homeHero__copy' }, [
+        el('div', { class: 'p-homeHero__badge' }, sponsorLogo('p-homeHero__logo')),
         el('p', { class: 'p-homeHero__eyebrow', text: parts.length > 1 ? parts[0] : 'TOURNAMENT' }),
-        el('div', { class: 'p-homeHero__heading' }, [
-          el('h1', { class: 'p-homeHero__title', 'aria-label': EVENT.name, text: parts.at(-1) }),
-          sponsorLogo('p-homeHero__logo')
-        ]),
+        el('h1', { class: 'p-homeHero__title', 'aria-label': EVENT.name, text: parts.at(-1) }),
         el('p', { class: 'p-homeHero__slogan', text: EVENT.slogan }),
-        el('p', { class: 'p-homeHero__meta', text: `${range} / ${EVENT.venueName}` })
-      ]),
-      el('div', { class: 'p-homeHero__pitch', 'aria-hidden': 'true' }, [
-        el('i', { class: 'p-homeHero__circle' }), el('i', { class: 'p-homeHero__box' })
+        el('p', { class: 'p-homeHero__meta' }, [
+          el('span', { text: range }), el('span', { text: EVENT.venueName })
+        ])
       ]),
       el('p', { class: 'p-homeHero__foot', text: '賽程・即時比分・組別排名' })
     ]);

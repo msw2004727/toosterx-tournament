@@ -11,19 +11,14 @@
 
 /* 首頁 A：墨綠品牌主視覺、快捷入口、分層比分卡。資料仍由原公開查詢提供。 */
 .p-home{padding:var(--sp-4) var(--sp-3) var(--sp-6)}
-.p-homeHero{position:relative;overflow:hidden;padding:var(--sp-5);border-radius:18px;background:var(--primary);color:var(--text-on-accent);margin-bottom:var(--sp-4)}
-.p-homeHero__copy{position:relative;z-index:1}
-.p-homeHero__eyebrow{font-size:var(--fs-xs);letter-spacing:.16em;font-weight:600;margin:0;opacity:.85}
-.p-homeHero__heading{--home-logo-size:clamp(96px,20vw,136px);position:relative;display:flex;align-items:center;gap:var(--sp-3);padding-inline-end:calc(var(--home-logo-size) + var(--sp-3))}
-.p-homeHero__title{font-size:clamp(32px,9vw,46px);line-height:1.2;letter-spacing:.08em;margin:12px 0}
-.p-homeHero__logo{display:block;position:absolute;inset-inline-end:0;top:50%;transform:translateY(-50%);width:var(--home-logo-size);height:auto;object-fit:contain;filter:brightness(0) invert(1)}
-.p-homeHero__slogan{font-size:var(--fs-md);margin:0 0 var(--sp-5)}
-.p-homeHero__meta{font-size:var(--fs-xs);margin:0;font-variant-numeric:tabular-nums}
-.p-homeHero__foot{position:relative;font-size:var(--fs-xs);border-top:1px solid currentColor;padding-top:var(--sp-3);margin:var(--sp-5) 0 0;opacity:.8}
-.p-homeHero__pitch{position:absolute;right:20px;top:35px;width:200px;height:132px;border:1px solid currentColor;transform:rotate(-22deg);opacity:.17;pointer-events:none}
-.p-homeHero__pitch::after{content:'';position:absolute;left:50%;height:100%;border-left:1px solid currentColor}
-.p-homeHero__circle{position:absolute;width:62px;height:62px;border:1px solid currentColor;border-radius:50%;left:calc(50% - 31px);top:calc(50% - 31px)}
-.p-homeHero__box{position:absolute;left:-1px;top:40px;width:40px;height:90px;border:1px solid currentColor}
+.p-homeHero{overflow:hidden;padding:12px 18px;border-radius:18px;background:var(--primary);color:var(--text-on-accent);margin-bottom:var(--sp-4);text-align:center}
+.p-homeHero__badge{width:80px;height:80px;display:grid;place-items:center;margin:0 auto var(--sp-2);padding:5px;border-radius:var(--r-lg);background:var(--bg-card);isolation:isolate}
+.p-homeHero__eyebrow{font-size:var(--fs-xs);letter-spacing:.12em;font-weight:600;margin:0;opacity:.85}
+.p-homeHero__title{font-size:clamp(38px,8.5vw,50px);line-height:1.2;letter-spacing:.12em;padding-inline-start:.12em;margin:6px 0}
+.p-homeHero__logo{display:block;width:100%;height:auto;object-fit:contain;filter:brightness(0) invert(1);mix-blend-mode:difference}
+.p-homeHero__slogan{font-size:var(--fs-sm);line-height:1.5;margin:0}
+.p-homeHero__meta{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-3);font-size:var(--fs-xs);margin:8px 0 0;font-variant-numeric:tabular-nums}
+.p-homeHero__foot{font-size:var(--fs-xs);border-top:1px solid currentColor;padding-top:6px;margin:6px 0 0;opacity:.8}
 .p-homeShortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--border);border-radius:12px;background:var(--bg-card);margin-bottom:var(--sp-4);overflow:hidden}
 .p-homeShortcuts button{min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;font-size:var(--fs-sm);font-weight:600;padding:12px 4px}
 .p-homeShortcuts button+button::before{content:'';position:absolute;left:0;height:30px;border-left:1px solid var(--border)}
