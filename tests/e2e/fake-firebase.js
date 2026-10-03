@@ -422,6 +422,25 @@ export const httpsCallable = (_fns, name) => async (payload) => {
     return { data: { ok: true, data: { shareId, action: payload.action, changed: true } } };
   }
   if (name === 'generateSchedule' || name === 'manageEvent') return fakeManagement(name, payload);
+  if (name === 'updateTeamName') {
+    if (window.__FAKE_TEAM_NAME_PENDING) await window.__FAKE_TEAM_NAME_PENDING;
+    if (Object.hasOwn(window, '__FAKE_TEAM_NAME_RESULT')) return { data: { ok: true, data: window.__FAKE_TEAM_NAME_RESULT } };
+    const receipts = (window.__FAKE_TEAM_NAME_RECEIPTS ||= {});
+    if (receipts[payload.operationId]) return { data: { ok: true, data: receipts[payload.operationId] } };
+    const path = `events/${payload.eventId}/teams/${payload.teamId}`;
+    const result = { teamId: payload.teamId, name: payload.name, shortName: payload.shortName,
+      nameRevision: payload.expected.revision + 1, operationId: payload.operationId, auditId: `rename-${payload.operationId}` };
+    await updateDoc(doc(null, path), { name: result.name, shortName: result.shortName, nameRevision: result.nameRevision });
+    await setDoc(doc(null, `events/${payload.eventId}/audits/${result.auditId}`), {
+      action: 'team.rename', before: payload.expected, after: { name: result.name, shortName: result.shortName }, reason: payload.reason
+    });
+    receipts[payload.operationId] = result;
+    if (window.__FAKE_TEAM_NAME_LOST_RESPONSE) {
+      window.__FAKE_TEAM_NAME_LOST_RESPONSE = false;
+      throw Object.assign(new Error('response lost'), { code: 'functions/unavailable' });
+    }
+    return { data: { ok: true, data: result } };
+  }
   if (name === 'updateMemberIdentity') {
     return { data: { ok: true, data: { memberId: payload.memberId, jerseyNo: payload.jerseyNo, birthDate: payload.birthDate, idLast4: payload.idLast4, identityComplete: !!payload.birthDate && !!payload.idLast4, identityRevision: payload.revision + 1, auditId: 'fake-identity-audit' } } };
   }

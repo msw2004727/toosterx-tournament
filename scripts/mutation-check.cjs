@@ -9,6 +9,9 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#TEAMNAME-DISPLAY 賽程簡稱停留舊名稱', file: 'js/engine/team-name.js',
+    from: 'patch[`${side}.displayName`] = names.shortName;', to: 'patch[`${side}.displayName`] = match[side].displayName;',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/team-name.test.js --silent' },
   { name: '#STREAM-URL 直播分享放行偽裝 YouTube 網域', file: 'js/engine/stream-share.js',
     from: "if (!['youtube.com', 'youtu.be'].includes(host)) return null;", to: "if (false) return null;",
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/stream-share.test.js --silent' },

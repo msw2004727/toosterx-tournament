@@ -59,7 +59,7 @@ for (const theme of ['light', 'dark']) {
     expect(await contrast(primary)).toBeGreaterThanOrEqual(4.5);
     await primary.hover(); expect(await contrast(primary)).toBeGreaterThanOrEqual(4.5);
     await page.getByRole('tab', { name: /已通過/ }).click();
-    await page.getByRole('button', { name: /飛達設計驗收隊/ }).click();
+    await page.locator('.adm__itemHead').filter({ hasText: '飛達設計驗收隊' }).click();
     await expect(page.locator('.action-row')).toHaveCount(3);
     for (const width of widths) {
       await page.setViewportSize({ width, height: 900 });

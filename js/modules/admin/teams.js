@@ -30,6 +30,7 @@ import * as data from './data.js';
 import { adminHead, denied, TEAM_STATUS, KIND_LABEL } from './bits.js';
 import { editCsvIdentity } from './member-identity.js';
 import { csvIdentityPending } from '../../engine/member-identity.js';
+import { editTeamName } from './team-name.js';
 
 /** 分頁。順序照「主辦一天要做的事」排：待審的排最前面。 */
 const TABS = [
@@ -155,6 +156,14 @@ export async function adminTeamsPage({ scope, view }) {
         el('span', { class: `adm__badge adm__badge--${t.status || 'draft'}`, text: TEAM_STATUS[t.status] || t.status }),
         icon(open ? 'up' : 'down')
       ]),
+      can('team.manage') ? el('div', { class: 'adm__teamTools' }, el('button', {
+        class: 'btn btn--sm', type: 'button', disabled: state.busy,
+        'aria-label': `編輯 ${t.name || t.teamId} 的球隊名稱`,
+        onClick: () => editTeamName({ team: t, division: div, scope, onSaved: result => {
+          Object.assign(t, { name: result.name, shortName: result.shortName, nameRevision: result.nameRevision });
+          render(); toast('球隊名稱已儲存，修改紀錄已保留。', 'success');
+        } })
+      }, iconText('note', '編輯球隊名稱'))) : null,
       open ? detail(t, div) : null
     ].filter(Boolean));
   }
