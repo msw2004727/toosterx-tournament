@@ -71,6 +71,10 @@
   overflow-wrap:anywhere;line-height:1.5;
 }
 .adm__teamMeta{font-size:var(--fs-xs);color:var(--text-secondary)}
+.adm__teamTools{display:flex;justify-content:flex-end;padding:0 var(--sp-3) var(--sp-2)}
+.adm__teamNamePanel{display:flex;flex-direction:column;overflow-y:hidden}
+.adm__teamNamePanel .modal__title,.adm__teamNamePanel .modal__actions{flex-shrink:0}
+.adm__teamNamePanel .modal__body{min-height:0;overflow-y:auto;overscroll-behavior:contain}
 
 .adm__badge{
   flex:none;font-size:var(--fs-xs);padding:2px var(--sp-2);border-radius:999px;

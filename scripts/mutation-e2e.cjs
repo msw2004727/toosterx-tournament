@@ -15,6 +15,10 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#ETEAMNAME1 不完整回覆也顯示更名成功', file: 'js/modules/admin/team-name.js',
+    from: '!result?.auditId || result.teamId !== team.teamId || result.name !== fields.name || result.shortName !== fields.shortName || result.nameRevision !== expected.revision + 1', to: 'false' },
+  { name: '#ETEAMNAME2 更名送出遺失原始版本', file: 'js/modules/admin/team-name.js',
+    from: '{ expected, ...fields }', to: '{ ...fields }' },
   { name: '#ELOGO1 首頁贊助資訊撐高主視覺，挑戰入口掉出第一屏', file: 'css/modules/public.css',
     from: '.p-homeHero__sponsor{font-size:var(--fs-sm);line-height:1.5;font-weight:600;margin:4px 0 8px}',
     to: '.p-homeHero__sponsor{font-size:var(--fs-sm);height:320px;line-height:1.5;font-weight:600;margin:4px 0 8px}' },
