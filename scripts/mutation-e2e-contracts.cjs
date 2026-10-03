@@ -1,5 +1,9 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ETEAMNAME1: { spec: 'tests/e2e/team-name.spec.js', grep: '不完整回覆不可', minTests: 1,
+    failure: 'toContainText', assertions: ["await expect(page.getByRole('alert')).toContainText('尚未確認');"] },
+  ETEAMNAME2: { spec: 'tests/e2e/team-name.spec.js', grep: '已核准鎖定球隊', minTests: 1,
+    failure: 'toHaveCount', assertions: ["await expect(page.getByRole('dialog')).toHaveCount(0);"] },
   ESPONSOR1: { spec: 'tests/e2e/home-division-design.spec.js', grep: '首頁 A、固定六組色', minTests: 2,
     failure: 'Expected: < 1', assertions: ['expect(Math.abs(partners[0].top - partners[1].top)).toBeLessThan(1);'] },
   ELOGO1: { spec: 'tests/e2e/challenge.spec.js', grep: '公開首頁最上面有挑戰區入口', minTests: 1,

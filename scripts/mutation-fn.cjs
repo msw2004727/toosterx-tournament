@@ -12,6 +12,12 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#TEAMNAME-STALE 舊版本覆蓋他人隊名', file: 'functions/team-name.js',
+    from: 'canonical(teamNameBasis(team)) !== canonical(expected)', to: 'false',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-name.test.js --silent' },
+  { name: 'FN#TEAMNAME-AUTH 更名不查管理員身分', file: 'functions/team-name.js',
+    from: 'const actor = await adminActor(tx, uid);', to: 'const actor = { uid };',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-name.test.js --silent' },
   { name: 'FN#STREAM-LINE 非 LINE 身份也能分享直播', file: 'functions/stream-shares.js',
     from: "const isLine = request.auth.token?.firebase?.sign_in_provider === 'custom';", to: 'const isLine = true;',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/stream-shares.test.js --silent' },

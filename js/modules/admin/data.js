@@ -35,6 +35,7 @@ async function onlineManagement(name, payload) {
   return result;
 }
 export const generateSchedule = payload => onlineManagement('generateSchedule', payload);
+export const renameTeam = (teamId, payload) => onlineManagement('updateTeamName', { teamId, ...payload });
 export const manageMatch = (matchId, { action, match, patch = {}, reason = null, appeal = null }) =>
   onlineManagement('manageEvent', { action, matchId, expected: matchBasis(match), patch, reason, appeal });
 export const manageSchedule = (division, { action, updates = [], reason = null }) => onlineManagement('manageEvent', {
