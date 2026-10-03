@@ -182,9 +182,9 @@ for (const route of ['/register', '/register/new', '/join/ABC123', '/team/existi
 }
 test('我的頁面隱藏報名入口，已有球隊連到公開頁', async ({ page }) => {
   await stub(page, { roles: [] }); await page.goto('/#/my');
-  await expect(page.locator('.adm__itemHead').filter({ hasText: '既有隊' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /既有隊/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /我要報名|前往報名/ })).toHaveCount(0);
-  await page.locator('.adm__itemHead').filter({ hasText: '既有隊' }).click();
+  await page.getByRole('button', { name: /既有隊/ }).click();
   await expect(page).toHaveURL(/#\/team\/existing$/);
   await expect(page.getByRole('button', { name: '管理名單／審核申請' })).toHaveCount(0);
 });
