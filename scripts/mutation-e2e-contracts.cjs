@@ -115,9 +115,9 @@ module.exports = {
     "spec": "tests/e2e/jersey-public-teams.spec.js",
     "grep": "空背號可補 0 再清空",
     "assertions": [
-      "expect(page.getByLabel('背號（可留空）', { exact: true })).toHaveValue('0')"
+      "expect(page.getByRole('alert')).toContainText('同隊已有球員使用 0 號')"
     ],
-    "failure": "expect(page.getByLabel('背號（可留空）', { exact: true })).toHaveValue('0')",
+    "failure": "expect(page.getByRole('alert')).toContainText('同隊已有球員使用 0 號')",
     "minTests": 1
   },
   "EPUB1": {
