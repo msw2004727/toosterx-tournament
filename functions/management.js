@@ -6,6 +6,7 @@ import { buildConfirmPatch, buildReopenPatch, buildOverridePatch, buildWalkoverP
   canConfirm, canReopen, canOverride, canWalkover } from './engine/admin-match.js';
 import { buildAppealDoc, buildAppealDecision, matchAppealFlag } from './engine/appeal.js';
 import { checkSchedule, assignMatchNos } from './engine/schedule.js';
+import { manualMatchLocked } from './engine/manual-schedule.js';
 
 const fail=(code,message)=>{throw Object.assign(new Error(message),{code});};
 const idOK=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,200}$/.test(v);
@@ -100,7 +101,7 @@ export async function manageEventFor(request) {
         if(!m||m.divisionId!==divisionId||!idOK(u.matchId))fail('invalid-argument','場次不屬於此組別');
         if(Object.keys(u.patch??{}).some(k=>!['kickoffAt','venueId','venueName','matchNo'].includes(k)))fail('invalid-argument','排程欄位不正確');
         if(Object.hasOwn(u.patch,'kickoffAt')&&u.patch.kickoffAt!==null&&!Number.isFinite(u.patch.kickoffAt))fail('invalid-argument','比賽時間不正確');
-        if(['schedule.shift','schedule.place'].includes(action)&&!['scheduled','checkin','ready','postponed','cancelled'].includes(m.status))fail('aborted','場次已開打，請重新載入排程');
+        if(['schedule.move','schedule.shift','schedule.place'].includes(action)&&manualMatchLocked(m))fail('aborted','場次已開打、已有比分或結果，請重新載入排程');
         const p=patchTime(u.patch);writes.push({ref:base.collection('matches').doc(m.matchId),doc:{...p,updatedBy:uid,updatedAt:stamp}});
         changed.push({before:m,after:{...m,...p}});
       }

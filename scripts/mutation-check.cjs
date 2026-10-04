@@ -9,6 +9,12 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#MANUAL-PAIR 漏排與重複對戰可發布', file: 'js/engine/manual-schedule.js',
+    from: "if(count!==required)add('PAIR_COVERAGE'", to: "if(false)add('PAIR_COVERAGE'",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/manual-schedule.test.js --silent' },
+  { name: '#MANUAL-SOURCE 可指定淘汰賽球隊', file: 'js/engine/manual-schedule.js',
+    from: "}else if(m.homeTeamId!==base?.homeTeamId||m.awayTeamId!==base?.awayTeamId)", to: '}else if(false)',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/manual-schedule.test.js --silent' },
   { name: '#TEAMNAME-DISPLAY 賽程簡稱停留舊名稱', file: 'js/engine/team-name.js',
     from: 'patch[`${side}.displayName`] = names.shortName;', to: 'patch[`${side}.displayName`] = match[side].displayName;',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/team-name.test.js --silent' },

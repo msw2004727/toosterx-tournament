@@ -15,9 +15,10 @@
  *      重要的性質是事後查得到。種子寫進 audits，任何人都能重放同一組分組。
  *   2. **已經開打就不能重新產生。** 重抽一次籤，打完的那幾場會變成不同
  *      小組之間的比賽，積分榜會靜靜算出一份沒有人看得懂的結果。
- *   3. **手動調整是「兩隊對調」，不是「把一隊搬過去」。** 搬一隊會讓兩組
+ *   3. **分組調整是「兩隊對調」，不是「把一隊搬過去」。** 搬一隊會讓兩組
  *      隊數不等，而 8 隊範本的交叉表引用了 A、B 組各四個名次——
- *      少一個名次的那一組，晉級會永遠解不開。
+ *      少一個名次的那一組，晉級會永遠解不開。逐場手動安排另走私有草稿，
+ *      沿用既有分組與晉級來源，檢查完整對戰後才一次發布（docs/22）。
  *   4. **error 擋發布、warn 不擋。** 休息時間規章沒有規定，是我們自己給的
  *      建議值；把它升成錯誤等於系統替主辦訂了一條規章沒有的規則。
  *   5. **整體順延不動已經開打的場次。** 把一場正在進行的比賽往後推，
@@ -46,6 +47,7 @@ import {
 import * as data from './data.js';
 import { adminHead, denied } from './bits.js';
 import { EVENT_ID } from '../../config.js';
+import { createManualScheduler } from './manual-schedule.js';
 
 export async function adminSchedulePage({ scope, view }) {
   const root = el('div', { class: 'adm' });
@@ -60,8 +62,10 @@ export async function adminSchedulePage({ scope, view }) {
     divisionId: null,
     draft: null,        // { order:[team], seed:number|null, formatId:string|null }
     picked: null,       // 對調時選取中的 teamId
-    shiftFrom: '', shiftMin: 30
+    shiftFrom: '', shiftMin: 30, mode: 'automatic', manual: null
   };
+
+  hold(scope, () => { state.manual?.dispose(); view.classList.remove('has-manual-schedule'); }, 'manual-schedule:page');
 
   hold(scope, onAuth(() => render()), 'auth:admin-schedule');
   await load();
@@ -117,6 +121,43 @@ export async function adminSchedulePage({ scope, view }) {
     if (found) return { format: found, source: 'matched' };
     if (n >= 2) return { format: generatedFormat(), source: 'generated' };
     return { format: null, source: 'none' };
+  }
+
+  /** 既有場次綁定原賽制；核准名單改變只提示修復，不切換到另一份範本。 */
+  function manualFormatFor() {
+    if (existing().length) return { format: state.formats[division()?.formatId] ?? null, source: 'division' };
+    return formatFor();
+  }
+
+  function manualSetupIssue(format) {
+    if (!format || !Array.isArray(format.stages) || !format.stages.length)
+      return '找不到既有場次使用的完整賽制範本，請主辦先確認組別的賽制設定。';
+    const list = approved();
+    if (Number.isInteger(format.teamCount) && format.teamCount !== list.length)
+      return `「${format.name || format.formatId}」需要 ${format.teamCount} 隊，目前核准 ${list.length} 隊。請先到報名審核確認參賽名單。`;
+    if (existing().length) {
+      const rrStages = new Set(format.stages.filter(stage => stage.type === 'roundRobin').map(stage => stage.stageId));
+      const approvedIds = new Set(list.map(team => team.teamId));
+      const missing = [...new Set(existing().filter(match => rrStages.has(match.stageId))
+        .flatMap(match => [match.home?.teamId, match.away?.teamId]).filter(id => id && !approvedIds.has(id)))];
+      if (missing.length) {
+        const names = missing.map(id => { const team = teamsById()[id]; return team?.shortName || team?.name || id; });
+        return `既有對戰中的 ${names.join('、')} 不在目前核准的參賽名單，請先到報名審核確認。`;
+      }
+    }
+    return null;
+  }
+
+  function manualSetupBox(format, issue) {
+    return el('section', { class: 'manual manual__setup adm__box adm__box--warn', role: 'alert', 'aria-label': '手動賽程設定問題' }, [
+      el('h2', { text: '手動安排前請先確認設定與名單' }),
+      el('p', { text: existing().length
+        ? `既有 ${existing().length} 場沿用賽制：${format?.name || division()?.formatId || '尚未設定'}。`
+        : '請先完成組別的賽制設定與參賽名單。' }),
+      el('p', { class: 'adm__note', text: issue }),
+      el('p', { class: 'adm__permNote', text: '確認完成前無法建立可發布的手動草稿。既有場次與已開打的結果會保留。' }),
+      el('button', { class: 'btn', type: 'button', onClick: () => navigate('/admin/teams') }, iconText('check', '去報名審核'))
+    ]);
   }
 
   function generatedFormat() {
@@ -358,7 +399,11 @@ export async function adminSchedulePage({ scope, view }) {
       return el('button', {
         class: `adm__tab division-choice${on ? ' is-on' : ''}`, ...divisionThemeAttrs(d), type: 'button',
         role: 'tab', 'aria-selected': on ? 'true' : 'false',
-        onClick: () => { state.divisionId = d.divisionId; state.draft = null; state.picked = null; render(); }
+        disabled: !!state.manual?.busy,
+        onClick: () => {
+          state.manual?.dispose(); state.manual = null;
+          state.divisionId = d.divisionId; state.draft = null; state.picked = null; render();
+        }
       }, [
         el('span', { text: d.shortName || d.name }),
         el('span', { class: 'adm__tabCount', text: String(n) })
@@ -697,9 +742,14 @@ export async function adminSchedulePage({ scope, view }) {
   }
 
   function render() {
+    root.classList.toggle('adm--manual', state.mode === 'manual');
+    view.classList.toggle('has-manual-schedule', state.mode === 'manual' && can('schedule.manage'));
     setDivisionTheme(root, division() || state.divisionId);
     if (!state.ready) { mount(root, adminHead('賽程管理'), skeleton(5)); return; }
-    if (!can('schedule.manage')) { mount(root, adminHead('賽程管理'), denied('賽程管理', '管理員')); return; }
+    if (!can('schedule.manage')) {
+      state.manual?.dispose(); state.manual = null;
+      mount(root, adminHead('賽程管理'), denied('賽程管理', '管理員')); return;
+    }
 
     if (state.error) {
       mount(root, adminHead('賽程管理'),
@@ -718,9 +768,56 @@ export async function adminSchedulePage({ scope, view }) {
     }
 
     const mine = existing();
+    const modeButtons = el('div', { class: 'adm__scheduleModes', role: 'group', 'aria-label': '安排賽程方式' }, [
+      el('button', {
+        class: `btn${state.mode === 'automatic' ? ' btn--primary' : ''}`, type: 'button',
+        'aria-pressed': state.mode === 'automatic' ? 'true' : 'false', disabled: !!state.busy || !!state.manual?.busy,
+        onClick: () => { state.manual?.dispose(); state.manual = null; state.mode = 'automatic'; render(); }
+      }, iconText('table', '自動／逐場調整')),
+      el('button', {
+        class: `btn${state.mode === 'manual' ? ' btn--primary' : ''}`, type: 'button',
+        'aria-pressed': state.mode === 'manual' ? 'true' : 'false', disabled: !!state.busy || !!state.manual?.busy || (!mine.length && (approved().length < 2 || !formatFor().format)),
+        onClick: () => { state.mode = 'manual'; render(); }
+      }, iconText('team', '手動安排'))
+    ]);
+    if (state.mode === 'manual') {
+      const { format, source } = manualFormatFor();
+      const setupIssue = manualSetupIssue(format);
+      if (setupIssue) {
+        state.manual?.dispose(); state.manual = null;
+        mount(root, adminHead('賽程管理'), divisionTabs(), modeButtons, manualSetupBox(format, setupIssue));
+        return;
+      }
+      if (!state.manual) {
+        try { state.manual = createManualScheduler({
+          scope, context: { division: division(), teams: state.teams, format,
+            existingMatches: mine, allMatches: state.matches, divisions: state.divisions,
+            venues: state.venues, cfg: cfg(), generated: source === 'generated',
+            groupCount: state.draft?.groupCount ?? null,
+            orderedTeamIds: state.draft?.order?.map(t => t.teamId) ?? null },
+          onBusyChange: () => render(),
+          onDone: async () => {
+            state.manual?.dispose(); state.manual = null; state.mode = 'automatic';
+            await load();
+          },
+          onReload: async () => {
+            state.manual?.dispose(); state.manual = null;
+            await load();
+          }
+        }); } catch (err) {
+          mount(root, adminHead('賽程管理'), divisionTabs(), modeButtons, manualSetupBox(format,
+            `無法依目前設定建立手動草稿：${err.message || '賽制或參賽資料不完整'}。請主辦確認既有對戰與參賽名單。`));
+          return;
+        }
+      }
+      state.manual.refreshAuthorization();
+      mount(root, adminHead('賽程管理'), divisionTabs(), modeButtons, state.manual.node);
+      return;
+    }
     mount(root,
       adminHead('賽程管理', { sub: state.busy ? '處理中…' : null }),
       divisionTabs(),
+      modeButtons,
       statusBox(),
       formatBox(),
       approved().length >= 2 ? drawBox() : null,

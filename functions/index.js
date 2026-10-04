@@ -37,6 +37,7 @@ import { generateScheduleFor } from './schedule.js';
 import { manageEventFor } from './management.js';
 import { shareMatchStreamFor } from './stream-shares.js';
 import { updateTeamNameFor } from './team-name.js';
+import { publishManualScheduleFor } from './manual-schedule.js';
 
 ensureApp();
 setGlobalOptions({ region: 'asia-east1', maxInstances: 10 });
@@ -438,6 +439,7 @@ const managementCall = handler => onCall({ timeoutSeconds: 120 }, async request 
   }
 });
 export const generateSchedule = managementCall(generateScheduleFor);
+export const publishManualSchedule = managementCall(publishManualScheduleFor);
 export const manageEvent = managementCall(manageEventFor);
 export const updateTeamName = managementCall(updateTeamNameFor);
 export const shareMatchStream = managementCall(shareMatchStreamFor);
