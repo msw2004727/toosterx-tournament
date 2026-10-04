@@ -146,6 +146,87 @@ test('離線補件明確告知且不呼叫伺服器；取消不儲存 @csvidenti
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test('隊員更名 CSV 姓名可修改且安全顯示，重新開啟保留新值 @membername', async ({ page }) => {
+  await openIdentity(page);
+  const newName = '<img src=x onerror=alert(1)>';
+  await page.getByLabel('隊員姓名／暱稱', { exact: true }).fill(` ${newName} `);
+  await page.getByLabel('修改原因', { exact: true }).fill('依教練確認修正');
+  await page.screenshot({ path: `tools/member-name-${test.info().project.name}.png` });
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.adm__memberName').first()).toHaveText(newName);
+  await expect(page.locator('.adm__roster img')).toHaveCount(0);
+  const call = (await page.evaluate(() => window.__FAKE_CALLS))[0];
+  expect(call).toMatchObject({ name: 'updateMemberIdentity', payload: { name: newName, expectedName: '小球員m1', nameOnly: false, revision: 0 } });
+  expect(call.payload.operationId).toBeTruthy();
+  await page.locator('.adm__memberEdit').first().click();
+  await expect(page.getByLabel('隊員姓名／暱稱', { exact: true })).toHaveValue(newName);
+  await expect(page.getByRole('dialog').locator('img')).toHaveCount(0);
+});
+
+test('隊員更名 舊名冊與队職員有編輯鈕，僅更名不必補生日 @membername', async ({ page }) => {
+  await stub(page, { members: { [`events/${EVENT}/teams/t-ok/members/m1`]: member('m1', { kind: 'coach', birthDate: '', idLast4: '' }) } });
+  await go(page);
+  await item(page, '合格球隊').locator('.adm__itemHead').click();
+  await page.getByRole('button', { name: '補填或修改 小球員m1 的資料' }).click();
+  await expect(page.getByLabel('出生民國年', { exact: true })).toHaveCount(0);
+  await page.getByLabel('隊員姓名／暱稱', { exact: true }).fill('教練的新名字');
+  await page.getByLabel('修改原因', { exact: true }).fill('修正教練姓名');
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.adm__roster')).toContainText('教練的新名字');
+  const payload = (await page.evaluate(() => window.__FAKE_CALLS))[0].payload;
+  expect(payload).toMatchObject({ name: '教練的新名字', nameOnly: true });
+  for (const field of ['birthDate', 'idLast4', 'jerseyNo']) expect(payload).not.toHaveProperty(field);
+});
+
+test('隊員更名 空白、無修改與缺原因不送出，窄版可完整捲動 @membername', async ({ page }) => {
+  await openIdentity(page);
+  await page.getByLabel('隊員姓名／暱稱', { exact: true }).fill('   ');
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('請填隊員姓名');
+  await page.getByLabel('隊員姓名／暱稱', { exact: true }).fill('小球員m1');
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('沒有變更');
+  await page.getByLabel('隊員姓名／暱稱', { exact: true }).fill('新的暱稱');
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('修改原因');
+  expect(await page.evaluate(() => window.__FAKE_CALLS ?? [])).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(page.locator('.adm__memberName').first()).toHaveText('小球員m1');
+});
+
+test('隊員更名 不完整回覆不假成功 @membername', async ({ page }) => {
+  await openIdentity(page);
+  await page.getByLabel('隊員姓名／暱稱', { exact: true }).fill('新的暱稱');
+  await page.getByLabel('修改原因', { exact: true }).fill('修正');
+  await page.evaluate(() => { window.__FAKE_MEMBER_RESULT = { memberId: 'm1', auditId: 'incomplete', identityRevision: 1 }; });
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('尚未確認');
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByLabel('隊員姓名／暱稱', { exact: true })).toHaveValue('新的暱稱');
+  await expect(page.locator('.adm__memberName').first()).toHaveText('小球員m1');
+});
+
+test('隊員更名 回應遺失以同一操作重送；送出時不可重複點擊 @membername', async ({ page }) => {
+  await openIdentity(page);
+  await page.getByLabel('隊員姓名／暱稱', { exact: true }).fill('新的暱稱');
+  await page.getByLabel('修改原因', { exact: true }).fill('更名');
+  await page.evaluate(() => { window.__FAKE_MEMBER_LOST_RESPONSE = true; window.__FAKE_MEMBER_PENDING = new Promise(resolve => { window.__memberResolve = resolve; }); });
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('button', { name: '儲存資料', exact: true })).toBeDisabled();
+  await expect(page.getByLabel('隊員姓名／暱稱', { exact: true })).toBeDisabled();
+  await page.evaluate(() => window.__memberResolve());
+  await expect(page.getByRole('alert')).toContainText('尚未確認');
+  await page.getByRole('button', { name: '儲存資料', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const calls = await page.evaluate(() => window.__FAKE_CALLS);
+  expect(calls).toHaveLength(2);
+  expect(calls[1].payload).toEqual(calls[0].payload);
+  await expect(page.locator('.adm__memberName').first()).toHaveText('新的暱稱');
+});
+
 test.beforeEach(({ page }) => {
   page.on('console', m => { if (m.type() === 'error') console.log('[browser error]', m.text()); });
 });

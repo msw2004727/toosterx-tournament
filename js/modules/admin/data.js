@@ -40,6 +40,7 @@ export const publishManualSchedule = ({ draft, reason, operationId }) => onlineM
   draft: manualPayloadOf(draft), reason, ...(operationId ? { operationId } : {})
 });
 export const renameTeam = (teamId, payload) => onlineManagement('updateTeamName', { teamId, ...payload });
+export const updateMemberIdentity = payload => onlineManagement('updateMemberIdentity', payload);
 export const manageMatch = (matchId, { action, match, patch = {}, reason = null, appeal = null }) =>
   onlineManagement('manageEvent', { action, matchId, expected: matchBasis(match), patch, reason, appeal });
 export const manageSchedule = (division, { action, updates = [], reason = null }) => onlineManagement('manageEvent', {

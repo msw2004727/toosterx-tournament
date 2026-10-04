@@ -9,6 +9,9 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#MEMBERNAME 空白隊員姓名也能儲存', file: 'js/engine/member-identity.js',
+    from: '!name || name.length > 40', to: 'name.length > 40',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit/member-identity.test.js --runInBand --silent' },
   { name: '#MANUAL-PAIR 漏排與重複對戰可發布', file: 'js/engine/manual-schedule.js',
     from: "if(count!==required)add('PAIR_COVERAGE'", to: "if(false)add('PAIR_COVERAGE'",
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/manual-schedule.test.js --silent' },
