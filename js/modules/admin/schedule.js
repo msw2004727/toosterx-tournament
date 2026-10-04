@@ -123,6 +123,43 @@ export async function adminSchedulePage({ scope, view }) {
     return { format: null, source: 'none' };
   }
 
+  /** 既有場次綁定原賽制；核准名單改變只提示修復，不切換到另一份範本。 */
+  function manualFormatFor() {
+    if (existing().length) return { format: state.formats[division()?.formatId] ?? null, source: 'division' };
+    return formatFor();
+  }
+
+  function manualSetupIssue(format) {
+    if (!format || !Array.isArray(format.stages) || !format.stages.length)
+      return '找不到既有場次使用的完整賽制範本，請主辦先確認組別的賽制設定。';
+    const list = approved();
+    if (Number.isInteger(format.teamCount) && format.teamCount !== list.length)
+      return `「${format.name || format.formatId}」需要 ${format.teamCount} 隊，目前核准 ${list.length} 隊。請先到報名審核確認參賽名單。`;
+    if (existing().length) {
+      const rrStages = new Set(format.stages.filter(stage => stage.type === 'roundRobin').map(stage => stage.stageId));
+      const approvedIds = new Set(list.map(team => team.teamId));
+      const missing = [...new Set(existing().filter(match => rrStages.has(match.stageId))
+        .flatMap(match => [match.home?.teamId, match.away?.teamId]).filter(id => id && !approvedIds.has(id)))];
+      if (missing.length) {
+        const names = missing.map(id => { const team = teamsById()[id]; return team?.shortName || team?.name || id; });
+        return `既有對戰中的 ${names.join('、')} 不在目前核准的參賽名單，請先到報名審核確認。`;
+      }
+    }
+    return null;
+  }
+
+  function manualSetupBox(format, issue) {
+    return el('section', { class: 'manual manual__setup adm__box adm__box--warn', role: 'alert', 'aria-label': '手動賽程設定問題' }, [
+      el('h2', { text: '手動安排前請先確認設定與名單' }),
+      el('p', { text: existing().length
+        ? `既有 ${existing().length} 場沿用賽制：${format?.name || division()?.formatId || '尚未設定'}。`
+        : '請先完成組別的賽制設定與參賽名單。' }),
+      el('p', { class: 'adm__note', text: issue }),
+      el('p', { class: 'adm__permNote', text: '確認完成前無法建立可發布的手動草稿。既有場次與已開打的結果會保留。' }),
+      el('button', { class: 'btn', type: 'button', onClick: () => navigate('/admin/teams') }, iconText('check', '去報名審核'))
+    ]);
+  }
+
   function generatedFormat() {
     const n = approved().length;
     const gc = state.draft?.groupCount ?? (n <= 5 ? 1 : 2);
@@ -739,14 +776,20 @@ export async function adminSchedulePage({ scope, view }) {
       }, iconText('table', '自動／逐場調整')),
       el('button', {
         class: `btn${state.mode === 'manual' ? ' btn--primary' : ''}`, type: 'button',
-        'aria-pressed': state.mode === 'manual' ? 'true' : 'false', disabled: !!state.busy || !!state.manual?.busy || approved().length < 2 || !formatFor().format,
+        'aria-pressed': state.mode === 'manual' ? 'true' : 'false', disabled: !!state.busy || !!state.manual?.busy || (!mine.length && (approved().length < 2 || !formatFor().format)),
         onClick: () => { state.mode = 'manual'; render(); }
       }, iconText('team', '手動安排'))
     ]);
     if (state.mode === 'manual') {
+      const { format, source } = manualFormatFor();
+      const setupIssue = manualSetupIssue(format);
+      if (setupIssue) {
+        state.manual?.dispose(); state.manual = null;
+        mount(root, adminHead('賽程管理'), divisionTabs(), modeButtons, manualSetupBox(format, setupIssue));
+        return;
+      }
       if (!state.manual) {
-        const { format, source } = formatFor();
-        state.manual = createManualScheduler({
+        try { state.manual = createManualScheduler({
           scope, context: { division: division(), teams: state.teams, format,
             existingMatches: mine, allMatches: state.matches, divisions: state.divisions,
             venues: state.venues, cfg: cfg(), generated: source === 'generated',
@@ -761,7 +804,11 @@ export async function adminSchedulePage({ scope, view }) {
             state.manual?.dispose(); state.manual = null;
             await load();
           }
-        });
+        }); } catch (err) {
+          mount(root, adminHead('賽程管理'), divisionTabs(), modeButtons, manualSetupBox(format,
+            `無法依目前設定建立手動草稿：${err.message || '賽制或參賽資料不完整'}。請主辦確認既有對戰與參賽名單。`));
+          return;
+        }
       }
       state.manual.refreshAuthorization();
       mount(root, adminHead('賽程管理'), divisionTabs(), modeButtons, state.manual.node);

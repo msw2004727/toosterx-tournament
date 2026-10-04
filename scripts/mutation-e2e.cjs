@@ -15,6 +15,12 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#EMANUALFORMAT 既有賽程因核准隊數而換成另一份賽制', file: 'js/modules/admin/schedule.js',
+    from: "if (existing().length) return { format: state.formats[division()?.formatId] ?? null, source: 'division' };",
+    to: "if (false) return { format: state.formats[division()?.formatId] ?? null, source: 'division' };" },
+  { name: '#EMANUALRESULT 不完整整批發布回應也顯示成功', file: 'js/modules/admin/manual-schedule.js',
+    from: "throw Object.assign(new Error('尚未確認整批發布的結果，請重新載入核對或重送原發布請求。'), { code: 'management-unconfirmed' });",
+    to: 'void result;' },
   { name: '#ETEAMNAME1 不完整回覆也顯示更名成功', file: 'js/modules/admin/team-name.js',
     from: '!result?.auditId || result.teamId !== team.teamId || result.name !== fields.name || result.shortName !== fields.shortName || result.nameRevision !== expected.revision + 1', to: 'false' },
   { name: '#ETEAMNAME2 更名送出遺失原始版本', file: 'js/modules/admin/team-name.js',

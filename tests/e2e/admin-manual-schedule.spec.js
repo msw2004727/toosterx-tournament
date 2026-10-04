@@ -190,6 +190,78 @@ test('已開打組鎖定全部對手，已開打場次全鎖，未開打時段�
   expect(first.score).toEqual({ home: 2, away: 1 }); expect(first.result).toEqual({ winner: 'home' }); expect(first.status).toBe('finished');
 });
 
+test('既有六隊九場已開打但僅四核准：保留F6並明示名單問題、不轉成F4發布 @admin', async ({ page }) => {
+  const pageErrors = []; page.on('pageerror', error => pageErrors.push(error.message));
+  const sixFormat = FORMATS.F6_TWO_GROUPS_MIRROR;
+  const sixDivision = { ...division, formatId: sixFormat.formatId };
+  const sixTeams = Array.from({ length: 6 }, (_, index) => ({ ...teams[index % 4], teamId: `t-${index + 1}`,
+    name: `球隊${index + 1}`, shortName: `球隊${index + 1}`, seed: index + 1 }));
+  const sixPlan = planGeneration({ division: sixDivision, orderedTeams: sixTeams, format: sixFormat });
+  expect(sixPlan.matches).toHaveLength(9);
+  const docs = seed();
+  for (const key of Object.keys(docs)) if (key.startsWith(`${BASE}/teams/`) || key.startsWith(`${BASE}/matches/`)) delete docs[key];
+  docs['config/formats'] = { formats: { [format.formatId]: format, [sixFormat.formatId]: sixFormat } };
+  docs[`${BASE}/divisions/adult-open`] = sixDivision;
+  for (const team of sixTeams) docs[`${BASE}/teams/${team.teamId}`] = { ...team,
+    groupId: sixPlan.assignments.find(assignment => assignment.teamId === team.teamId).groupId,
+    status: team.seed <= 4 ? 'approved' : 'pending' };
+  sixPlan.matches.forEach((match, index) => {
+    docs[`${BASE}/matches/${match.matchId}`] = { ...matchDocOf({ m: match, division: sixDivision, eventId: EVENT }),
+      kickoffAt: timeOf(index), venueId: 'venue-a', venueName: 'A場',
+      ...(index === 0 ? { status: 'finished', score: { home: 2, away: 1 }, result: { winner: 'home' } } : {}) };
+  });
+  await stub(page, { docs }); await page.goto('/#/admin/schedule');
+  await expect(page.getByRole('button', { name: '手動安排', exact: true })).toBeEnabled();
+  const before = await dump(page);
+  await page.getByRole('button', { name: '手動安排', exact: true }).click();
+  const issue = page.getByRole('alert', { name: '手動賽程設定問題' });
+  await expect(issue).toContainText(`既有 9 場沿用賽制：${sixFormat.name}`);
+  await expect(issue).toContainText('需要 6 隊，目前核准 4 隊');
+  await expect(issue).toContainText('請先到報名審核確認參賽名單');
+  await expect(page.locator('.manual__workspace')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '確認整批發布', exact: true })).toHaveCount(0);
+  expect(await calls(page)).toHaveLength(0); expect(await dump(page)).toEqual(before); expect(await saved(page)).toBeNull();
+  await page.getByRole('button', { name: '自動／逐場調整', exact: true }).click();
+  await expect(page.locator('.adm')).toContainText(`改用隊數相同的「${format.name}」`);
+  expect(pageErrors).toEqual([]);
+});
+
+test('既有賽制範本缺失時明示設定問題，可進入手動模式且不改用其他四隊範本 @admin', async ({ page }) => {
+  const pageErrors = []; page.on('pageerror', error => pageErrors.push(error.message));
+  const docs = seed({ started: true });
+  const alternative = { ...format, formatId: 'F4_ALTERNATIVE', name: '其他四隊範本' };
+  docs['config/formats'] = { formats: { [alternative.formatId]: alternative } };
+  await stub(page, { docs }); await page.goto('/#/admin/schedule');
+  await expect(page.getByRole('button', { name: '手動安排', exact: true })).toBeEnabled();
+  const before = await dump(page);
+  await page.getByRole('button', { name: '手動安排', exact: true }).click();
+  const issue = page.getByRole('alert', { name: '手動賽程設定問題' });
+  await expect(issue).toContainText(`既有 8 場沿用賽制：${division.formatId}`);
+  await expect(issue).toContainText('找不到既有場次使用的完整賽制範本');
+  await expect(issue).toContainText('請主辦先確認組別的賽制設定');
+  await expect(page.locator('.manual__workspace')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '確認整批發布', exact: true })).toHaveCount(0);
+  expect(await calls(page)).toHaveLength(0); expect(await dump(page)).toEqual(before); expect(pageErrors).toEqual([]);
+});
+
+test('核准隊數相同但既有對戰球隊不在名單，先提示報名審核並阻擋手動發布 @admin', async ({ page }) => {
+  const pageErrors = []; page.on('pageerror', error => pageErrors.push(error.message));
+  const docs = seed({ started: true });
+  docs[`${BASE}/teams/t-4`].status = 'pending';
+  docs[`${BASE}/teams/t-5`] = { ...teams[3], teamId: 't-5', name: '新球隊', shortName: '新球隊' };
+  await stub(page, { docs }); await page.goto('/#/admin/schedule');
+  await expect(page.getByRole('button', { name: '手動安排', exact: true })).toBeEnabled();
+  const before = await dump(page);
+  await page.getByRole('button', { name: '手動安排', exact: true }).click();
+  const issue = page.getByRole('alert', { name: '手動賽程設定問題' });
+  await expect(issue).toContainText(`既有 8 場沿用賽制：${format.name}`);
+  await expect(issue).toContainText('既有對戰中的 晨星 不在目前核准的參賽名單');
+  await expect(page.getByRole('button', { name: '去報名審核', exact: true })).toBeVisible();
+  await expect(page.locator('.manual__workspace')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '確認整批發布', exact: true })).toHaveCount(0);
+  expect(await calls(page)).toHaveLength(0); expect(await dump(page)).toEqual(before); expect(pageErrors).toEqual([]);
+});
+
 test('整批預覽明示前後差異與場地，原因必填，撞場擋發布 @admin', async ({ page }) => {
   await stub(page); await go(page);
   await time(page, rr[0].matchId).selectOption(String(timeOf(1)));

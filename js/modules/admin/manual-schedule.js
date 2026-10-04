@@ -423,6 +423,8 @@ export function createManualScheduler({ scope, context, onDone, onReload, onBusy
     if (event.key !== 'Escape' || !active) return;
     stopDrag(); state.selected = null; state.replacement = null; state.message = '已取消安排操作。'; render();
   }
+  // Initialization may fail on inconsistent configuration. Register listeners only after it succeeds.
+  restore();
   document.addEventListener('pointermove', moveDrag, { passive: false });
   document.addEventListener('pointerup', endDrag);
   document.addEventListener('pointercancel', endDrag);
@@ -436,6 +438,6 @@ export function createManualScheduler({ scope, context, onDone, onReload, onBusy
   }
   const release = hold(scope, cleanup, 'manual-schedule:input');
   const releaseAuth = hold(scope, onAuth(() => { if (state.draft) render(); }), 'manual-schedule:auth');
-  restore(); render();
+  render();
   return { node, get busy() { return state.busy; }, refreshAuthorization: () => render(), dispose: () => { releaseAuth(); release(); } };
 }
