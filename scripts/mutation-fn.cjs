@@ -12,6 +12,9 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#MEMBERNAME 修改姓名未同步公開名冊', file: 'functions/member-identity.js',
+    from: 'rosterProjection({ ...member, ...patch, memberId }', to: 'rosterProjection({ ...member, ...patch, name: member.name, memberId }',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-import.test.js --testNamePattern=MEMBERNAME --silent' },
   { name: 'FN#MANUAL-MOVE 已開打場次可直接改時間', file: 'functions/management.js',
     from: "['schedule.move','schedule.shift','schedule.place'].includes(action)&&manualMatchLocked(m)",
     to: "['schedule.shift','schedule.place'].includes(action)&&manualMatchLocked(m)",
@@ -77,7 +80,7 @@ const MUTANTS = [
   },
   {
     name: 'FN#JER3 改號後未開賽陣容仍留舊背號', file: 'functions/member-identity.js',
-    from: 'jerseyNo: fields.jerseyNo } : p)', to: 'jerseyNo: previous.jerseyNo } : p)'
+    from: '...(jerseyChanged ? { jerseyNo: fields.jerseyNo } : {})', to: '...(jerseyChanged ? { jerseyNo: previous.jerseyNo } : {})'
   },
   {
     name: 'FN#CSV5 背景 trigger 錯誤恢復跨隊退件', file: 'functions/index.js',

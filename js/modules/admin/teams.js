@@ -189,8 +189,8 @@ export async function adminTeamsPage({ scope, view }) {
 
       // ── 名單 ──
       el('h3', { class: 'adm__sectionHead', text: `名單（球員 ${r.players}・隊職員 ${r.staff}）` }),
-      members.some(m => m.source === 'csv') && can('team.manage')
-        ? el('p', { class: 'adm__note' }, iconText('note', '補填／修改資料')) : null,
+      can('team.manage')
+        ? el('p', { class: 'adm__note' }, iconText('note', '點選隊員旁的編輯圖示修改姓名／暱稱；已通過的 CSV 名冊也可補填背號、生日與後四碼。')) : null,
       // ⚠️ 球員排前面。Firestore 的 orderBy('jerseyNo') 會把 null 排在最前，
       //    於是沒有背號的隊職員擋在名單開頭——而審核要看的是球員。
       el('ul', { class: 'adm__roster' }, sortForReview(members).map(m => el('li', {
@@ -206,7 +206,7 @@ export async function adminTeamsPage({ scope, view }) {
               el('span', { class: 'adm__memberField', text: m.birthDate ? `生日 ${rocShort(m.birthDate)}` : '生日待補' }),
               el('span', { class: 'adm__memberField', text: m.idLast4 ? `末四碼 ${m.idLast4}` : '末四碼待補' })
             ]),
-          m.source === 'csv' && can('team.manage') ? el('button', {
+          can('team.manage') ? el('button', {
             type: 'button', class: 'btn adm__memberEdit', 'aria-label': `補填或修改 ${m.name} 的資料`,
             title: csvIdentityPending(m) ? '補填資料' : '修改資料',
             onClick: () => editCsvIdentity({ team: t, member: m, division: div, scope, onSaved: result => {
@@ -325,7 +325,7 @@ export async function adminTeamsPage({ scope, view }) {
     }
     if (status === 'approved') {
       return el('div', { class: 'adm__actions' }, [
-        el('p', { class: 'adm__note', text: t.source === 'csv' ? '已通過，可安排賽程。使用球員旁的鉛筆圖示補填或修改生日與後四碼。' : '已通過，名單已鎖定。要改名單請先退回。' }),
+        el('p', { class: 'adm__note', text: t.source === 'csv' ? '已通過，可安排賽程。使用隊員旁的編輯圖示修改姓名／暱稱、背號、生日與後四碼。' : '已通過，名單已鎖定。可使用隊員旁的編輯圖示修正姓名／暱稱；變更名單成員請先退回。' }),
         teamActionList(t, true)
       ]);
     }

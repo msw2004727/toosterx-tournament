@@ -15,6 +15,8 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#EMEMBERNAME 伺服器漏回姓名仍顯示成功', file: 'js/modules/admin/member-identity.js',
+    from: 'Object.entries(fields).some(([key, value]) => result[key] !== value)', to: 'false' },
   { name: '#EMANUALFORMAT 既有賽程因核准隊數而換成另一份賽制', file: 'js/modules/admin/schedule.js',
     from: "if (existing().length) return { format: state.formats[division()?.formatId] ?? null, source: 'division' };",
     to: "if (false) return { format: state.formats[division()?.formatId] ?? null, source: 'division' };" },

@@ -1,5 +1,7 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EMEMBERNAME: { spec: 'tests/e2e/admin-teams.spec.js', grep: '隊員更名 不完整回覆', minTests: 1,
+    failure: 'toContainText', assertions: ["await expect(page.getByRole('alert')).toContainText('尚未確認');"] },
   EMANUALFORMAT: { spec: 'tests/e2e/admin-manual-schedule.spec.js', grep: '既有六隊', minTests: 1,
     failure: 'toContainText', assertions: ['await expect(issue).toContainText(`既有 9 場沿用賽制：${sixFormat.name}`);'] },
   EMANUALRESULT: { spec: 'tests/e2e/admin-manual-schedule.spec.js', grep: '不完整回應不假成功', minTests: 1,
