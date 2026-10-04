@@ -1,8 +1,15 @@
-import { validateIdentity, csvIdentityPending, validateJerseyNo } from '../../js/engine/member-identity.js';
+import { validateIdentity, csvIdentityPending, validateJerseyNo, validateMemberName } from '../../js/engine/member-identity.js';
 import { validateTeamImport, parseTeamCsv } from '../../js/engine/team-import.js';
 import { buildCheckin, checkinSummary, presentIds } from '../../js/modules/staff/checkin-actions.js';
 const division = { divisionId: 'youth', eligibility: { bornOnOrAfter: '2016-09-01' } };
 const date = '2026-10-09';
+
+test.each([null, 123, {}, [], '', '   ', '名'.repeat(41), '王\n小明', '\t王小明', '王\u0000明', '王\u007F明'])('隊員更名拒絕空白、非文字及控制字元 %j', value => {
+  expect(validateMemberName(value).error).toBeTruthy();
+});
+test.each([['  陳小飛  ', '陳小飛'], ['Mary Jane', 'Mary Jane'], ['名'.repeat(40), '名'.repeat(40)]])('隊員更名保留有效顯示名 %j', (input, value) => {
+  expect(validateMemberName(input)).toEqual({ value, error: null });
+});
 
 test.each([null, undefined, '', '  '])('未指定背號 %j 不變成 0', value => {
   expect(validateJerseyNo(value)).toEqual({ value: null, error: null });

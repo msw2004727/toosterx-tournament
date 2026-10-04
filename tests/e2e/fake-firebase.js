@@ -479,7 +479,20 @@ export const httpsCallable = (_fns, name) => async (payload) => {
     return { data: { ok: true, data: result } };
   }
   if (name === 'updateMemberIdentity') {
-    return { data: { ok: true, data: { memberId: payload.memberId, jerseyNo: payload.jerseyNo, birthDate: payload.birthDate, idLast4: payload.idLast4, identityComplete: !!payload.birthDate && !!payload.idLast4, identityRevision: payload.revision + 1, auditId: 'fake-identity-audit' } } };
+    if (Object.hasOwn(window, '__FAKE_MEMBER_RESULT')) return { data: { ok: true, data: window.__FAKE_MEMBER_RESULT } };
+    if (window.__FAKE_MEMBER_PENDING) await window.__FAKE_MEMBER_PENDING;
+    const receipts = (window.__FAKE_MEMBER_RECEIPTS ||= {});
+    if (receipts[payload.operationId]) return { data: { ok: true, data: receipts[payload.operationId] } };
+    const fields = payload.nameOnly ? { name: payload.name } : { name: payload.name, jerseyNo: payload.jerseyNo,
+      birthDate: payload.birthDate, idLast4: payload.idLast4, identityComplete: !!payload.birthDate && !!payload.idLast4 };
+    const result = { memberId: payload.memberId, ...fields, identityRevision: payload.revision + 1, operationId: payload.operationId, auditId: `identity-${payload.operationId}` };
+    await updateDoc(doc(null, `events/${payload.eventId}/teams/${payload.teamId}/members/${payload.memberId}`), fields);
+    receipts[payload.operationId] = result;
+    if (window.__FAKE_MEMBER_LOST_RESPONSE) {
+      window.__FAKE_MEMBER_LOST_RESPONSE = false;
+      throw Object.assign(new Error('response lost'), { code: 'functions/unavailable' });
+    }
+    return { data: { ok: true, data: result } };
   }
   if (name === 'importTeamsCsv') {
     // 僅確認 UI 接線；交易與實際資料驗證由 tests/functions/team-import.test.js 覆蓋。

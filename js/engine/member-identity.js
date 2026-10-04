@@ -1,5 +1,15 @@
 import { parseYmd, checkAge } from './eligibility.js';
 
+/** 與 CSV 名冊一致：保留中英文及姓名內的空格，拒絕空白與控制字元。 */
+export function validateMemberName(value) {
+  if (typeof value !== 'string') return { value: null, error: '隊員姓名／暱稱必須是文字。' };
+  const name = value.trim();
+  if (!name || name.length > 40 || /[\u0000-\u001F\u007F]/u.test(value)) {
+    return { value: null, error: '請填隊員姓名／暱稱，最多 40 字，不可含換行或控制字元。' };
+  }
+  return { value: name, error: null };
+}
+
 /** 空白是未指定，不是 0；有填才驗證 0–99。前端、CSV 與 callable 共用。 */
 export function validateJerseyNo(value) {
   if (value == null || (typeof value === 'string' && !value.trim())) return { value: null, error: null };
