@@ -422,6 +422,43 @@ export const httpsCallable = (_fns, name) => async (payload) => {
     return { data: { ok: true, data: { shareId, action: payload.action, changed: true } } };
   }
   if (name === 'generateSchedule' || name === 'manageEvent') return fakeManagement(name, payload);
+  if (name === 'publishManualSchedule') {
+    // UI wiring only. Authorization, locks and atomicity are tested in the emulator.
+    if (window.__FAKE_MANUAL_PENDING) await window.__FAKE_MANUAL_PENDING;
+    if (Object.hasOwn(window, '__FAKE_MANUAL_RESULT')) return { data: { ok: true, data: window.__FAKE_MANUAL_RESULT } };
+    const receipts = (window.__FAKE_MANUAL_RECEIPTS ||= {});
+    if (receipts[payload.operationId]) return { data: { ok: true, data: receipts[payload.operationId] } };
+    const base = `events/${payload.eventId}`, incoming = payload.draft;
+    const divisionPath = `${base}/divisions/${incoming.divisionId}`;
+    const division = store.get(divisionPath);
+    if ((division.scheduleRevision ?? 0) !== incoming.expectedRevision) {
+      throw Object.assign(new Error('賽程已更新，請重新載入核對。'), { code: 'functions/aborted' });
+    }
+    const { createManualDraft, manualMatchesOf } = await import(location.origin + '/js/engine/manual-schedule.js');
+    const { genericFormat } = await import(location.origin + '/js/engine/schedule.js');
+    const { matchDocOf } = await import(location.origin + '/js/engine/schedule-doc.js');
+    const rows = prefix => [...store.entries()].filter(([path]) => path.startsWith(prefix) && path.slice(prefix.length).split('/').length === 1).map(([, row]) => row);
+    const teams = rows(`${base}/teams/`);
+    const format = incoming.generated ? genericFormat(incoming.orderedTeamIds.length, { groupCount: incoming.groupCount ?? undefined }) : store.get('config/formats')?.formats?.[incoming.formatId];
+    const draft = createManualDraft({ division, teams, format, existingMatches: rows(`${base}/matches/`).filter(m => m.divisionId === division.divisionId), orderedTeamIds: incoming.orderedTeamIds });
+    for (const editable of incoming.matches) Object.assign(draft.matches.find(m => m.matchId === editable.matchId), editable);
+    for (const match of manualMatchesOf({ draft, division, teams })) {
+      const path = `${base}/matches/${match.matchId}`;
+      const old = store.get(path);
+      const venueName = store.get(`${base}/venues/${match.venueId}`)?.name || null;
+      store.set(path, { ...(old || matchDocOf({ m: match, division, eventId: payload.eventId })), ...match, venueName });
+    }
+    const result = { divisionId: division.divisionId, scheduleRevision: incoming.expectedRevision + 1, published: true,
+      operationId: payload.operationId, auditId: `manual-${payload.operationId}`, matchCount: incoming.matches.length };
+    store.set(divisionPath, { ...division, scheduleRevision: result.scheduleRevision, schedulePublished: true });
+    store.set(`${base}/audits/${result.auditId}`, { action: 'schedule.manual.publish', before: division, after: incoming, reason: payload.reason });
+    receipts[payload.operationId] = result; notify();
+    if (window.__FAKE_MANUAL_LOST_RESPONSE) {
+      window.__FAKE_MANUAL_LOST_RESPONSE = false;
+      throw Object.assign(new Error('response lost'), { code: 'functions/unavailable' });
+    }
+    return { data: { ok: true, data: result } };
+  }
   if (name === 'updateTeamName') {
     if (window.__FAKE_TEAM_NAME_PENDING) await window.__FAKE_TEAM_NAME_PENDING;
     if (Object.hasOwn(window, '__FAKE_TEAM_NAME_RESULT')) return { data: { ok: true, data: window.__FAKE_TEAM_NAME_RESULT } };

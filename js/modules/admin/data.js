@@ -9,6 +9,7 @@ import { db, sdk, user, callFunction } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { EVENT_ID } from '../../config.js';
 import { summary as syncSummary } from '../../core/sync.js';
+import { manualPayloadOf } from '../../engine/manual-schedule.js';
 
 const uid = () => user()?.uid ?? null;
 
@@ -20,7 +21,7 @@ async function onlineManagement(name, payload) {
   if (!syncSummary().online || navigator.onLine === false) throw Object.assign(new Error('這項管理操作需要連線，請連上網路後再送出。'), { code: 'unavailable' });
   const data = { eventId: EVENT_ID, ...payload };
   const key = JSON.stringify({ name, uid: uid(), data });
-  const operationId = managementRequests.get(key) ?? crypto.randomUUID();
+  const operationId = payload.operationId ?? managementRequests.get(key) ?? crypto.randomUUID();
   managementRequests.set(key, operationId);
   let result;
   try { result = await callFunction(name, { ...data, operationId }); }
@@ -35,6 +36,9 @@ async function onlineManagement(name, payload) {
   return result;
 }
 export const generateSchedule = payload => onlineManagement('generateSchedule', payload);
+export const publishManualSchedule = ({ draft, reason, operationId }) => onlineManagement('publishManualSchedule', {
+  draft: manualPayloadOf(draft), reason, ...(operationId ? { operationId } : {})
+});
 export const renameTeam = (teamId, payload) => onlineManagement('updateTeamName', { teamId, ...payload });
 export const manageMatch = (matchId, { action, match, patch = {}, reason = null, appeal = null }) =>
   onlineManagement('manageEvent', { action, matchId, expected: matchBasis(match), patch, reason, appeal });

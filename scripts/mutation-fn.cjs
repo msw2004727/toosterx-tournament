@@ -12,6 +12,16 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#MANUAL-MOVE 已開打場次可直接改時間', file: 'functions/management.js',
+    from: "['schedule.move','schedule.shift','schedule.place'].includes(action)&&manualMatchLocked(m)",
+    to: "['schedule.shift','schedule.place'].includes(action)&&manualMatchLocked(m)",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/manual-schedule.test.js --testNamePattern=MOVE-GUARD --silent' },
+  { name: 'FN#MANUAL-STALE 整批發布覆寫其他人新版', file: 'functions/manual-schedule.js',
+    from: '(division.scheduleRevision??0)!==draft.expectedRevision', to: 'false',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/manual-schedule.test.js --testNamePattern=版本 --silent' },
+  { name: 'FN#MANUAL-AUDIT 发布與稽核分離', file: 'functions/manual-schedule.js',
+    from: 'writeAudit(eventId,audit,tx,auditRef);', to: '',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/manual-schedule.test.js --testNamePattern=稽核 --silent' },
   { name: 'FN#TEAMNAME-STALE 舊版本覆蓋他人隊名', file: 'functions/team-name.js',
     from: 'canonical(teamNameBasis(team)) !== canonical(expected)', to: 'false',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-name.test.js --silent' },

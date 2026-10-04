@@ -15,9 +15,10 @@
  *      重要的性質是事後查得到。種子寫進 audits，任何人都能重放同一組分組。
  *   2. **已經開打就不能重新產生。** 重抽一次籤，打完的那幾場會變成不同
  *      小組之間的比賽，積分榜會靜靜算出一份沒有人看得懂的結果。
- *   3. **手動調整是「兩隊對調」，不是「把一隊搬過去」。** 搬一隊會讓兩組
+ *   3. **分組調整是「兩隊對調」，不是「把一隊搬過去」。** 搬一隊會讓兩組
  *      隊數不等，而 8 隊範本的交叉表引用了 A、B 組各四個名次——
- *      少一個名次的那一組，晉級會永遠解不開。
+ *      少一個名次的那一組，晉級會永遠解不開。逐場手動安排另走私有草稿，
+ *      沿用既有分組與晉級來源，檢查完整對戰後才一次發布（docs/22）。
  *   4. **error 擋發布、warn 不擋。** 休息時間規章沒有規定，是我們自己給的
  *      建議值；把它升成錯誤等於系統替主辦訂了一條規章沒有的規則。
  *   5. **整體順延不動已經開打的場次。** 把一場正在進行的比賽往後推，
@@ -46,6 +47,7 @@ import {
 import * as data from './data.js';
 import { adminHead, denied } from './bits.js';
 import { EVENT_ID } from '../../config.js';
+import { createManualScheduler } from './manual-schedule.js';
 
 export async function adminSchedulePage({ scope, view }) {
   const root = el('div', { class: 'adm' });
@@ -60,8 +62,10 @@ export async function adminSchedulePage({ scope, view }) {
     divisionId: null,
     draft: null,        // { order:[team], seed:number|null, formatId:string|null }
     picked: null,       // 對調時選取中的 teamId
-    shiftFrom: '', shiftMin: 30
+    shiftFrom: '', shiftMin: 30, mode: 'automatic', manual: null
   };
+
+  hold(scope, () => { state.manual?.dispose(); view.classList.remove('has-manual-schedule'); }, 'manual-schedule:page');
 
   hold(scope, onAuth(() => render()), 'auth:admin-schedule');
   await load();
@@ -358,7 +362,11 @@ export async function adminSchedulePage({ scope, view }) {
       return el('button', {
         class: `adm__tab division-choice${on ? ' is-on' : ''}`, ...divisionThemeAttrs(d), type: 'button',
         role: 'tab', 'aria-selected': on ? 'true' : 'false',
-        onClick: () => { state.divisionId = d.divisionId; state.draft = null; state.picked = null; render(); }
+        disabled: !!state.manual?.busy,
+        onClick: () => {
+          state.manual?.dispose(); state.manual = null;
+          state.divisionId = d.divisionId; state.draft = null; state.picked = null; render();
+        }
       }, [
         el('span', { text: d.shortName || d.name }),
         el('span', { class: 'adm__tabCount', text: String(n) })
@@ -697,9 +705,14 @@ export async function adminSchedulePage({ scope, view }) {
   }
 
   function render() {
+    root.classList.toggle('adm--manual', state.mode === 'manual');
+    view.classList.toggle('has-manual-schedule', state.mode === 'manual' && can('schedule.manage'));
     setDivisionTheme(root, division() || state.divisionId);
     if (!state.ready) { mount(root, adminHead('賽程管理'), skeleton(5)); return; }
-    if (!can('schedule.manage')) { mount(root, adminHead('賽程管理'), denied('賽程管理', '管理員')); return; }
+    if (!can('schedule.manage')) {
+      state.manual?.dispose(); state.manual = null;
+      mount(root, adminHead('賽程管理'), denied('賽程管理', '管理員')); return;
+    }
 
     if (state.error) {
       mount(root, adminHead('賽程管理'),
@@ -718,9 +731,46 @@ export async function adminSchedulePage({ scope, view }) {
     }
 
     const mine = existing();
+    const modeButtons = el('div', { class: 'adm__scheduleModes', role: 'group', 'aria-label': '安排賽程方式' }, [
+      el('button', {
+        class: `btn${state.mode === 'automatic' ? ' btn--primary' : ''}`, type: 'button',
+        'aria-pressed': state.mode === 'automatic' ? 'true' : 'false', disabled: !!state.busy || !!state.manual?.busy,
+        onClick: () => { state.manual?.dispose(); state.manual = null; state.mode = 'automatic'; render(); }
+      }, iconText('table', '自動／逐場調整')),
+      el('button', {
+        class: `btn${state.mode === 'manual' ? ' btn--primary' : ''}`, type: 'button',
+        'aria-pressed': state.mode === 'manual' ? 'true' : 'false', disabled: !!state.busy || !!state.manual?.busy || approved().length < 2 || !formatFor().format,
+        onClick: () => { state.mode = 'manual'; render(); }
+      }, iconText('team', '手動安排'))
+    ]);
+    if (state.mode === 'manual') {
+      if (!state.manual) {
+        const { format, source } = formatFor();
+        state.manual = createManualScheduler({
+          scope, context: { division: division(), teams: state.teams, format,
+            existingMatches: mine, allMatches: state.matches, divisions: state.divisions,
+            venues: state.venues, cfg: cfg(), generated: source === 'generated',
+            groupCount: state.draft?.groupCount ?? null,
+            orderedTeamIds: state.draft?.order?.map(t => t.teamId) ?? null },
+          onBusyChange: () => render(),
+          onDone: async () => {
+            state.manual?.dispose(); state.manual = null; state.mode = 'automatic';
+            await load();
+          },
+          onReload: async () => {
+            state.manual?.dispose(); state.manual = null;
+            await load();
+          }
+        });
+      }
+      state.manual.refreshAuthorization();
+      mount(root, adminHead('賽程管理'), divisionTabs(), modeButtons, state.manual.node);
+      return;
+    }
     mount(root,
       adminHead('賽程管理', { sub: state.busy ? '處理中…' : null }),
       divisionTabs(),
+      modeButtons,
       statusBox(),
       formatBox(),
       approved().length >= 2 ? drawBox() : null,
