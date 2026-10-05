@@ -32,6 +32,9 @@ import { qrSvg } from '../../lib/qr-render.js';
 import { formatScore, drawEntries, normalizePhone, maskPhone, completionProgress, settledDrawEntries } from '../../engine/challenge.js';
 import * as data from './data.js';
 import { savedPass, savePass } from './pass.js';
+import { DAILY_RULE } from '../../engine/challenge-days.js';
+import { dayTabs, watchActivityDay } from './days.js';
+import { dailyCards } from './daily-cards.js';
 
 /**
  * QR 的內容是攤位頁的網址，不是裸代號：攤位用手機相機掃就直接開攤位頁並帶入代號，
@@ -54,14 +57,17 @@ export async function challengeMePage({ scope, view }) {
     owner: false,               // 目前登入的 LINE 帳號是這張卡的主人
     authKnown: false,           // 已經知道有沒有登入（避免一開頁就閃登入卡）
     challenges: [],
+    challengesLoaded: false,
     bests: [],
     rewards: null,
+    attempts: null, date: null,
     contact: { phone: '', masked: cached?.contactMasked ?? null, editing: false, busy: false, error: null },
     error: null
   };
   let watching = null;
   let issued = false;
   let offWatch = null;
+  let offAttempts = null;
 
   // 有快取先畫（離線也看得到 QR）；登入到位後再向伺服器要權威的那一張
   if (state.playerId) startWatch();
@@ -74,8 +80,9 @@ export async function challengeMePage({ scope, view }) {
     render();
   }), 'auth:challenge-me');
 
-  data.getChallenges().then(c => { state.challenges = c; render(); }).catch(() => {});
-  data.getRewards().then(r => { state.rewards = r; render(); }).catch(() => {});
+  data.watchChallenges(scope, c => { state.challenges = c; state.challengesLoaded = true; render(); });
+  data.watchRewards(scope, r => { state.rewards = r; render(); });
+  watchActivityDay(scope, () => state.rewards, date => { state.date = date; render(); });
 
   // ── 資料 ─────────────────────────────────────────────────
 
@@ -103,6 +110,13 @@ export async function challengeMePage({ scope, view }) {
     if (!state.playerId || watching === state.playerId) return;
     watching = state.playerId;
     offWatch?.();
+    offAttempts?.();
+    state.attempts = null;
+    const pid = state.playerId;
+    offAttempts = data.watchAttempts(scope, pid, attempts => {
+      if (state.playerId !== pid) return;
+      state.attempts = attempts; render();
+    }, err => { state.error = err; render(); });
     offWatch = data.watchPlayer(scope, state.playerId, p => {
       state.player = p;
       if (p?.nickname) savePass({ playerId: state.playerId, nickname: p.nickname, contactMasked: state.contact.masked });
@@ -320,8 +334,9 @@ export async function challengeMePage({ scope, view }) {
     }
     mount(root,
       qrCard(),
-      progressCard(),
-      drawCard(),
+      state.rewards?.rule === DAILY_RULE
+        ? dayTabs(state.rewards.dates, state.date, date => { state.date = date; render(); }) : null,
+      ...(state.rewards?.rule === DAILY_RULE ? dailyCards(state) : [progressCard(), drawCard()]),
       contactCard(),
       backButton()
     );

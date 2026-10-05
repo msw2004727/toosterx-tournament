@@ -173,3 +173,8 @@
 /* 代建新卡的入口（家長的第二個小孩、沒有 LINE 的玩家） */
 .booth__hint{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);margin:var(--sp-2) 0 0;font-size:var(--fs-xs);color:var(--text-secondary)}
 .booth__checkin { display: flex; flex-direction: column; gap: var(--sp-3); }
+.booth__choiceCard { min-width: 0; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
+.booth__choiceCard .booth__choice { width: 100%; border: 0; }
+.booth__daySettings { padding: .5rem .75rem; }
+.booth__daySetting { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .4rem 0; font-size: .85rem; }
+.booth__daySetting [aria-checked="true"] { color: var(--success); background: var(--ok-bg); }

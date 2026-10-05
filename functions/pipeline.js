@@ -17,6 +17,8 @@
  *   避免較慢的觸發器把舊紀律分或退賽狀態重新寫回積分榜。
  */
 import { FieldValue } from 'firebase-admin/firestore';
+import { DAILY_RULE, dailyStats } from './engine/challenge-days.js';
+import { refreshDailyPlayer } from './challenge-days.js';
 
 import { buildStanding, standingIdOf, isStaleWrite, diffRanking } from './engine/standing.js';
 import { resolveStage, canResolve, isSlotWritable, describeTeamSource, computeFinalRanking as computeFinalRankingPure } from './engine/advancement.js';
@@ -756,6 +758,9 @@ async function syncPlayerCompletion({ eventId, challengeId, playerId, challenge 
     }
 
     const player = snap.data();
+    if (rewards?.rule === DAILY_RULE) {
+      return refreshDailyPlayer(eventId, playerId, tx, all, rewards);
+    }
     const hasLiveScore = attempts.some(a => completesChallenge(a, challenge));
     const cur = Array.isArray(player.completedChallengeIds) ? player.completedChallengeIds : [];
 
@@ -832,6 +837,9 @@ async function rebuildLeaderboard({ eventId, challengeId, challenge }) {
  */
 async function recountChallengeStats({ eventId, challengeId }) {
   return db().runTransaction(async tx => {
+    const [challenge, rewards] = await Promise.all([
+      tx.get(evRef(eventId).collection('challenges').doc(challengeId)), loadChallengeRewards(tx)
+    ]);
     const attempts = await loadChallengeAttempts(eventId, challengeId, tx);
     const live = attempts.filter(a => a?.voided !== true);
     const stats = {
@@ -839,6 +847,7 @@ async function recountChallengeStats({ eventId, challengeId }) {
       players: new Set(live.map(a => a.playerId).filter(Boolean)).size,
       voided: attempts.length - live.length
     };
+    if (rewards?.rule === DAILY_RULE) stats.dailyPlayers = dailyStats(attempts, challenge.data(), rewards.dates, rewards.timeZone);
     tx.set(evRef(eventId).collection('challenges').doc(challengeId),
       { stats, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     return stats;

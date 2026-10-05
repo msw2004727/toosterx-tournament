@@ -26,7 +26,7 @@ import { icon, iconText } from '../../core/icons.js';
 import { can, staff, user, onAuth, reloadIdentity, hasRole } from '../../core/firebase.js';
 import { navigate } from '../../core/router.js';
 import { EVENT_ID } from '../../config.js';
-import { now as serverNow } from '../../core/clock.js';
+import { now as serverNow, startTicker } from '../../core/clock.js';
 import { hold } from '../../core/store.js';
 import { hhmm } from '../../lib/format.js';
 import {
@@ -39,6 +39,8 @@ import {
 import * as data from './data.js';
 import { syncIndicator } from '../staff/sync-indicator.js';
 import { scanSupported, scanOnce } from './scan.js';
+import { DAILY_RULE, activityDate, attemptDate, isChallengeOpen } from '../../engine/challenge-days.js';
+import { dateLabel } from '../challenge/days.js';
 
 export async function boothPage({ scope, view, params, query }) {
   const root = el('div', { class: 'booth' });
@@ -49,6 +51,7 @@ export async function boothPage({ scope, view, params, query }) {
   const state = {
     ready: false, error: null,
     challenges: [], challenge: null,
+    rewards: null, savingDay: null,
     // 掃到／輸入的玩家
     playerId: null, player: null, attempts: [],
     // 輸入中的成績
@@ -74,8 +77,36 @@ export async function boothPage({ scope, view, params, query }) {
   }
 
   await load();
+  data.watchRewards(scope, r => { state.rewards = r; render(); });
+  data.watchChallenges(scope, all => {
+    const id = state.challenge?.challengeId;
+    state.challenges = myChallenges(all, { challengeIds: staff()?.assignment?.challengeIds ?? [], isAdmin: hasRole('admin') });
+    if (!hasRole('admin') && staff()?.assignment?.eventId !== EVENT_ID) state.challenges = [];
+    if (id) state.challenge = state.challenges.find(c => c.challengeId === id) ?? null;
+    render();
+  }, err => { state.error = err; render(); });
+  let lastDate = today();
+  hold(scope, startTicker(() => { const date = today(); if (date !== lastDate) { lastDate = date; render(); } }, 1000), 'booth:date-clock');
 
   // ── 資料 ─────────────────────────────────────────────────
+
+  function dailyMode() { return state.rewards?.rule === DAILY_RULE; }
+  function today() { return activityDate(serverNow(), state.rewards?.timeZone); }
+  function dayAttempts() { return dailyMode() ? state.attempts.filter(a => attemptDate(a, state.rewards.timeZone) === today()) : state.attempts; }
+  function canRegisterToday() {
+    return !dailyMode() || (state.rewards.dates.includes(today()) && isChallengeOpen(state.challenge, today()));
+  }
+
+  async function toggleDay(c, date) {
+    if (state.savingDay || !can('challenge.attempt.write')) return;
+    const before = isChallengeOpen(c, date);
+    state.savingDay = `${c.challengeId}:${date}`; render();
+    try {
+      await data.updateDay(c.challengeId, date, !before, before);
+      toast(`${dateLabel(date)} ${c.shortName || c.name}已${before ? '關閉' : '開放'}`);
+    } catch (err) { toast(data.explain(err, '開放設定沒有儲存成功'), 'error'); }
+    finally { state.savingDay = null; render(); }
+  }
 
   async function load() {
     try {
@@ -225,6 +256,7 @@ export async function boothPage({ scope, view, params, query }) {
   }
 
   async function submit() {
+    if (!canRegisterToday()) { toast('這個攤位今日未開放，不能登錄。', 'warn'); return; }
     if (!can('challenge.attempt.write') || !state.playerId || serverNow() < state.lockUntil) return;
     const c = state.challenge;
     const r = resolveScore({ challenge: c, value: state.value, detail: state.detail });
@@ -237,7 +269,7 @@ export async function boothPage({ scope, view, params, query }) {
       return;
     }
 
-    const q = quotaState(state.attempts, c);
+    const q = quotaState(dayAttempts(), c);
     let payload;
     try {
       payload = buildAttempt({
@@ -262,7 +294,7 @@ export async function boothPage({ scope, view, params, query }) {
     data.submitAttempt(payload, `${state.player?.nickname ?? state.playerId}　${payload.doc.displayValue}`);
 
     state.result = submitFeedback({
-      challenge: c, attempts: state.attempts, rawValue: r.rawValue,
+      challenge: c, attempts: dayAttempts(), rawValue: r.rawValue,
       nickname: state.player?.nickname ?? state.playerId
     });
     // 本機先把這一筆加進去，次數與「最佳」立刻正確（Function 稍後會回寫 isBest）
@@ -334,7 +366,7 @@ export async function boothPage({ scope, view, params, query }) {
     return el('div', { class: 'booth__box' }, [
       el('strong', { text: '挑戰攤位登錄' }),
       el('p', { class: 'booth__note', text: state.challenge
-        ? '1 選擇攤位 → 2 掃碼或輸入挑戰卡號 → 3 登錄參與／成績。七項完成後，由系統確認抽獎資格。'
+        ? '1 選擇攤位 → 2 掃碼或輸入挑戰卡號 → 3 登錄參與／成績。完成當日開放攤位，即取得當日抽獎資格。'
         : '請先選擇負責攤位，下一步就能開啟相機或手動輸入挑戰卡號。' }),
       el('div', { class: 'booth__idRow' }, [
         state.challenge && state.challenges.length > 1 ? el('button', { class: 'btn btn--lg', type: 'button',
@@ -355,17 +387,25 @@ export async function boothPage({ scope, view, params, query }) {
     ]);
   }
 
-  function pickChallenge() {
+  function pickChallenge(list = state.challenges) {
     return el('div', {}, [
       el('h3', { class: 'booth__sectionHead', text: '選擇你的關卡' }),
-      el('div', { class: 'booth__choices' }, state.challenges.map(c =>
-        el('button', {
+      el('div', { class: 'booth__choices' }, list.map(c =>
+        el('div', { class: 'booth__choiceCard', 'data-challenge': c.challengeId }, [el('button', {
           class: 'booth__choice', type: 'button',
           onClick: () => navigate(`/booth/${encodeURIComponent(c.challengeId)}${state.idInput ? `?id=${encodeURIComponent(state.idInput)}` : ''}`)
         }, [
           icon(c.icon ?? 'goal'),
           el('span', { class: 'booth__choiceName', text: c.name }),
           el('span', { class: 'booth__choiceNote', text: c.boothLocation ?? '' })
+        ]), dailyMode() ? el('div', { class: 'booth__daySettings' }, state.rewards.dates.map(date =>
+          el('div', { class: 'booth__daySetting', 'data-date': date }, [
+            el('span', { text: `${dateLabel(date)}・已完成 ${c.stats?.dailyPlayers?.[date] ?? 0} 人` }),
+            el('button', { class: 'btn btn--sm', type: 'button', role: 'switch',
+              'aria-label': `${c.name} ${dateLabel(date)} 開放`, 'aria-checked': String(isChallengeOpen(c, date)),
+              disabled: !!state.savingDay, onClick: () => toggleDay(c, date)
+            }, state.savingDay === `${c.challengeId}:${date}` ? '儲存中…' : isChallengeOpen(c, date) ? '開放' : '關閉')
+          ]))) : null
         ])))
     ]);
   }
@@ -401,8 +441,8 @@ export async function boothPage({ scope, view, params, query }) {
   }
 
   function playerBox() {
-    const q = quotaState(state.attempts, state.challenge);
-    const best = pickBest(state.attempts, state.challenge);
+    const q = quotaState(dayAttempts(), state.challenge);
+    const best = pickBest(dayAttempts(), state.challenge);
     return el('div', { class: 'booth__box booth__box--player' }, [
       el('div', { class: 'booth__playerTop' }, [
         el('strong', { class: 'booth__nick', text: state.player?.nickname ?? state.playerId }),
@@ -622,10 +662,12 @@ export async function boothPage({ scope, view, params, query }) {
     mount(root,
       head(),
       workflow(),
+      dailyMode() ? pickChallenge([state.challenge]) : null,
+      !canRegisterToday() ? el('div', { class: 'booth__box booth__box--warn', role: 'status', text: `${dateLabel(today())} 本攤位未開放，今日不能登錄。` }) : null,
       state.playerId ? playerBox() : idBox(),
       state.playerId && state.result ? resultBox() : null,
-      state.playerId ? inputArea() : null,
-      state.playerId ? submitBar() : null,
+      state.playerId && canRegisterToday() ? inputArea() : null,
+      state.playerId && canRegisterToday() ? submitBar() : null,
       recentBox()
     );
   }

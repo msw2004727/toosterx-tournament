@@ -38,6 +38,7 @@ import { manageEventFor } from './management.js';
 import { shareMatchStreamFor } from './stream-shares.js';
 import { updateTeamNameFor } from './team-name.js';
 import { publishManualScheduleFor } from './manual-schedule.js';
+import { updateChallengeDayFor, dailyDrawExportFor } from './challenge-days.js';
 
 ensureApp();
 setGlobalOptions({ region: 'asia-east1', maxInstances: 10 });
@@ -81,6 +82,16 @@ async function requireStaff(request, roles = []) {
 const ADMIN = ['admin', 'super_admin'];
 // 賽務角色向上包含（R-ROLE-002）：攤位以上都做得了攤位的事
 const BOOTH = ['booth', 'checkin', 'referee', 'scorer', 'admin', 'super_admin'];
+
+export const updateChallengeDay = onCall(async request => {
+  await requireStaff(request, BOOTH);
+  return ok(await updateChallengeDayFor({ ...request.data, actorUid: request.auth.uid }));
+});
+
+export const exportDailyDraw = onCall({ timeoutSeconds: 120 }, async request => {
+  await requireStaff(request, ADMIN);
+  return ok(await dailyDrawExportFor({ ...request.data, actorUid: request.auth.uid }));
+});
 
 /** 結果性欄位有沒有真的變。用 JSON 比對就夠——這些都是小物件。 */
 const changedAny = (before, after, keys) =>

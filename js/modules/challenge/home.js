@@ -25,6 +25,9 @@ import { hold } from '../../core/store.js';
 import { formatScore, completionProgress, settledDrawEntries } from '../../engine/challenge.js';
 import * as data from './data.js';
 import { savedPass } from './pass.js';
+import { DAILY_RULE } from '../../engine/challenge-days.js';
+import { dayTabs, watchActivityDay } from './days.js';
+import { dailyCards } from './daily-cards.js';
 
 export async function challengeHomePage({ scope, view }) {
   const root = el('div', { class: 'chal' });
@@ -38,17 +41,18 @@ export async function challengeHomePage({ scope, view }) {
     player: null,
     bests: [],
     rewards: null,
+    attempts: null, date: null,
     error: null
   };
   hold(scope, onAuth(() => render()), 'auth:challenge-home');
 
-  data.getChallenges()
-    .then(c => { state.challenges = c; render(); })
-    .catch(err => { state.error = err; state.challenges = []; render(); });
-  data.getRewards().then(r => { state.rewards = r; render(); }).catch(() => {});
+  data.watchChallenges(scope, c => { state.challenges = c; render(); }, err => { state.error = err; state.challenges = []; render(); });
+  data.watchRewards(scope, r => { state.rewards = r; render(); });
+  watchActivityDay(scope, () => state.rewards, date => { state.date = date; render(); });
 
   // 有挑戰卡的人才需要查進度。沒有卡的人這一頁照樣看得到五關
   if (pass) {
+    data.watchAttempts(scope, pass.playerId, a => { state.attempts = a; render(); }, err => { state.error = err; render(); });
     data.watchPlayer(scope, pass.playerId, p => { state.player = p; render(); }, () => {});
     data.getMyBests(pass.playerId).then(b => { state.bests = b; render(); }).catch(() => {});
   }
@@ -67,6 +71,9 @@ export async function challengeHomePage({ scope, view }) {
   // ── 畫面 ─────────────────────────────────────────────────
 
   function meCard() {
+    if (pass && state.rewards?.rule === DAILY_RULE) return el('button', {
+      class: 'btn btn--lg btn--primary chal__go', type: 'button', onClick: () => navigate('/challenge/me')
+    }, iconText('qr', '我的 QR'));
     const progress = completionProgress(completedIds(), state.challenges ?? [], state.rewards);
     const done = progress.done.length;
     const total = progress.total;
@@ -134,7 +141,9 @@ export async function challengeHomePage({ scope, view }) {
       el('ol', { class: 'chal__rules' }, [
         el('li', { text: '用 LINE 領取挑戰卡，到各項目出示同一張 QR。' }),
         el('li', { text: '完成項目後，由現場工作人員登錄集章。中醫運動恢復站只需現場簽到打卡。' }),
-        el('li', { text: '七項全部完成，才取得 1 次抽獎機會；重複挑戰不增加抽獎次數。' })
+        el('li', { text: state.rewards?.rule === DAILY_RULE
+          ? '每天分開集章：完成該日所有開放攤位，即取得當日 1 次抽獎機會；未開放攤位不需完成，重複登錄不增加張數。'
+          : '七項全部完成，才取得 1 次抽獎機會；重複挑戰不增加抽獎次數。' })
       ]),
       el('p', { class: 'chal__hint', text: '資格由伺服器確認。離線登錄會在恢復連線後更新；作廢紀錄不計入集章。' })
     ]);
@@ -146,10 +155,13 @@ export async function challengeHomePage({ scope, view }) {
     mount(root,
       el('div', { class: 'chal__hero' }, [
         el('strong', { class: 'chal__heroTitle', text: 'FEDA CUP 挑戰區' }),
-        el('p', { class: 'chal__heroSub', text: '七項集章，全數完成才有抽獎機會' })
+        el('p', { class: 'chal__heroSub', text: state.rewards?.rule === DAILY_RULE
+          ? '完成當日開放攤位，每日取得一次抽獎機會' : '七項集章，全數完成才有抽獎機會' })
       ]),
 
       meCard(),
+      state.rewards?.rule === DAILY_RULE ? dayTabs(state.rewards.dates, state.date, date => { state.date = date; render(); }) : null,
+      ...(state.rewards?.rule === DAILY_RULE ? dailyCards({ ...state, player: state.player ?? (pass ? {} : null) }) : []),
       rulesCard(),
       el('div', { class: 'chal__card' }, [
         el('strong', { text: '工作人員入口' }),
@@ -172,7 +184,7 @@ export async function challengeHomePage({ scope, view }) {
             el('strong', { text: '關卡還沒公布' }),
             el('p', { class: 'chal__hint', text: '主辦設定好之後這裡就會出現。' })
           ])
-        : el('ul', { class: 'chal__list' }, state.challenges.map(challengeRow)),
+        : state.rewards?.rule === DAILY_RULE ? null : el('ul', { class: 'chal__list' }, state.challenges.map(challengeRow)),
 
       el('button', {
         class: 'btn chal__back', type: 'button', onClick: () => navigate('/')

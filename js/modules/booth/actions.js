@@ -11,6 +11,7 @@
  */
 
 import { toMillis } from '../../lib/format.js';
+import { activityDate } from '../../engine/challenge-days.js';
 import {
   validateScore, sumShots, validateLadder, attemptQuota, pickBest,
   formatScore, isBetter, rankingOf, numOf
@@ -126,6 +127,8 @@ export function buildAttempt({
     attemptId,
     doc: {
       attemptId,
+      recordedAtMs: Math.trunc(atMs),
+      activityDate: activityDate(atMs),
       challengeId: challenge.challengeId,
       playerId,
       playerNickname,
