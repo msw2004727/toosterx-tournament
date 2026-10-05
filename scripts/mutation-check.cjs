@@ -9,6 +9,10 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#TEAMNAME-PRIORITY 公開賽程忽略已設定簡稱', file: 'js/modules/public/selectors.js',
+    from: '  if (t?.displayName) return t.displayName;\n  if (t?.name) return t.name;',
+    to: '  if (t?.name) return t.name;\n  if (t?.displayName) return t.displayName;',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/public-selectors.test.js --silent' },
   { name: '#BYE1 準決賽誤接另一場淘汰勝隊', file: 'js/engine/formats.js',
     from: "away: { type: 'matchWinner', matchKey: 'QF2' }", to: "away: { type: 'matchWinner', matchKey: 'QF1' }",
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit/top-seed-bye.test.js --runInBand --silent' },
