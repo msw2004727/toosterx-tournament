@@ -46,6 +46,8 @@ export async function publishManualScheduleFor(request) {
     const teams=teamsSnap.docs.map(d=>({...d.data(),teamId:d.id})),approved=teams.filter(t=>t.status==='approved'&&t.withdrawn!==true);
     if(canonical(approved.map(t=>t.teamId).sort())!==canonical([...draft.orderedTeamIds].sort()))fail('aborted','核准或退賽名單已變更，請重新載入');
     const all=rows(matchesSnap),old=all.filter(m=>m.divisionId===division.divisionId),isCreate=old.length===0;
+    if(isCreate&&division.requiredFormatId&&(draft.generated||draft.formatId!==division.requiredFormatId))
+      fail('failed-precondition','此組別已指定統一賽制，不能切換為其他範本');
     if((draft.mode==='create')!==isCreate)fail('aborted','場次清單已變更，請重新載入');
     if(!cfgSnap.exists||!Array.isArray(eventSnap.data().dates)||!eventSnap.data().dates.includes(division.date))fail('failed-precondition','缺少排程設定或有效的組別比賽日期');
     const rule=rulesSnap.data()?.rules?.[division.rankingRuleId];if(!rule)fail('failed-precondition','缺少此組別排名規則');

@@ -234,6 +234,16 @@ test('⭐ 直播是「點了才載入」，不會一進頁就開 iframe @public'
   await expect(page.locator('.video iframe')).toHaveCount(1);
 });
 
+test('組別與球隊頁讀取設定的甲乙小組名稱 @public', async ({ page }) => {
+  const s = full();
+  s[`events/${EVENT}/divisions/adult-open`].groupNames = { A: '甲組', B: '乙組' };
+  await stub(page, s);
+  await go(page, '/#/division/adult-open');
+  await expect(page.locator('.pcard')).toContainText('甲組');
+  await go(page, '/#/team/t-101');
+  await expect(page.locator('.phead')).toContainText('甲組');
+});
+
 test('組別頁：積分榜直接讀 rows，晉級區標在前兩名 @public', async ({ page }) => {
   await stub(page, full());
   await go(page, '/#/division/adult-open');

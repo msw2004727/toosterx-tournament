@@ -601,7 +601,7 @@ export function buildSeed({ seed = 20261009 } = {}) {
       matchDurationMin: div.matchDurationMin,
       periods: div.periods, ballSize: div.ballSize,
       eligibility: div.eligibility,
-      formatId: div.formatId, rankingRuleId: div.rankingRuleId,
+      formatId: div.formatId, requiredFormatId: div.requiredFormatId, groupNames: div.groupNames, rankingRuleId: div.rankingRuleId,
       colorToken: div.colorToken, order: div.order, code: div.code,
       display: div.display,
       status: 'scheduled', finalRankingPublished: false, finalRanking: null,

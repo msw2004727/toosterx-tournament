@@ -23,6 +23,7 @@
  */
 
 import { divisionThemeAttrs } from '../../core/division-theme.js';
+import { groupNameOf } from '../../engine/group-name.js';
 import { el, mount, toast, skeleton, confirmDialog } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { can, onAuth } from '../../core/firebase.js';
@@ -103,7 +104,7 @@ export async function adminStandingsPage({ scope, view }) {
     const ok = await confirmDialog({
       title: '送出裁定',
       body: [
-        `${divisionName(s.divisionId)} ${s.groupId} 組：`,
+        `${divisionName(s.divisionId)} ${groupNameOf(s.groupId, state.divisions.find(d => d.divisionId === s.divisionId), ' ')}：`,
         order.map((id, i) => `${g.ranks[i]}. ${state.teamsById[id]?.name ?? id}`).join('\n'),
         '',
         ...consequencesOf({ hasDownstream: true })
@@ -200,7 +201,7 @@ export async function adminStandingsPage({ scope, view }) {
     const order = orderOf(s, g);
     const seed = state.seeds[k] ?? null;
     return el('div', { class: 'adm__box adm__box--warn', ...divisionThemeAttrs(s.divisionId), 'data-tie': k }, [
-      el('strong', {}, iconText('warn', `${divisionName(s.divisionId)}　${s.groupId} 組`)),
+      el('strong', {}, iconText('warn', `${divisionName(s.divisionId)}　${groupNameOf(s.groupId, state.divisions.find(d => d.divisionId === s.divisionId), ' ')}`)),
       el('p', { class: 'adm__note', text:
         `${namesOf(g.teamIds, state.teamsById)} 在規章第十九條的四項條件下完全相同，第 5 順位是抽籤。` }),
       el('ol', { class: 'adm__tieList' }, order.map((id, i) => teamRow(s, g, id, i))),
@@ -222,7 +223,7 @@ export async function adminStandingsPage({ scope, view }) {
   function ruledCard(s) {
     const locked = (s.rows || []).filter(r => r.locked === true);
     return el('div', { class: 'adm__box adm__box--ok', ...divisionThemeAttrs(s.divisionId) }, [
-      el('strong', {}, iconText('check', `${divisionName(s.divisionId)}　${s.groupId} 組　已裁定`)),
+      el('strong', {}, iconText('check', `${divisionName(s.divisionId)}　${groupNameOf(s.groupId, state.divisions.find(d => d.divisionId === s.divisionId), ' ')}　已裁定`)),
       el('p', { class: 'adm__note', text: locked
         .map(r => `${r.rank}. ${state.teamsById[r.teamId]?.name ?? r.teamId}`).join('　') }),
       s.manualOverride?.reason

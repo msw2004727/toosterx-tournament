@@ -9,6 +9,15 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#BYE1 準決賽誤接另一場淘汰勝隊', file: 'js/engine/formats.js',
+    from: "away: { type: 'matchWinner', matchKey: 'QF2' }", to: "away: { type: 'matchWinner', matchKey: 'QF1' }",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit/top-seed-bye.test.js --runInBand --silent' },
+  { name: '#BYE2 五六名賽誤接淘汰勝隊', file: 'js/engine/formats.js',
+    from: "home: { type: 'matchLoser', matchKey: 'QF1' }", to: "home: { type: 'matchWinner', matchKey: 'QF1' }",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit/top-seed-bye.test.js --runInBand --silent' },
+  { name: '#BYE3 產生小組忽略設定的甲乙名稱', file: 'js/engine/schedule.js',
+    from: 'name: groupNameOf(gid, names)', to: 'name: `${gid}組`',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit/top-seed-bye.test.js --runInBand --silent' },
   { name: '#MEMBERNAME 空白隊員姓名也能儲存', file: 'js/engine/member-identity.js',
     from: '!name || name.length > 40', to: 'name.length > 40',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit/member-identity.test.js --runInBand --silent' },
