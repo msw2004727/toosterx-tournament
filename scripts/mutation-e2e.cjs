@@ -15,6 +15,12 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#EHOMEDATE 首頁活動結束回到首日', file: 'js/modules/public/home.js',
+    from: 'return selectedActivityDate(activityTime(), EVENT.dates, EVENT.timezone);', to: 'return EVENT.dates[0];' },
+  { name: '#EHOMEWATCH 首頁跨日未更新日期', file: 'js/modules/public/home.js',
+    from: 'if (date !== autoDate) { autoDate = date; selectDate(date); }', to: 'autoDate = date;' },
+  { name: '#ECANCELRECEIPT 撤銷未驗證操作收據', file: 'js/modules/admin/data.js',
+    from: "if (action === 'match.cancelStart') {", to: 'if (false) {' },
   { name: '#EDEMOTIME 啟用測試時間未保存選擇', file: 'js/modules/demo/time.js',
     from: 'anchor = { time: timestamp, startedAt: Date.now() };', to: 'anchor = null;' },
   { name: '#ECHECKPENDING 待補球員仍無法勾選', file: 'js/modules/staff/checkin.js',
@@ -275,10 +281,10 @@ const MUTANTS = [
     to: `      () => {});`
   },
   {
-    name: '#E22 ⭐ 已開打仍可重新抽籤（草稿一產生就覆蓋已打完的分組；D-09）',
+    name: '#E22 自動逐場調整未上鎖',
     file: 'js/modules/admin/schedule.js',
-    from: `          class: 'btn btn--lg', type: 'button', disabled: !!state.busy || !canRegenerate(existing()).ok,`,
-    to: `          class: 'btn btn--lg', type: 'button', disabled: !!state.busy,`
+    from: "disabled: true, title: '自動／逐場調整已關閉，請使用手動安排',",
+    to: "disabled: false, title: '自動／逐場調整已關閉，請使用手動安排',"
   },
   {
     name: '#E23 ⭐ 棄賽鈕反灰不說原因（D-12）',
@@ -418,10 +424,9 @@ const MUTANTS = [
     to: `    return \`目前比分 \${h}:\${a}\`;`
   },
   {
-    name: '#E44 ⭐ 有場次開打之後分組按鈕還能點（對調了卻產生不了，看起來像沒有作用；M-3）',
+    name: '#E44 賽程管理仍預設自動',
     file: 'js/modules/admin/schedule.js',
-    from: `            disabled: gc === 1 || !!state.busy || !canRegenerate(existing()).ok,`,
-    to: `            disabled: gc === 1 || !!state.busy,`
+    from: "mode: 'manual', manual: null", to: "mode: 'automatic', manual: null"
   },
   {
     name: '#E45 ⭐ 「代建新卡」按了什麼都不做（家長的第二個小孩沒有卡；M-9）',

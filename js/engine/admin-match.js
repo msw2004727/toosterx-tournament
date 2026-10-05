@@ -73,6 +73,30 @@ export function canReopen(match) {
   return yes();
 }
 
+/** Cancel an accidental first-period start without losing the prepared rosters. */
+export function canCancelStart(match, events = []) {
+  if (!match) return no('找不到場次。');
+  if (match.status !== 'live' || match.period !== 'h1') return no('只可撤銷第一節誤開賽；其他狀態請使用歸零。');
+  if (match.score?.home !== 0 || match.score?.away !== 0 || match.result != null || match.lock?.locked === true
+    || (match.revisionCount ?? 0) !== 0 || [match.htScore, match.penaltyScore].some(s => s && (s.home != null || s.away != null)))
+    return no('已有比分或結果，請使用歸零並退回未開賽。');
+  if (events.some(e => e.type !== 'period_start' || e.periodId !== 'h1')) return no('已有比賽事件，請使用歸零並退回未開賽。');
+  return yes();
+}
+
+export function buildCancelStartPatch(match, uid, events = []) {
+  const gate = canCancelStart(match, events);
+  if (!gate.ok) throw new Error(gate.reason);
+  const home = match.checkin?.homeConfirmed === true, away = match.checkin?.awayConfirmed === true;
+  return {
+    status: home && away ? 'ready' : home || away ? 'checkin' : 'scheduled', period: 'pre',
+    clock: { running: false, periodStartedAt: null, elapsedSecAtPause: 0, addedTimeSec: 0 },
+    scoreSubmittedAt: null, scoreSubmittedBy: null,
+    resetRevision: (Number.isInteger(match.resetRevision) ? match.resetRevision : 0) + 1,
+    writeNonce: null, updatedBy: uid
+  };
+}
+
 export function canReset(match) {
   return match ? yes() : no('找不到場次。');
 }
@@ -246,6 +270,12 @@ export function buildStatusPatch(status, uid) {
 export function consequencesOf(match, action) {
   const out = [];
   const wasDecided = DECIDED_STATUSES.includes(match?.status);
+
+  if (action === 'cancelStart') {
+    out.push('撤銷誤開的第一節並清除開賽時鐘；保留檢錄、出場名單、場地與對戰隊伍。');
+    out.push('這一場會移出首頁「現在進行中」，依檢錄狀態退回待開賽。');
+    out.push('已有比分或比賽事件時，請使用「歸零並退回未開賽」。');
+  }
 
   if (action === 'reset') {
     out.push('比分、PK、時鐘、比賽事件、檢錄與出場名單會歸零，並退回未開賽。');

@@ -445,6 +445,7 @@ export const httpsCallable = (_fns, name) => async (payload) => {
     }
     return { data: { ok: true, data: { shareId, action: payload.action, changed: true } } };
   }
+  if (name === 'manageEvent' && Object.hasOwn(window, '__FAKE_MANAGEMENT_RESULT')) return { data: { ok: true, data: window.__FAKE_MANAGEMENT_RESULT } };
   if (name === 'generateSchedule' || name === 'manageEvent') return fakeManagement(name, payload);
   if (name === 'publishManualSchedule') {
     // UI wiring only. Authorization, locks and atomicity are tested in the emulator.
@@ -594,6 +595,15 @@ async function fakeManagement(name, p) {
       before={match:m,deletedDocuments:children.map(d=>({path:d._path,doc:d}))};
       for(const d of children)ops.push({path:d._path,remove:true});
       result={entityId:p.matchId,status:patch.status,resetRevision:patch.resetRevision};
+    }
+    if(p.action==='match.cancelStart'){
+      const timeline=rows(path+'/timeline/');
+      patch=actions.buildCancelStartPatch(m,actor.uid,timeline);
+      const retained=[...rows(base+'/checkins/'),...rows(base+'/matchSheets/')].filter(d=>d.matchId===p.matchId);
+      before={match:m,deletedDocuments:timeline.map(d=>({path:d._path,doc:d})),retainedDocuments:retained};
+      for(const d of timeline)ops.push({path:d._path,remove:true});
+      for(const d of retained)put(d._path,{resetRevision:patch.resetRevision},true);
+      result={action:p.action,entityId:p.matchId,status:patch.status,resetRevision:patch.resetRevision,retainedDocuments:retained.length};
     }
     if(p.action==='match.override')patch=actions.buildOverridePatch({match:m,score:p.patch.score,penaltyScore:p.patch.penaltyScore,uid:actor.uid});
     if(p.action==='match.walkover')patch=actions.buildWalkoverPatch({side:p.patch.walkoverSide,uid:actor.uid});

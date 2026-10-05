@@ -534,3 +534,38 @@ test('申訴成立之後有一條捷徑到「改判比分」（裁決與改判�
   await page.locator('[data-act="go-override"]').click();
   await expect(page.locator('#override-section')).toBeInViewport();
 });
+
+test('CANCELUI 撤銷誤開保留檢錄名單並回到待開賽，必填原因 @cancelstart', async ({ page }) => {
+  await stub(page, { m: match({ status: 'live', period: 'h1', score: { home: 0, away: 0 }, result: null, lock: { locked: false },
+    checkin: { homeConfirmed: true, awayConfirmed: true }, clock: { running: true } }),
+    extra: { ['events/' + EVENT + '/matchSheets/keep']: { matchId: MATCH, players: ['p'], confirmed: true, resetRevision: 0 },
+      ['events/' + EVENT + '/checkins/keep']: { matchId: MATCH, result: 'pass', resetRevision: 0 },
+      ['events/' + EVENT + '/matches/' + MATCH + '/timeline/start']: { type: 'period_start', periodId: 'h1' } } });
+  await go(page); await ready(page); answerPrompt(page, '按錯開賽');
+  await page.getByRole('button', { name: '撤銷開賽', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('保留檢錄');
+  await page.getByRole('dialog').getByRole('button', { name: '撤銷開賽', exact: true }).click();
+  await expect(page.locator('.toast--success')).toContainText('已撤銷開賽');
+  expect(await matchOf(page)).toMatchObject({ status: 'ready', period: 'pre', resetRevision: 1, writeNonce: null, checkin: { homeConfirmed: true, awayConfirmed: true } });
+  const docs = await dump(page);
+  expect(docs['events/' + EVENT + '/matchSheets/keep']).toMatchObject({ players: ['p'], confirmed: true, resetRevision: 1 });
+  expect(docs['events/' + EVENT + '/checkins/keep']).toMatchObject({ result: 'pass', resetRevision: 1 });
+  expect((await auditsOf(page))[0]).toMatchObject({ action: 'match.cancelStart', reason: '按錯開賽' });
+});
+
+test('CANCELRECEIPT 撤銷沒有有效收據不得顯示成功 @cancelstart', async ({ page }) => {
+  await stub(page, { m: match({ status: 'live', period: 'h1', score: { home: 0, away: 0 }, result: null, lock: { locked: false } }) });
+  await go(page); await ready(page);
+  await page.evaluate(() => { window.__FAKE_MANAGEMENT_RESULT = {}; }); answerPrompt(page, '按錯');
+  await page.getByRole('button', { name: '撤銷開賽', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '撤銷開賽', exact: true }).click();
+  await expect(page.locator('.toast--error')).toContainText('尚未確認撤銷開賽結果');
+  await expect(page.locator('.toast--success')).toHaveCount(0);
+  expect((await matchOf(page)).status).toBe('live');
+});
+
+test('已有比分只能使用歸零，撤銷開賽反灰 @cancelstart', async ({ page }) => {
+  await stub(page, { m: match({ status: 'live', period: 'h1', lock: { locked: false } }) }); await go(page); await ready(page);
+  await expect(page.getByRole('button', { name: '撤銷開賽', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '歸零並退回未開賽', exact: true })).toBeEnabled();
+});

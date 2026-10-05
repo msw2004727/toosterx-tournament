@@ -12,6 +12,12 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#CANCEL-REBASE 保留名單未更新寫入世代', file: 'functions/management.js',
+    from: 'doc:{resetRevision:resultPatch.resetRevision}', to: 'doc:{resetRevision:resultPatch.resetRevision-1}',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/consistency.test.js --testNamePattern=CANCEL1 --silent' },
+  { name: 'FN#CANCEL-KEEP 撤銷誤開賽誤刪檢錄出場名單', file: 'functions/management.js',
+    from: "(action==='match.reset'?children:[children[0]]).flatMap(s=>s.docs)", to: 'children.flatMap(s=>s.docs)',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/consistency.test.js --testNamePattern=CANCEL1 --silent' },
   { name: 'FN#RESET-LEGACY 新版管理端阻擋舊版未歸零場次', file: 'functions/management.js',
     from: 'canonical({...expected,resetRevision:expected?.resetRevision??0})', to: 'canonical(expected)',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/consistency.test.js --testNamePattern=RESET3 --silent' },

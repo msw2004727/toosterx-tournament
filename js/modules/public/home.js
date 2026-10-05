@@ -15,6 +15,8 @@ import { el, mount, skeleton, toast } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
 import { icon, iconText } from '../../core/icons.js';
 import { startTicker, now } from '../../core/clock.js';
+import { activityTime } from '../../core/activity-clock.js';
+import { selectedActivityDate } from '../../engine/challenge-days.js';
 import { dateLabelFromYmd, hhmm } from '../../lib/format.js';
 import { EVENT, CACHE_VERSION } from '../../config.js';
 import * as data from './data.js';
@@ -26,7 +28,7 @@ export async function publicHome({ scope, view, query }) {
   mount(view, root);
 
   const state = {
-    date: query?.get('date') || todayInEvent(),
+    date: EVENT.dates.includes(query?.get('date')) ? query.get('date') : todayInEvent(),
     matches: [],
     divisions: [],
     divisionsStatus: 'loading',
@@ -73,6 +75,7 @@ export async function publicHome({ scope, view, query }) {
   const dropBoard = () => { const f = stopBoard; stopBoard = null; f?.(); };
 
   stopBoard = data.watchLiveBoard(scope, board => {
+    if (disposed || state.boardMissing) return;
     // ⚠️ **空的看板不算看板**（2026-09-05 在真站上看到）。
     //    種子會建一份三個陣列都是空的 `boards/live` 空殼，而 Function
     //    只在有比賽結果時才重建它——結果首頁整天顯示「這個日期沒有待進行
@@ -101,12 +104,17 @@ export async function publicHome({ scope, view, query }) {
   });
 
   function startMatchFallback() {
+    if (disposed) return;
     stopMatches?.();
-    stopMatches = data.watchMatchesByDate(scope, state.date, rows => {
+    const date = state.date;
+    state.matches = []; state.loading = true;
+    stopMatches = data.watchMatchesByDate(scope, date, rows => {
+      if (disposed || date !== state.date) return;
       state.matches = rows;
       state.loading = false;
       render();
     }, err => {
+      if (disposed || date !== state.date) return;
       state.loading = false;
       mount(root, pageHead(EVENT.name, { sub: EVENT.slogan }), empty(
         '載入失敗',
@@ -119,7 +127,18 @@ export async function publicHome({ scope, view, query }) {
   }
 
   // 進行中的分鐘數要自己跑，不靠伺服器推播（§2.3）
-  const stopTicker = startTicker(() => paintMinutes(), 1000);
+  let autoDate = todayInEvent();
+  const stopTicker = startTicker(() => {
+    const date = todayInEvent();
+    if (date !== autoDate) { autoDate = date; selectDate(date); }
+    paintMinutes();
+  }, 1000);
+
+  function selectDate(date) {
+    if (disposed || date === state.date) return;
+    state.date = date; state.board = null; state.boardMissing = true;
+    dropBoard(); startMatchFallback(); render();
+  }
 
   render();
 
@@ -316,10 +335,7 @@ export async function publicHome({ scope, view, query }) {
         class: `ptabs__btn ${d === state.date ? 'is-active' : ''}`,
         type: 'button', role: 'tab', 'aria-selected': d === state.date ? 'true' : 'false',
         onClick: () => {
-          if (d === state.date) return;
-          state.date = d;
-          if (state.boardMissing) startMatchFallback(); else render();
-          render();
+          selectDate(d);
         }
       }, dateLabelFromYmd(d))));
   }
@@ -337,13 +353,12 @@ export async function publicHome({ scope, view, query }) {
     }
   }
 
-  return () => { disposed = true; closeRankingsToast?.(); stopTicker?.(); };
+  return () => { disposed = true; closeRankingsToast?.(); stopTicker?.(); stopMatches?.(); dropBoard(); };
 }
 
-/** 活動期間就用今天，否則落在活動第一天（賽前預覽不會看到空畫面） */
+/** 與攤位共用活動時區及測試時間，賽前保留首日、賽後保留末日。 */
 function todayInEvent() {
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: EVENT.timezone }).format(new Date());
-  return EVENT.dates.includes(today) ? today : EVENT.dates[0];
+  return selectedActivityDate(activityTime(), EVENT.dates, EVENT.timezone);
 }
 
 export { todayInEvent, hhmm };

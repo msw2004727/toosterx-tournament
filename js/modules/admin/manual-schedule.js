@@ -2,6 +2,7 @@
 import { el, mount, toast } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { can, user, onAuth } from '../../core/firebase.js';
+import { navigate } from '../../core/router.js';
 import { hold } from '../../core/store.js';
 import { EVENT_ID } from '../../config.js';
 import { taipeiMs, kickoffMsOf } from '../../engine/schedule.js';
@@ -248,6 +249,9 @@ export function createManualScheduler({ scope, context, onDone, onReload, onBusy
         ])])
       ]),
       match.locked ? el('p', { class: 'manual__muted', text: '此場已開打或已有結果，球隊、時間與場地均不可變更。' }) : null,
+      baseline.some(m => m.matchId === match.matchId) && (can('match.cancelStart') || can('match.reset') || can('match.score.override') || can('match.confirm') || can('match.reopen'))
+        ? el('button', { class: 'btn', type: 'button', disabled: state.busy || !!state.pending,
+          onClick: () => navigate('/admin/match/' + encodeURIComponent(match.matchId)) }, iconText('note', '管理場次')) : null,
       mine.length ? el('ul', { class: 'manual__matchIssues' }, mine.map(f => el('li', { class: `manual__issue manual__issue--${f.level}`, text: f.message }))) : null
     ]);
     return card;

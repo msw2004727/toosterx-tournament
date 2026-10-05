@@ -30,6 +30,7 @@ const P = {
   pause:       '<path d="M9.5 5v14M14.5 5v14"/>',
   stop:        '<rect x="6" y="6" width="12" height="12" rx="2"/>',
   clock:       '<circle cx="12" cy="12" r="9"/><path d="M12 6.8v5.4l3.4 2"/>',
+  lock:        '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4"/><path d="M12 14v3"/>',
   undo:        '<path d="M4.5 9h10.5a5 5 0 0 1 0 10H9"/><path d="m8.5 4.5-4 4.5 4 4.5"/>',
 
   /* 狀態 */

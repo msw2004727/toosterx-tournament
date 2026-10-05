@@ -1,5 +1,8 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  "EHOMEDATE": { "spec": "tests/e2e/home-date.spec.js", "grep": "HOMEDATE.*2026-10-12", "assertions": ["expect(selected(page)).toContainText('10/' + day)"], "failure": "expect(selected(page)).toContainText('10/' + day)", "minTests": 1 },
+  "EHOMEWATCH": { "spec": "tests/e2e/home-date.spec.js", "grep": "HOMEROLLOVER", "assertions": ["expect(selected(page)).toContainText('10/10')"], "failure": "expect(selected(page)).toContainText('10/10')", "minTests": 1 },
+  "ECANCELRECEIPT": { "spec": "tests/e2e/admin-match.spec.js", "grep": "CANCELRECEIPT", "assertions": ["expect(page.locator('.toast--error')).toContainText('尚未確認撤銷開賽結果')"], "failure": "expect(page.locator('.toast--error')).toContainText('尚未確認撤銷開賽結果')", "minTests": 1 },
   EDEMOTIME: { spec: 'tests/e2e/demo-switch.spec.js', grep: 'Demo 可選測試日期', minTests: 1,
     failure: 'toContainText', assertions: ["await expect(page.locator('#demo-banner')).toContainText('10/10');"] },
   ECHECKPENDING: { spec: 'tests/e2e/checkin.spec.js', grep: 'CSV 待補資料可勾', minTests: 1,
@@ -373,11 +376,11 @@ module.exports = {
   },
   "E22": {
     "spec": "tests/e2e/admin-schedule.spec.js",
-    "grep": "D-09 已經開打就不給重新抽籤",
+    "grep": "SLOCK",
     "assertions": [
-      "expect(page.getByRole('button', { name: /抽籤/ })).toBeDisabled()"
+      "expect(page.getByRole('button', { name: '自動／逐場調整（已上鎖）' })).toBeDisabled()"
     ],
-    "failure": "expect(page.getByRole('button', { name: /抽籤/ })).toBeDisabled()",
+    "failure": "expect(page.getByRole('button', { name: '自動／逐場調整（已上鎖）' })).toBeDisabled()",
     "minTests": 1
   },
   "E23": {
@@ -571,11 +574,11 @@ module.exports = {
   },
   "E44": {
     "spec": "tests/e2e/admin-schedule.spec.js",
-    "grep": "有場次開打之後，分組的按鈕關掉",
+    "grep": "SMANUAL",
     "assertions": [
-      "expect(chips.nth(i)).toBeDisabled()"
+      "expect(page.locator('.manual__workspace')).toBeVisible()"
     ],
-    "failure": "expect(chips.nth(i)).toBeDisabled()",
+    "failure": "expect(page.locator('.manual__workspace')).toBeVisible()",
     "minTests": 1
   },
   "E45": {

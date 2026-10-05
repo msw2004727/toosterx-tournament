@@ -40,3 +40,20 @@ test('歸零後舊事件、檢錄、出場名單皆擋下；新世代可重新�
     await assertSucceeds(setDoc(ref, { ...record, resetRevision: 2 }));
   }
 });
+
+test('撤銷後保留檢錄名單；舊裝置更新被拒，新世代可更新並重新開賽', async () => {
+  await asAdminSdk(env, async db => {
+    await updateDoc(path(db, 'matches', MATCH), { status: 'ready', checkin: { homeConfirmed: true, awayConfirmed: true } });
+    await setDoc(path(db, 'checkins', MATCH + '__m-101-07'), { matchId: MATCH, memberId: 'm-101-07', teamId: 't-101', result: 'pass', scannedBy: 'u-checkin', resetRevision: 2 });
+    await setDoc(path(db, 'matchSheets', MATCH + '__t-101'), { matchId: MATCH, teamId: 't-101', players: [], resetRevision: 2 });
+  });
+  const check = path(authed(env, 'u-checkin'), 'checkins', MATCH + '__m-101-07');
+  await assertFails(updateDoc(check, { result: 'pass', scannedBy: 'u-checkin', resetRevision: 1 }));
+  await assertSucceeds(updateDoc(check, { result: 'pass', scannedBy: 'u-checkin', resetRevision: 2 }));
+  const sheet = path(authed(env, 'u-referee'), 'matchSheets', MATCH + '__t-101');
+  await assertFails(updateDoc(sheet, { players: [], resetRevision: 1 }));
+  await assertSucceeds(updateDoc(sheet, { players: [], resetRevision: 2 }));
+  const parent = path(authed(env, 'u-scorer'), 'matches', MATCH);
+  await assertFails(updateDoc(parent, { status: 'live', period: 'h1', resetRevision: 1, writeNonce: crypto.randomUUID(), updatedBy: 'u-scorer' }));
+  await assertSucceeds(updateDoc(parent, { status: 'live', period: 'h1', resetRevision: 2, writeNonce: crypto.randomUUID(), updatedBy: 'u-scorer' }));
+});
