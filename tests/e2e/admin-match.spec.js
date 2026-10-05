@@ -537,6 +537,7 @@ test('申訴成立之後有一條捷徑到「改判比分」（裁決與改判�
 
 test('CANCELUI 撤銷誤開保留檢錄名單並回到待開賽，必填原因 @cancelstart', async ({ page }) => {
   await stub(page, { m: match({ status: 'live', period: 'h1', score: { home: 0, away: 0 }, result: null, lock: { locked: false },
+    htScore: { home: 0, away: 0 }, result: { winner: null, method: null, homePoints: 0, awayPoints: 0 },
     checkin: { homeConfirmed: true, awayConfirmed: true }, clock: { running: true } }),
     extra: { ['events/' + EVENT + '/matchSheets/keep']: { matchId: MATCH, players: ['p'], confirmed: true, resetRevision: 0 },
       ['events/' + EVENT + '/checkins/keep']: { matchId: MATCH, result: 'pass', resetRevision: 0 },

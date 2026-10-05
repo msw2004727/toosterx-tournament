@@ -346,7 +346,7 @@ test('MC32 重產後積分榜版本重用，舊賽程的裁定仍必須拒絕且
 });
 
 test('CANCEL1 撤銷原子保留檢錄名單、推進世代、移除看板及開賽事件；重送冪等',async()=>{
-  await match('g1').update({status:'live',period:'h1',clock:{running:true},checkin:{homeConfirmed:true,awayConfirmed:true},resetRevision:2,writeNonce:'old'});
+  await match('g1').update({status:'live',period:'h1',htScore:{home:0,away:0},result:{winner:null,method:null,homePoints:0,awayPoints:0},clock:{running:true},checkin:{homeConfirmed:true,awayConfirmed:true},resetRevision:2,writeNonce:'old'});
   await match('g1').collection('timeline').doc('start').set({type:'period_start',periodId:'h1'});
   await base().collection('checkins').doc('keep').set({matchId:'g1',result:'pass',resetRevision:2});
   await base().collection('matchSheets').doc('keep').set({matchId:'g1',players:['p'],confirmed:true,resetRevision:2});

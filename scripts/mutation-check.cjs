@@ -9,6 +9,9 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#CANCEL-PLACEHOLDER 新建場次預設值誤鎖撤銷', file: 'js/engine/admin-match.js',
+    from: 'match.result?.winner != null', to: 'match.result != null',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/cancel-start.test.js --testNamePattern=CANCELDEFAULT --silent' },
   { name: '#CANCEL-GUARD 有事件仍能撤銷誤開賽', file: 'js/engine/admin-match.js',
     from: "events.some(e => e.type !== 'period_start' || e.periodId !== 'h1')", to: 'false',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/cancel-start.test.js --silent' },

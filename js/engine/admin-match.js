@@ -77,8 +77,14 @@ export function canReopen(match) {
 export function canCancelStart(match, events = []) {
   if (!match) return no('找不到場次。');
   if (match.status !== 'live' || match.period !== 'h1') return no('只可撤銷第一節誤開賽；其他狀態請使用歸零。');
-  if (match.score?.home !== 0 || match.score?.away !== 0 || match.result != null || match.lock?.locked === true
-    || (match.revisionCount ?? 0) !== 0 || [match.htScore, match.penaltyScore].some(s => s && (s.home != null || s.away != null)))
+  // New fixtures contain a blank result object and a 0:0 halftime placeholder.
+  // First-period status plus the event gate distinguishes those defaults from a played half.
+  if (match.score?.home !== 0 || match.score?.away !== 0 || match.lock?.locked === true || match.walkoverSide != null
+    || match.result?.winner != null || match.result?.method != null
+    || (match.result?.homePoints ?? 0) !== 0 || (match.result?.awayPoints ?? 0) !== 0
+    || (match.revisionCount ?? 0) !== 0
+    || [match.htScore?.home, match.htScore?.away].some(value => value != null && value !== 0)
+    || [match.penaltyScore?.home, match.penaltyScore?.away].some(value => value != null))
     return no('已有比分或結果，請使用歸零並退回未開賽。');
   if (events.some(e => e.type !== 'period_start' || e.periodId !== 'h1')) return no('已有比賽事件，請使用歸零並退回未開賽。');
   return yes();
