@@ -49,9 +49,15 @@ test('Demo 測試未到日須環境、開关和標記皆符合，正式站永遠
   await assertSucceeds(submit('demo-future',record));
   await assertFails(submit('normal-future',{...record,demoTestTime:false}));
   await assertFails(submit('demo-forged-day',{...record,activityDate:today}));
+  await env.withSecurityRulesDisabled(ctx=>updateDoc(doc(ctx.firestore(),'config','env'),{allowChallengeTestTime:false}));
+  await assertFails(submit('demo-disabled',record));
+  await env.withSecurityRulesDisabled(ctx=>updateDoc(doc(ctx.firestore(),'config','env'),{allowChallengeTestTime:true}));
   await env.withSecurityRulesDisabled(ctx=>updateDoc(doc(ctx.firestore(),'events',EVENT,'challenges',CHALLENGE),{dailyOpen:{[date]:false}}));
   await assertFails(submit('demo-closed',record));
-  await env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),'config','env'),{env:'prod',allowChallengeTestTime:true}));
+  await env.withSecurityRulesDisabled(async ctx=>{
+    await updateDoc(doc(ctx.firestore(),'events',EVENT,'challenges',CHALLENGE),{dailyOpen:{[today]:true,[date]:true}});
+    await setDoc(doc(ctx.firestore(),'config','env'),{env:'prod',allowChallengeTestTime:true});
+  });
   await assertFails(submit('prod-future',record));
   await assertFails(submit('prod-past-marker',{recordedAtMs:now,activityDate:today,demoTestTime:true}));
 });

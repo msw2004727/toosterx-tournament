@@ -1621,8 +1621,8 @@ const MUTANTS = [
   {
     name: '#MA4 ⭐ 重開時 lock 只寫 locked（updateDoc 整包取代，另外兩個欄位被刪掉）',
     file: 'js/engine/admin-match.js',
-    from: "    lock: { locked: false, lockedAt: null, lockedBy: null },\n    scoreSubmittedAt: null,",
-    to: '    lock: { locked: false },\n    scoreSubmittedAt: null,'
+    from: "    walkoverSide: null,\n    lock: { locked: false, lockedAt: null, lockedBy: null },\n    scoreSubmittedAt: null,",
+    to: '    walkoverSide: null,\n    lock: { locked: false },\n    scoreSubmittedAt: null,'
   },
   {
     name: '#MA5 ⭐ 棄賽比分手填成 3:0（規章第十八條第 6 款是 0:2）',

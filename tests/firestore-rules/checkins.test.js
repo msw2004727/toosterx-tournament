@@ -120,8 +120,11 @@ describe('R80–R81 修改與刪除', () => {
 
   test('R80b ⭐ 但改不動 matchId 或 memberId（那等於偽造另一筆）', async () => {
     await seedRec();
+    // 目標球員與場次都存在，避免名冊／世代守衛代替欄位白名單擋住偽造。
+    await asAdminSdk(env, db => setDoc(doc(db, 'events', EVENT, 'teams', 't-101', 'members', 'm-other'), { status: 'approved' }));
+    await assertSucceeds(updateDoc(ref(authed(env, 'u-checkin')), { note: '現場確認', scannedBy: 'u-checkin' }));
     await assertFails(updateDoc(ref(authed(env, 'u-checkin')), { memberId: 'm-other', scannedBy: 'u-checkin' }));
-    await assertFails(updateDoc(ref(authed(env, 'u-checkin')), { matchId: 'U10-G-A-02', scannedBy: 'u-checkin' }));
+    await assertFails(updateDoc(ref(authed(env, 'u-checkin')), { matchId: MATCH_B, scannedBy: 'u-checkin' }));
   });
 
   test('R80c 改的時候 scannedBy 也要換成自己（留痕是誰改的）', async () => {

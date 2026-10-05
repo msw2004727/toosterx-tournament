@@ -50,7 +50,7 @@ const MUTANTS = [
     from: 'return exists(p) && tid in [get(p).data.home.teamId, get(p).data.away.teamId];', to: 'return exists(p);',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/prelaunch.test.js --silent' },
   {
-    name: 'RU#CSV3 待補身分也能完成檢錄', file: F,
+    name: 'RU#CSV3 檢錄不驗核准名冊與身分修訂版本', file: F,
     from: "return r.get('result', null) != 'pass'", to: 'return true'
   },
   {

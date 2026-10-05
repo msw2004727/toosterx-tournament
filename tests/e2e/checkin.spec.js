@@ -84,6 +84,11 @@ const seed = ({ roles = ['checkin'], memberOver = {}, extraPlayers = 0, division
   },
   // ⚠️ 檢錄讀的是 members（私密），不是公開的 roster——
   //    生日與身分證後四碼只存在這一份文件上。
+  // 文件順序刻意讓隊職員在前，必須由實際名單排序把球員移至前面。
+  [`events/${EVENT}/teams/t-101/members/a-coach`]: {
+    memberId: 'a-coach', name: '林教練', jerseyNo: null,
+    kind: 'coach', status: 'approved', birthDate: null, idLast4: null, source: 'coach'
+  },
   [`events/${EVENT}/teams/t-101/members/m-1`]: {
     memberId: 'm-1', name: '小豆子', nameKind: 'nickname', jerseyNo: 7,
     kind: 'player', status: 'approved', birthDate: '2017-03-05', idLast4: '1234', source: 'coach', ...memberOver
@@ -91,10 +96,6 @@ const seed = ({ roles = ['checkin'], memberOver = {}, extraPlayers = 0, division
   [`events/${EVENT}/teams/t-101/members/m-2`]: {
     memberId: 'm-2', name: '阿光', nameKind: 'nickname', jerseyNo: 9,
     kind: 'player', status: 'approved', birthDate: '2016-11-20', idLast4: '5678', source: 'coach'
-  },
-  [`events/${EVENT}/teams/t-101/members/s-1`]: {
-    memberId: 's-1', name: '林教練', jerseyNo: null,
-    kind: 'coach', status: 'approved', birthDate: null, idLast4: null, source: 'coach'
   },
   [`events/${EVENT}/teams/t-101/members/m-x`]: {
     memberId: 'm-x', name: '已移除', jerseyNo: 3,
