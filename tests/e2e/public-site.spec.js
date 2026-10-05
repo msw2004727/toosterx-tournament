@@ -549,7 +549,7 @@ test('看板真的有內容時就用看板（效能最佳化仍然有效）@publ
   seed[`events/${EVENT}/boards/live`] = {
     boardId: 'live',
     liveMatches: [{
-      matchId: 'BOARD-1', divisionId: 'adult-open', status: 'live',
+      matchId: 'BOARD-1', divisionId: 'adult-open', date: DATE, status: 'live',
       venueName: 'A場', label: '看板來的',
       kickoffAt: { seconds: Math.floor(Date.parse('2026-10-11T01:00:00Z') / 1000), nanoseconds: 0 },
       home: { teamId: 'tb1', name: '看板主隊' }, away: { teamId: 'tb2', name: '看板客隊' },

@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20261005f';
+export const CACHE_VERSION = '0.20261005g';
 
 /**
  * PWA 安裝入口。主辦 2026-09-06 決定關閉：頁首不畫「安裝」，Chrome 自己的安裝橫幅也在
@@ -188,6 +188,7 @@ export const PERMISSIONS = [
   //    覆核的意義是「第二雙眼睛」，記分的人自己覆核自己等於沒有覆核。
   { code: 'match.confirm',     label: '覆核完賽',       group: '管理', minRole: 'admin', destructive: true },
   { code: 'match.reopen',      label: '重開已鎖定的場次', group: '管理', minRole: 'admin', destructive: true },
+  { code: 'match.cancelStart', label: '撤銷開賽', group: '管理', minRole: 'admin', destructive: true },
   { code: 'match.reset',       label: '歸零並退回未開賽', group: '管理', minRole: 'admin', destructive: true },
   { code: 'match.score.override', label: '改判比分',    group: '管理', minRole: 'admin', destructive: true },
   { code: 'schedule.manage',   label: '編排賽程與場次', group: '管理', minRole: 'admin', destructive: true },

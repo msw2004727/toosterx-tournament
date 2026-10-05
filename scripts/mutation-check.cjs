@@ -9,8 +9,19 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#CANCEL-PLACEHOLDER 新建場次預設值誤鎖撤銷', file: 'js/engine/admin-match.js',
+    from: 'match.result?.winner != null', to: 'match.result != null',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/cancel-start.test.js --testNamePattern=CANCELDEFAULT --silent' },
+  { name: '#CANCEL-GUARD 有事件仍能撤銷誤開賽', file: 'js/engine/admin-match.js',
+    from: "events.some(e => e.type !== 'period_start' || e.periodId !== 'h1')", to: 'false',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/cancel-start.test.js --silent' },
+  { name: '#CANCEL-GENERATION 撤銷開賽沿用舊裝置世代', file: 'js/engine/admin-match.js',
+    from: "resetRevision: (Number.isInteger(match.resetRevision) ? match.resetRevision : 0) + 1,\n    writeNonce: null, updatedBy: uid\n  };\n}\n\nexport function canReset",
+    to: "resetRevision: (Number.isInteger(match.resetRevision) ? match.resetRevision : 0),\n    writeNonce: null, updatedBy: uid\n  };\n}\n\nexport function canReset",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/cancel-start.test.js --silent' },
   { name: '#RESET-GENERATION 歸零未推進寫入世代', file: 'js/engine/admin-match.js',
-    from: 'match.resetRevision : 0) + 1', to: 'match.resetRevision : 0)',
+    from: "checkin: { homeConfirmed: false, awayConfirmed: false, confirmedAt: null },\n    lock: { locked: false, lockedAt: null, lockedBy: null },\n    scoreSubmittedAt: null, scoreSubmittedBy: null,\n    resetRevision: (Number.isInteger(match.resetRevision) ? match.resetRevision : 0) + 1,",
+    to: "checkin: { homeConfirmed: false, awayConfirmed: false, confirmedAt: null },\n    lock: { locked: false, lockedAt: null, lockedBy: null },\n    scoreSubmittedAt: null, scoreSubmittedBy: null,\n    resetRevision: (Number.isInteger(match.resetRevision) ? match.resetRevision : 0),",
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/demo-reset.test.js --silent' },
   { name: '#RESET-SCORE 歸零後仍有比分', file: 'js/engine/admin-match.js',
     from: "status: 'scheduled', period: 'pre', score: { home: 0, away: 0 },", to: "status: 'scheduled', period: 'pre', score: { home: 1, away: 0 },",

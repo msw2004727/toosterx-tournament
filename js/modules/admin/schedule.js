@@ -63,7 +63,7 @@ export async function adminSchedulePage({ scope, view }) {
     divisionId: null,
     draft: null,        // { order:[team], seed:number|null, formatId:string|null }
     picked: null,       // 對調時選取中的 teamId
-    shiftFrom: '', shiftMin: 30, mode: 'automatic', manual: null
+    shiftFrom: '', shiftMin: 30, mode: 'manual', manual: null
   };
 
   hold(scope, () => { state.manual?.dispose(); view.classList.remove('has-manual-schedule'); }, 'manual-schedule:page');
@@ -158,7 +158,11 @@ export async function adminSchedulePage({ scope, view }) {
         : '請先完成組別的賽制設定與參賽名單。' }),
       el('p', { class: 'adm__note', text: issue }),
       el('p', { class: 'adm__permNote', text: '確認完成前無法建立可發布的手動草稿。既有場次與已開打的結果會保留。' }),
-      el('button', { class: 'btn', type: 'button', onClick: () => navigate('/admin/teams') }, iconText('check', '去報名審核'))
+      el('button', { class: 'btn', type: 'button', onClick: () => navigate('/admin/teams') }, iconText('check', '去報名審核')),
+      can('match.cancelStart') || can('match.reset') || can('match.score.override') || can('match.confirm') || can('match.reopen')
+        ? el('div', { class: 'adm__actions' }, existing().filter(m => !NOT_STARTED.includes(m.status) || hadResult(m)).map(m =>
+          el('button', { class: 'btn', type: 'button', onClick: () => navigate('/admin/match/' + encodeURIComponent(m.matchId)) },
+            iconText('note', '管理場次 ' + m.matchId)))) : null
     ]);
   }
 
@@ -781,15 +785,15 @@ export async function adminSchedulePage({ scope, view }) {
     const mine = existing();
     const modeButtons = el('div', { class: 'adm__scheduleModes', role: 'group', 'aria-label': '安排賽程方式' }, [
       el('button', {
-        class: `btn${state.mode === 'automatic' ? ' btn--primary' : ''}`, type: 'button',
-        'aria-pressed': state.mode === 'automatic' ? 'true' : 'false', disabled: !!state.busy || !!state.manual?.busy,
-        onClick: () => { state.manual?.dispose(); state.manual = null; state.mode = 'automatic'; render(); }
-      }, iconText('table', '自動／逐場調整')),
-      el('button', {
-        class: `btn${state.mode === 'manual' ? ' btn--primary' : ''}`, type: 'button',
-        'aria-pressed': state.mode === 'manual' ? 'true' : 'false', disabled: !!state.busy || !!state.manual?.busy || (!mine.length && (approved().length < 2 || !formatFor().format)),
+        class: 'btn btn--primary', type: 'button', 'aria-pressed': 'true',
+        disabled: !!state.busy || !!state.manual?.busy,
         onClick: () => { state.mode = 'manual'; render(); }
-      }, iconText('team', '手動安排'))
+      }, iconText('team', '手動安排')),
+      el('button', {
+        class: 'btn', type: 'button', 'aria-pressed': 'false',
+        disabled: true, title: '自動／逐場調整已關閉，請使用手動安排',
+        'aria-label': '自動／逐場調整（已上鎖）'
+      }, iconText('lock', '自動／逐場調整'))
     ]);
     if (state.mode === 'manual') {
       const { format, source } = manualFormatFor();
@@ -808,7 +812,7 @@ export async function adminSchedulePage({ scope, view }) {
             orderedTeamIds: state.draft?.order?.map(t => t.teamId) ?? null },
           onBusyChange: () => render(),
           onDone: async () => {
-            state.manual?.dispose(); state.manual = null; state.mode = 'automatic';
+            state.manual?.dispose(); state.manual = null; state.mode = 'manual';
             await load();
           },
           onReload: async () => {
