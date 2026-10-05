@@ -60,7 +60,7 @@ export async function challengeMePage({ scope, view }) {
     challengesLoaded: false,
     bests: [],
     rewards: null,
-    attempts: null, date: null,
+    attempts: null, attemptsConfirmed: false, date: null,
     contact: { phone: '', masked: cached?.contactMasked ?? null, editing: false, busy: false, error: null },
     error: null
   };
@@ -80,7 +80,7 @@ export async function challengeMePage({ scope, view }) {
     render();
   }), 'auth:challenge-me');
 
-  data.watchChallenges(scope, c => { state.challenges = c; state.challengesLoaded = true; render(); });
+  data.watchChallenges(scope, (c, metadata) => { state.challenges = c; state.challengesLoaded = c.length > 0 || !metadata.fromCache; render(); });
   data.watchRewards(scope, r => { state.rewards = r; render(); });
   watchActivityDay(scope, () => state.rewards, date => { state.date = date; render(); });
 
@@ -112,10 +112,11 @@ export async function challengeMePage({ scope, view }) {
     offWatch?.();
     offAttempts?.();
     state.attempts = null;
+    state.attemptsConfirmed = false;
     const pid = state.playerId;
-    offAttempts = data.watchAttempts(scope, pid, attempts => {
+    offAttempts = data.watchAttempts(scope, pid, (attempts, metadata) => {
       if (state.playerId !== pid) return;
-      state.attempts = attempts; render();
+      state.attempts = attempts; state.attemptsConfirmed = !metadata.fromCache; render();
     }, err => { state.error = err; render(); });
     offWatch = data.watchPlayer(scope, state.playerId, p => {
       state.player = p;
