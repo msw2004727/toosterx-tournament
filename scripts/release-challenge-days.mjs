@@ -2,11 +2,14 @@
 /** Add date settings without deleting or resetting any player/attempt data. */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { db } from '../functions/admin.js';
-import { FieldValue } from 'firebase-admin/firestore';
 import { DAILY_RULE, dailyStats, dailyQualification, dailyRewardSettings } from '../js/engine/challenge-days.js';
 import { EVENT_ID, EVENT } from '../js/config.js';
 import { writeAudit } from '../functions/store.js';
+
+// Resolve transforms beside db(): root and functions may install separate SDK copies.
+const { FieldValue } = createRequire(new URL('../functions/admin.js', import.meta.url))('firebase-admin/firestore');
 
 const args = process.argv.slice(2);
 const arg = key => args[args.indexOf(key) + 1];
