@@ -13,6 +13,8 @@ import { EVENT_ID, roleLabel, ROLE_INFO } from '../../config.js';
 // ⚠️ 這個模組自己有一個 export function mount(App)，
 //    直接匯入 ui 的 mount 會被蓋掉（而且是無聲的遞迴），所以改名。
 import { toast, el, sheet, mount as setChildren } from '../../core/ui.js';
+import { installTestTime, chooseTestTime, testTimeLabel } from './time.js';
+import { startTicker } from '../../core/clock.js';
 
 /**
  * 可以自助切換的身分。
@@ -31,7 +33,7 @@ import { toast, el, sheet, mount as setChildren } from '../../core/ui.js';
 //    （第三輪驗收 C-1：真的檢錄員在 demo 上只有賽務台與檢錄兩個選項）。
 export const ROLES = [
   { value: 'admin',   note: '多了：覆核完賽、改判、賽程、審核報名（其餘同記錄員）' },
-  { value: 'scorer',  note: '多了：記分、時鐘、完賽送出（其餘同裁判；甲場）' },
+  { value: 'scorer',  note: '多了：記分、時鐘、完賽送出（其餘同裁判；A場）' },
   { value: 'referee', note: '多了：出場名單（其餘同檢錄員）' },
   { value: 'checkin', note: '多了：檢錄勾選、看球員個資（其餘同挑戰攤位）' },
   { value: 'booth',   note: '挑戰區成績與現場簽到登錄' }
@@ -40,6 +42,7 @@ export const ROLES = [
 ].map(r => ({ ...r, label: roleLabel(r.value), sub: `${r.value}　level ${ROLE_INFO[r.value].level}` }));
 
 export function mount(App) {
+  installTestTime();
   banner(App);
 }
 
@@ -57,13 +60,16 @@ function banner(App) {
   host.hidden = false;
   host.className = 'demo-banner';
   setChildren(host,
-    el('span', { class: 'demo-banner__text', text: 'DEMO 展示環境・比分與名次皆為測試資料' }),
+    el('span', { class: 'demo-banner__text', text: testTimeLabel() }),
+    el('button', { class: 'demo-switch', type: 'button', onClick: () => chooseTestTime(updateLabel) }, '測試時間'),
     el('button', {
       class: 'demo-switch', type: 'button',
       title: '免登入切換身分（僅 Demo 環境）',
       onClick: () => pick(App)
     }, '切換身分')
   );
+  function updateLabel() { host.querySelector('.demo-banner__text').textContent = testTimeLabel(); }
+  startTicker(updateLabel, 1000);
 }
 
 async function pick(App) {

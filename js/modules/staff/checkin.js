@@ -198,13 +198,13 @@ export async function checkinPage({ params, scope, view }) {
   /** 檢錄員要看的一句話：核對什麼、勾什麼 */
   function guide() {
     return el('p', { class: 'chk__guide' },
-      iconText('info', '請球隊負責人出示證件，逐筆核對「出生年月日」與「身分證後四碼」，相符再勾選。'));
+      iconText('info', '請球隊負責人出示證件，現場確認後勾選出賽。生日與身分證後四碼未填齊時，可先完成檢錄、資料後補。'));
   }
 
   function memberRow(m) {
     const rec = state.checkins[m.memberId];
     const pending = csvIdentityPending(m);
-    const present = rec?.result === 'pass' && !pending;
+    const present = rec?.result === 'pass';
     const failed = rec?.result === 'fail';
 
     return el('li', { class: `chk__row${present ? ' is-present' : ''}${failed ? ' is-failed' : ''}` }, [
@@ -213,14 +213,14 @@ export async function checkinPage({ params, scope, view }) {
         //    出賽與有問題是同一個欄位（result），直接勾等於悄悄把註記洗掉——
         //    而註記正是要擋住這個勾的東西。要先按「取消註記」，讓那一步是明白做的。
         el('input', {
-          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy || failed || pending,
+          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy || failed,
           'aria-label': `${m.displayName || m.memberId} 出賽`,
           onChange: e => mark(m, e.target.checked ? 'pass' : null)
         }),
         el('span', { class: 'chk__no num', text: m.jerseyNo != null ? String(m.jerseyNo) : '—' }),
         el('span', { class: 'chk__info' }, [
           el('strong', { class: 'chk__name', text: m.displayName || '（未填）' }),
-          pending ? el('span', { class: 'chk__tag chk__tag--flag', text: '待補資料・請管理員補齊生日與後四碼後再檢錄' }) : null,
+          pending ? el('span', { class: 'chk__tag', text: '待補資料・可先現場確認並完成檢錄' }) : null,
           failed ? el('span', { class: 'chk__tag chk__tag--flag', text: '有問題・先取消註記才能勾出賽' }) : null,
           // 配戴眼鏡上場（規章附件二）：切結書沒收到的要提醒裁判賽前檢查裝備
           m.glasses
@@ -306,7 +306,6 @@ export async function checkinPage({ params, scope, view }) {
    * 整個畫面卡住（R-UI-002）。狀態由 sync.js 追蹤並反映在右上角燈號。
    */
   function mark(m, result) {
-    if (result === 'pass' && csvIdentityPending(m)) return;
     const doc = buildCheckin({
       matchId, teamId: state.match?.[state.side]?.teamId ?? null,
       member: m, result, uid: user()?.uid ?? null

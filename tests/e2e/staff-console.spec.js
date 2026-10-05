@@ -29,7 +29,7 @@ const SEED = {
   },
   [`events/${EVENT}/matches/${MATCH}`]: {
     matchId: MATCH, eventId: EVENT, divisionId: 'adult-open', stageId: 'group', groupId: 'A',
-    label: '第31場 A組第1輪', venueId: 'venue-a', venueName: '甲場', date: '2026-10-11',
+    label: '第31場 A組第1輪', venueId: 'venue-a', venueName: 'A場', date: '2026-10-11',
     kickoffAt: '2026-10-11T09:30:00+08:00',
     home: { teamId: 't-101', name: '臺中野狼' },
     away: { teamId: 't-102', name: '臺中猛虎' },

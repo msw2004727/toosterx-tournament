@@ -15,7 +15,7 @@ const uid = () => user()?.uid ?? null;
 
 const managementRequests = new Map();
 const matchBasis = m => ({ status: m.status, score: m.score ?? null, penaltyScore: m.penaltyScore ?? null,
-  result: m.result ?? null, revisionCount: m.revisionCount ?? 0, managementRevision: m.managementRevision ?? 0, locked: m.lock?.locked === true,
+    result: m.result ?? null, revisionCount: m.revisionCount ?? 0, managementRevision: m.managementRevision ?? 0, resetRevision: m.resetRevision ?? 0, locked: m.lock?.locked === true,
   home: m.home?.teamId ?? null, away: m.away?.teamId ?? null });
 async function onlineManagement(name, payload) {
   if (!syncSummary().online || navigator.onLine === false) throw Object.assign(new Error('這項管理操作需要連線，請連上網路後再送出。'), { code: 'unavailable' });
@@ -41,8 +41,14 @@ export const publishManualSchedule = ({ draft, reason, operationId }) => onlineM
 });
 export const renameTeam = (teamId, payload) => onlineManagement('updateTeamName', { teamId, ...payload });
 export const updateMemberIdentity = payload => onlineManagement('updateMemberIdentity', payload);
-export const manageMatch = (matchId, { action, match, patch = {}, reason = null, appeal = null }) =>
-  onlineManagement('manageEvent', { action, matchId, expected: matchBasis(match), patch, reason, appeal });
+export const manageMatch = async (matchId, { action, match, patch = {}, reason = null, appeal = null }) => {
+  const result = await onlineManagement('manageEvent', { action, matchId, expected: matchBasis(match), patch, reason, appeal });
+  if (action === 'match.reset' && (result?.entityId !== matchId || result?.status !== 'scheduled'
+    || result?.resetRevision !== (match.resetRevision ?? 0) + 1)) {
+    throw new Error('尚未確認歸零結果，請重新載入核對。');
+  }
+  return result;
+};
 export const manageSchedule = (division, { action, updates = [], reason = null }) => onlineManagement('manageEvent', {
   action, divisionId: division.divisionId, expected: division.scheduleRevision ?? 0, reason,
   updates: updates.map(u => ({ ...u, patch: { ...u.patch, ...(Object.hasOwn(u.patch, 'kickoffAt')

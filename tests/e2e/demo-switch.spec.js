@@ -20,7 +20,7 @@ const EVENT = 'feda-cup-2026';
 const seed = () => ({
   [`events/${EVENT}`]: { eventId: EVENT, name: 'FEDA CUP 2026' },
   // 自助身分只在這份文件為真的專案生效
-  'config/env': { env: 'demo', allowSelfServeStaff: true },
+  'config/env': { env: 'demo', allowSelfServeStaff: true, allowChallengeTestTime: true },
   [`events/${EVENT}/divisions/u10`]: {
     divisionId: 'u10', name: 'U10兒童組', shortName: 'U10', officialName: '學童中年級',
     order: 3, playersOnField: 5, matchDurationMin: 25, periods: 1
@@ -63,6 +63,24 @@ async function switchTo(page, label) {
 }
 
 const hub = page => page.locator('.acct__card', { hasText: '我的功能' });
+
+test('Demo 可選測試日期、重新載入保留並恢復真實時間 @demotime', async ({ page }) => {
+  await stub(page); await go(page);
+  await page.getByRole('button', { name: '測試時間', exact: true }).click();
+  await page.getByLabel('測試活動日期').selectOption('2026-10-10');
+  await page.getByLabel('測試時間', { exact: true }).fill('14:30');
+  await page.getByRole('button', { name: '啟用測試時間' }).click();
+  await expect(page.locator('#demo-banner')).toContainText('10/10');
+  await page.reload();
+  await expect(page.locator('#demo-banner')).toContainText('10/10');
+  const simulated = await page.evaluate(async () => (await import('/js/core/activity-clock.js')).activityTime());
+  expect(Math.abs(simulated - Date.parse('2026-10-10T14:30:00+08:00'))).toBeLessThan(30000);
+  await page.getByRole('button', { name: '測試時間', exact: true }).click();
+  await page.getByRole('button', { name: '恢復真實時間' }).click();
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(page.locator('#demo-banner')).not.toContainText('挑戰測試時間');
+  expect(await page.evaluate(() => sessionStorage.getItem('demo.challengeTime'))).toBeNull();
+});
 
 test.beforeEach(({ page }) => {
   page.on('console', m => { if (m.type() === 'error') console.log('[browser error]', m.text()); });
