@@ -28,6 +28,7 @@
  */
 
 import { divisionThemeAttrs, setDivisionTheme } from '../../core/division-theme.js';
+import { groupNameOf } from '../../engine/group-name.js';
 import { el, mount, toast, skeleton, confirmDialog, emptyState } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { can, onAuth } from '../../core/firebase.js';
@@ -520,7 +521,7 @@ export async function adminSchedulePage({ scope, view }) {
       ]),
 
       ...groups.map((g, gi) => el('div', { class: 'adm__field' }, [
-        el('span', { class: 'adm__fieldLabel', text: gc === 1 ? '參賽隊伍' : `${String.fromCharCode(65 + gi)}組（${g.length} 隊）` }),
+        el('span', { class: 'adm__fieldLabel', text: gc === 1 ? '參賽隊伍' : `${groupNameOf(String.fromCharCode(65 + gi), division())}（${g.length} 隊）` }),
         el('div', { class: 'adm__chips' }, g.map(t =>
           el('button', {
             class: `adm__chip${state.picked === t.teamId ? ' is-on' : ''}`, type: 'button',

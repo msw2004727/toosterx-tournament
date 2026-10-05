@@ -185,7 +185,11 @@ export async function myPage({ scope, view }) {
         }, iconText('list', '複製'))
       ]),
       // 跟 uid 放在一起：回報問題時這兩個一起截圖就夠了
-      el('p', { class: 'acct__fine', text: `系統版本 ${CACHE_VERSION}` })
+      el('p', { class: 'acct__fine', text: `系統版本 ${CACHE_VERSION}` }),
+      el('a', {
+        class: 'btn btn--lg', href: `/docs/manual/quickstart.pdf?v=${CACHE_VERSION}`,
+        target: '_blank', rel: 'noopener'
+      }, iconText('note', '圖文快速上手手冊（PDF）'))
     ]);
   }
 
