@@ -5,11 +5,11 @@ import { now } from '../../core/clock.js';
 import { formatScore } from '../../engine/challenge.js';
 import { dateLabel } from './days.js';
 
-export function dailyCards({ attempts, challenges, rewards, date, player = null, challengesLoaded = true }) {
+export function dailyCards({ attempts, challenges, rewards, date, player = null, challengesLoaded = true, attemptsConfirmed = true }) {
   date ??= selectedActivityDate(now(), rewards.dates, rewards.timeZone);
   const p = dailyProgress({ attempts: attempts ?? [], challenges, date, timeZone: rewards.timeZone });
   const settled = dailyProgress({ attempts: (attempts ?? []).filter(a => !a.pending), challenges, date, timeZone: rewards.timeZone });
-  const loading = !challengesLoaded || (player && attempts == null);
+  const loading = !challengesLoaded || (player && (attempts == null || (!attemptsConfirmed && !p.allComplete)));
   return [
     el('div', { class: 'chal__card chal__card--draw' }, [
       el('div', { class: 'chal__cardHead' }, [

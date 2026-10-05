@@ -115,3 +115,27 @@ test('頁面持續開啟跨午夜後自動切當日，手動查看前一天也�
   await expect(page.getByRole('tab', { name: '10/11' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.chal__card--draw')).toContainText('本日沒有開放活動');
 });
+
+for (const route of ['/challenge', '/challenge/me']) {
+  test(`本機快取不完整時不誤判未完成，伺服器確認後才顯示資格：${route} @dailycache`, async ({ page }) => {
+    await setup(page, { complete: false });
+    await page.addInitScript(() => { window.__FAKE_OFFLINE = true; });
+    await page.goto(`/#${route}`);
+    await expect(page.locator('.chal__card--draw')).toContainText('正在載入當日集章紀錄');
+    await expect(page.locator('.chal__card--draw')).not.toContainText('尚未取得');
+    await expect(page.locator('.chal__card--draw')).not.toContainText('還差');
+    await page.evaluate(() => window.__fake.__goOnline());
+    await expect(page.locator('.chal__card--draw')).toContainText('尚未取得當日抽獎資格');
+    await page.evaluate(({ event, pid, time }) => window.__fake.__seed({
+      [`events/${event}/attempts/c`]: { challengeId: 'c', playerId: pid, rawValue: 0, recordedAtMs: time, createdAt: time }
+    }), { event: EVENT, pid: PID, time: ms(dates[1]) });
+    await expect(page.locator('.chal__card--draw')).toContainText('已取得 1 次抽獎機會');
+  });
+  test(`本機完整有效紀錄離線仍保留已完成資格：${route} @dailycache`, async ({ page }) => {
+    await setup(page);
+    await page.addInitScript(() => { window.__FAKE_OFFLINE = true; });
+    await page.goto(`/#${route}`);
+    await expect(page.locator('.chal__card--draw')).toContainText('已取得 1 次抽獎機會');
+    await expect(page.locator('.chal__card--draw')).not.toContainText('尚未取得');
+  });
+}
