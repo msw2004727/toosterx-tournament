@@ -441,7 +441,7 @@ const MUTANTS = [
     to: `               && validStatusTransition(resource.data.status, request.resource.data.status) );`
   },
   {
-    name: 'RU#51 ⭐ 檢錄那條路不看場地（B 場的志工改得動 A 場的檢錄狀態）',
+    name: 'RU#51 ⭐ 檢錄那條路不看場地（乙場的志工改得動 甲場的檢錄狀態）',
     file: F,
     from: `          || ( isCheckin()
                && assignedVenue(resource.data.venueId)`,

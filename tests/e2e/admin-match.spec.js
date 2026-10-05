@@ -24,7 +24,7 @@ const match = (over = {}) => ({
   matchId: MATCH, eventId: EVENT, divisionId: 'adult-open', stageId: 'group', groupId: 'A',
   round: 1, matchNo: 5, label: 'A組 第1輪', date: '2026-10-11',
   kickoffAt: { seconds: Math.floor(Date.parse('2026-10-11T01:00:00Z') / 1000), nanoseconds: 0 },
-  venueId: 'venue-a', venueName: 'A場',
+  venueId: 'venue-a', venueName: '甲場',
   home: { teamId: 't-1', name: '臺中雷霆', displayName: '臺中雷霆' },
   away: { teamId: 't-2', name: '臺中黑豹', displayName: '臺中黑豹' },
   teamIds: ['t-1', 't-2'],

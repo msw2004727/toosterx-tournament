@@ -103,7 +103,7 @@ describe('T36-C 指派前的驗證', () => {
 
   test('⭐ 管理員不受場地限制，給了場地要擋', () => {
     // rules 的 assignedVenue() 對 admin 直接放行，畫面上讓人選場地
-    // 只會製造「我明明限制了他只能在 A 場」的錯覺
+    // 只會製造「我明明限制了他只能在 甲場」的錯覺
     const r = validateAssignment({ uid: 'U1', role: 'admin', venueIds: ['venue-a'] });
     expect(r.ok).toBe(false);
     expect(r.code).toBe('VENUE_NOT_APPLICABLE');
