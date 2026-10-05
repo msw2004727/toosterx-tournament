@@ -241,7 +241,7 @@ jobs:
   rules-tests:
     name: Firestore rules (R01-R64 + mutation)
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
         with:
@@ -261,8 +261,8 @@ jobs:
       # 權限規則是最容易寫出「假守衛」的地方：放寬一條線，happy path 完全不受
       # 影響，測試照樣全綠。每一條邊界都要反向驗證一次。
       - run: npm run test:mutation:rules
-        # 258 cases × 58 legacy mutants measured 39m45s on Ubuntu 24.04.
-        timeout-minutes: 45
+        # 62 mutants take about 53 minutes on slower runners (roughly 51s each).
+        timeout-minutes: 65
 
   storage-tests:
     name: Storage rules (Firestore roles)
