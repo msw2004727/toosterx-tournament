@@ -38,21 +38,22 @@ export async function challengeHomePage({ scope, view }) {
 
   const state = {
     challenges: undefined,       // undefined = 還沒載入
+    challengesLoaded: false,
     player: null,
     bests: [],
     rewards: null,
-    attempts: null, date: null,
+    attempts: null, attemptsConfirmed: false, date: null,
     error: null
   };
   hold(scope, onAuth(() => render()), 'auth:challenge-home');
 
-  data.watchChallenges(scope, c => { state.challenges = c; render(); }, err => { state.error = err; state.challenges = []; render(); });
+  data.watchChallenges(scope, (c, metadata) => { state.challenges = c; state.challengesLoaded = c.length > 0 || !metadata.fromCache; render(); }, err => { state.error = err; state.challenges ??= []; render(); });
   data.watchRewards(scope, r => { state.rewards = r; render(); });
   watchActivityDay(scope, () => state.rewards, date => { state.date = date; render(); });
 
   // 有挑戰卡的人才需要查進度。沒有卡的人這一頁照樣看得到五關
   if (pass) {
-    data.watchAttempts(scope, pass.playerId, a => { state.attempts = a; render(); }, err => { state.error = err; render(); });
+    data.watchAttempts(scope, pass.playerId, (a, metadata) => { state.attempts = a; state.attemptsConfirmed = !metadata.fromCache; render(); }, err => { state.error = err; render(); });
     data.watchPlayer(scope, pass.playerId, p => { state.player = p; render(); }, () => {});
     data.getMyBests(pass.playerId).then(b => { state.bests = b; render(); }).catch(() => {});
   }

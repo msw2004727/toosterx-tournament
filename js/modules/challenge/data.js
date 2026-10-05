@@ -30,7 +30,8 @@ export async function getChallenges() {
 export function watchChallenges(scope, cb, onError) {
   const { collection, onSnapshot, query, orderBy } = sdk();
   return hold(scope, onSnapshot(query(collection(db(), 'events', EVENT_ID, 'challenges'), orderBy('order', 'asc')),
-    s => cb(s.docs.map(d => ({ challengeId: d.id, ...d.data() }))), err => onError?.(err)), 'challenge:settings');
+    { includeMetadataChanges: true },
+    s => cb(s.docs.map(d => ({ challengeId: d.id, ...d.data() })), { fromCache: s.metadata?.fromCache === true }), err => onError?.(err)), 'challenge:settings');
 }
 
 export function watchRewards(scope, cb, onError) {
@@ -41,7 +42,8 @@ export function watchRewards(scope, cb, onError) {
 export function watchAttempts(scope, playerId, cb, onError) {
   const { collection, query, where, onSnapshot } = sdk();
   return hold(scope, onSnapshot(query(collection(db(), 'events', EVENT_ID, 'attempts'), where('playerId', '==', playerId)),
-    s => cb(s.docs.map(d => ({ ...d.data(), attemptId: d.id, pending: d.metadata?.hasPendingWrites === true }))),
+    { includeMetadataChanges: true },
+    s => cb(s.docs.map(d => ({ ...d.data(), attemptId: d.id, pending: d.metadata?.hasPendingWrites === true })), { fromCache: s.metadata?.fromCache === true }),
     err => onError?.(err)), `challenge:attempts:${playerId}`);
 }
 

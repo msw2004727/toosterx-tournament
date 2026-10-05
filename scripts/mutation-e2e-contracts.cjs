@@ -1,5 +1,7 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EDAILYCACHE: { spec: 'tests/e2e/challenge-days.spec.js', grep: '本機快取不完整', minTests: 2,
+    failure: 'toContainText', assertions: ["await expect(page.locator('.chal__card--draw')).toContainText('正在載入當日集章紀錄');"] },
   EMEMBERNAME: { spec: 'tests/e2e/admin-teams.spec.js', grep: '隊員更名 不完整回覆', minTests: 1,
     failure: 'toContainText', assertions: ["await expect(page.getByRole('alert')).toContainText('尚未確認');"] },
   EMANUALFORMAT: { spec: 'tests/e2e/admin-manual-schedule.spec.js', grep: '既有六隊', minTests: 1,
