@@ -155,6 +155,10 @@ export function describeAudit(a, lookup = {}) {
       title = `重開了 ${a.entityId ?? '某場次'}`;
       detail.push('積分榜把這一場的分數收回去，比分與事件都留著');
       break;
+    case 'match.cancelStart':
+      title = '撤銷了 ' + (a.entityId ?? '某場次') + ' 的開賽';
+      detail.push('檢錄與出場名單保留；誤開時鐘已清除，開賽紀錄封存在稽核中');
+      break;
     case 'match.reset':
       title = `將 ${a.entityId ?? '某場次'} 歸零並退回未開賽`;
       detail.push('原賽程保留；比分、時鐘、比賽事件及檢錄已清空，舊紀錄封存在稽核中');

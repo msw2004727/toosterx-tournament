@@ -221,8 +221,8 @@ test('既有六隊九場已開打但僅四核准：保留F6並明示名單問題
   await expect(page.locator('.manual__workspace')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '確認整批發布', exact: true })).toHaveCount(0);
   expect(await calls(page)).toHaveLength(0); expect(await dump(page)).toEqual(before); expect(await saved(page)).toBeNull();
-  await page.getByRole('button', { name: '自動／逐場調整', exact: true }).click();
-  await expect(page.locator('.adm')).toContainText(`改用隊數相同的「${format.name}」`);
+  await expect(page.getByRole('button', { name: '自動／逐場調整（已上鎖）', exact: true })).toBeDisabled();
+  await expect(issue).toContainText('需要 6 隊，目前核准 4 隊');
   expect(pageErrors).toEqual([]);
 });
 
@@ -370,7 +370,7 @@ test('標準手動工作台深淺色與寬窄版視覺驗收 @admin', async ({ p
       await page.screenshot({ path: `tools/manual-schedule-${info.project.name}-${theme}-fixture.png`, fullPage: false });
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-    await expect(page.getByRole('button', { name: '自動／逐場調整', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByRole('button', { name: '自動／逐場調整（已上鎖）', exact: true })).toHaveAttribute('aria-pressed', 'false');
     await expect(page.getByRole('button', { name: '手動安排', exact: true })).toHaveAttribute('aria-pressed', 'true');
     if (info.project.name === 'chromium-desktop') {
       const size = await page.locator('.adm--manual').boundingBox(); expect(size.width).toBeGreaterThan(1000);

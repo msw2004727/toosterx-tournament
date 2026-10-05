@@ -344,3 +344,35 @@ test('MC32 重產後積分榜版本重用，舊賽程的裁定仍必須拒絕且
   expect((await ref.get()).data()).toMatchObject({scheduleRevision:2,version:before.version+1});
   expect((await audit('standing.manualRanking')).size).toBe(1);
 });
+
+test('CANCEL1 撤銷原子保留檢錄名單、推進世代、移除看板及開賽事件；重送冪等',async()=>{
+  await match('g1').update({status:'live',period:'h1',htScore:{home:0,away:0},result:{winner:null,method:null,homePoints:0,awayPoints:0},clock:{running:true},checkin:{homeConfirmed:true,awayConfirmed:true},resetRevision:2,writeNonce:'old'});
+  await match('g1').collection('timeline').doc('start').set({type:'period_start',periodId:'h1'});
+  await base().collection('checkins').doc('keep').set({matchId:'g1',result:'pass',resetRevision:2});
+  await base().collection('matchSheets').doc('keep').set({matchId:'g1',players:['p'],confirmed:true,resetRevision:2});
+  await base().collection('boards').doc('live').set({liveMatches:[{matchId:'g1'},{matchId:'g2'}],nextMatches:[],justFinished:[]});
+  const req=await command('match.cancelStart','cancel');const result=await manageEventFor(req);
+  expect(result).toMatchObject({action:'match.cancelStart',status:'ready',resetRevision:3,clearedDocuments:1,retainedDocuments:2});
+  expect((await match('g1').get()).data()).toMatchObject({status:'ready',period:'pre',score:{home:0,away:0},resetRevision:3,writeNonce:null,checkin:{homeConfirmed:true,awayConfirmed:true},clock:{running:false}});
+  expect((await base().collection('checkins').doc('keep').get()).data()).toMatchObject({result:'pass',resetRevision:3});
+  expect((await base().collection('matchSheets').doc('keep').get()).data()).toMatchObject({players:['p'],confirmed:true,resetRevision:3});
+  expect((await match('g1').collection('timeline').get()).size).toBe(0);
+  expect((await base().collection('boards').doc('live').get()).data().liveMatches).toEqual([{matchId:'g2'}]);
+  const log=(await audit('match.cancelStart')).docs[0].data();expect(log.before.retainedDocuments).toHaveLength(2);expect(log.before.deletedDocuments).toHaveLength(1);
+  expect(await manageEventFor(req)).toEqual(result);expect((await audit('match.cancelStart')).size).toBe(1);
+});
+
+test('CANCEL2 事件、改判、第二節、權限與過期畫面都不能撤銷；稽核失敗不動資料',async()=>{
+  await match('g1').update({status:'live',period:'h1'});const req=await command('match.cancelStart','cancel-fail');
+  await expect(manageEventFor({...req,auth:{uid:'booth'}})).rejects.toMatchObject({code:'permission-denied'});
+  await expect(manageEventFor({...req,data:{...req.data,reason:''}})).rejects.toMatchObject({code:'invalid-argument'});
+  await expect(manageEventFor({...req,data:{...req.data,expected:{...req.data.expected,resetRevision:8}}})).rejects.toMatchObject({code:'aborted'});
+  await match('g1').collection('timeline').doc('goal').set({type:'goal',voided:true});
+  await expect(manageEventFor(req)).rejects.toMatchObject({code:'failed-precondition'});
+  expect((await match('g1').get()).data().status).toBe('live');
+  await match('g1').collection('timeline').doc('goal').delete();
+  await match('g1').update({period:'h2'});await expect(manageEventFor(req)).rejects.toMatchObject({code:'failed-precondition'});
+  await match('g1').update({period:'h1'});failAudit();await expect(manageEventFor(req)).rejects.toThrow('audit submission fault');
+  expect((await match('g1').get()).data().status).toBe('live');
+  expect((await base().collection('managementOperations').doc('cancel-fail').get()).exists).toBe(false);
+});

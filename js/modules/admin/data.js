@@ -47,6 +47,14 @@ export const manageMatch = async (matchId, { action, match, patch = {}, reason =
     || result?.resetRevision !== (match.resetRevision ?? 0) + 1)) {
     throw new Error('尚未確認歸零結果，請重新載入核對。');
   }
+  if (action === 'match.cancelStart') {
+    const home = match.checkin?.homeConfirmed === true, away = match.checkin?.awayConfirmed === true;
+    const status = home && away ? 'ready' : home || away ? 'checkin' : 'scheduled';
+    if (result?.action !== action || result?.entityId !== matchId || result?.status !== status
+      || result?.resetRevision !== (match.resetRevision ?? 0) + 1 || !Number.isInteger(result?.retainedDocuments)) {
+      throw new Error('尚未確認撤銷開賽結果，請重新載入核對。');
+    }
+  }
   return result;
 };
 export const manageSchedule = (division, { action, updates = [], reason = null }) => onlineManagement('manageEvent', {

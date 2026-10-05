@@ -26,7 +26,7 @@ export function testTimeLabel() {
 export async function chooseTestTime(onChange) {
   let date = EVENT.dates[0], time = '09:00';
   const body = el('div', {}, [
-    el('p', { text: '僅此分頁的挑戰活動使用測試時間，持續兩小時；登錄成績會記在所選日期。比賽時鐘仍使用真實時間。' }),
+    el('p', { text: '僅此分頁的挑戰活動與首頁日期使用測試時間，持續兩小時；登錄成績會記在所選日期。比賽時鐘仍使用真實時間。' }),
     el('label', { text: '活動日期' }, el('select', { 'aria-label': '測試活動日期', onChange: e => { date = e.target.value; } },
       EVENT.dates.map(d => el('option', { value: d, text: d })))),
     el('label', { text: '時間' }, el('input', { type: 'time', value: time, 'aria-label': '測試時間', onInput: e => { time = e.target.value; } })),

@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { db, evRef, adminActor, writeAudit } from './store.js';
 import { buildConfirmPatch, buildReopenPatch, buildOverridePatch, buildWalkoverPatch, buildStatusPatch,
-  canConfirm, canReopen, canOverride, canWalkover, buildResetPatch } from './engine/admin-match.js';
+  canConfirm, canReopen, canOverride, canWalkover, buildResetPatch, canCancelStart, buildCancelStartPatch } from './engine/admin-match.js';
 import { buildAppealDoc, buildAppealDecision, matchAppealFlag } from './engine/appeal.js';
 import { checkSchedule, assignMatchNos } from './engine/schedule.js';
 import { manualMatchLocked } from './engine/manual-schedule.js';
@@ -25,7 +25,7 @@ export async function manageEventFor(request) {
   if(!uid)fail('unauthenticated','請先登入');
   const {eventId,operationId,action,matchId,divisionId,expected,patch={},reason=null,appeal=null,updates=[]}=request.data??{};
   if(!idOK(eventId)||!idOK(operationId)||typeof action!=='string')fail('invalid-argument','管理指令不正確');
-  const allowed=['match.confirm','match.reopen','match.reset','match.override','match.walkover','match.postponed','match.cancelled',
+  const allowed=['match.confirm','match.reopen','match.reset','match.cancelStart','match.override','match.walkover','match.postponed','match.cancelled',
     'appeal.filed','appeal.decided','schedule.move','schedule.place','schedule.shift','schedule.publish','schedule.unpublish','stream.update'];
   if(!allowed.includes(action))fail('invalid-argument','不支援這項管理操作');
   if(action.startsWith('match.')&&action!=='match.confirm'&&!String(reason??'').trim())fail('invalid-argument','修改結果必須填原因');
@@ -39,21 +39,28 @@ export async function manageEventFor(request) {
       return receipt.data().result;
     }
     const stamp=FieldValue.serverTimestamp(); const writes=[]; let before=null,after=null,entity='match',entityId=matchId;
-    let invalidateRef=null,invalidateDivision=null,resetArchive=null;
+    let invalidateRef=null,invalidateDivision=null,resetArchive=null,retainedArchive=null;
     if(action.startsWith('match.')||action.startsWith('appeal.')||action==='stream.update'){
       if(!idOK(matchId))fail('invalid-argument','缺少場次代碼');
       const ref=base.collection('matches').doc(matchId), snap=await tx.get(ref),m={...snap.data(),matchId};
       if(!snap.exists)fail('not-found','場次不存在');
       if(canonical(matchBasis(m))!==canonical({...expected,resetRevision:expected?.resetRevision??0}))fail('aborted','場次結果已更新，請重新載入後確認');
       before=m;let resultPatch;
-      if(action==='match.reset'){
+      if(action==='match.reset'||action==='match.cancelStart'){
         const children=await Promise.all([tx.get(ref.collection('timeline')),
           tx.get(base.collection('checkins').where('matchId','==',matchId)),
           tx.get(base.collection('matchSheets').where('matchId','==',matchId))]);
-        const deleted=children.flatMap(s=>s.docs);
+        if(action==='match.cancelStart'){
+          const gate=canCancelStart(m,children[0].docs.map(d=>d.data()));
+          if(!gate.ok)fail('failed-precondition',gate.reason);
+          retainedArchive=children.slice(1).flatMap(s=>s.docs).map(d=>({path:d.ref.path,doc:d.data()}));
+        }
+        const deleted=(action==='match.reset'?children:[children[0]]).flatMap(s=>s.docs);
         resetArchive=deleted.map(d=>({path:d.ref.path,doc:d.data()}));
         for(const d of deleted)writes.push({ref:d.ref,delete:true});
-        resultPatch=buildResetPatch(m,uid);
+        resultPatch=action==='match.reset'?buildResetPatch(m,uid):buildCancelStartPatch(m,uid,children[0].docs.map(d=>d.data()));
+        if(action==='match.cancelStart')for(const d of children.slice(1).flatMap(s=>s.docs))
+          writes.push({ref:d.ref,doc:{resetRevision:resultPatch.resetRevision}});
         // Remove stale board entries in the same commit; the pipeline rebuilds them afterwards.
         const boardRef=base.collection('boards').doc('live'),board=(await tx.get(boardRef)).data();
         if(board){
@@ -148,9 +155,9 @@ export async function manageEventFor(request) {
       writeAudit(eventId,{entity:'division',entityId:invalidateRef.id,action:'finalRanking.invalidate',actor,
         before:{published:true,ranking:invalidateDivision.finalRanking??null},after:{published:false},reason:action},tx);
     }
-    if(resetArchive)before={match:before,deletedDocuments:resetArchive};
-    const result={operationId,action,entityId,...(action==='match.reset'?{status:after.status,resetRevision:after.resetRevision,clearedDocuments:resetArchive.length}:{})};
-    if(action==='match.reset'&&Buffer.byteLength(canonical({before,after}))>900*1024)fail('resource-exhausted','歸零封存資料過大，請由維運協助');
+    if(resetArchive)before={match:before,deletedDocuments:resetArchive,...(retainedArchive?{retainedDocuments:retainedArchive}:{})};
+    const result={operationId,action,entityId,...(['match.reset','match.cancelStart'].includes(action)?{status:after.status,resetRevision:after.resetRevision,clearedDocuments:resetArchive.length,...(retainedArchive?{retainedDocuments:retainedArchive.length}:{})}:{})};
+    if(['match.reset','match.cancelStart'].includes(action)&&Buffer.byteLength(canonical({before,after}))>900*1024)fail('resource-exhausted','歸零封存資料過大，請由維運協助');
     if(writes.length>200||Buffer.byteLength(canonical({before,after}))+writes.length*2048>8*1024*1024)fail('resource-exhausted','管理操作超過原子提交容量');
     for(const w of writes)w.delete?tx.delete(w.ref):w.set?tx.set(w.ref,w.doc):tx.update(w.ref,w.doc);
     writeAudit(eventId,{entity,entityId,action,before,after,reason,actor},tx);
