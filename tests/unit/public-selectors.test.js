@@ -228,7 +228,10 @@ describe('T32-5 未定隊伍與隊名', () => {
     expect(isPlaceholder(match())).toBe(false);
   });
 
-  test('隊名優先序：name → displayName → slotLabel → 待定', () => {
+  test('隊名優先序：displayName → name → slotLabel → 待定', () => {
+    expect(sideLabel(match({ home: { name: '圖斯特足球俱樂部 (黃)', displayName: '圖斯特 黃' } }), 'home')).toBe('圖斯特 黃');
+    expect(sideLabel(match({ away: { name: '圖斯特足球俱樂部 (粉)', displayName: '圖斯特 粉' } }), 'away')).toBe('圖斯特 粉');
+    expect(sideLabel(match({ home: { name: '舊隊全名', displayName: '' } }), 'home')).toBe('舊隊全名');
     expect(sideLabel(match(), 'home')).toBe('野狼');
     expect(sideLabel(match({ home: { slotLabel: 'A組第1名' } }), 'home')).toBe('A組第1名');
     expect(sideLabel(match({ home: {} }), 'home')).toBe('待定');

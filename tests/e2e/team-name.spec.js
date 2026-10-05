@@ -111,3 +111,23 @@ for (const theme of ['light', 'dark']) test(`長隊名安全顯示，表單窄�
   await expect(save(page)).toBeInViewport({ ratio: 1 });
   await fill(page); await save(page).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
 });
+
+test('公開賽程使用後台更名後的簡稱，可辨識長全名的兩隊 @teamname', async ({ page }) => {
+  await page.route('https://www.gstatic.com/firebasejs/**', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: FAKE }));
+  await page.route('https://static.line-scdn.net/**', r => r.abort());
+  await page.addInitScript(({ E }) => {
+    window.__FAKE_SEED = {
+      [`events/${E}`]: { eventId: E, name: '示範賽事', dates: ['2026-10-09'] },
+      [`events/${E}/divisions/d`]: { divisionId: 'd', name: '測試組別', schedulePublished: true, matchDurationMin: 25, order: 1 },
+      [`events/${E}/matches/m`]: { matchId: 'm', divisionId: 'd', status: 'scheduled', date: '2026-10-09', kickoffAt: 1791507600000,
+        venueId: 'v', venueName: 'A場', label: '小組賽',
+        home: { teamId: 'yellow', name: '圖斯特足球俱樂部 (黃)', displayName: '圖斯特 黃' },
+        away: { teamId: 'pink', name: '圖斯特足球俱樂部 (粉)', displayName: '圖斯特 粉' } }
+    };
+  }, { E });
+  await page.goto('/#/division/d?tab=schedule');
+  await expect(page.locator('.prow__team--home')).toHaveText('圖斯特 黃');
+  await expect(page.locator('.prow__team--away')).toHaveText('圖斯特 粉');
+  await expect(page.getByRole('button', { name: '圖斯特 黃 對 圖斯特 粉，未開始', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
