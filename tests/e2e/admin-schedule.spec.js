@@ -13,6 +13,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { FORMATS } from '../../js/engine/formats.js';
 
 const FAKE = fs.readFileSync(path.join(process.cwd(), 'tests/e2e/fake-firebase.js'), 'utf8');
 const EVENT = 'feda-cup-2026';
@@ -32,6 +33,7 @@ const seed = ({ roles = ['admin'], teamCount = 4, matches = {}, division = {} } 
     },
     'config/formats': {
       formats: {
+        F8_GROUP_TOP_SEED_BYE: FORMATS.F8_GROUP_TOP_SEED_BYE,
         F4_RR_FINAL: {
           formatId: 'F4_RR_FINAL', name: '4隊單循環＋冠軍季軍賽', teamCount: 4,
           description: '每隊 4 場，單組別共 8 場',
@@ -124,6 +126,15 @@ test('⭐ 記錄員進不來，而且看得到原因 @admin', async ({ page }) =
   await expect(page.locator('.adm__box--warn')).toContainText('賽程管理');
   await expect(page.locator('.adm__box--warn')).toContainText('管理員');
   await expect(page.getByRole('button', { name: /產生/ })).toHaveCount(0);
+});
+
+test('統一八隊賽制名單不足時顯示缺額並阻止自動改用舊範本 @admin', async ({ page }) => {
+  await stub(page, { teamCount: 4, division: { requiredFormatId: 'F8_GROUP_TOP_SEED_BYE' } });
+  await go(page);
+  await ready(page);
+  await expect(page.locator('.adm__box--warn')).toContainText('需要 8 隊');
+  await expect(page.locator('.adm__box--warn')).toContainText('目前核准 4 隊');
+  await expect(page.getByRole('button', { name: /產生賽程/ })).toHaveCount(0);
 });
 
 test('⭐ 沒有核准的球隊就說清楚，並指出要先去哪裡 @admin', async ({ page }) => {

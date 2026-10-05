@@ -115,7 +115,8 @@ export async function adminSchedulePage({ scope, view }) {
   function formatFor() {
     const div = division();
     const n = approved().length;
-    const preferred = state.formats[div?.formatId];
+    const preferred = state.formats[div?.requiredFormatId || div?.formatId];
+    if (div?.requiredFormatId) return { format: preferred ?? null, source: 'division' };
     if (preferred?.teamCount === n) return { format: preferred, source: 'division' };
     const found = pickFormatFor(n, state.formats);
     if (found) return { format: found, source: 'matched' };
@@ -457,6 +458,14 @@ export async function adminSchedulePage({ scope, view }) {
       ]);
     }
 
+    if (div?.requiredFormatId && format.teamCount !== n) {
+      return el('div', { class: 'adm__box adm__box--warn', role: 'alert' }, [
+        el('strong', { text: `統一賽制需要 ${format.teamCount} 隊，目前核准 ${n} 隊` }),
+        el('p', { class: 'adm__note', text: '各組統一採小組第一輪空、第二與第三交叉淘汰。請先補齊參賽名單，不會自動切換其他賽制。' }),
+        el('button', { class: 'btn btn--lg', type: 'button', onClick: () => navigate('/admin/teams') }, iconText('check', '去報名審核'))
+      ]);
+    }
+
     const note = {
       division: '這是組別設定上的賽制範本。',
       matched: `組別設定的範本隊數對不上，改用隊數相同的「${format.name}」。`,
@@ -539,6 +548,7 @@ export async function adminSchedulePage({ scope, view }) {
     const mine = existing();
     const guard = canRegenerate(mine);
     if (!format) return null;
+    if (division()?.requiredFormatId && format.teamCount !== approved().length) return null;
     const count = countMatches(format, approved().length);
 
     return el('div', {}, [

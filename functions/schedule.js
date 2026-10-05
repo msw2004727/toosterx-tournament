@@ -47,6 +47,8 @@ export async function generateScheduleFor(request) {
     ]);
     if (!eventSnap.exists || !divSnap.exists) fail('not-found', '賽事或組別不存在');
     const division = { ...divSnap.data(), divisionId };
+    if (division.requiredFormatId && (generated || formatId !== division.requiredFormatId))
+      fail('failed-precondition', '此組別已指定統一賽制，不能切換為其他範本');
     if ((division.scheduleRevision ?? 0) !== expectedRevision) fail('aborted', '賽程已被更新，請重新載入後確認');
     const old = matchesSnap.docs.map(d => ({ ...d.data(), matchId: d.id }));
     if (old.some(scheduleHasStarted)) fail('failed-precondition', '已有場次開打、結果、比分或鎖定，不能重新產生賽程');
