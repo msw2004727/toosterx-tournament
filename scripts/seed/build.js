@@ -18,6 +18,7 @@ import {
 } from '../../js/engine/schedule.js';
 import { STAFF_CHAIN, defaultPermsOf } from '../../js/config.js';
 import { rosterProjection } from '../../js/engine/privacy.js';
+import { dailyRewardSettings } from '../../js/engine/challenge-days.js';
 
 const EVENT_ID = 'feda-cup-2026';
 
@@ -435,7 +436,7 @@ function scheduleDay(date, dayMatches, divisionsById) {
 //  主入口
 // ══════════════════════════════════════════════════════════════════
 
-export function buildSeed({ seed = 20261009 } = {}) {
+export function buildSeed({ seed = 20261009, dailyChallenges = false } = {}) {
   const rng = makeRng(seed);
   const docs = [];
   const add = (path, data) => docs.push({ path, data });
@@ -456,7 +457,7 @@ export function buildSeed({ seed = 20261009 } = {}) {
     seedData: true
   });
   add('config/rankingRules',     { rules: RANKING_RULES });
-  add('config/challengeRewards', {
+  add('config/challengeRewards', dailyChallenges ? dailyRewardSettings(EVENT_DATES) : {
     rule: 'allChallengesCompleted', version: 'seven-stamps-v1',
     requiredChallengeIds: CHALLENGES.map(c => c.challengeId),
     entriesOnAllComplete: 1, entriesPerCompletion: 0,
@@ -706,6 +707,7 @@ export function buildSeed({ seed = 20261009 } = {}) {
   for (const c of CHALLENGES) {
     add(`${E}/challenges/${c.challengeId}`, {
       ...c, eventId: EVENT_ID,
+      ...(dailyChallenges ? { dailyOpen: Object.fromEntries(EVENT_DATES.map(date => [date, true])) } : {}),
       attemptPolicy: { ...DEFAULT_ATTEMPT_POLICY },
       status: 'open', stats: { players: 0, attempts: 0 }, seedData: true
     });

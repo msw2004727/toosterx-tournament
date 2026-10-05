@@ -27,6 +27,24 @@ export async function getChallenges() {
   return snap.docs.map(d => ({ challengeId: d.id, ...d.data() }));
 }
 
+export function watchChallenges(scope, cb, onError) {
+  const { collection, onSnapshot, query, orderBy } = sdk();
+  return hold(scope, onSnapshot(query(collection(db(), 'events', EVENT_ID, 'challenges'), orderBy('order', 'asc')),
+    s => cb(s.docs.map(d => ({ challengeId: d.id, ...d.data() }))), err => onError?.(err)), 'challenge:settings');
+}
+
+export function watchRewards(scope, cb, onError) {
+  const { doc, onSnapshot } = sdk();
+  return hold(scope, onSnapshot(doc(db(), 'config', 'challengeRewards'), s => cb(s.exists() ? s.data() : null), err => onError?.(err)), 'challenge:rewards');
+}
+
+export function watchAttempts(scope, playerId, cb, onError) {
+  const { collection, query, where, onSnapshot } = sdk();
+  return hold(scope, onSnapshot(query(collection(db(), 'events', EVENT_ID, 'attempts'), where('playerId', '==', playerId)),
+    s => cb(s.docs.map(d => ({ ...d.data(), attemptId: d.id, pending: d.metadata?.hasPendingWrites === true }))),
+    err => onError?.(err)), `challenge:attempts:${playerId}`);
+}
+
 export async function getChallenge(challengeId) {
   const { doc, getDoc } = sdk();
   const s = await getDoc(doc(db(), 'events', EVENT_ID, 'challenges', challengeId));

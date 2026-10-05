@@ -98,7 +98,8 @@ function querySnapOf(w) {
   const inCollection = p => p.startsWith(w.prefix + '/') && p.slice(w.prefix.length + 1).split('/').length === 1;
   let rows = [...store.entries()]
     .filter(([p]) => (w.group ? inGroup(p) : inCollection(p)))
-    .map(([p, d]) => ({ id: p.split('/').pop(), data: () => structuredClone(d), ref: { path: p } }));
+    .map(([p, d]) => ({ id: p.split('/').pop(), data: () => structuredClone(d), ref: { path: p },
+      metadata: { fromCache: !S.online, hasPendingWrites: !S.online && d.createdAt === null } }));
   for (const c of w.clauses || []) {
     if (c.kind === 'where') {
       rows = rows.filter(r => {
@@ -400,6 +401,29 @@ export const httpsCallable = (_fns, name) => async (payload) => {
     const failure = window.__FAKE_CALL_ERROR;
     throw Object.assign(new Error(typeof failure === 'string' ? failure : failure.message),
       { code: typeof failure === 'string' ? 'functions/failed-precondition' : failure.code });
+  }
+  if (name === 'updateChallengeDay') {
+    const path = `events/${payload.eventId}/challenges/${payload.challengeId}`;
+    const c = store.get(path);
+    if ((c?.dailyOpen?.[payload.date] === true) !== payload.expectedOpen) throw new Error('開放設定已被更新');
+    store.set(path, { ...c, dailyOpen: { ...c.dailyOpen, [payload.date]: payload.open } });
+    notify();
+    return { data: { ok: true, data: { changed: true, date: payload.date, open: payload.open } } };
+  }
+  if (name === 'exportDailyDraw') {
+    const { dailyProgress } = await import(location.origin + '/js/engine/challenge-days.js');
+    const { luckyDrawRows } = await import(location.origin + '/js/engine/csv.js');
+    const prefix = `events/${payload.eventId}/`;
+    const items = collection => [...store.entries()].filter(([p]) => p.startsWith(prefix + collection + '/')).map(([, v]) => v);
+    const challenges = items('challenges'), attempts = items('attempts');
+    const rewards = store.get('config/challengeRewards');
+    const players = items('players').map(p => {
+      const progress = dailyProgress({ attempts: attempts.filter(a => a.playerId === p.playerId), challenges, date: payload.date, timeZone: rewards.timeZone });
+      return { ...p, completedChallengeIds: progress.done, luckyDrawEntries: progress.entries };
+    });
+    const requiredCount = challenges.filter(c => c.dailyOpen?.[payload.date] === true).length;
+    return { data: { ok: true, data: { date: payload.date, requiredCount,
+      rows: luckyDrawRows(players).map(r => ({ ...r, date: payload.date, requiredCount })) } } };
   }
   if (name === 'shareMatchStream') {
     // UI 接線替身；實際身份、交易、稽核與所有權由 Functions Emulator 測試驗證。
