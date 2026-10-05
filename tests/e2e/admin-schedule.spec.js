@@ -367,11 +367,14 @@ test('⭐ 有場次開打之後，分組的按鈕關掉並說明原因 @admin', 
   //    拿掉守衛也照樣灰，測不出來（變異 #E44 第一次就是這樣逃掉的）
   await stub(page, {
     teamCount: 6,
+    division: { groupNames: { A: '甲組', B: '乙組' } },
     matches: { 'AO-G-A-01': match({ status: 'finished', score: { home: 1, away: 0 }, lock: { locked: true, lockedAt: null, lockedBy: 'u' } }) }
   });
   await go(page);
   await ready(page);
   await expect(page.locator('#draw-swap-note')).toContainText('分組已經定案');
+  await expect(page.locator('.adm__fieldLabel').filter({ hasText: '甲組（3 隊）' })).toHaveCount(1);
+  await expect(page.locator('.adm__fieldLabel').filter({ hasText: '乙組（3 隊）' })).toHaveCount(1);
   const chips = page.locator('.adm__chip');
   await expect(chips).toHaveCount(6);
   for (let i = 0; i < 6; i++) await expect(chips.nth(i)).toBeDisabled();
