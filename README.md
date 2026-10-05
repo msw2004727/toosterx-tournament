@@ -3,7 +3,7 @@
 ToosterX 賽事營運系統｜**Tournament**（競賽）＋ **Challenge**（現場互動）
 首個實戰場域：**FEDA CUP 2026｜飛達盃**（2026/10/9–11・太原足球場・六組別 38 隊）
 
-工作人員教學：[圖文快速上手操作手冊（PDF）](docs/manual/quickstart.pdf)（36 頁，含操作步驟與身分標籤）。
+工作人員教學：[圖文快速上手操作手冊（PDF）](docs/manual/quickstart.pdf)（38 頁，含操作步驟與身分標籤）。
 
 > 這個 repo 不是「飛達盃網站」，而是一套**以設定檔驅動的賽事系統**，飛達盃只是它的第一個 Event。
 > 程式碼中不得出現 `if (divisionId === 'women')` 這類寫死的判斷。
