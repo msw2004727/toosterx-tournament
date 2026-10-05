@@ -8,7 +8,7 @@ const ms = date => Date.parse(`${date}T10:00:00+08:00`);
 async function setup(page, { date = '2026-10-10', complete = true, role = null } = {}) {
   const seed = {
     [`events/${EVENT}`]: { eventId: EVENT, name: 'FEDA CUP', dates },
-    'config/env': { env: 'demo' },
+    'config/env': { env: 'demo', allowChallengeTestTime: true },
     'config/challengeRewards': { rule: 'dailyChallengesCompleted', version: 'daily-v1', dates, timeZone: 'Asia/Taipei' },
     [`events/${EVENT}/players/${PID}`]: { playerId: PID, nickname: '單日玩家', luckyDrawEntries: 0, completedChallengeIds: [] },
     [`users/${UID}`]: { uid: UID, displayName: '每日工作人員', gamePassId: PID },
@@ -43,6 +43,26 @@ test('當日三攤完成即顯示已取得資格，背景玩家欄位仍為 0 �
   await page.getByRole('tab', { name: '10/10' }).click();
   await expect(page.locator('.chal__card--draw')).toContainText('已取得 1 次抽獎機會');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('Demo 模擬日期同步抽獎頁籤與攤位登錄日期，還原後回真實日期 @demobooth', async ({ page }) => {
+  await setup(page, { date: '2026-10-05', role: 'booth' }); await page.goto('/#/challenge/me');
+  await expect(page.getByRole('tab', { name: '10/09' })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('button', { name: '測試時間', exact: true }).click();
+  await page.getByLabel('測試活動日期').selectOption(dates[1]);
+  await page.getByLabel('測試時間', { exact: true }).fill('09:30');
+  await page.getByRole('button', { name: '啟用測試時間' }).click();
+  await page.clock.runFor(1100);
+  await expect(page.getByRole('tab', { name: '10/10' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.chal__card--draw')).toContainText('已取得 1 次抽獎機會');
+  await page.evaluate(() => { location.hash = '/booth/a'; });
+  await page.locator('#booth-id').fill(PID); await page.getByRole('button', { name: '查詢', exact: true }).click();
+  await page.getByRole('button', { name: '送出成績', exact: true }).click();
+  await expect.poll(async () => Object.values(await page.evaluate(() => window.__fake.__dump()))
+    .filter(d => d.staffUid === UID && d.demoTestTime === true).length).toBe(1);
+  const record=await page.evaluate(() => Object.values(window.__fake.__dump()).find(d=>d.demoTestTime===true));
+  expect(record.activityDate).toBe(dates[1]);
+  expect(new Date(record.recordedAtMs).toISOString()).toMatch(/^2026-10-10T01:30/);
 });
 test('前一天的第三攤不能湊今日資格，當日第三攤登錄後即時取得資格 @daily', async ({ page }) => {
   await setup(page, { complete: false }); await page.goto('/#/challenge');

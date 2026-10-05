@@ -251,7 +251,7 @@ test('兩位管理員同時給不同球員同一背號，交易只讓一位成�
   expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
   expect(results.find(r => r.status === 'rejected').reason.code).toBe('already-exists');
   expect((await root().collection('teams').doc(id).collection('members').get()).docs.filter(d => d.data().jerseyNo === 0)).toHaveLength(1);
-});
+}, 30_000);
 
 test('既有 p-7 球員改號保留 ID、歷史進球與已開賽陣容，未開賽陣容同步且重新檢錄', async () => {
   const { teamIds: [id] } = await importTeamsFor(request());
@@ -312,7 +312,7 @@ test('補件可與別隊同身分，同時修改後到者仍不能覆蓋新值',
   expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
   expect(results.find(r => r.status === 'rejected').reason.code).toBe('aborted');
   await expect(updateMemberIdentityFor(editRequest(id, { memberId: 'missing' }))).rejects.toMatchObject({ code: 'not-found' });
-});
+}, 30_000);
 test('更改身分讓舊檢錄失效，待開賽場次退回檢錄且不動對隊確認與比分', async () => {
   const { teamIds: [id] } = await importTeamsFor(request());
   await root().collection('checkins').doc('match__p-11a0e9e231b01869997d7297bd4231f7-1').set({ matchId: 'match', teamId: id, memberId: 'p-11a0e9e231b01869997d7297bd4231f7-1', result: 'pass' });

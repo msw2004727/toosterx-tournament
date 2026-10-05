@@ -620,7 +620,7 @@ export async function adminSchedulePage({ scope, view }) {
       locked
         ? el('div', { class: 'adm__schedRow' }, [
             el('p', { class: 'adm__permNote', text: '已經開打，時間與場地不能在這裡改。' }),
-            can('match.score.override') || can('match.confirm') || can('match.reopen')
+            can('match.score.override') || can('match.confirm') || can('match.reopen') || can('match.reset')
               ? el('button', {
                   class: 'btn btn--lg', type: 'button',
                   onClick: () => navigate(`/admin/match/${encodeURIComponent(m.matchId)}`)

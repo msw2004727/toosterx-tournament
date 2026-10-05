@@ -223,7 +223,7 @@
   date: '2026-10-11',
   kickoffAt: Timestamp,                // 排定開賽時間
   venueId: 'venue-a',
-  venueName: '甲場',
+  venueName: 'A場',
 
   home: {
     teamId: 't-101', name: '臺中野狼', abbr: 'WLF',
@@ -411,8 +411,8 @@ id 格式：`${divisionId}__${stageId}__${groupId}`，例如 `adult-open__group_
 ```js
 {
   venueId: 'venue-a',
-  name: '甲場',
-  fullName: '太原足球場 甲場',
+  name: 'A場',
+  fullName: '太原足球場 A場',
   order: 1,
   fieldType: '9v9',                    // 5v5 | 9v9
   geo: { lat: 24.1698, lng: 120.7150 },
@@ -478,7 +478,7 @@ id：`${matchId}__${memberId}`（同場次同人只會有一筆，天然防重�
   boardId: 'live',
   updatedAt: Timestamp,
   liveMatches: [
-    { matchId, divisionName: '成人公開組', venueName: '甲場',
+    { matchId, divisionName: '成人公開組', venueName: 'A場',
       home: { abbr:'WLF', name:'臺中野狼', logoUrl, score: 2 },
       away: { abbr:'TGR', name:'臺中猛虎', logoUrl, score: 1 },
       period: 'h2', minute: 63, status: 'live',

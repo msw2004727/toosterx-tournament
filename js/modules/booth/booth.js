@@ -27,6 +27,7 @@ import { can, staff, user, onAuth, reloadIdentity, hasRole } from '../../core/fi
 import { navigate } from '../../core/router.js';
 import { EVENT_ID } from '../../config.js';
 import { now as serverNow, startTicker } from '../../core/clock.js';
+import { activityTime, isActivityTimeSimulated } from '../../core/activity-clock.js';
 import { hold } from '../../core/store.js';
 import { hhmm } from '../../lib/format.js';
 import {
@@ -91,7 +92,7 @@ export async function boothPage({ scope, view, params, query }) {
   // ── 資料 ─────────────────────────────────────────────────
 
   function dailyMode() { return state.rewards?.rule === DAILY_RULE; }
-  function today() { return activityDate(serverNow(), state.rewards?.timeZone); }
+  function today() { return activityDate(activityTime(), state.rewards?.timeZone); }
   function dayAttempts() { return dailyMode() ? state.attempts.filter(a => attemptDate(a, state.rewards.timeZone) === today()) : state.attempts; }
   function canRegisterToday() {
     return !dailyMode() || (state.rewards.dates.includes(today()) && isChallengeOpen(state.challenge, today()));
@@ -281,8 +282,9 @@ export async function boothPage({ scope, view, params, query }) {
         attemptNo: q.nextAttemptNo,
         staffUid: user()?.uid,
         source: q.source,
-        atMs: nowMs
+        atMs: activityTime()
       });
+      if (isActivityTimeSimulated()) payload.doc.demoTestTime = true;
     } catch (err) { toast(err.message, 'error'); return; }
 
     // ⚠️ 不 await（R-UI-002）：離線時 Firestore 的 Promise 永遠 pending。

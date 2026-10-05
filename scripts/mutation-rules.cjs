@@ -13,6 +13,15 @@ const { runMutants } = require('./lib/mutate.cjs');
 const F = 'firestore.rules';
 
 const MUTANTS = [
+  { name: 'RU#RESET-WRITE 歸零後放行舊裝置比分', file: F,
+    from: 'allow update: if currentResetWrite() && (', to: 'allow update: if (',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/match-reset.test.js --silent' },
+  { name: 'RU#RESET-CHILD 舊紀錄可補傳回歸零場次', file: F,
+    from: "return exists(parent) && request.resource.data.get('resetRevision', 0) == get(parent).data.get('resetRevision', 0);", to: 'return exists(parent);',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/match-reset.test.js --silent' },
+  { name: 'RU#DEMO-BOUNDARY 正式站放行模擬日期', file: F,
+    from: "simulated && env.get('env', '') == 'demo'", to: 'simulated',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/challenge-days.test.js --silent' },
   { name: 'RU#STREAM-PRIVACY 直播分享所有權向訪客公開', file: F,
     from: 'allow read: if isAuth() && (resource.data.ownerUid == uid() || isAdmin());', to: 'allow read: if true;',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/stream-shares.test.js --silent' },
@@ -41,7 +50,7 @@ const MUTANTS = [
     from: 'return exists(p) && tid in [get(p).data.home.teamId, get(p).data.away.teamId];', to: 'return exists(p);',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/prelaunch.test.js --silent' },
   {
-    name: 'RU#CSV3 待補身分也能完成檢錄', file: F,
+    name: 'RU#CSV3 檢錄不驗核准名冊與身分修訂版本', file: F,
     from: "return r.get('result', null) != 'pass'", to: 'return true'
   },
   {
@@ -192,8 +201,10 @@ const MUTANTS = [
     name: 'RU#20 檢錄不檢查 scannedBy 是自己（可冒名記檢錄）',
     file: F,
     from: `                      && identityReady()
+                      && currentMatchRecord(request.resource.data.matchId)
                       && request.resource.data.scannedBy == uid()`,
-    to: `                      && identityReady()`
+    to: `                      && identityReady()
+                      && currentMatchRecord(request.resource.data.matchId)`
   },
   {
     name: 'RU#21 檢錄文件 id 可以自訂（同場同人會出現兩筆結果不同的紀錄）',
@@ -238,8 +249,8 @@ const MUTANTS = [
   {
     name: 'RU#27 出場名單只給記錄員（裁判編不了名單）',
     file: F,
-    from: `        allow create, update: if isAdmin() || (isReferee()`,
-    to: `        allow create, update: if isAdmin() || (isScorer()`
+    from: `        allow create, update: if currentMatchRecord(request.resource.data.matchId) && (isAdmin() || (isReferee()`,
+    to: `        allow create, update: if currentMatchRecord(request.resource.data.matchId) && (isAdmin() || (isScorer()`
   },
   {
     name: 'RU#28 繼承鏈含 venue_owner（FC 的場主自動變成記錄員）',
@@ -437,11 +448,11 @@ const MUTANTS = [
     file: F,
     from: `               && ( request.resource.data.status == resource.data.status
                     || request.resource.data.status in ['checkin', 'ready'] )
-               && validStatusTransition(resource.data.status, request.resource.data.status) );`,
-    to: `               && validStatusTransition(resource.data.status, request.resource.data.status) );`
+               && validStatusTransition(resource.data.status, request.resource.data.status) ) );`,
+    to: `               && validStatusTransition(resource.data.status, request.resource.data.status) ) );`
   },
   {
-    name: 'RU#51 ⭐ 檢錄那條路不看場地（乙場的志工改得動 甲場的檢錄狀態）',
+    name: 'RU#51 ⭐ 檢錄那條路不看場地（B場的志工改得動 A場的檢錄狀態）',
     file: F,
     from: `          || ( isCheckin()
                && assignedVenue(resource.data.venueId)`,

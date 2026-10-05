@@ -17,11 +17,14 @@ const FAKE = fs.readFileSync(path.join(process.cwd(), 'tests/e2e/fake-firebase.j
 const EVENT = 'feda-cup-2026';
 const MATCH = 'U10-G-A-01';
 
-test('CSV 待補資料不能勾出賽，其他球員可正常檢錄 @csvidentity', async ({ page }) => {
+test('CSV 待補資料可勾出賽且計入人數，其他球員可正常檢錄 @csvidentity', async ({ page }) => {
   await stub(page, { memberOver: { source: 'csv', birthDate: '', idLast4: '', identityComplete: false } });
   await page.goto(`/#/staff/checkin/${MATCH}`);
-  await expect(page.getByLabel('小豆子 出賽', { exact: true })).toBeDisabled();
-  await expect(page.getByText('待補資料・請管理員補齊生日與後四碼後再檢錄')).toBeVisible();
+  await expect(page.getByLabel('小豆子 出賽', { exact: true })).toBeEnabled();
+  await page.getByLabel('小豆子 出賽', { exact: true }).check();
+  await expect(page.getByLabel('小豆子 出賽', { exact: true })).toBeChecked();
+  await expect(page.getByText('待補資料・可先現場確認並完成檢錄')).toBeVisible();
+  await expect.poll(async () => (await page.evaluate(() => window.__fake.__dump()))[`events/${EVENT}/checkins/${MATCH}__m-1`]?.result).toBe('pass');
   await expect(page.getByLabel('阿光 出賽', { exact: true })).toBeEnabled();
 });
 test('補齊後的 CSV 球員可勾出賽並攜帶新版身分號碼 @csvidentity', async ({ page }) => {
@@ -71,7 +74,7 @@ const seed = ({ roles = ['checkin'], memberOver = {}, extraPlayers = 0, division
   [`events/${EVENT}/divisions/u10`]: division,
   [`events/${EVENT}/matches/${MATCH}`]: {
     matchId: MATCH, eventId: EVENT, divisionId: 'u10', stageId: 'group', groupId: 'A',
-    label: '第1場 A組第1輪', venueId: 'venue-a', venueName: '甲場', date: '2026-10-09',
+    label: '第1場 A組第1輪', venueId: 'venue-a', venueName: 'A場', date: '2026-10-09',
     kickoffAt: '2026-10-09T08:30:00+08:00',
     home: { teamId: 't-101', name: '大甲金剛' }, away: { teamId: 't-102', name: '沙鹿飛龍' },
     teamIds: ['t-101', 't-102'],
@@ -81,6 +84,11 @@ const seed = ({ roles = ['checkin'], memberOver = {}, extraPlayers = 0, division
   },
   // ⚠️ 檢錄讀的是 members（私密），不是公開的 roster——
   //    生日與身分證後四碼只存在這一份文件上。
+  // 文件順序刻意讓隊職員在前，必須由實際名單排序把球員移至前面。
+  [`events/${EVENT}/teams/t-101/members/a-coach`]: {
+    memberId: 'a-coach', name: '林教練', jerseyNo: null,
+    kind: 'coach', status: 'approved', birthDate: null, idLast4: null, source: 'coach'
+  },
   [`events/${EVENT}/teams/t-101/members/m-1`]: {
     memberId: 'm-1', name: '小豆子', nameKind: 'nickname', jerseyNo: 7,
     kind: 'player', status: 'approved', birthDate: '2017-03-05', idLast4: '1234', source: 'coach', ...memberOver
@@ -88,10 +96,6 @@ const seed = ({ roles = ['checkin'], memberOver = {}, extraPlayers = 0, division
   [`events/${EVENT}/teams/t-101/members/m-2`]: {
     memberId: 'm-2', name: '阿光', nameKind: 'nickname', jerseyNo: 9,
     kind: 'player', status: 'approved', birthDate: '2016-11-20', idLast4: '5678', source: 'coach'
-  },
-  [`events/${EVENT}/teams/t-101/members/s-1`]: {
-    memberId: 's-1', name: '林教練', jerseyNo: null,
-    kind: 'coach', status: 'approved', birthDate: null, idLast4: null, source: 'coach'
   },
   [`events/${EVENT}/teams/t-101/members/m-x`]: {
     memberId: 'm-x', name: '已移除', jerseyNo: 3,

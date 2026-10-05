@@ -11,6 +11,7 @@
 import { db, sdk, user } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { track } from '../../core/sync.js';
+import { recordMetadata, writeMetadata } from './data.js';
 import { EVENT_ID } from '../../config.js';
 import { rocShort } from '../../lib/roc.js';
 
@@ -31,11 +32,10 @@ const col = () => {
  *    rules 只放行檢錄員以上讀 members。
  */
 export async function getCheckinRoster(teamId) {
-  const { collection, getDocs, query, where, orderBy } = sdk();
+  const { collection, getDocs, query, where } = sdk();
   const snap = await getDocs(query(
     collection(db(), 'events', EVENT_ID, 'teams', teamId, 'members'),
-    where('status', '==', 'approved'),
-    orderBy('jerseyNo', 'asc')
+    where('status', '==', 'approved')
   ));
   const rows = snap.docs.map(d => {
     const m = d.data();
@@ -104,6 +104,7 @@ export function saveCheckin(matchId, memberId, doc_, clear = false) {
   const ref = doc(db(), 'events', EVENT_ID, 'checkins', `${matchId}__${memberId}`);
   const payload = {
     ...doc_,
+    ...recordMetadata(matchId),
     result: clear ? null : doc_.result,
     scannedBy: uid(),
     scannedAt: serverTimestamp(),
@@ -128,6 +129,7 @@ export const stamp = () => sdk().serverTimestamp();
 export function confirmCheckin(matchId, patch, label) {
   const { doc, updateDoc, serverTimestamp } = sdk();
   const ref = doc(db(), 'events', EVENT_ID, 'matches', matchId);
-  return track(label, () => updateDoc(ref, { ...patch, updatedAt: serverTimestamp(), updatedBy: uid() }),
+  const metadata = writeMetadata(matchId);
+  return track(label, () => updateDoc(ref, { ...patch, ...metadata, updatedAt: serverTimestamp(), updatedBy: uid() }),
     { matchId, kind: 'checkin' });
 }

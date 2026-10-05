@@ -4,11 +4,12 @@
  * ⚠️ R-REL-013：HTML 一律 network-first，禁止 cache-first。
  * ⚠️ R-REL-014：新資源必須由 scripts/bump-version.js 納管。
  */
-const CACHE_NAME = 'feda-cup-0.20261005e';
+const CACHE_NAME = 'feda-cup-0.20261005f';
 
 // 由 bump-version.js 依 js/ 目錄產生，新增模組不會漏掉離線快取。
 const OFFLINE_MODULES = [
   "/js/config.js",
+  "/js/core/activity-clock.js",
   "/js/core/appbar.js",
   "/js/core/clock.js",
   "/js/core/division-theme.js",
@@ -55,6 +56,7 @@ const OFFLINE_MODULES = [
   "/js/firebase-config.js",
   "/js/lib/csv-file.js",
   "/js/lib/format.js",
+  "/js/lib/match-write.js",
   "/js/lib/ping.js",
   "/js/lib/qr-render.js",
   "/js/lib/roc.js",

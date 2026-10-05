@@ -32,8 +32,8 @@ const seed = ({ roles = ['super_admin'], extra = null } = {}) => {
       uid: 'u-b', name: '林小華', roles: ['checkin'], active: true,
       assignment: { eventId: EVENT, venueIds: ['venue-a'], divisionIds: [], challengeIds: [] }
     },
-    [`events/${EVENT}/venues/venue-a`]: { venueId: 'venue-a', name: '甲場', order: 1 },
-    [`events/${EVENT}/venues/venue-b`]: { venueId: 'venue-b', name: '乙場', order: 2 }
+    [`events/${EVENT}/venues/venue-a`]: { venueId: 'venue-a', name: 'A場', order: 1 },
+    [`events/${EVENT}/venues/venue-b`]: { venueId: 'venue-b', name: 'B場', order: 2 }
   };
   if (extra) Object.assign(s, extra);
   return s;
@@ -106,7 +106,7 @@ test('現在的身分寫在名字底下（含指派場地）@admin', async ({ pa
   await stub(page);
   await go(page);
   await expect(person(page, '林小華')).toContainText('檢錄員');
-  await expect(person(page, '林小華')).toContainText('甲場');
+  await expect(person(page, '林小華')).toContainText('A場');
   await expect(person(page, '陳阿明')).toContainText('未指派');
 });
 
@@ -221,7 +221,7 @@ test('⭐ 指派會留痕 @admin', async ({ page }) => {
 
 test('⭐ 賽務角色選得了場地，管理員選不了 @admin', async ({ page }) => {
   // rules 的 assignedVenue() 對 admin 直接放行，讓人選場地會製造
-  // 「我明明限制了他只能在 甲場」的錯覺
+  // 「我明明限制了他只能在 A場」的錯覺
   await stub(page);
   await go(page);
   await person(page, '陳阿明').locator('.adm__itemHead').click();
@@ -251,7 +251,7 @@ test('指派場地會寫進 assignment @admin', async ({ page }) => {
   await go(page);
   await person(page, '陳阿明').locator('.adm__itemHead').click();
   await roleBtn(page, '裁判').click();
-  await page.locator('.adm__chip', { hasText: '乙場' }).click();
+  await page.locator('.adm__chip', { hasText: 'B場' }).click();
   await page.getByRole('button', { name: /指派身分/ }).click();
 
   await expect.poll(async () => (await staffOf(page, 'u-a'))?.assignment?.venueIds, { timeout: 10_000 })

@@ -561,7 +561,7 @@ export const httpsCallable = (_fns, name) => async (payload) => {
 async function fakeManagement(name, p) {
   if (!S.online) throw Object.assign(new Error('管理操作需要連線'), { code: 'unavailable' });
   if (S.failNext) { const code=S.failNext;S.failNext=null;throw Object.assign(new Error(code),{code}); }
-  const base=`events/${p.eventId}`, actor={uid:S.currentUser?.uid??null}, ops=[];
+  const base=`events/${p.eventId}`, actor={uid:S.currentUser?.uid??null}, ops=[];let result={};
   const put=(path,data,merge=false)=>ops.push({path,data,merge});
   const rows=prefix=>[...store.entries()].filter(([key])=>key.startsWith(prefix)&&key.slice(prefix.length).split('/').length===1).map(([key,data])=>({...data,_path:key}));
   const audit=(action,entity,entityId,before,after,reason)=>put(`${base}/audits/${p.operationId}`,{action,entity,entityId,before,after,reason,actor,createdAt:new Date().toISOString()});
@@ -588,6 +588,13 @@ async function fakeManagement(name, p) {
     const path=`${base}/matches/${p.matchId}`,m=store.get(path);let patch=p.patch,before=m,after=null;
     if(p.action==='match.confirm')patch=actions.buildConfirmPatch(actor.uid);
     if(p.action==='match.reopen')patch=actions.buildReopenPatch(actor.uid,rows(path+'/timeline/'));
+    if(p.action==='match.reset'){
+      patch=actions.buildResetPatch(m,actor.uid);
+      const children=[...rows(path+'/timeline/'),...rows(base+'/checkins/').filter(d=>d.matchId===p.matchId),...rows(base+'/matchSheets/').filter(d=>d.matchId===p.matchId)];
+      before={match:m,deletedDocuments:children.map(d=>({path:d._path,doc:d}))};
+      for(const d of children)ops.push({path:d._path,remove:true});
+      result={entityId:p.matchId,status:patch.status,resetRevision:patch.resetRevision};
+    }
     if(p.action==='match.override')patch=actions.buildOverridePatch({match:m,score:p.patch.score,penaltyScore:p.patch.penaltyScore,uid:actor.uid});
     if(p.action==='match.walkover')patch=actions.buildWalkoverPatch({side:p.patch.walkoverSide,uid:actor.uid});
     if(['match.postponed','match.cancelled'].includes(p.action))patch=actions.buildStatusPatch(p.action.slice(6),actor.uid);
@@ -612,5 +619,5 @@ async function fakeManagement(name, p) {
     put(path,patch,true);audit(p.action,'division',p.divisionId,division,{...division,...patch},p.reason);
   }
   for(const op of ops){if(op.remove)store.delete(op.path);else store.set(op.path,resolveSentinels(op.merge?deepMerge(store.get(op.path)||{},op.data):op.data));}
-  notify();return {data:{ok:true,data:{operationId:p.operationId}}};
+  notify();return {data:{ok:true,data:{operationId:p.operationId,...result}}};
 }
