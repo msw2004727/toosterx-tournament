@@ -5,6 +5,7 @@ import { can, user, onAuth } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { EVENT_ID } from '../../config.js';
 import { taipeiMs, kickoffMsOf } from '../../engine/schedule.js';
+import { groupNameOf } from '../../engine/group-name.js';
 import { createManualDraft, manualMatchesOf, getManualFindings } from '../../engine/manual-schedule.js';
 import { venuesForDate } from './schedule-actions.js';
 import * as data from './data.js';
@@ -182,7 +183,7 @@ export function createManualScheduler({ scope, context, onDone, onReload, onBusy
     }
     function teamCard(team) {
       const id = team.teamId, count = planned.get(id) ?? 0, expected = requirement.get(id) ?? 0;
-      const groupNames = (state.draft.groups ?? []).filter(g => g.teamIds.includes(id)).map(g => `${g.groupId}組`).join('／');
+      const groupNames = (state.draft.groups ?? []).filter(g => g.teamIds.includes(id)).map(g => groupNameOf(g.groupId, division)).join('／');
       return el('div', { class: `manual__team${state.selected === id ? ' is-selected' : ''}`, dataset: { teamId: id } }, [
         el('button', { class: 'manual__handle', type: 'button', 'aria-label': `拖曳 ${nameOf(team)} 球隊卡片`,
           disabled: !editable() || state.draft.structureLocked, onPointerdown: event => beginDrag(event, id), onClick: () => selectTeam(id) }, icon('more')),
@@ -231,7 +232,7 @@ export function createManualScheduler({ scope, context, onDone, onReload, onBusy
     const mine = issues.filter(f => f.matchId === match.matchId || f.matchIds?.includes(match.matchId));
     const card = el('article', { class: `manual__match${match.locked ? ' is-locked' : ''}`, dataset: { matchId: match.matchId } }, [
       el('div', { class: 'manual__matchHead' }, [
-        el('div', {}, [el('h4', { text: match.label || match.matchId }), el('span', { class: 'manual__muted', text: `${match.matchId}・${match.isRoundRobin ? `${match.groupId}組循環賽` : '名次／淘汰賽'}` })]),
+        el('div', {}, [el('h4', { text: match.label || match.matchId }), el('span', { class: 'manual__muted', text: `${match.matchId}・${match.isRoundRobin ? `${groupNameOf(match.groupId, division)}循環賽` : '名次／淘汰賽'}` })]),
         match.locked ? el('span', { class: 'adm__badge', text: '已開打／有結果' }) : null
       ]),
       el('div', { class: 'manual__opponents' }, [sideSlot(match, 'home'), el('span', { class: 'manual__vs', text: 'VS' }), sideSlot(match, 'away')]),
@@ -336,7 +337,7 @@ export function createManualScheduler({ scope, context, onDone, onReload, onBusy
           dataset: { focusKey: 'filter:matches' }, disabled: state.busy, onChange: event => { state.filter = event.target.value; render('filter:matches'); } }, [
           el('option', { value: 'all', selected: state.filter === 'all', text: `全部（${state.draft.matches.length} 場）` }),
           ...(state.draft.groups ?? []).map(group => { const value = `group:${group.stageId}:${group.groupId}`;
-            return el('option', { value, selected: state.filter === value, text: `${group.groupId}組循環賽` }); }),
+            return el('option', { value, selected: state.filter === value, text: `${groupNameOf(group.groupId, division)}循環賽` }); }),
           ...stageIds.map(stageId => { const value = `stage:${stageId}`;
             return el('option', { value, selected: state.filter === value, text: context.format.stages.find(stage => stage.stageId === stageId)?.name || stageId }); })
         ])]),

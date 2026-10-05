@@ -192,8 +192,57 @@ const F4_RR_FINAL = {
   ]
 };
 
+/** 8 隊：小組第一輪空，第二、三交叉淘汰，第四直接排七八名。 */
+const F8_GROUP_TOP_SEED_BYE = {
+  formatId: 'F8_GROUP_TOP_SEED_BYE',
+  groupNames: { A: '甲組', B: '乙組' },
+  matchNames: { QF1: '淘汰賽①', QF2: '淘汰賽②', SF1: '淘汰賽③', SF2: '淘汰賽④' },
+  name: '8隊 兩組循環＋小組第一輪空淘汰賽',
+  teamCount: 8,
+  description: '共20場。小組第一輪空；第二、三交叉淘汰，第四直接打七八名賽。每隊4至6場。',
+  stages: [
+    { stageId: 'group', name: '分組循環', type: 'roundRobin', order: 1,
+      groupCount: 2, groupSize: 4, legs: 1, seedingMethod: 'snake' },
+    { stageId: 'qualifier', name: '交叉淘汰賽', type: 'knockout', order: 2, drawRule: 'penalty',
+      slots: [
+        { matchKey: 'QF1', label: '淘汰賽①',
+          home: { type: 'standing', stageId: 'group', groupId: 'A', rank: 2 },
+          away: { type: 'standing', stageId: 'group', groupId: 'B', rank: 3 } },
+        { matchKey: 'QF2', label: '淘汰賽②',
+          home: { type: 'standing', stageId: 'group', groupId: 'A', rank: 3 },
+          away: { type: 'standing', stageId: 'group', groupId: 'B', rank: 2 } }
+      ] },
+    { stageId: 'placement', name: '準決賽', type: 'knockout', order: 3, drawRule: 'penalty',
+      slots: [
+        { matchKey: 'SF1', label: '淘汰賽③',
+          home: { type: 'standing', stageId: 'group', groupId: 'A', rank: 1 },
+          away: { type: 'matchWinner', matchKey: 'QF2' } },
+        { matchKey: 'SF2', label: '淘汰賽④',
+          home: { type: 'standing', stageId: 'group', groupId: 'B', rank: 1 },
+          away: { type: 'matchWinner', matchKey: 'QF1' } }
+      ] },
+    { stageId: 'final', name: '名次決賽', type: 'knockout', order: 4, drawRule: 'penalty',
+      slots: [
+        { matchKey: 'F3', label: '季軍賽', round: 1,
+          home: { type: 'matchLoser', matchKey: 'SF1' },
+          away: { type: 'matchLoser', matchKey: 'SF2' } },
+        { matchKey: 'F7', label: '七八名賽', round: 1,
+          home: { type: 'standing', stageId: 'group', groupId: 'A', rank: 4 },
+          away: { type: 'standing', stageId: 'group', groupId: 'B', rank: 4 } },
+        { matchKey: 'F1', label: '冠軍賽', round: 2,
+          home: { type: 'matchWinner', matchKey: 'SF1' },
+          away: { type: 'matchWinner', matchKey: 'SF2' } },
+        { matchKey: 'F5', label: '五六名賽', round: 2,
+          home: { type: 'matchLoser', matchKey: 'QF1' },
+          away: { type: 'matchLoser', matchKey: 'QF2' } }
+      ] }
+  ],
+  finalRankingMap: F8_GROUP_CROSS.finalRankingMap.map(item => ({ ...item, from: { ...item.from } }))
+};
+
 const FORMATS = {
   F8_GROUP_CROSS,
+  F8_GROUP_TOP_SEED_BYE,
   F6_TWO_GROUPS_MIRROR,
   F6_TWO_GROUPS_CROSS,
   F4_RR_FINAL
@@ -360,7 +409,7 @@ const DIVISIONS = [
   { divisionId: 'adult-fun',  name: '成人興趣組',  shortName: '興趣',  officialName: '男子興趣組', date: '2026-10-10',
     teamCount: 8, playersOnField: 9, matchDurationMin: 30, periods: 1, ballSize: 5,
     eligibility: { bornOnOrAfter: null, note: '非職業甲乙組球員，自評球齡低於二年或以興趣為主' },
-    formatId: 'F8_GROUP_CROSS', rankingRuleId: 'RR_FEDA_2026',
+    formatId: 'F8_GROUP_TOP_SEED_BYE', rankingRuleId: 'RR_FEDA_2026',
     colorToken: 'div-fun',   order: 5, code: 'AF',
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: true } },
 
@@ -370,7 +419,7 @@ const DIVISIONS = [
     formatId: 'F8_GROUP_CROSS', rankingRuleId: 'RR_FEDA_2026',
     colorToken: 'div-open',  order: 6, code: 'AO',
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: true } }
-];
+].map(division => ({ ...division, requiredFormatId: 'F8_GROUP_TOP_SEED_BYE', groupNames: { A: '甲組', B: '乙組' } }));
 
 /**
  * 報名限制（競賽規章第十二條）。
@@ -408,7 +457,7 @@ const REFUND_RULES = {
 };
 
 /** 階段代碼（用於 matchId：{組別碼}-{階段碼}-{小組}-{序}） */
-const STAGE_CODE = { group: 'G', placement: 'P', final: 'F' };
+const STAGE_CODE = { group: 'G', qualifier: 'Q', placement: 'P', final: 'F' };
 
 export {
   FORMATS, RANKING_RULES, DIVISIONS, FAIR_PLAY, STAGE_CODE, REGISTRATION_LIMITS,

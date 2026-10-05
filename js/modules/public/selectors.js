@@ -218,7 +218,7 @@ export function standingPhase(rows) {
  * 兒童組不用「淘汰」，用「名次賽」（docs/08 §9 文案鐵則）。
  */
 const STAGE_LABEL = {
-  group: '分組賽', knockout: '名次賽', placement: '名次賽',
+  group: '分組賽', qualifier: '交叉淘汰賽', knockout: '名次賽', placement: '名次賽',
   final: '冠軍賽', semi: '準決賽', third: '季軍賽', league: '循環賽'
 };
 export function stageLabel(stageId) {

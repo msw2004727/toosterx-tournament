@@ -23,6 +23,14 @@ beforeEach(async()=>{
 });
 afterEach(()=>jest.restoreAllMocks());
 
+test.each([false,true])('指定統一賽制時不能手動建立其他範本 generated=%s',async generated=>{
+  await div().update({requiredFormatId:'F8_GROUP_TOP_SEED_BYE'});
+  const d=filledDraft(generated?{format:genericFormat(4),generated:true}:{});
+  await expect(publishManualScheduleFor(request(d))).rejects.toMatchObject({code:'failed-precondition'});
+  expect(await getDocs()).toHaveLength(0);
+  expect((await audit()).empty).toBe(true);
+});
+
 test('手動新建完整組別、積分、場次與一次發布，稽核可追溯',async()=>{
   const r=await publishManualScheduleFor(request());expect(r).toMatchObject({divisionId:'d',scheduleRevision:1,published:true,matchCount:8,operationId:'manual-1',auditId:expect.any(String)});
   const docs=await getDocs();expect(docs).toHaveLength(8);expect(docs.every(m=>m.matchId.includes('__g-')&&m.kickoffAt&&m.venueId==='v')).toBe(true);

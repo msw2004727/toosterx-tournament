@@ -11,6 +11,7 @@
  */
 
 import { setDivisionTheme } from '../../core/division-theme.js';
+import { groupNameOf } from '../../engine/group-name.js';
 import { el, mount, skeleton } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
 import { icon, iconText } from '../../core/icons.js';
@@ -83,7 +84,7 @@ export async function publicTeam({ params, view, query, scope }) {
     setDivisionTheme(root, state.division || t?.divisionId);
     mount(root,
       pageHead(t.name || teamId, {
-        sub: [state.division?.name, t.groupId ? `${t.groupId} 組` : null].filter(Boolean).join('　·　'),
+        sub: [state.division?.name, t.groupId ? groupNameOf(t.groupId, state.division, ' ') : null].filter(Boolean).join('　·　'),
         onBack: () => history.back()
       }),
       recordCard(),

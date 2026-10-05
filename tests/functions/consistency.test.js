@@ -56,6 +56,13 @@ function failAudit({retry=false}={}){
   },options));return ()=>attempts;
 }
 
+test.each([{formatId:'F4_RR_FINAL'}, {formatId:'GEN_4T_1G',generated:true}])('指定統一賽制時不能用舊範本或通用賽制重產 %j',async extra=>{
+  await div().update({requiredFormatId:'F8_GROUP_TOP_SEED_BYE'});
+  await expect(generateScheduleFor(generation('required-format',extra))).rejects.toMatchObject({code:'failed-precondition'});
+  expect((await base().collection('matches').get()).size).toBe(8);
+  expect((await audit('schedule.generate')).empty).toBe(true);
+});
+
 test('MC1 排程重產清理舊子紀錄、舊小組、積分及保留抽籤稽核，使用新世代',async()=>{
   await match('g1').collection('timeline').doc('stale').set({type:'goal'});
   await base().collection('checkins').doc('old-checkin').set({matchId:'g1'});

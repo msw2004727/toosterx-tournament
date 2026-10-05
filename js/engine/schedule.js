@@ -17,6 +17,7 @@
 
 import { berger, snakeSeed, groupLabel } from './berger.js';
 import { STAGE_CODE } from './formats.js';
+import { groupNameOf } from './group-name.js';
 
 /** @typedef {{level:'error'|'warn'|'ok', code:string, message:string, source:string, matchIds?:string[]}} Finding */
 
@@ -261,11 +262,11 @@ export function teamRefOf(t) {
 }
 
 /** 未定隊伍的佔位（docs/01b §1.7.1） */
-export function placeholderRefOf(src) {
+export function placeholderRefOf(src, config = {}, labels = {}) {
   const label =
-    src?.type === 'standing' ? `${src.groupId}組第${src.rank}名`
-    : src?.type === 'matchWinner' ? `${src.matchKey} 勝隊`
-    : src?.type === 'matchLoser' ? `${src.matchKey} 敗隊`
+    src?.type === 'standing' ? `${groupNameOf(src.groupId, config)}第${src.rank}名`
+    : src?.type === 'matchWinner' ? `${labels[src.matchKey] || src.matchKey} 勝隊`
+    : src?.type === 'matchLoser' ? `${labels[src.matchKey] || src.matchKey} 敗隊`
     : '待定';
   return {
     teamId: null, name: null, abbr: null, logoUrl: null, colorPrimary: null,
@@ -301,6 +302,8 @@ export function buildMatches({ division, format, groups }) {
   const groupDocs = [];
   const matches = [];
   const groupAssign = {};
+  const names = { groupNames: { ...format.groupNames, ...division.groupNames } };
+  const labels = format.matchNames ?? {};
 
   for (const st of format.stages) {
     stages.push({
@@ -317,7 +320,7 @@ export function buildMatches({ division, format, groups }) {
       groups.forEach((teamsInGroup, gi) => {
         const gid = groupLabel(gi);
         groupDocs.push({
-          stageId: st.stageId, groupId: gid, name: `${gid}組`,
+          stageId: st.stageId, groupId: gid, name: groupNameOf(gid, names),
           teamIds: teamsInGroup.map(t => t.teamId), order: gi + 1
         });
         teamsInGroup.forEach(t => { groupAssign[t.teamId] = gid; });
@@ -332,7 +335,7 @@ export function buildMatches({ division, format, groups }) {
             matches.push({
               matchId: `${division.code}-${code}-${gid}-${String(seq).padStart(2, '0')}`,
               divisionId: division.divisionId, stageId: st.stageId, groupId: gid,
-              round: ri + 1, label: `${gid}組 第${ri + 1}輪`, matchKey: null,
+              round: ri + 1, label: `${groupNameOf(gid, names)} 第${ri + 1}輪`, matchKey: null,
               home: teamRefOf(home), away: teamRefOf(away),
               teamIds: [home.teamId, away.teamId],
               _sortKey: [st.order, ri + 1, gi, seq]
@@ -346,8 +349,8 @@ export function buildMatches({ division, format, groups }) {
           matchId: `${division.code}-${code}-${slot.matchKey}`,
           divisionId: division.divisionId, stageId: st.stageId, groupId: null,
           round: slot.round ?? 1, label: slot.label, matchKey: slot.matchKey,
-          home: placeholderRefOf(slot.home),
-          away: placeholderRefOf(slot.away),
+          home: placeholderRefOf(slot.home, names, labels),
+          away: placeholderRefOf(slot.away, names, labels),
           teamIds: [],
           _sortKey: [st.order, slot.round ?? 1, 0, si + 1]
         });

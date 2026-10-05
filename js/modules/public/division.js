@@ -14,6 +14,7 @@
  */
 
 import { setDivisionTheme } from '../../core/division-theme.js';
+import { groupNameOf } from '../../engine/group-name.js';
 import { el, mount, skeleton } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
 import { icon, iconText } from '../../core/icons.js';
@@ -116,7 +117,7 @@ export async function publicDivision({ params, scope, view, query }) {
   }
 
   function standingBlock(v) {
-    const title = [stageLabel(v.stageId), v.groupId ? `${v.groupId} 組` : null].filter(Boolean).join('　');
+    const title = [stageLabel(v.stageId), v.groupId ? groupNameOf(v.groupId, state.division, ' ') : null].filter(Boolean).join('　');
     return sectionCard(title || '積分榜', 'table', [
       // 進度說明：一場都沒打就寫「尚未開賽」、打到一半寫「暫時排名」，
       // 只有分組賽打完仍同分才是「待主辦裁定」（驗收反饋 A-5：開賽前就看到「待裁定」會以為壞了）
