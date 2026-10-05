@@ -32,11 +32,11 @@ export function isPlaceholder(m) {
   return !(m?.home?.teamId) || !(m?.away?.teamId);
 }
 
-/** 隊伍顯示名：已確定用隊名，未確定用 slot 說明（例：A組第1名） */
+/** 優先使用後台設定的顯示簡稱；舊資料缺簡稱時使用全名，未定隊伍保留晉級來源。 */
 export function sideLabel(m, side) {
   const t = m?.[side];
-  if (t?.name) return t.name;
   if (t?.displayName) return t.displayName;
+  if (t?.name) return t.name;
   if (t?.slotLabel) return t.slotLabel;
   return '待定';
 }
