@@ -70,7 +70,7 @@ function report(stats) {
 }
 
 async function main() {
-  const { docs, stats } = buildSeed();
+  const { docs, stats } = buildSeed({ dailyChallenges: true });
   report(stats);
 
   if (DRY) {

@@ -21,7 +21,10 @@
 
 import { el, mount, toast, skeleton } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
-import { can, onAuth } from '../../core/firebase.js';
+import { can, onAuth, callFunction } from '../../core/firebase.js';
+import { EVENT_ID } from '../../config.js';
+import { DAILY_RULE, selectedActivityDate } from '../../engine/challenge-days.js';
+import { dayTabs, dateLabel, watchActivityDay } from '../challenge/days.js';
 import { hold } from '../../core/store.js';
 import { now as serverNow } from '../../core/clock.js';
 import {
@@ -38,6 +41,7 @@ export async function adminExportPage({ scope, view }) {
   const state = {
     players: undefined,        // undefined = 還沒載入
     challengeTotal: 0,
+    date: null, dailyRows: [],
     error: null,
     busy: false
   };
@@ -46,6 +50,11 @@ export async function adminExportPage({ scope, view }) {
 
   load();
   hold(scope, onAuth(() => render()), 'auth:admin-export');
+  watchActivityDay(scope, () => state.rewards, date => {
+    if (state.date === date) return;
+    if (state.busy) return false;
+    selectDate(date);
+  });
 
   // ── 具名函式（會被提升）───────────────────────────────────
 
@@ -56,13 +65,20 @@ export async function adminExportPage({ scope, view }) {
         data.getPlayers({ server: true }), data.getChallenges({ server: true }),
         data.getPlayerContacts({ server: true }), data.getChallengeRewards({ server: true })
       ]);
-      if (!['allChallengesCompleted', 'perChallengeCompleted'].includes(rewards?.rule)) {
+      if (!['allChallengesCompleted', 'perChallengeCompleted', DAILY_RULE].includes(rewards?.rule)) {
         throw new Error('抽獎規則尚未設定或無法確認，請聯絡總管後再匯出。');
       }
       state.players = players;
       state.challengeTotal = rewards?.requiredChallengeIds?.length ?? challenges.length;
       state.contacts = contacts;
       state.rewards = rewards;
+      if (rewards.rule === DAILY_RULE) {
+        state.date ??= selectedActivityDate(serverNow(), rewards.dates, rewards.timeZone);
+        const result = await callFunction('exportDailyDraw', { eventId: EVENT_ID, date: state.date });
+        if (result?.date !== state.date || !Array.isArray(result.rows)) throw new Error('當日名單尚未確認，請重新更新');
+        state.dailyRows = result.rows;
+        state.challengeTotal = result.requiredCount;
+      }
       state.loadedAt = new Date(serverNow()).toLocaleTimeString('zh-TW', { hour12: false });
     } catch (err) {
       state.error = err;
@@ -73,7 +89,15 @@ export async function adminExportPage({ scope, view }) {
   }
 
   function rows() {
+    if (state.error) return [];
+    if (state.rewards?.rule === DAILY_RULE) return state.dailyRows;
     return luckyDrawRows(state.players ?? [], { contacts: state.contacts ?? {}, rewards: state.rewards });
+  }
+
+  async function selectDate(date) {
+    if (state.busy) return;
+    state.date = date; state.dailyRows = []; state.busy = true; render();
+    try { await load(); } finally { state.busy = false; render(); }
   }
 
   /**
@@ -100,14 +124,17 @@ export async function adminExportPage({ scope, view }) {
       if (!await load()) throw state.error;
       const list = rows();
       if (!list.length) { toast('目前沒有人有抽獎資格', 'warn'); return; }
-      const csv = toCsv(LUCKY_DRAW_COLUMNS, list);
-      const name = csvFilename('抽獎名單', new Date(serverNow()).toISOString());
+      const daily = state.rewards?.rule === DAILY_RULE;
+      const columns = daily ? [{ key: 'date', label: '活動日期' }, { key: 'requiredCount', label: '當日開放關卡數' }, ...LUCKY_DRAW_COLUMNS] : LUCKY_DRAW_COLUMNS;
+      const csv = toCsv(columns, list);
+      const name = csvFilename('抽獎名單', daily ? state.date : new Date(serverNow()).toISOString());
       download(name, csv);
       // 匯出是讀取，不是結果性資料的變更——但「誰在什麼時候把名單帶走了」
       // 在抽獎有爭議時是要查的，所以照樣留一筆（R-SEC-002 只能新增）
       await data.writeAudit({
         action: 'export.luckyDraw', targetType: 'challenge', targetId: 'luckyDraw',
-        after: { players: list.length, entries: luckyDrawSummary(list).entries, filename: name },
+        after: { players: list.length, entries: luckyDrawSummary(list).entries, filename: name,
+          ...(daily ? { activityDate: state.date, requiredCount: state.challengeTotal } : {}) },
         reason: null
       });
       toast(`已匯出 ${list.length} 人`);
@@ -125,12 +152,13 @@ export async function adminExportPage({ scope, view }) {
     const list = rows();
     const s = luckyDrawSummary(list, state.challengeTotal);
     return el('div', { class: 'adm__box' }, [
-      el('strong', {}, iconText('ticket', '抽獎名單')),
+      el('strong', {}, iconText('ticket', state.rewards?.rule === DAILY_RULE ? `${dateLabel(state.date)} 抽獎名單` : '抽獎名單')),
       el('p', { class: 'adm__note', text:
         `有資格的玩家 ${s.players} 人・抽獎券合計 ${s.entries} 張`
         + (s.allDone == null ? '' : `・${state.challengeTotal} 關全破 ${s.allDone} 人`) }),
       el('p', { class: 'adm__permNote', text:
-        state.rewards?.rule === 'allChallengesCompleted'
+        state.rewards?.rule === DAILY_RULE ? `僅匯出 ${dateLabel(state.date)} 完成當日 ${state.challengeTotal} 個開放攤位的玩家，每人 1 張。其他日期不計入本日，下載前由伺服器重新核對有效登錄。`
+          : state.rewards?.rule === 'allChallengesCompleted'
           ? `僅匯出全部 ${state.challengeTotal} 項完成、且伺服器已確認資格的玩家，每人 1 張。下載前會重新讀取最新資料。`
           : '只收抽獎張數 1 張以上的人。張數由伺服器確認，下載前會重新讀取最新資料。' }),
       el('p', { class: 'adm__note', text: `請先確認所有攤位的待同步成績已送達，再更新與匯出。${state.loadedAt ? ` 最近更新 ${state.loadedAt}` : ''}` }),
@@ -181,6 +209,9 @@ export async function adminExportPage({ scope, view }) {
           ])
         : null,
 
+      state.rewards?.rule === DAILY_RULE ? dayTabs(state.rewards.dates, state.date, date => {
+        if (!state.busy) selectDate(date);
+      }) : null,
       summaryCard(),
       previewCard(),
 

@@ -190,3 +190,7 @@
 .chal__contact{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;margin-top:var(--sp-2)}
 .chal__contact .chal__input{flex:1 1 10rem}
 .chal__contactErr{color:var(--danger);font-size:var(--fs-sm);margin-top:var(--sp-1)}
+/* Daily activity selection stays usable on narrow phones. */
+.chal__days { display: flex; gap: .5rem; margin: 1rem 0; }
+.chal__days .btn { flex: 1; min-width: 0; }
+.chal__item[data-open="false"] { opacity: .65; }

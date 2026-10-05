@@ -19,6 +19,21 @@ const evCol = (...segs) => {
 
 // ── 讀 ───────────────────────────────────────────────────────
 
+export function watchChallenges(scope, cb, onError) {
+  const { onSnapshot, query, orderBy } = sdk();
+  return hold(scope, onSnapshot(query(evCol('challenges'), orderBy('order', 'asc')),
+    s => cb(s.docs.map(d => ({ ...d.data(), challengeId: d.id }))), err => onError?.(err)), 'booth:settings');
+}
+
+export function watchRewards(scope, cb, onError) {
+  const { doc, onSnapshot } = sdk();
+  return hold(scope, onSnapshot(doc(db(), 'config', 'challengeRewards'), s => cb(s.exists() ? s.data() : null), err => onError?.(err)), 'booth:rewards');
+}
+
+export async function updateDay(challengeId, date, open, expectedOpen) {
+  return callFunction('updateChallengeDay', { eventId: EVENT_ID, challengeId, date, open, expectedOpen });
+}
+
 export async function getChallenges() {
   const { getDocs, query, orderBy } = sdk();
   const snap = await getDocs(query(evCol('challenges'), orderBy('order', 'asc')));

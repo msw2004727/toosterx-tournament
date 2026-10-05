@@ -9,6 +9,14 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#DAY1 跨日成績誤計入當日', file: 'js/engine/challenge-days.js',
+    from: 'attemptDate(a, timeZone) === date);', to: 'true);' },
+  { name: '#DAY2 沒有開放攤位也發券', file: 'js/engine/challenge-days.js',
+    from: 'required.length > 0 && done.length === required.length', to: 'done.length === required.length' },
+  { name: '#DAY3 關閉攤位仍要求完成', file: 'js/engine/challenge-days.js',
+    from: 'challenges.filter(c => isChallengeOpen(c, date))', to: 'challenges.filter(c => true)' },
+  { name: '#DAY4 離線跨日補送失去參與日期', file: 'js/engine/challenge-days.js',
+    from: 'Number.isFinite(attempt?.recordedAtMs) ? attempt.recordedAtMs : attemptMs(attempt)', to: 'attemptMs(attempt)' },
   { name: '#TEAMNAME-PRIORITY 公開賽程忽略已設定簡稱', file: 'js/modules/public/selectors.js',
     from: '  if (t?.displayName) return t.displayName;\n  if (t?.name) return t.name;',
     to: '  if (t?.name) return t.name;\n  if (t?.displayName) return t.displayName;',

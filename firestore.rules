@@ -180,6 +180,20 @@ service cloud.firestore {
                && (!c.get('requireShotDetails', false) || validThreeShots(c, v));
       }
 
+      function validActivityDay() {
+        let rewardsPath = /databases/$(db)/documents/config/challengeRewards;
+        let rewards = exists(rewardsPath) ? get(rewardsPath).data : {};
+        let a = request.resource.data;
+        let date = a.get('activityDate', '');
+        let window = rewards.get('dayWindows', {}).get(date, {});
+        let c = get(/databases/$(db)/documents/events/$(eventId)/challenges/$(a.challengeId)).data;
+        return rewards.get('rule', '') != 'dailyChallengesCompleted'
+          || (a.recordedAtMs is int && date in rewards.dates
+            && a.recordedAtMs >= window.startMs && a.recordedAtMs < window.endMs
+            && a.recordedAtMs <= request.time.toMillis() + 120000
+            && c.get('dailyOpen', {}).get(date, false) == true);
+      }
+
       function validThreeShots(c, v) {
         let shots = request.resource.data.detail;
         return c.shotCount == 3 && shots is list && shots.size() == 3
@@ -624,6 +638,7 @@ service cloud.firestore {
                       && assignedChallenge(request.resource.data.challengeId, eventId)
                       && request.resource.data.staffUid == uid()
                       && request.resource.data.createdAt == request.time
+                      && validActivityDay()
                       && validChallengeScore(request.resource.data.challengeId,
                                              request.resource.data.rawValue);
         // 攤位只能作廢自己 10 分鐘內送出的紀錄
