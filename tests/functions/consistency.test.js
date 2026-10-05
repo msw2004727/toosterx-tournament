@@ -74,6 +74,14 @@ test('RESET2 歸零重新驗管理員、原因、來源版本；稽核失敗不�
   expect((await match('g1').collection('timeline').get()).size).toBe(1);
   expect((await base().collection('managementOperations').doc('reset-fail').get()).exists).toBe(false);
 });
+
+test('RESET3 舊版管理畫面仍可操作未歸零場次，但不能覆蓋歸零世代',async()=>{
+  const req=await command('match.postponed','legacy');delete req.data.expected.resetRevision;
+  await expect(manageEventFor(req)).resolves.toMatchObject({entityId:'g1'});
+  const current=await command('match.cancelled','legacy-reset');delete current.data.expected.resetRevision;
+  await match('g1').update({resetRevision:1});
+  await expect(manageEventFor(current)).rejects.toMatchObject({code:'aborted'});
+});
 function injectAtTransactionStart(change){
   const original=db.runTransaction.bind(db);let injected=false;
   jest.spyOn(db,'runTransaction').mockImplementation((callback,options)=>original(async tx=>{

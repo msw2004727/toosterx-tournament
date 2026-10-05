@@ -12,6 +12,9 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#RESET-LEGACY 新版管理端阻擋舊版未歸零場次', file: 'functions/management.js',
+    from: 'canonical({...expected,resetRevision:expected?.resetRevision??0})', to: 'canonical(expected)',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/consistency.test.js --testNamePattern=RESET3 --silent' },
   { name: 'FN#RESET-ARCHIVE 歸零未清理事件與檢錄', file: 'functions/management.js',
     from: 'for(const d of deleted)writes.push({ref:d.ref,delete:true});', to: 'for(const d of [])writes.push({ref:d.ref,delete:true});',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/consistency.test.js --testNamePattern=RESET1 --silent' },

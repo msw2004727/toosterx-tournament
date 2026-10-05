@@ -44,7 +44,7 @@ export async function manageEventFor(request) {
       if(!idOK(matchId))fail('invalid-argument','缺少場次代碼');
       const ref=base.collection('matches').doc(matchId), snap=await tx.get(ref),m={...snap.data(),matchId};
       if(!snap.exists)fail('not-found','場次不存在');
-      if(canonical(matchBasis(m))!==canonical(expected))fail('aborted','場次結果已更新，請重新載入後確認');
+      if(canonical(matchBasis(m))!==canonical({...expected,resetRevision:expected?.resetRevision??0}))fail('aborted','場次結果已更新，請重新載入後確認');
       before=m;let resultPatch;
       if(action==='match.reset'){
         const children=await Promise.all([tx.get(ref.collection('timeline')),
