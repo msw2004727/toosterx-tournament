@@ -115,9 +115,9 @@ const NICKNAMES = [
 
 // ─── 場地 ─────────────────────────────────────────────────────────
 const VENUES = [
-  { venueId: 'venue-a', name: 'A場', fullName: '太原足球場 A場', order: 1, fieldType: '9v9' },
-  { venueId: 'venue-b', name: 'B場', fullName: '太原足球場 B場', order: 2, fieldType: '9v9' },
-  { venueId: 'venue-c', name: 'C場', fullName: '太原足球場 C場', order: 3, fieldType: '5v5' }
+  { venueId: 'venue-a', name: '甲場', fullName: '太原足球場 甲場', order: 1, fieldType: '9v9' },
+  { venueId: 'venue-b', name: '乙場', fullName: '太原足球場 乙場', order: 2, fieldType: '9v9' },
+  { venueId: 'venue-c', name: '丙場', fullName: '太原足球場 丙場', order: 3, fieldType: '5v5' }
 ];
 
 /** 各日可用場地：10/9 三片（5 人制）、10/10 與 10/11 兩片（9 人制） */

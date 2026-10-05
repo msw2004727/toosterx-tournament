@@ -54,7 +54,7 @@ const base = ({ role = 'scorer', matrix = MATRIX } = {}) => {
     },
     [`events/${EVENT}/matches/${MATCH}`]: {
       matchId: MATCH, eventId: EVENT, divisionId: 'u10', stageId: 'group', groupId: 'A',
-      label: 'A組第1輪', venueId: 'venue-a', venueName: 'A場', date: '2026-10-09',
+      label: 'A組第1輪', venueId: 'venue-a', venueName: '甲場', date: '2026-10-09',
       kickoffAt: '2026-10-09T09:30:00+08:00',
       home: { teamId: 't-101', name: '臺中野狼' }, away: { teamId: 't-102', name: '臺中猛虎' },
       teamIds: ['t-101', 't-102'],

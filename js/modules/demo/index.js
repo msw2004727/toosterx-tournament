@@ -31,7 +31,7 @@ import { toast, el, sheet, mount as setChildren } from '../../core/ui.js';
 //    （第三輪驗收 C-1：真的檢錄員在 demo 上只有賽務台與檢錄兩個選項）。
 export const ROLES = [
   { value: 'admin',   note: '多了：覆核完賽、改判、賽程、審核報名（其餘同記錄員）' },
-  { value: 'scorer',  note: '多了：記分、時鐘、完賽送出（其餘同裁判；A 場）' },
+  { value: 'scorer',  note: '多了：記分、時鐘、完賽送出（其餘同裁判；甲場）' },
   { value: 'referee', note: '多了：出場名單（其餘同檢錄員）' },
   { value: 'checkin', note: '多了：檢錄勾選、看球員個資（其餘同挑戰攤位）' },
   { value: 'booth',   note: '挑戰區成績與現場簽到登錄' }

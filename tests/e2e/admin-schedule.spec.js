@@ -65,8 +65,8 @@ const seed = ({ roles = ['admin'], teamCount = 4, matches = {}, division = {} } 
       order: 6, date: '2026-10-11', matchDurationMin: 30, playersOnField: 9,
       formatId: 'F4_RR_FINAL', rankingRuleId: 'RR_FEDA_2026', ...division
     },
-    [`events/${EVENT}/venues/venue-a`]: { venueId: 'venue-a', name: 'A場', fieldType: '9v9', order: 1 },
-    [`events/${EVENT}/venues/venue-b`]: { venueId: 'venue-b', name: 'B場', fieldType: '9v9', order: 2 }
+    [`events/${EVENT}/venues/venue-a`]: { venueId: 'venue-a', name: '甲場', fieldType: '9v9', order: 1 },
+    [`events/${EVENT}/venues/venue-b`]: { venueId: 'venue-b', name: '乙場', fieldType: '9v9', order: 2 }
   };
   TEAMS.slice(0, teamCount).forEach((name, i) => {
     s[`events/${EVENT}/teams/t-${i + 1}`] = {
@@ -82,7 +82,7 @@ const match = (over = {}) => ({
   matchId: 'AO-G-A-01', eventId: EVENT, divisionId: 'adult-open', stageId: 'group', groupId: 'A',
   round: 1, matchNo: 1, label: 'A組 第1輪', matchKey: null, date: '2026-10-11',
   kickoffAt: { seconds: Math.floor(Date.parse('2026-10-11T09:00:00+08:00') / 1000), nanoseconds: 0 },
-  venueId: 'venue-a', venueName: 'A場',
+  venueId: 'venue-a', venueName: '甲場',
   home: { teamId: 't-1', name: '野狼', displayName: '野狼', placeholder: null },
   away: { teamId: 't-2', name: '猛虎', displayName: '猛虎', placeholder: null },
   teamIds: ['t-1', 't-2'],
@@ -238,7 +238,7 @@ test('休息不足只是提醒，照樣發布得出去 @admin', async ({ page })
     matches: {
       'AO-G-A-01': match(),
       'AO-G-A-02': match({
-        matchId: 'AO-G-A-02', venueId: 'venue-b', venueName: 'B場',
+        matchId: 'AO-G-A-02', venueId: 'venue-b', venueName: '乙場',
         kickoffAt: { seconds: Math.floor(Date.parse('2026-10-11T09:40:00+08:00') / 1000), nanoseconds: 0 }
       })
     },
