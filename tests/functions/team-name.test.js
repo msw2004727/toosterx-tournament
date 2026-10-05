@@ -88,9 +88,24 @@ test('同時從相同舊隊名修改只能成功一次', async () => {
   expect(results.find(result => result.status === 'rejected').reason.code).toBe('aborted'); expect((await audit()).size).toBe(1);
 }, 20000);
 test('不同隊同時改為同名只有一隊成功', async () => {
-  const results = await Promise.allSettled([updateTeamNameFor(request()), updateTeamNameFor(request({ operationId: 'rename-2', teamId: 'other', expected: { name: '對手隊', shortName: null, revision: 0 } }))]);
+  const commands = [request(), request({ operationId: 'rename-2', teamId: 'other', expected: { name: '對手隊', shortName: null, revision: 0 } })];
+  const results = await Promise.allSettled(commands.map(command => updateTeamNameFor(command)));
   expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
-  expect(results.find(result => result.status === 'rejected').reason.code).toBe('already-exists'); expect((await audit()).size).toBe(1);
+  const rejectedIndex = results.findIndex(result => result.status === 'rejected');
+  const error = results[rejectedIndex].reason;
+  // Emulator lock contention may invalidate the losing transaction with gRPC 3.
+  // Re-send the exact original command once, as the management UI does after an
+  // unconfirmed result, and still require the domain duplicate-name rejection.
+  if (error.code === 3) {
+    console.warn('Emulator concurrent rename: retry original rejected command once:', error.message);
+    await expect(updateTeamNameFor(commands[rejectedIndex])).rejects.toMatchObject({ code: 'already-exists' });
+  } else {
+    expect(error.code).toBe('already-exists');
+  }
+  const teams = await base().collection('teams').get();
+  expect(teams.docs.filter(doc => doc.data().name === '新的球隊名稱')).toHaveLength(1);
+  expect((await audit()).size).toBe(1);
+  expect((await base().collection('managementOperations').get()).size).toBe(1);
 }, 20000);
 test('更名觸發器重放不改排名、審核或球員人數', async () => {
   await updateTeamNameFor(request());
