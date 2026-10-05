@@ -30,8 +30,8 @@ function seed({ create = false, started = false, roles = ['admin'], revision = 0
       venuesByDate: { '2026-10-11': ['venue-a', 'venue-b'] } },
     'config/formats': { formats: { [format.formatId]: format } },
     [`${BASE}/divisions/${division.divisionId}`]: { ...division, scheduleRevision: revision, schedulePublished: !create },
-    [`${BASE}/venues/venue-a`]: { venueId: 'venue-a', name: 'A場', fieldType: '9v9', order: 1 },
-    [`${BASE}/venues/venue-b`]: { venueId: 'venue-b', name: 'B場', fieldType: '9v9', order: 2 },
+    [`${BASE}/venues/venue-a`]: { venueId: 'venue-a', name: '甲場', fieldType: '9v9', order: 1 },
+    [`${BASE}/venues/venue-b`]: { venueId: 'venue-b', name: '乙場', fieldType: '9v9', order: 2 },
     [`users/${UID}`]: { uid: UID, displayName: '賽程管理員' },
     [`staff/${UID}`]: { uid: UID, name: '賽程管理員', roles, active: true, assignment: { eventId: EVENT } }
   };
@@ -39,7 +39,7 @@ function seed({ create = false, started = false, roles = ['admin'], revision = 0
     ...(longName && team.teamId === 't-1' ? { name: '<img src=x onerror=alert(1)>超長隊名'.repeat(3), shortName: '<b>測試超長隊名</b>'.repeat(3) } : {}) };
   if (!create) plan.matches.forEach((match, index) => {
     rows[`${BASE}/matches/${match.matchId}`] = { ...matchDocOf({ m: match, division, eventId: EVENT }),
-      kickoffAt: timeOf(index) + (unusualTime && index === 0 ? 2 * 60_000 : 0), venueId: 'venue-a', venueName: 'A場', matchNo: index + 1,
+      kickoffAt: timeOf(index) + (unusualTime && index === 0 ? 2 * 60_000 : 0), venueId: 'venue-a', venueName: '甲場', matchNo: index + 1,
       ...(started && index === 0 ? { status: 'finished', period: 'second', score: { home: 2, away: 1 }, result: { winner: 'home' } } : {}) };
   });
   return rows;
@@ -207,7 +207,7 @@ test('既有六隊九場已開打但僅四核准：保留F6並明示名單問題
     status: team.seed <= 4 ? 'approved' : 'pending' };
   sixPlan.matches.forEach((match, index) => {
     docs[`${BASE}/matches/${match.matchId}`] = { ...matchDocOf({ m: match, division: sixDivision, eventId: EVENT }),
-      kickoffAt: timeOf(index), venueId: 'venue-a', venueName: 'A場',
+      kickoffAt: timeOf(index), venueId: 'venue-a', venueName: '甲場',
       ...(index === 0 ? { status: 'finished', score: { home: 2, away: 1 }, result: { winner: 'home' } } : {}) };
   });
   await stub(page, { docs }); await page.goto('/#/admin/schedule');
@@ -266,7 +266,7 @@ test('整批預覽明示前後差異與場地，原因必填，撞場擋發布 @
   await stub(page); await go(page);
   await time(page, rr[0].matchId).selectOption(String(timeOf(1)));
   await preview(page, '');
-  await expect(page.locator('.manual__preview')).toContainText('原本：'); await expect(page.locator('.manual__preview')).toContainText('A場');
+  await expect(page.locator('.manual__preview')).toContainText('原本：'); await expect(page.locator('.manual__preview')).toContainText('甲場');
   await expect(page.locator('.manual__checks')).toContainText('同時排了兩場');
   await expect(page.getByRole('button', { name: '確認整批發布', exact: true })).toBeDisabled();
   await page.getByRole('textbox', { name: '手動賽程發布原因' }).fill('調整');
@@ -397,7 +397,7 @@ test('20場分組／階段篩選不丟草稿，隱藏場次仍檢查並完整送
       match.stageId === 'placement' ? dateMs + (6 * 60 + Math.floor(position / 2) * 40) * 60_000 :
         dateMs + (7 * 60 + 20 + Math.floor(position / 2) * 40) * 60_000;
     const venueId = match.stageId === 'group' ? (match.groupId === 'A' ? 'venue-a' : 'venue-b') : (position % 2 ? 'venue-b' : 'venue-a');
-    docs[`${BASE}/matches/${match.matchId}`] = { ...matchDocOf({ m: match, division: eightDivision, eventId: EVENT }), kickoffAt, venueId, venueName: venueId === 'venue-a' ? 'A場' : 'B場' };
+    docs[`${BASE}/matches/${match.matchId}`] = { ...matchDocOf({ m: match, division: eightDivision, eventId: EVENT }), kickoffAt, venueId, venueName: venueId === 'venue-a' ? '甲場' : '乙場' };
   }
   await stub(page, { docs }); await go(page);
   await expect(page.locator('.manual__match')).toHaveCount(20);

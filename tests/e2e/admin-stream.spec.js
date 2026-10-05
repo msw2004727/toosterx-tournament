@@ -24,11 +24,11 @@ const seed = ({ roles = ['admin'] } = {}) => ({
     assignment: { eventId: EVENT, venueIds: [], divisionIds: [], challengeIds: [] }
   },
   [`events/${EVENT}/venues/venue-a`]: {
-    venueId: 'venue-a', name: 'A場', order: 1,
+    venueId: 'venue-a', name: '甲場', order: 1,
     stream: { enabled: false, provider: 'youtube', channelId: null, videoId: null, status: 'off' }
   },
   [`events/${EVENT}/venues/venue-b`]: {
-    venueId: 'venue-b', name: 'B場', order: 2,
+    venueId: 'venue-b', name: '乙場', order: 2,
     stream: { enabled: true, provider: 'youtube', channelId: null, videoId: 'abcdefghijk', status: 'live' }
   }
 });

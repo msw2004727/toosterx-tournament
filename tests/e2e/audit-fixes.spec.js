@@ -26,7 +26,7 @@ const staffDoc = (roles, over = {}) => ({
 
 const u10Match = (over = {}) => ({
   matchId: MATCH, eventId: EVENT, divisionId: 'u10', stageId: 'group', groupId: 'A',
-  label: '第1場 A組第1輪', venueId: 'venue-a', venueName: 'A場', date: DATE,
+  label: '第1場 A組第1輪', venueId: 'venue-a', venueName: '甲場', date: DATE,
   kickoffAt: '2026-10-09T09:30:00+08:00',
   home: { teamId: 't-101', name: '大甲金剛' }, away: { teamId: 't-102', name: '沙鹿飛龍' },
   teamIds: ['t-101', 't-102'],
@@ -57,7 +57,7 @@ const base = ({ roles = ['scorer'], match = u10Match(), extra = {} } = {}) => ({
     eligibility: { bornOnOrAfter: '2016-09-01' },
     display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: false }
   },
-  [`events/${EVENT}/venues/venue-a`]: { venueId: 'venue-a', name: 'A場', order: 1 },
+  [`events/${EVENT}/venues/venue-a`]: { venueId: 'venue-a', name: '甲場', order: 1 },
   [`events/${EVENT}/matches/${MATCH}`]: match,
   [`events/${EVENT}/teams/t-101`]: { teamId: 't-101', name: '大甲金剛', divisionId: 'u10', groupId: 'A' },
   [`events/${EVENT}/teams/t-102`]: { teamId: 't-102', name: '沙鹿飛龍', divisionId: 'u10', groupId: 'A' },

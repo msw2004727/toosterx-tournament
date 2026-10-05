@@ -28,7 +28,7 @@ const SEED = {
   [`events/${EVENT}/matches/${MATCH}`]: {
     matchId: MATCH, eventId: EVENT, divisionId: 'adult-open', stageId: 'group', groupId: 'A',
     // 刻意用很長的隊名：窄版最容易在這裡爆開
-    label: '第31場 A組第1輪', venueId: 'venue-a', venueName: 'A場', date: '2026-10-11',
+    label: '第31場 A組第1輪', venueId: 'venue-a', venueName: '甲場', date: '2026-10-11',
     kickoffAt: '2026-10-11T09:30:00+08:00',
     home: { teamId: 't-101', name: '臺中市西屯區野狼足球俱樂部' },
     away: { teamId: 't-102', name: '臺中市南屯區猛虎足球俱樂部' },

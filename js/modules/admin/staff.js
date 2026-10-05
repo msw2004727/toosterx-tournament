@@ -107,7 +107,7 @@ export async function adminStaffPage({ scope, view }) {
     }
     if (r.role === 'booth') return `${label} · 尚未指派攤位`;
     // ⚠️ 只有受場地限制的角色才印場地。管理員以上在 rules 裡不受場地限制
-    //    （`assignedVenue()` 對 admin 直接放行），印出「管理員 · A場」
+    //    （`assignedVenue()` 對 admin 直接放行），印出「管理員 · 甲場」
     //    等於告訴總管一個根本不成立的限制。demo 上真的有這種舊資料
     //    （自助身分寫進去的 venueIds），2026-09-04 實測看到。
     if (onlyStaffScoped(r.role) && r.venueIds?.length) {

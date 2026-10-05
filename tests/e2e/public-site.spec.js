@@ -41,20 +41,20 @@ const base = () => ({
     display: { mercyRule: { enabled: true, cap: 7 }, scorerBoard: false }
   },
   [`events/${EVENT}/venues/venue-a`]: {
-    venueId: 'venue-a', name: 'A場', order: 1,
+    venueId: 'venue-a', name: '甲場', order: 1,
     stream: { enabled: true, provider: 'youtube', channelId: 'UCdemo', status: 'live' }
   },
-  // B 場也要有直播，否則「同時只播一個」根本測不到（第一版就是這樣，
+  // 乙場也要有直播，否則「同時只播一個」根本測不到（第一版就是這樣，
   // 測試以為壞了，其實是沒有第二個播放器可以點）
   [`events/${EVENT}/venues/venue-b`]: {
-    venueId: 'venue-b', name: 'B場', order: 2,
+    venueId: 'venue-b', name: '乙場', order: 2,
     stream: { enabled: true, provider: 'youtube', channelId: 'UCdemo2', status: 'live' }
   }
 });
 
 const liveMatch = (over = {}) => ({
   matchId: MATCH, eventId: EVENT, divisionId: 'adult-open', stageId: 'group', groupId: 'A',
-  label: '第31場 A組第1輪', venueId: 'venue-a', venueName: 'A場', date: DATE,
+  label: '第31場 A組第1輪', venueId: 'venue-a', venueName: '甲場', date: DATE,
   kickoffAt: '2026-10-09T09:30:00+08:00',
   home: { teamId: 't-101', name: '臺中市西屯區野狼' },
   away: { teamId: 't-102', name: '臺中市南屯區猛虎' },
@@ -69,7 +69,7 @@ const full = () => ({
   [`events/${EVENT}/matches/${MATCH}`]: liveMatch(),
   [`events/${EVENT}/matches/AO-G-A-02`]: {
     matchId: 'AO-G-A-02', divisionId: 'adult-open', label: '第32場', venueId: 'venue-b',
-    venueName: 'B場', date: DATE, kickoffAt: '2026-10-09T10:10:00+08:00',
+    venueName: '乙場', date: DATE, kickoffAt: '2026-10-09T10:10:00+08:00',
     home: { teamId: 't-103', name: '臺中飛燕' }, away: { teamId: 't-104', name: '臺中銀狐' },
     teamIds: ['t-103', 't-104'], score: { home: 0, away: 0 }, status: 'scheduled',
     clock: {}, lock: { locked: false }
@@ -77,7 +77,7 @@ const full = () => ({
   // 排名階段：隊伍還沒解算出來，要以 placeholder 呈現
   [`events/${EVENT}/matches/AO-K-F-01`]: {
     matchId: 'AO-K-F-01', divisionId: 'adult-open', label: '冠軍賽', venueId: 'venue-a',
-    venueName: 'A場', date: DATE, kickoffAt: '2026-10-09T16:00:00+08:00',
+    venueName: '甲場', date: DATE, kickoffAt: '2026-10-09T16:00:00+08:00',
     home: { slotLabel: 'A組第1名' }, away: { slotLabel: 'B組第1名' },
     teamIds: [], score: { home: 0, away: 0 }, status: 'scheduled', clock: {}, lock: { locked: false }
   },
@@ -511,7 +511,7 @@ test('⭐ 仁慈規則封頂真的生效（欄位在 display.mercyRule 底下）
   const seed = full();
   seed[`events/${EVENT}/matches/U10-BLOW`] = {
     matchId: 'U10-BLOW', divisionId: 'u10', stageId: 'group', groupId: 'A',
-    label: 'U10 第1場', venueId: 'venue-a', venueName: 'A場', date: DATE,
+    label: 'U10 第1場', venueId: 'venue-a', venueName: '甲場', date: DATE,
     kickoffAt: '2026-10-09T08:00:00+08:00',
     home: { teamId: 't-901', name: 'U10 紅隊' }, away: { teamId: 't-902', name: 'U10 藍隊' },
     teamIds: ['t-901', 't-902'],
@@ -550,7 +550,7 @@ test('看板真的有內容時就用看板（效能最佳化仍然有效）@publ
     boardId: 'live',
     liveMatches: [{
       matchId: 'BOARD-1', divisionId: 'adult-open', status: 'live',
-      venueName: 'A場', label: '看板來的',
+      venueName: '甲場', label: '看板來的',
       kickoffAt: { seconds: Math.floor(Date.parse('2026-10-11T01:00:00Z') / 1000), nanoseconds: 0 },
       home: { teamId: 'tb1', name: '看板主隊' }, away: { teamId: 'tb2', name: '看板客隊' },
       score: { home: 3, away: 1 }
