@@ -20,6 +20,7 @@ const MATCH = 'U10-G-A-01';
 test('CSV 待補資料可勾出賽且計入人數，其他球員可正常檢錄 @csvidentity', async ({ page }) => {
   await stub(page, { memberOver: { source: 'csv', birthDate: '', idLast4: '', identityComplete: false } });
   await page.goto(`/#/staff/checkin/${MATCH}`);
+  await expect(page.getByLabel('小豆子 出賽', { exact: true })).toBeEnabled();
   await page.getByLabel('小豆子 出賽', { exact: true }).check();
   await expect(page.getByLabel('小豆子 出賽', { exact: true })).toBeChecked();
   await expect(page.getByText('待補資料・可先現場確認並完成檢錄')).toBeVisible();
