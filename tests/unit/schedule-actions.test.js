@@ -22,8 +22,8 @@ const U10 = {
   matchDurationMin: 25, playersOnField: 5
 };
 const VENUES = [
-  { venueId: 'venue-a', name: '甲場', fieldType: '9v9', order: 1 },
-  { venueId: 'venue-b', name: '乙場', fieldType: '9v9', order: 2 }
+  { venueId: 'venue-a', name: 'A場', fieldType: '9v9', order: 1 },
+  { venueId: 'venue-b', name: 'B場', fieldType: '9v9', order: 2 }
 ];
 const CFG = scheduleConfigOf({
   startTime: '08:30', endTime: '18:00', bufferMin: 10, minRestMin: 20, maxGapMin: 240,
@@ -170,10 +170,10 @@ describe('T45-E 場次文件', () => {
 
   test('排好時間就轉成 Date（Firestore 會存成 Timestamp）', () => {
     const ms = taipeiMs('2026-10-11', '09:00');
-    const d = matchDocOf({ m: { ...m, kickoffMs: ms, venueId: 'venue-a' }, division: DIV, eventId: 'e1', venueName: '甲場' });
+    const d = matchDocOf({ m: { ...m, kickoffMs: ms, venueId: 'venue-a' }, division: DIV, eventId: 'e1', venueName: 'A場' });
     expect(d.kickoffAt instanceof Date).toBe(true);
     expect(d.kickoffAt.getTime()).toBe(ms);
-    expect(d.venueName).toBe('甲場');
+    expect(d.venueName).toBe('A場');
   });
 
   test('date 取自組別（公開端的賽程頁靠這個欄位查詢）', () => {
@@ -269,7 +269,7 @@ describe('T45-F 自動排定', () => {
 
 describe('T45-G 小工具', () => {
   test('movePatch 只動時間與場地', () => {
-    const p = movePatch({ kickoffMs: 1000, venueId: 'venue-a', venueName: '甲場' });
+    const p = movePatch({ kickoffMs: 1000, venueId: 'venue-a', venueName: 'A場' });
     expect(Object.keys(p).sort()).toEqual(['kickoffAt', 'venueId', 'venueName']);
     expect(p.kickoffAt.getTime()).toBe(1000);
   });

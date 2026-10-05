@@ -30,9 +30,9 @@ const DIV5 = {
   matchDurationMin: 25, playersOnField: 5
 };
 const VENUES = [
-  { venueId: 'venue-a', name: '甲場', fieldType: '9v9', order: 1 },
-  { venueId: 'venue-b', name: '乙場', fieldType: '9v9', order: 2 },
-  { venueId: 'venue-c', name: '丙場', fieldType: '5v5', order: 3 }
+  { venueId: 'venue-a', name: 'A場', fieldType: '9v9', order: 1 },
+  { venueId: 'venue-b', name: 'B場', fieldType: '9v9', order: 2 },
+  { venueId: 'venue-c', name: 'C場', fieldType: '5v5', order: 3 }
 ];
 
 const DAY = '2026-10-11';

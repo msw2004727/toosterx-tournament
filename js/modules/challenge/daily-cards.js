@@ -1,7 +1,7 @@
 import { el } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { dailyProgress, isChallengeOpen, selectedActivityDate } from '../../engine/challenge-days.js';
-import { now } from '../../core/clock.js';
+import { activityTime as now } from '../../core/activity-clock.js';
 import { formatScore } from '../../engine/challenge.js';
 import { dateLabel } from './days.js';
 

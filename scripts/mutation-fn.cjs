@@ -12,6 +12,9 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#RESET-ARCHIVE 歸零未清理事件與檢錄', file: 'functions/management.js',
+    from: 'for(const d of deleted)writes.push({ref:d.ref,delete:true});', to: 'for(const d of [])writes.push({ref:d.ref,delete:true});',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/consistency.test.js --testNamePattern=RESET1 --silent' },
   { name: 'FN#MEMBERNAME 修改姓名未同步公開名冊', file: 'functions/member-identity.js',
     from: 'rosterProjection({ ...member, ...patch, memberId }', to: 'rosterProjection({ ...member, ...patch, name: member.name, memberId }',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-import.test.js --testNamePattern=MEMBERNAME --silent' },

@@ -15,7 +15,7 @@ async function stub(page,theme=null,divisionsState='ready'){
   for(const [i,d] of DIVISIONS.entries()){
     seed[`${root}/divisions/${d.divisionId}`]={...d,schedulePublished:true};
     seed[`${root}/teams/team-${i}`]={teamId:`team-${i}`,name:`${d.name}驗收隊`,divisionId:d.divisionId,status:'approved',memberCount:1,source:'csv'};
-    seed[`${root}/matches/m-${i}`]={matchId:`m-${i}`,divisionId:d.divisionId,date:'2026-10-09',kickoffAt:'2026-10-09T10:00:00+08:00',venueId:'a',venueName:'甲場',label:'小組賽',status:i===0?'live':'scheduled',home:{teamId:`team-${i}`,name:'名稱很長也需要完整呈現的足球隊'},away:{teamId:`away-${i}`,name:'青禾足球隊'},teamIds:[`team-${i}`,`away-${i}`],score:{home:2,away:1},clock:{running:false,elapsedSecAtPause:360},period:'h1'};
+    seed[`${root}/matches/m-${i}`]={matchId:`m-${i}`,divisionId:d.divisionId,date:'2026-10-09',kickoffAt:'2026-10-09T10:00:00+08:00',venueId:'a',venueName:'A場',label:'小組賽',status:i===0?'live':'scheduled',home:{teamId:`team-${i}`,name:'名稱很長也需要完整呈現的足球隊'},away:{teamId:`away-${i}`,name:'青禾足球隊'},teamIds:[`team-${i}`,`away-${i}`],score:{home:2,away:1},clock:{running:false,elapsedSecAtPause:360},period:'h1'};
   }
   if(divisionsState==='empty')for(const key of Object.keys(seed))if(key.startsWith(`${root}/divisions/`))delete seed[key];
   await page.addInitScript(({seed,theme,divisionsState})=>{

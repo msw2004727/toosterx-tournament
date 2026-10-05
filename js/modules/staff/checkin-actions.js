@@ -8,7 +8,6 @@
  */
 
 /** 有效的檢錄結果。null 代表「取消勾選」，那是刪除不是狀態。 */
-import { csvIdentityPending } from '../../engine/member-identity.js';
 export const CHECKIN_RESULTS = ['pass', 'fail'];
 
 /**
@@ -25,7 +24,6 @@ export const CHECKIN_RESULTS = ['pass', 'fail'];
  * @param {string|null} o.uid
  */
 export function buildCheckin({ matchId, teamId, member, result, uid, method = 'manual' }) {
-  if (result === 'pass' && csvIdentityPending(member)) throw new Error('待補資料：請先補齊生日與身分證後四碼。');
   return {
     checkinId: `${matchId}__${member?.memberId}`,
     matchId,
@@ -59,7 +57,7 @@ export function checkinSummary(roster, checkins = {}) {
   let failed = 0;
   for (const m of players) {
     const r = checkins[m.memberId]?.result;
-    if (r === 'pass' && !csvIdentityPending(m)) present += 1;
+    if (r === 'pass') present += 1;
     else if (r === 'fail') failed += 1;
   }
   return { total: players.length, present, failed };
@@ -76,7 +74,7 @@ const isPlayer = m => {
  */
 export function presentIds(roster, checkins = {}) {
   return (Array.isArray(roster) ? roster : [])
-    .filter(m => checkins[m?.memberId]?.result === 'pass' && !csvIdentityPending(m))
+    .filter(m => checkins[m?.memberId]?.result === 'pass')
     .map(m => m.memberId);
 }
 

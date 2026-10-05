@@ -9,6 +9,15 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#RESET-GENERATION 歸零未推進寫入世代', file: 'js/engine/admin-match.js',
+    from: 'match.resetRevision : 0) + 1', to: 'match.resetRevision : 0)',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/demo-reset.test.js --silent' },
+  { name: '#RESET-SCORE 歸零後仍有比分', file: 'js/engine/admin-match.js',
+    from: "status: 'scheduled', period: 'pre', score: { home: 0, away: 0 },", to: "status: 'scheduled', period: 'pre', score: { home: 1, away: 0 },",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/demo-reset.test.js --silent' },
+  { name: '#DEMO-TTL 測試時間永久生效', file: 'js/modules/demo/time.js',
+    from: 'realNow - value.startedAt >= TTL', to: 'false',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/demo-reset.test.js --silent' },
   { name: '#DAY1 跨日成績誤計入當日', file: 'js/engine/challenge-days.js',
     from: 'attemptDate(a, timeZone) === date);', to: 'true);' },
   { name: '#DAY2 沒有開放攤位也發券', file: 'js/engine/challenge-days.js',

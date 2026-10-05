@@ -1,5 +1,6 @@
 import { el } from '../../core/ui.js';
-import { now, startTicker } from '../../core/clock.js';
+import { startTicker } from '../../core/clock.js';
+import { activityTime as now } from '../../core/activity-clock.js';
 import { hold } from '../../core/store.js';
 import { selectedActivityDate } from '../../engine/challenge-days.js';
 

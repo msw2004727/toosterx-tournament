@@ -48,7 +48,7 @@ describe('R118 產生賽程：場次', () => {
   });
 
   test('管理員可以改開賽時間與場地（記錄員不行——那不在他的白名單裡）', async () => {
-    const patch = { kickoffAt: new Date('2026-10-11T02:00:00Z'), venueId: 'venue-b', venueName: '乙場' };
+    const patch = { kickoffAt: new Date('2026-10-11T02:00:00Z'), venueId: 'venue-b', venueName: 'B場' };
     await assertFails(updateDoc(
       doc(authed(env, 'u-scorer'), 'events', EVENT, 'matches', 'AO-G-A-01'), patch));
     await assertSucceeds(updateDoc(

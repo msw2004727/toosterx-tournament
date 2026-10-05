@@ -47,13 +47,13 @@ test('資格設定遺失不能判成通過；有效後四碼保留零', () => {
   expect(validateIdentity(fields, null, date).complete).toBe(false);
   expect(validateIdentity(fields, division, '').complete).toBe(false);
 });
-test('CSV 待補球員不能建立通過紀錄，舊 pass 也不算出賽；完整舊名冊相容', () => {
+test('CSV 待補球員可先檢錄，pass 計入出賽；待補提示仍保留', () => {
   const m = { memberId: 'p', source: 'csv', birthDate: '', idLast4: '0012', identityComplete: true };
   expect(csvIdentityPending(m)).toBe(true);
-  expect(() => buildCheckin({ member: m, result: 'pass' })).toThrow('待補資料');
+  expect(buildCheckin({ member: m, result: 'pass' }).result).toBe('pass');
   expect(buildCheckin({ member: m, result: 'fail' }).result).toBe('fail');
-  expect(checkinSummary([m], { p: { result: 'pass' } }).present).toBe(0);
-  expect(presentIds([m], { p: { result: 'pass' } })).toEqual([]);
+  expect(checkinSummary([m], { p: { result: 'pass' } }).present).toBe(1);
+  expect(presentIds([m], { p: { result: 'pass' } })).toEqual(['p']);
   expect(csvIdentityPending({ ...m, birthDate: '2017-01-01', identityComplete: undefined })).toBe(false);
   expect(csvIdentityPending({ ...m, birthDate: '2017-01-01', identityComplete: false })).toBe(true);
 });

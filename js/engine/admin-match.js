@@ -73,6 +73,26 @@ export function canReopen(match) {
   return yes();
 }
 
+export function canReset(match) {
+  return match ? yes() : no('找不到場次。');
+}
+
+/** Preserve the fixture; retire every previous device write generation. */
+export function buildResetPatch(match, uid) {
+  if (!match) throw new Error('找不到場次。');
+  return {
+    status: 'scheduled', period: 'pre', score: { home: 0, away: 0 },
+    htScore: { home: null, away: null }, penaltyScore: { home: null, away: null },
+    result: null, walkoverSide: null, scoreMismatch: false, revisionCount: 0,
+    clock: { running: false, periodStartedAt: null, elapsedSecAtPause: 0, addedTimeSec: 0 },
+    checkin: { homeConfirmed: false, awayConfirmed: false, confirmedAt: null },
+    lock: { locked: false, lockedAt: null, lockedBy: null },
+    scoreSubmittedAt: null, scoreSubmittedBy: null,
+    resetRevision: (Number.isInteger(match.resetRevision) ? match.resetRevision : 0) + 1,
+    writeNonce: null, updatedBy: uid
+  };
+}
+
 /** 改判比分：已經開打過的場次才有比分可以改 */
 export function canOverride(match) {
   if (!match) return no('找不到場次。');
@@ -205,7 +225,7 @@ export function buildWalkoverPatch({ side, uid, walkover }) {
  * 延期／取消。
  *
  * ⚠️ 不清比分：延期的場次改天要打，取消的場次留著紀錄。
- *    真的要歸零請用改判比分，那條路徑會留下 revisionCount。
+ *    誤開賽要歸零請使用「歸零並退回未開賽」。
  */
 export function buildStatusPatch(status, uid) {
   if (status !== 'postponed' && status !== 'cancelled') {
@@ -226,6 +246,12 @@ export function buildStatusPatch(status, uid) {
 export function consequencesOf(match, action) {
   const out = [];
   const wasDecided = DECIDED_STATUSES.includes(match?.status);
+
+  if (action === 'reset') {
+    out.push('比分、PK、時鐘、比賽事件、檢錄與出場名單會歸零，並退回未開賽。');
+    out.push('這一場會移出首頁「現在進行中」，原賽程、場地與對戰隊伍保留。');
+    out.push('原紀錄會封存在稽核紀錄；積分榜與晉級會重新計算。');
+  }
 
   if (action === 'reopen') {
     out.push('積分榜會把這一場的分數收回去。');

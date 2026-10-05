@@ -10,8 +10,12 @@ import { hold } from '../../core/store.js';
 import { track } from '../../core/sync.js';
 import { EVENT_ID } from '../../config.js';
 import { sortRosterForMatch } from './live-actions.js';
+import { matchWriteMetadata, matchRecordMetadata } from '../../lib/match-write.js';
 
 const uid = () => user()?.uid ?? null;
+const latestMatches = new Map();
+export const writeMetadata = matchId => matchWriteMetadata(latestMatches.get(matchId), crypto.randomUUID());
+export const recordMetadata = matchId => matchRecordMetadata(latestMatches.get(matchId));
 
 // ── 監聽 ─────────────────────────────────────────────────────
 
@@ -21,7 +25,11 @@ export function watchMatch(scope, matchId, cb, onError) {
   const unsub = onSnapshot(
     doc(db(), 'events', EVENT_ID, 'matches', matchId),
     { includeMetadataChanges: true },
-    snap => cb(snap.exists() ? { matchId: snap.id, ...snap.data() } : null, snap.metadata),
+    snap => {
+      const match = snap.exists() ? { matchId: snap.id, ...snap.data() } : null;
+      latestMatches.set(matchId, match);
+      cb(match, snap.metadata);
+    },
     err => onError?.(err)
   );
   return hold(scope, unsub, `match:${matchId}`);
@@ -99,7 +107,7 @@ export async function getDivision(divisionId) {
 export function patchMatch(matchId, patch, label, meta = {}) {
   const { doc, updateDoc, serverTimestamp } = sdk();
   const ref = doc(db(), 'events', EVENT_ID, 'matches', matchId);
-  const full = { ...patch, updatedAt: serverTimestamp(), updatedBy: uid() };
+  const full = { ...patch, ...writeMetadata(matchId), updatedAt: serverTimestamp(), updatedBy: uid() };
   return track(label, () => updateDoc(ref, full), { matchId, ...meta });
 }
 
@@ -115,6 +123,7 @@ export function submitFinish(matchId, patch, label) {
   const ref = doc(db(), 'events', EVENT_ID, 'matches', matchId);
   const full = {
     ...patch,
+    ...writeMetadata(matchId),
     // lock 是巢狀 map，updateDoc 會整包取代它——所以 lockedAt 要在這裡補進去，
     // 否則 docs/01b §262 定義的這個欄位會在完賽的瞬間從文件上消失。
     // 引擎（buildFinishPatch）是純函式、不碰 serverTimestamp，同 scoreSubmittedAt。
@@ -131,8 +140,9 @@ export function submitFinish(matchId, patch, label) {
 export function undoFinish(matchId, patch, label) {
   const { doc, updateDoc, serverTimestamp } = sdk();
   const ref = doc(db(), 'events', EVENT_ID, 'matches', matchId);
+  const metadata = writeMetadata(matchId);
   return track(label, () => updateDoc(ref, {
-    ...patch, updatedAt: serverTimestamp(), updatedBy: uid()
+    ...patch, ...metadata, updatedAt: serverTimestamp(), updatedBy: uid()
   }), { matchId, kind: 'undo-finish' });
 }
 
@@ -146,7 +156,8 @@ export function addTimelineEvent(matchId, event, label) {
   const { doc, setDoc, serverTimestamp } = sdk();
   const id = `${String(event.seq).padStart(4, '0')}-${event.type}`;
   const ref = doc(db(), 'events', EVENT_ID, 'matches', matchId, 'timeline', id);
-  return track(label, () => setDoc(ref, { ...event, timelineId: id, createdAt: serverTimestamp() }), {
+  const metadata = recordMetadata(matchId);
+  return track(label, () => setDoc(ref, { ...event, ...metadata, timelineId: id, createdAt: serverTimestamp() }), {
     matchId, kind: event.type, seq: event.seq
   });
 }
@@ -155,8 +166,9 @@ export function addTimelineEvent(matchId, event, label) {
 export function voidTimelineEvent(matchId, timelineId, reason, label) {
   const { doc, updateDoc, serverTimestamp } = sdk();
   const ref = doc(db(), 'events', EVENT_ID, 'matches', matchId, 'timeline', timelineId);
+  const metadata = recordMetadata(matchId);
   return track(label, () => updateDoc(ref, {
-    voided: true, voidedBy: uid(), voidedAt: serverTimestamp(), voidReason: reason || null
+    ...metadata, voided: true, voidedBy: uid(), voidedAt: serverTimestamp(), voidReason: reason || null
   }), { matchId, timelineId });
 }
 
@@ -179,8 +191,9 @@ export function writeAudit({ entity, entityId, action, before, after, reason }) 
 export function saveMatchSheet(matchId, teamId, data, label) {
   const { doc, setDoc, serverTimestamp } = sdk();
   const ref = doc(db(), 'events', EVENT_ID, 'matchSheets', `${matchId}__${teamId}`);
+  const metadata = recordMetadata(matchId);
   return track(label, () => setDoc(ref, {
     matchSheetId: `${matchId}__${teamId}`, matchId, teamId, eventId: EVENT_ID,
-    ...data, updatedAt: serverTimestamp(), updatedBy: uid()
+    ...data, ...metadata, updatedAt: serverTimestamp(), updatedBy: uid()
   }, { merge: true }), { matchId, teamId });
 }

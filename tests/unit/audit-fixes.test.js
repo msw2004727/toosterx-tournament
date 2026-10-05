@@ -192,11 +192,12 @@ describe('T58-G 畫面層修法釘在原始碼上（E2E 另外守行為）', () 
     expect(hit).toBeTruthy();
   });
 
-  test('D-01b 檢錄名單的查詢（status ＋ jerseyNo）有對應的複合索引', () => {
+  test('D-01b 檢錄名單只按 approved 查詢，缺背號球員仍會顯示', () => {
     // D-01 修好之後名單查詢第一次真的執行，demo 實地驗證立刻回 failed-precondition：
     // 模擬器與替身都不查索引，只有正式資料庫會。
     const q = read('js/modules/staff/checkin-data.js');
-    expect(q).toContain("where('status', '==', 'approved'),\n    orderBy('jerseyNo', 'asc')");
+    expect(q).toContain("where('status', '==', 'approved')");
+    expect(q).not.toContain("orderBy('jerseyNo', 'asc')\n");
     const idx = JSON.parse(read('firestore.indexes.json'));
     const hit = idx.indexes.find(i => i.collectionGroup === 'members' && i.queryScope === 'COLLECTION'
       && i.fields.length === 2

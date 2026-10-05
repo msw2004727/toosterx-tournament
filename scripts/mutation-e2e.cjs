@@ -15,6 +15,10 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#EDEMOTIME 啟用測試時間未保存選擇', file: 'js/modules/demo/time.js',
+    from: 'anchor = { time: timestamp, startedAt: Date.now() };', to: 'anchor = null;' },
+  { name: '#ECHECKPENDING 待補球員仍無法勾選', file: 'js/modules/staff/checkin.js',
+    from: 'disabled: state.busy || failed,', to: 'disabled: state.busy || failed || pending,' },
   { name: '#EDAILYCACHE 本機快取未確認就誤報當日未完成', file: 'js/modules/challenge/daily-cards.js',
     from: '(!attemptsConfirmed && !p.allComplete)', to: 'false' },
   { name: '#EMEMBERNAME 伺服器漏回姓名仍顯示成功', file: 'js/modules/admin/member-identity.js',
@@ -445,8 +449,8 @@ const MUTANTS = [
   {
     name: '#E48 ⭐ 標了「有問題」還能直接勾出賽（註記被悄悄洗掉；C-3）',
     file: 'js/modules/staff/checkin.js',
-    from: "          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy || failed || pending,",
-    to: "          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy || pending,"
+    from: "          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy || failed,",
+    to: "          class: 'chk__box', type: 'checkbox', checked: present, disabled: state.busy,"
   },
   {
     name: '#E49 ⭐ 人數不足「完成檢錄」照樣按得下去（一個人也能完成；C-5）',

@@ -33,7 +33,7 @@ import { APPEAL_RULES } from '../../engine/formats.js';
 import { toMillis, APPEAL_STATUS_LABEL } from '../../lib/format.js';
 import { parseYoutubeId } from '../../lib/youtube.js';
 import {
-  canConfirm, canReopen, canOverride, canWalkover,
+  canConfirm, canReopen, canReset, canOverride, canWalkover,
   buildConfirmPatch, buildReopenPatch, buildOverridePatch,
   buildWalkoverPatch, buildStatusPatch, consequencesOf, scoreOf, resultOf
 } from './match-actions.js';
@@ -63,7 +63,7 @@ export async function adminMatchPage({ scope, view, params }) {
 
   hold(scope, onAuth(() => render()), 'auth:admin-match');
 
-  if (!can('match.score.override') && !can('match.confirm') && !can('match.reopen') && !can('appeal.manage')) {
+  if (!can('match.score.override') && !can('match.confirm') && !can('match.reopen') && !can('match.reset') && !can('appeal.manage')) {
     mount(root, adminHead('場次改判'), denied('場次改判', '管理員'));
     return;
   }
@@ -128,7 +128,7 @@ export async function adminMatchPage({ scope, view, params }) {
     try {
       await data.manageMatch(matchId, { action: `match.${action}`, match: basisMatch, patch, reason });
       state.draft = null;
-      toast('已改判，積分榜會自動重算');
+      toast(action === 'reset' ? '已歸零並退回未開賽' : '已改判，積分榜會自動重算');
       data.getMatchAudits(matchId).then(rows => { state.audits = rows; render(); }).catch(() => {});
     } catch (err) {
       toast(data.explain(err, '沒有改判成功。'), 'error');
@@ -144,6 +144,10 @@ export async function adminMatchPage({ scope, view, params }) {
       before: { status: state.match.status },
       after: { status: 'confirmed' }
     });
+  }
+
+  function doReset() {
+    return act({ action: 'reset', label: '歸零並退回未開賽', patch: {} });
   }
 
   async function doReopen() {
@@ -417,6 +421,7 @@ export async function adminMatchPage({ scope, view, params }) {
       el('h3', { class: 'adm__sectionHead', text: '狀態' }),
       row('覆核完賽', 'check', confirmG, 'match.confirm', () => doConfirm(), 'primary'),
       row('重開場次', 'undo', reopenG, 'match.reopen', () => doReopen()),
+      row('歸零並退回未開賽', 'undo', canReset(m), 'match.reset', () => doReset()),
 
       can('match.score.override') ? el('h3', { class: 'adm__sectionHead', text: '棄賽與延期' }) : null,
       can('match.score.override')

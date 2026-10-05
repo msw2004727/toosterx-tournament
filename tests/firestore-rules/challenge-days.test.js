@@ -36,3 +36,22 @@ test('未開放日不可寫入；攤位不能直接改每日開放或玩家日�
   await assertFails(updateDoc(doc(authed(env, 'u-booth'), 'events', EVENT, 'challenges', CHALLENGE), { dailyOpen: { [today]: true } }));
   await assertFails(setDoc(doc(authed(env, 'u-booth'), 'events', EVENT, 'players', 'forged'), { playerId: 'forged', challengeDays: { [today]: { entries: 1 } } }));
 });
+
+test('Demo 測試未到日須環境、開关和標記皆符合，正式站永遠拒絕', async () => {
+  const ms = now + 86400000, date = activityDate(ms);
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db=ctx.firestore();
+    await updateDoc(doc(db,'config','challengeRewards'),{dates:[today,date],dayWindows:{[today]:windowOf(today),[date]:windowOf(date)}});
+    await updateDoc(doc(db,'events',EVENT,'challenges',CHALLENGE),{dailyOpen:{[today]:true,[date]:true}});
+    await setDoc(doc(db,'config','env'),{env:'demo',allowChallengeTestTime:true});
+  });
+  const record={recordedAtMs:ms,activityDate:date,demoTestTime:true};
+  await assertSucceeds(submit('demo-future',record));
+  await assertFails(submit('normal-future',{...record,demoTestTime:false}));
+  await assertFails(submit('demo-forged-day',{...record,activityDate:today}));
+  await env.withSecurityRulesDisabled(ctx=>updateDoc(doc(ctx.firestore(),'events',EVENT,'challenges',CHALLENGE),{dailyOpen:{[date]:false}}));
+  await assertFails(submit('demo-closed',record));
+  await env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),'config','env'),{env:'prod',allowChallengeTestTime:true}));
+  await assertFails(submit('prod-future',record));
+  await assertFails(submit('prod-past-marker',{recordedAtMs:now,activityDate:today,demoTestTime:true}));
+});

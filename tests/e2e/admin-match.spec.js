@@ -24,7 +24,7 @@ const match = (over = {}) => ({
   matchId: MATCH, eventId: EVENT, divisionId: 'adult-open', stageId: 'group', groupId: 'A',
   round: 1, matchNo: 5, label: 'A組 第1輪', date: '2026-10-11',
   kickoffAt: { seconds: Math.floor(Date.parse('2026-10-11T01:00:00Z') / 1000), nanoseconds: 0 },
-  venueId: 'venue-a', venueName: '甲場',
+  venueId: 'venue-a', venueName: 'A場',
   home: { teamId: 't-1', name: '臺中雷霆', displayName: '臺中雷霆' },
   away: { teamId: 't-2', name: '臺中黑豹', displayName: '臺中黑豹' },
   teamIds: ['t-1', 't-2'],
@@ -78,6 +78,28 @@ const ready = page => expect(page.locator('.adm__head')).toBeVisible({ timeout: 
 /** 這一頁的原因用 window.prompt 收（一天用不到幾次，少一個自製元件要驗） */
 const answerPrompt = (page, text) =>
   page.once('dialog', d => (text == null ? d.dismiss() : d.accept(text)));
+
+test('誤開賽可歸零並退回未開賽；取消確認不更動資料 @matchreset', async ({ page }) => {
+  await stub(page, { m: match({ status: 'live', lock: { locked: false }, clock: { running: true, elapsedSecAtPause: 9 } }),
+    extra: { [`events/${EVENT}/matches/${MATCH}/timeline/goal`]: { matchId: MATCH, seq: 1, type: 'goal' },
+      [`events/${EVENT}/checkins/old`]: { matchId: MATCH, result: 'pass' },
+      [`events/${EVENT}/matchSheets/old`]: { matchId: MATCH, confirmed: true } } });
+  await go(page); await ready(page); const before = await matchOf(page);
+  await page.getByRole('button', { name: '歸零並退回未開賽', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('現在進行中');
+  await page.getByRole('dialog').getByRole('button', { name: '取消', exact: true }).click();
+  expect(await matchOf(page)).toEqual(before);
+  answerPrompt(page, '誤觸開賽');
+  await page.getByRole('button', { name: '歸零並退回未開賽', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '歸零並退回未開賽', exact: true }).click();
+  await expect(page.locator('.toast--success')).toContainText('已歸零並退回未開賽');
+  expect(await matchOf(page)).toMatchObject({ status: 'scheduled', score: { home: 0, away: 0 }, result: null,
+    period: 'pre', resetRevision: 1, clock: { running: false, elapsedSecAtPause: 0 }, home: before.home, venueId: before.venueId });
+  const docs = await dump(page);
+  expect(docs[`events/${EVENT}/checkins/old`]).toBeUndefined();
+  expect(docs[`events/${EVENT}/matchSheets/old`]).toBeUndefined();
+  expect((await auditsOf(page))[0]).toMatchObject({ action: 'match.reset', reason: '誤觸開賽', before: { match: { status: 'live' } } });
+});
 
 test.beforeEach(({ page }) => {
   page.on('console', m => { if (m.type() === 'error') console.log('[browser error]', m.text()); });

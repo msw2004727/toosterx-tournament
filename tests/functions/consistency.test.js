@@ -41,6 +41,39 @@ beforeEach(async()=>{
   const r=await fetch(`http://${host}/emulator/v1/projects/${project}/databases/(default)/documents`,{method:'DELETE'});if(!r.ok)throw Error(`Emulator reset ${r.status}`);await seed();
 });
 afterEach(()=>jest.restoreAllMocks());
+
+test('RESET1 歸零原子清理子紀錄、看板並封存，保留場次且重送冪等',async()=>{
+  await match('g1').update({status:'live',score:{home:2,away:1},clock:{running:true},checkin:{homeConfirmed:true},resetRevision:2,revisionCount:4});
+  await match('g1').collection('timeline').doc('goal').set({type:'goal',side:'home'});
+  await base().collection('checkins').doc('old').set({matchId:'g1',result:'pass'});
+  await base().collection('matchSheets').doc('old').set({matchId:'g1',players:['p']});
+  await base().collection('boards').doc('live').set({liveMatches:[{matchId:'g1'},{matchId:'g2'}],nextMatches:[],justFinished:[]});
+  const req=await command('match.reset','reset');const before=(await match('g1').get()).data();
+  const result=await manageEventFor(req);
+  expect(result).toMatchObject({entityId:'g1',status:'scheduled',resetRevision:3,clearedDocuments:3});
+  expect((await match('g1').get()).data()).toMatchObject({status:'scheduled',score:{home:0,away:0},result:null,
+    period:'pre',clock:{running:false},checkin:{homeConfirmed:false,awayConfirmed:false},home:before.home,away:before.away,resetRevision:3,writeNonce:null,revisionCount:0});
+  expect((await match('g1').collection('timeline').get()).size).toBe(0);
+  expect((await base().collection('checkins').get()).size).toBe(0);
+  expect((await base().collection('matchSheets').get()).size).toBe(0);
+  expect((await base().collection('boards').doc('live').get()).data().liveMatches).toEqual([{matchId:'g2'}]);
+  const log=(await audit('match.reset')).docs[0].data();
+  expect(log.before.match.score).toEqual({home:2,away:1});expect(log.before.deletedDocuments).toHaveLength(3);
+  expect(await manageEventFor(req)).toEqual(result);expect((await audit('match.reset')).size).toBe(1);
+});
+
+test('RESET2 歸零重新驗管理員、原因、來源版本；稽核失敗不清掉任何資料',async()=>{
+  await match('g1').update({status:'live',score:{home:1,away:0}});
+  await match('g1').collection('timeline').doc('goal').set({type:'goal'});
+  const req=await command('match.reset','reset-fail');
+  await expect(manageEventFor({...req,auth:{uid:'booth'}})).rejects.toMatchObject({code:'permission-denied'});
+  await expect(manageEventFor({...req,data:{...req.data,reason:''}})).rejects.toMatchObject({code:'invalid-argument'});
+  await expect(manageEventFor({...req,data:{...req.data,expected:{...req.data.expected,resetRevision:8}}})).rejects.toMatchObject({code:'aborted'});
+  failAudit();await expect(manageEventFor(req)).rejects.toThrow('audit submission fault');
+  expect((await match('g1').get()).data().score.home).toBe(1);
+  expect((await match('g1').collection('timeline').get()).size).toBe(1);
+  expect((await base().collection('managementOperations').doc('reset-fail').get()).exists).toBe(false);
+});
 function injectAtTransactionStart(change){
   const original=db.runTransaction.bind(db);let injected=false;
   jest.spyOn(db,'runTransaction').mockImplementation((callback,options)=>original(async tx=>{

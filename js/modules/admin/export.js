@@ -27,6 +27,7 @@ import { DAILY_RULE, selectedActivityDate } from '../../engine/challenge-days.js
 import { dayTabs, dateLabel, watchActivityDay } from '../challenge/days.js';
 import { hold } from '../../core/store.js';
 import { now as serverNow } from '../../core/clock.js';
+import { activityTime } from '../../core/activity-clock.js';
 import {
   toCsv, luckyDrawRows, luckyDrawSummary, csvFilename, LUCKY_DRAW_COLUMNS
 } from '../../engine/csv.js';
@@ -73,7 +74,7 @@ export async function adminExportPage({ scope, view }) {
       state.contacts = contacts;
       state.rewards = rewards;
       if (rewards.rule === DAILY_RULE) {
-        state.date ??= selectedActivityDate(serverNow(), rewards.dates, rewards.timeZone);
+        state.date ??= selectedActivityDate(activityTime(), rewards.dates, rewards.timeZone);
         const result = await callFunction('exportDailyDraw', { eventId: EVENT_ID, date: state.date });
         if (result?.date !== state.date || !Array.isArray(result.rows)) throw new Error('當日名單尚未確認，請重新更新');
         state.dailyRows = result.rows;
