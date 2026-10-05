@@ -40,3 +40,16 @@ test('首頁無效網址日期也落在當日，活動後保留最後一天', as
   await stub(page, '2026-10-12T00:00:00+08:00'); await page.goto('/#/?date=2026-09-30');
   await expect(selected(page)).toContainText('10/11');
 });
+
+for (const date of ['2026-10-10', null]) {
+  test('HOMEBOARDDATE 看板其他日期或缺日期改讀當日場次：' + date, async ({ page }) => {
+    await stub(page, '2026-10-11T00:00:00+08:00');
+    await page.addInitScript(date => { window.__FAKE_SEED['events/feda-cup-2026/boards/live'] = { liveMatches: [{
+      matchId: 'old-board', divisionId: 'd', ...(date ? { date } : {}), status: 'live', score: { home: 0, away: 0 },
+      home: { name: '過期看板主隊' }, away: { name: '過期客隊' } }], nextMatches: [], justFinished: [] }; }, date);
+    await page.goto('/#/');
+    await expect(selected(page)).toContainText('10/11');
+    await expect(page.locator('.prow')).toContainText('第11日主隊');
+    await expect(page.getByText('過期看板主隊', { exact: true })).toHaveCount(0);
+  });
+}

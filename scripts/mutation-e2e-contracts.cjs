@@ -1,5 +1,7 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EHOMEBOARDDATE: { spec: 'tests/e2e/home-date.spec.js', grep: 'HOMEBOARDDATE', minTests: 2,
+    assertions: ["expect(page.locator('.prow')).toContainText('第11日主隊')"], failure: "expect(page.locator('.prow')).toContainText('第11日主隊')" },
   "EHOMEDATE": { "spec": "tests/e2e/home-date.spec.js", "grep": "HOMEDATE.*2026-10-12", "assertions": ["expect(selected(page)).toContainText('10/' + day)"], "failure": "expect(selected(page)).toContainText('10/' + day)", "minTests": 1 },
   "EHOMEWATCH": { "spec": "tests/e2e/home-date.spec.js", "grep": "HOMEROLLOVER", "assertions": ["expect(selected(page)).toContainText('10/10')"], "failure": "expect(selected(page)).toContainText('10/10')", "minTests": 1 },
   "ECANCELRECEIPT": { "spec": "tests/e2e/admin-match.spec.js", "grep": "CANCELRECEIPT", "assertions": ["expect(page.locator('.toast--error')).toContainText('尚未確認撤銷開賽結果')"], "failure": "expect(page.locator('.toast--error')).toContainText('尚未確認撤銷開賽結果')", "minTests": 1 },

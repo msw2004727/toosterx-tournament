@@ -15,6 +15,8 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#EHOMEBOARDDATE 看板混入另一日場次', file: 'js/modules/public/home.js',
+    from: 'boardRows.every(row => row.date === state.date)', to: 'true' },
   { name: '#EHOMEDATE 首頁活動結束回到首日', file: 'js/modules/public/home.js',
     from: 'return selectedActivityDate(activityTime(), EVENT.dates, EVENT.timezone);', to: 'return EVENT.dates[0];' },
   { name: '#EHOMEWATCH 首頁跨日未更新日期', file: 'js/modules/public/home.js',

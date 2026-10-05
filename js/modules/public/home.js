@@ -84,7 +84,8 @@ export async function publicHome({ scope, view, query }) {
     //    退回去監聽當日場次**永遠不會比較差**：真的沒有場次時，
     //    splitHomeSections 算出來也是空的；看板還沒建好時，它算出來才是對的。
     //    看板是效能最佳化，不是功能的前提（這一段的原始註解就是這樣寫的）。
-    if (hasBoardContent(board)) {
+    const boardRows = ['liveMatches', 'nextMatches', 'justFinished'].flatMap(key => board?.[key] ?? []);
+    if (hasBoardContent(board) && boardRows.every(row => row.date === state.date)) {
       state.board = board;
       state.boardMissing = false;
       state.loading = false;
