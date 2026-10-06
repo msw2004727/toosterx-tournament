@@ -53,6 +53,11 @@
   --accent:#12704F;
   --accent-hover:#0D5A3F;
   --accent-bg:rgba(18,112,79,.10);
+  --frequent-tool-bg:rgba(47,108,80,.09);
+  --frequent-tool-hover:rgba(47,108,80,.14);
+  --frequent-tool-border:rgba(47,108,80,.23);
+  --frequent-tool-text:#285C45;
+  --frequent-tool-icon-bg:rgba(47,108,80,.09);
   --primary:#0B2E20;         /* 頁首、品牌底色 */
 
   --primary-btn-bg:#12704F;
@@ -118,6 +123,11 @@
   --accent:#4FC291;
   --accent-hover:#7BD7AD;
   --accent-bg:rgba(79,194,145,.16);
+  --frequent-tool-bg:rgba(132,178,153,.12);
+  --frequent-tool-hover:rgba(132,178,153,.18);
+  --frequent-tool-border:rgba(132,178,153,.25);
+  --frequent-tool-text:#BDD8CA;
+  --frequent-tool-icon-bg:rgba(132,178,153,.12);
   --primary:#0F3B2B;
 
   --primary-btn-bg:#17805C;   /* 白字 4.9:1；再亮就過不了 AA */

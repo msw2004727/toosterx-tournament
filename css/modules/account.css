@@ -147,9 +147,9 @@
 /* 被退回的原因（系統退件會寫原因；只有「已婉拒」三個字家長不知道要改什麼） */
 .acct__rowReason{flex:1 1 100%;font-size:var(--fs-xs);color:var(--warning);line-height:1.5}
 
-/* Staff's daily tools share the first row and one prominent color. */
-.acct__tile--frequent{background:var(--primary-btn-bg);border-color:var(--primary-btn-bg);color:var(--text-on-accent);box-shadow:var(--control-primary-shadow)}
-.acct__tile--frequent:hover{background:var(--primary-btn-hover);border-color:var(--primary-btn-hover)}
-.acct__tile--frequent .acct__tileIcon{color:var(--text-on-accent);background:rgba(255,255,255,.16)}
+/* 常用功能使用主題專屬的半透明色塊，文字保持清晰。 */
+.acct__tile--frequent{background:var(--frequent-tool-bg);border-color:var(--frequent-tool-border);color:var(--frequent-tool-text);box-shadow:var(--control-shadow)}
+.acct__tile--frequent:hover{background:var(--frequent-tool-hover);border-color:var(--frequent-tool-border)}
+.acct__tile--frequent .acct__tileIcon{color:var(--frequent-tool-text);background:var(--frequent-tool-icon-bg)}
 .acct__tile--frequent .acct__tileLabel{font-weight:700}
-.acct__tile--frequent .acct__tileHint{color:var(--text-on-accent);opacity:.88}
+.acct__tile--frequent .acct__tileHint{color:var(--text-secondary)}
