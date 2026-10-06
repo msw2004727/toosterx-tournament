@@ -41,7 +41,7 @@ import * as data from './data.js';
 import { adminHead, denied } from './bits.js';
 
 export async function adminMatchPage({ scope, view, params }) {
-  const root = el('div', { class: 'adm' });
+  const root = el('div', { class: 'adm adm-match' });
   mount(view, root);
   mount(root, adminHead('場次改判'), skeleton(4));
 
@@ -314,33 +314,32 @@ export async function adminMatchPage({ scope, view, params }) {
 
   function headBox() {
     const m = state.match;
-    const preview = resultOf(
-      { home: state.draft?.home, away: state.draft?.away },
-      { home: state.draft?.pkHome, away: state.draft?.pkAway }
-    );
-    return el('div', { class: 'adm__box' }, [
-      el('strong', { text: `${m.home?.name ?? '待定'} vs ${m.away?.name ?? '待定'}` }),
-      el('p', { class: 'adm__note', text:
-        [m.matchNo ? `第${m.matchNo}場` : null, m.label, m.venueName,
-         m.date ? dateLabelFromYmd(m.date) : null, m.kickoffAt ? hhmm(m.kickoffAt) : null]
-          .filter(Boolean).join('　·　') }),
-      el('p', { class: 'adm__note' }, iconText(
-        m.lock?.locked ? 'check' : 'info',
-        `目前狀態：${STATUS_LABEL[m.status] ?? m.status}` +
-        (m.lock?.locked ? '（已鎖定）' : '') +
-        (m.revisionCount ? `・已改判 ${m.revisionCount} 次` : '')
-      )),
-      // 目前的比分要連 PK 一起看：正規時間平手時勝負是 PK 決定的，只印 2:2 看不出誰晉級
-      // （2026-09-06 驗收：「總比分沒加上 PK 比分」）
-      currentScoreText(m)
-        ? el('p', { class: 'adm__note num', id: 'match-score-now', text: currentScoreText(m) })
-        : null,
-      preview && dirty()
-        ? el('p', { class: 'adm__permNote', text:
-            `改判後的判定：${preview.winner === 'draw' ? '和局' : `${sideName(preview.winner)} 勝`}` +
-            `（${preview.homePoints}:${preview.awayPoints} 分${preview.method === 'penalty' ? '，PK 決勝' : ''}）` })
-        : null
-    ].filter(Boolean));
+    const team = side => el('div', { class: 'adm-match__team' }, [
+      el('span', { class: 'adm-match__eyebrow', text: side === 'home' ? '主隊' : '客隊' }),
+      el('strong', { text: m[side]?.name || m[side]?.displayName || '待定' })
+    ]);
+    const pk = m.penaltyScore;
+    return el('section', { class: 'adm-match__hero', 'aria-label': '比賽摘要' }, [
+      el('div', { class: 'adm-match__heroTop' }, [
+        el('span', { class: 'adm-match__eyebrow', text: [m.matchNo ? `第 ${m.matchNo} 場` : null, m.label].filter(Boolean).join(' · ') }),
+        el('span', { class: 'adm-match__badge' }, iconText(m.lock?.locked ? 'check' : 'info',
+          `${STATUS_LABEL[m.status] ?? m.status}${m.lock?.locked ? ' · 已鎖定' : ''}`))
+      ]),
+      el('div', { class: 'adm-match__fixture' }, [team('home'),
+        el('div', { class: 'adm-match__result' }, [
+          el('span', { class: 'adm-match__eyebrow', text: '目前比分' }),
+          el('strong', { class: 'adm-match__score num', text: `${scoreOf(m.score?.home) ?? '—'} : ${scoreOf(m.score?.away) ?? '—'}` }),
+          scoreOf(pk?.home) != null && scoreOf(pk?.away) != null
+            ? el('span', { class: 'adm-match__pk num', text: `PK ${pk.home} : ${pk.away}` }) : null,
+          el('span', { class: 'sr-only', id: 'match-score-now', text: currentScoreText(m) || '' })
+        ]), team('away')
+      ]),
+      el('div', { class: 'adm-match__heroMeta' }, [
+        el('span', {}, iconText('clock', [m.date ? dateLabelFromYmd(m.date) : null, m.kickoffAt ? hhmm(m.kickoffAt) : null].filter(Boolean).join(' · '))),
+        el('span', { text: m.venueName || m.venueId || '未指定場地' }),
+        m.revisionCount ? el('span', { text: `已改判 ${m.revisionCount} 次` }) : null
+      ])
+    ]);
   }
 
   /** 「目前比分 2:2（PK 4:3）」；沒有比分就 null */
@@ -351,48 +350,57 @@ export async function adminMatchPage({ scope, view, params }) {
     return `目前比分 ${h}:${a}` + (ph != null && pa != null ? `（PK ${ph}:${pa}）` : '');
   }
 
+  function scorePreview() {
+    const preview = resultOf({ home: state.draft?.home, away: state.draft?.away },
+      { home: state.draft?.pkHome, away: state.draft?.pkAway });
+    return el('p', { class: 'adm-match__previewText' }, iconText('info', dirty() && preview
+      ? `改判後的判定：${preview.winner === 'draw' ? '和局' : `${sideName(preview.winner)} 勝`}` +
+        `（${preview.homePoints}:${preview.awayPoints} 分${preview.method === 'penalty' ? '，PK 決勝' : ''}）`
+      : '修改比分後，可在這裡確認勝負與積分。'));
+  }
+
+  function scoreControls() {
+    return [el('button', {
+      class: 'btn btn--primary btn--lg', type: 'button', disabled: !dirty() || !!state.busy,
+      onClick: () => doOverride()
+    }, iconText('check', '改判比分')),
+    dirty() ? el('button', { class: 'btn btn--lg', type: 'button',
+      onClick: () => { state.draft = draftFrom(state.match); render(); }
+    }, iconText('undo', '放棄變更')) : null];
+  }
+
   function scoreEditor() {
     const g = canOverride(state.match);
     if (!can('match.score.override')) return lockedNote('改判比分', '管理員');
     if (!g.ok) return el('p', { class: 'adm__permNote', text: g.reason });
-
-    const num = (key, label) => el('div', { class: 'adm__field' }, [
-      el('label', { class: 'adm__fieldLabel', for: `sc-${key}`, text: label }),
+    const num = (key, label) => el('div', { class: 'adm-match__scoreField' }, [
+      el('label', { for: `sc-${key}`, text: label }),
       el('input', {
-        class: 'adm__search adm__time', id: `sc-${key}`, type: 'number', min: '0', step: '1',
-        value: state.draft[key] == null ? '' : String(state.draft[key]),
+        class: `adm-match__scoreInput num${key.startsWith('pk') ? ' adm-match__scoreInput--pk' : ''}`,
+        id: `sc-${key}`, type: 'number', inputmode: 'numeric', min: '0', step: '1',
+        value: state.draft[key] == null ? '' : String(state.draft[key]), placeholder: key.startsWith('pk') ? '—' : '0',
         onInput: e => {
           const v = e.target.value === '' ? null : Math.trunc(Number(e.target.value));
           state.draft[key] = Number.isFinite(v) ? v : null;
-          render();
+          mount(root.querySelector('.adm-match__preview'), scorePreview());
+          mount(root.querySelector('.adm-match__scoreActions'), scoreControls());
         }
       })
     ]);
-
-    return el('div', {}, [
-      el('h3', { class: 'adm__sectionHead', id: 'override-section', text: '改判比分' }),
-      el('div', { class: 'adm__schedRow' }, [
-        num('home', state.match.home?.name ?? '主隊'),
-        num('away', state.match.away?.name ?? '客隊')
+    return el('section', { class: 'adm-match__card', 'aria-labelledby': 'override-section' }, [
+      el('div', { class: 'adm-match__cardHead' }, [
+        el('span', { class: 'adm-match__sectionIcon' }, icon('note')),
+        el('div', {}, [el('h3', { id: 'override-section', text: '改判比分' }),
+          el('p', { text: '輸入正確比分，確認判定後送出。' })])
       ]),
-      el('p', { class: 'adm__permNote', text: 'PK 只在正規時間平手時才決定勝負，沒有就留空。' }),
-      el('div', { class: 'adm__schedRow' }, [
-        num('pkHome', 'PK 主'),
-        num('pkAway', 'PK 客')
+      el('div', { class: 'adm-match__scoreGrid' }, [num('home', state.match.home?.name ?? '主隊'), num('away', state.match.away?.name ?? '客隊')]),
+      el('div', { class: 'adm-match__penalties' }, [
+        el('div', { class: 'adm-match__subhead' }, [el('strong', { text: 'PK 比分' }), el('span', { text: '沒有 PK 時留空' })]),
+        el('div', { class: 'adm-match__scoreGrid' }, [num('pkHome', 'PK 主'), num('pkAway', 'PK 客')]),
+        el('p', { class: 'adm__note', text: 'PK 只在正規時間平手時才決定勝負。' })
       ]),
-      el('div', { class: 'adm__actions' }, [
-        el('button', {
-          class: 'btn btn--primary btn--lg', type: 'button',
-          disabled: !dirty() || state.busy === 'override',
-          onClick: () => doOverride()
-        }, iconText('check', '改判比分')),
-        dirty()
-          ? el('button', {
-              class: 'btn btn--lg', type: 'button',
-              onClick: () => { state.draft = draftFrom(state.match); render(); }
-            }, iconText('undo', '放棄變更'))
-          : null
-      ].filter(Boolean))
+      el('div', { class: 'adm-match__preview', 'aria-live': 'polite' }, scorePreview()),
+      el('div', { class: 'adm-match__scoreActions' }, scoreControls())
     ]);
   }
 
@@ -408,21 +416,25 @@ export async function adminMatchPage({ scope, view, params }) {
 
     const row = (label, iconName, guard, permCode, onClick, tone) => {
       if (!can(permCode)) return lockedNote(label, '管理員');
-      return el('div', { class: 'adm__perm' }, [
-        el('div', { class: 'adm__permMain' }, [
-          el('span', { class: 'adm__permLabel', text: label }),
-          el('span', { class: 'adm__permMeta', text: guard.ok ? '' : guard.reason })
-        ]),
-        el('button', {
-          class: `btn btn--lg${tone === 'primary' ? ' btn--primary' : ''}`, type: 'button',
-          disabled: !guard.ok || !!state.busy,
-          onClick
-        }, iconText(iconName, label))
+      const notes = {
+        '覆核完賽': '確認目前結果，完成本場覆核。',
+        '重開場次': '解除完賽鎖定，返回賽務台繼續記錄。',
+        '撤銷開賽': '保留檢錄與出場名單，撤回開賽狀態。',
+        '歸零並退回未開賽': '清除比分與比賽事件，重新開始。'
+      };
+      return el('button', {
+        class: `adm-match__action${permCode === 'match.reset' ? ' adm-match__action--danger' : ''}`,
+        type: 'button', 'aria-label': label, disabled: !guard.ok || !!state.busy, onClick
+      }, [
+        el('span', { class: 'adm-match__actionIcon' }, icon(iconName)),
+        el('span', { class: 'adm-match__actionText' }, [
+          el('strong', { text: label }), el('span', { text: guard.ok ? notes[label] : guard.reason })
+        ]), icon('forward')
       ]);
     };
 
-    return el('div', {}, [
-      el('h3', { class: 'adm__sectionHead', text: '狀態' }),
+    return el('section', { class: 'adm-match__card adm-match__status', 'aria-label': '場次狀態與特殊處理' }, [
+      el('div', { class: 'adm-match__cardHead' }, [el('span', { class: 'adm-match__sectionIcon' }, icon('check')), el('div', {}, [el('h3', { text: '場次狀態' }), el('p', { text: '依目前狀態選擇處理方式。' })])]),
       row('覆核完賽', 'check', confirmG, 'match.confirm', () => doConfirm(), 'primary'),
       row('重開場次', 'undo', reopenG, 'match.reopen', () => doReopen()),
       row('撤銷開賽', 'undo', canCancelStart(m), 'match.cancelStart', () => doCancelStart()),
@@ -570,7 +582,7 @@ export async function adminMatchPage({ scope, view, params }) {
       ])
     ]) : null;
 
-    return el('div', { class: 'adm__appeals' }, [
+    return el('div', { class: 'adm__appeals adm-match__card' }, [
       el('h3', { class: 'adm__sectionHead', text: `申訴（${(list ?? []).length}）` }),
       list === null ? skeleton(1) : null,
       ...items,
@@ -591,7 +603,7 @@ export async function adminMatchPage({ scope, view, params }) {
     if (!can('stream.manage')) return null;
     const m = state.match;
     const cur = m?.stream?.videoId ?? null;
-    return el('div', {}, [
+    return el('section', { class: 'adm-match__card' }, [
       el('h3', { class: 'adm__sectionHead', text: '這一場的直播' }),
       el('div', { class: 'adm__box' }, [
         el('p', { class: 'adm__note', text: cur
@@ -623,7 +635,7 @@ export async function adminMatchPage({ scope, view, params }) {
     const ms = v => (v?.toMillis ? v.toMillis() : (typeof v === 'number' ? v : Date.parse(v ?? '')));
     const rows = state.audits.map(normalizeAudit).filter(Boolean)
       .sort((a, b) => (ms(b.at) || 0) - (ms(a.at) || 0));
-    return el('div', {}, [
+    return el('section', { class: 'adm-match__card' }, [
       el('h3', { class: 'adm__sectionHead', text: `這一場的改判紀錄（${rows.length}）` }),
       el('ul', { class: 'adm__audits' }, rows.map(a => {
         const d = describeAudit(a);
@@ -651,14 +663,11 @@ export async function adminMatchPage({ scope, view, params }) {
     if (!state.draft) state.draft = draftFrom(state.match);
 
     mount(root,
-      adminHead('場次改判', { sub: state.busy ? '處理中…' : matchId }),
+      adminHead('場次改判', { sub: state.busy ? '處理中…' : '結果修正與場次管理' }),
       headBox(),
-      el('p', { class: 'adm__permNote', text:
-        '這一頁的每一個動作都會寫進稽核紀錄，而且公開端會立刻看到結果。' }),
-      scoreEditor(),
-      actionsBox(),
-      appealBox(),
-      streamBox(),
+      el('p', { class: 'adm-match__notice' }, iconText('info', '變更會同步至公開頁；送出時須填寫原因並留下紀錄。')),
+      el('div', { class: 'adm-match__main' }, [scoreEditor(), actionsBox()]),
+      el('div', { class: 'adm-match__secondary' }, [appealBox(), streamBox()]),
       auditsBox()
     );
   }

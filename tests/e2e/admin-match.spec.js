@@ -150,9 +150,10 @@ test('⭐ 頁首顯示現在的狀態與已改判次數 @adminmatch', async ({ p
   await stub(page, { m: match({ revisionCount: 2 }) });
   await go(page);
   await ready(page);
-  await expect(page.locator('.adm__box').first()).toContainText('臺中雷霆 vs 臺中黑豹');
-  await expect(page.locator('.adm__box').first()).toContainText('已鎖定');
-  await expect(page.locator('.adm__box').first()).toContainText('已改判 2 次');
+  await expect(page.locator('.adm-match__hero')).toContainText('臺中雷霆');
+  await expect(page.locator('.adm-match__hero')).toContainText('臺中黑豹');
+  await expect(page.locator('.adm-match__hero')).toContainText('已鎖定');
+  await expect(page.locator('.adm-match__hero')).toContainText('已改判 2 次');
 });
 
 test('⭐ 改判比分：result 跟著重算，而且留痕 @adminmatch', async ({ page }) => {
@@ -240,7 +241,7 @@ test('⭐ 已覆核的場次不能再覆核，而且說得出原因 @adminmatch'
   await go(page);
   await ready(page);
   await expect(page.getByRole('button', { name: /^覆核完賽$/ })).toBeDisabled();
-  await expect(page.locator('.adm__permMeta').first()).toContainText('已經覆核');
+  await expect(page.getByRole('button', { name: '覆核完賽', exact: true })).toContainText('已經覆核');
 });
 
 test('⭐ 判棄賽：比分由規章算成 0:2，不給填 @adminmatch', async ({ page }) => {
@@ -569,4 +570,34 @@ test('已有比分只能使用歸零，撤銷開賽反灰 @cancelstart', async (
   await stub(page, { m: match({ status: 'live', period: 'h1', lock: { locked: false } }) }); await go(page); await ready(page);
   await expect(page.getByRole('button', { name: '撤銷開賽', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: '歸零並退回未開賽', exact: true })).toBeEnabled();
+});
+
+
+test('adjudication layout and continuous score input @adminmatch @matchdesign', async ({ page }, info) => {
+  await stub(page, {m:match({home:{teamId:'t-1',name:'ORIGINAL漂亮媽媽說的都隊'},away:{teamId:'t-2',name:'Taichung Ronin FC'}})});
+  await go(page);
+  await expect(page.locator('.adm-match__hero')).toBeVisible();
+  await expect(page.locator('.adm-match__card').first()).toBeVisible();
+  const layout = await page.locator('.adm-match__main').evaluate(n => ({columns:getComputedStyle(n).gridTemplateColumns.split(' ').length}));
+  if (page.viewportSize().width >= 760) expect(layout.columns).toBe(2);
+  else expect(layout.columns).toBe(1);
+  const originalViewport = page.viewportSize();
+  await page.setViewportSize({width:1280,height:900});
+  const desktopLayout = await page.locator('.adm-match__main').evaluate(n => ({columns:getComputedStyle(n).gridTemplateColumns.split(' ').length}));
+  expect(desktopLayout.columns).toBe(2);
+  await page.setViewportSize(originalViewport);
+  const score = page.locator('#sc-home');
+  const inputTops = await page.locator('#sc-home,#sc-away').evaluateAll(ns => ns.map(n=>n.getBoundingClientRect().top));
+  expect(Math.abs(inputTops[0]-inputTops[1])).toBeLessThan(1);
+  await score.fill('');
+  await score.pressSequentially('12');
+  await expect(score).toBeFocused();
+  await expect(score).toHaveValue('12');
+  await expect(page.locator('.adm-match__preview')).toContainText('改判後的判定');
+  for (const theme of ['light','dark']) {
+    await page.evaluate(t => { document.activeElement?.blur(); document.documentElement.dataset.theme=t; window.scrollTo(0,0); }, theme);
+    await page.waitForTimeout(350);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({path:`tmp/match-design-${info.project.name}-${theme}.png`,fullPage:true});
+  }
 });

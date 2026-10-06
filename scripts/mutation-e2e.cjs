@@ -15,6 +15,10 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#EADJUDICATIONINPUT score typing replaces focused field', file: 'js/modules/admin/match.js',
+    from: "mount(root.querySelector('.adm-match__preview'), scorePreview());", to: 'render();' },
+  { name: '#EADJUDICATIONLAYOUT desktop loses two-column design', file: 'css/modules/admin.css',
+    from: '@media(min-width:760px){.adm-match__main', to: '@media(min-width:9999px){.adm-match__main' },
   { name: '#ELIVECLOCKLOAD timer waits for roster', file: 'js/modules/staff/live.js',
     from: 'const stopTicker = startTicker(() => paintClock());', to: 'const stopTicker = () => {};' },
   { name: '#ELIVECLOCKDISPOSE old timer survives navigation', file: 'js/modules/staff/live.js',

@@ -1,5 +1,9 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EADJUDICATIONINPUT: { spec: 'tests/e2e/admin-match.spec.js', grep: '@matchdesign', minTests: 1,
+    assertions: ['await expect(score).toBeFocused()'], failure: 'await expect(score).toBeFocused()' },
+  EADJUDICATIONLAYOUT: { spec: 'tests/e2e/admin-match.spec.js', grep: '@matchdesign', minTests: 1,
+    assertions: ['expect(desktopLayout.columns).toBe(2)'], failure: 'expect(desktopLayout.columns).toBe(2)' },
   ELIVECLOCKLOAD: { spec: 'tests/e2e/staff-console.spec.js', grep: '@clockload', minTests: 1,
     assertions: ["await expect.poll(() => page.locator('#match-clock').textContent()).not.toBe('00:00')"],
     failure: "await expect.poll(() => page.locator('#match-clock').textContent()).not.toBe('00:00')" },
