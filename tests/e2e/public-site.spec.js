@@ -295,7 +295,7 @@ test('⭐ 完全沒有資料時每一頁都有話說，不留白畫面 @public @
   }
 });
 
-test('積分榜長隊名完整換行且仍可點選 @public @teamwrap', async ({ page }) => {
+test('積分榜長隊名單行右側淡出且仍可點選 @public @teamfade', async ({ page }) => {
   const seed = full();
   const standing = seed[`events/${EVENT}/standings/adult-open__group__A`];
   const names = ['ORIGINAL漂亮媽媽說的都隊', '圖斯特足球俱樂部 (黃)', 'Taichung Ronin FC', 'InternationalFootballClubWithoutSpaces'];
@@ -308,14 +308,20 @@ test('積分榜長隊名完整換行且仍可點選 @public @teamwrap', async ({
     const bounds = await button.evaluate(node => {
       const range = document.createRange();
       range.selectNodeContents(node);
-      return { width: node.scrollWidth - node.clientWidth, height: node.scrollHeight - node.clientHeight,
-        lines: range.getClientRects().length, tapHeight: node.getBoundingClientRect().height };
+      const label = node.querySelector('.ptable__teamName');
+      range.selectNodeContents(label);
+      return { lines: range.getClientRects().length, tapHeight: node.getBoundingClientRect().height,
+        mask: getComputedStyle(label).maskImage, clipped: label.scrollWidth > label.clientWidth };
     });
-    expect(bounds.width).toBeLessThanOrEqual(1);
-    expect(bounds.height).toBeLessThanOrEqual(1);
-    expect(bounds.lines).toBeGreaterThan(1);
+    expect(bounds.lines).toBe(1);
+    expect(bounds.clipped).toBe(true);
+    expect(bounds.mask).toContain('linear-gradient');
     expect(bounds.tapHeight).toBeGreaterThanOrEqual(44);
   }
+  const label = page.getByRole('button', { name: names[0], exact: true }).locator('.ptable__teamName');
+  await page.getByRole('button', { name: names[0], exact: true }).evaluate(node => { node.style.maxWidth = '40em'; });
+  await expect(label).not.toHaveAttribute('data-overflow', '');
+  await expect(label).toHaveCSS('mask-image', 'none');
   await noHScroll(page);
   await page.getByRole('button', { name: names[0], exact: true }).click();
   await expect(page).toHaveURL(/#\/team\/t-101$/);

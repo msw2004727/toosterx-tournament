@@ -16,6 +16,7 @@
 import { setDivisionTheme } from '../../core/division-theme.js';
 import { groupNameOf } from '../../engine/group-name.js';
 import { el, mount, skeleton } from '../../core/ui.js';
+import { hold } from '../../core/store.js';
 import { navigate } from '../../core/router.js';
 import { icon, iconText } from '../../core/icons.js';
 import { hhmm } from '../../lib/format.js';
@@ -34,6 +35,11 @@ export async function publicDivision({ params, scope, view, query }) {
   const root = el('div', { class: 'pub' });
   mount(view, root);
   mount(root, skeleton(4));
+  const updateNameFade = node => node.toggleAttribute('data-overflow', node.scrollWidth > node.clientWidth + 1);
+  const nameObserver = typeof ResizeObserver === 'function'
+    ? new ResizeObserver(entries => entries.forEach(entry => updateNameFade(entry.target))) : null;
+  let disposed = false;
+  hold(scope, () => { disposed = true; nameObserver?.disconnect(); });
 
   const state = {
     division: null, standings: [], matches: [], teams: [], teamsLoaded: false, teamsError: null,
@@ -63,6 +69,8 @@ export async function publicDivision({ params, scope, view, query }) {
   render();
 
   function render() {
+    if (disposed) return;
+    nameObserver?.disconnect();
     setDivisionTheme(root, state.division || divisionId);
     if (state.tab === 'table' && !state.loaded) { mount(root, skeleton(4)); return; }
     mount(root,
@@ -76,6 +84,10 @@ export async function publicDivision({ params, scope, view, query }) {
             { label: '重新載入', onClick: () => location.reload() })
         : body()
     );
+    for (const name of root.querySelectorAll('.ptable__teamName')) {
+      updateNameFade(name);
+      nameObserver?.observe(name);
+    }
   }
 
   function tabBar() {
@@ -149,9 +161,9 @@ export async function publicDivision({ params, scope, view, query }) {
             }, [
               el('td', { class: 'num', text: r.unresolved ? '—' : String(r.rank ?? '') }),
               el('td', { class: 'is-left' }, el('button', {
-                class: 'ptable__team', type: 'button',
+                class: 'ptable__team', type: 'button', title: r.name || r.teamId || '',
                 onClick: () => r.teamId && navigate(`/team/${encodeURIComponent(r.teamId)}`)
-              }, r.name || r.teamId || '')),
+              }, el('span', { class: 'ptable__teamName', text: r.name || r.teamId || '' }))),
               el('td', { class: 'num', text: String(r.played) }),
               el('td', { class: 'num', text: String(r.win) }),
               el('td', { class: 'num', text: String(r.draw) }),

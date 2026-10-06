@@ -15,9 +15,8 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
-  { name: '#ESTANDTEAMWRAP 積分榜長隊名恢復單行截斷', file: 'css/modules/public.css',
-    from: 'max-width:8em;white-space:normal;overflow-wrap:anywhere;line-height:1.5}',
-    to: 'max-width:8em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' },
+  { name: '#ESTANDTEAMFADE 積分榜長隊名失去右側淡出', file: 'css/modules/public.css',
+    from: '.ptable__teamName[data-overflow]{', to: '.ptable__teamName[data-missing-overflow]{' },
   { name: '#EHOMEBOARDDATE 看板混入另一日場次', file: 'js/modules/public/home.js',
     from: 'boardRows.every(row => row.date === state.date)', to: 'true' },
   { name: '#EHOMEDATE 首頁活動結束回到首日', file: 'js/modules/public/home.js',
