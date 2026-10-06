@@ -277,8 +277,10 @@
 .ptable th.is-left,.ptable td.is-left{text-align:left}
 .ptable tbody tr{border-top:1px solid var(--border)}
 .ptable td{font-variant-numeric:tabular-nums}
+.ptable th:not(:nth-child(2)),.ptable td:not(:nth-child(2)){width:1%}
+.ptable th:nth-child(2),.ptable td:nth-child(2){width:100%;max-width:0}
 .ptable__team{font-weight:700;font-size:var(--fs-sm);text-align:left;
-  max-width:8em;white-space:nowrap}
+  width:100%;max-width:100%;white-space:nowrap}
 .ptable__teamName{display:block;min-width:0;overflow:hidden;white-space:nowrap}
 .ptable__teamName[data-overflow]{
   -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 1.2em),transparent);

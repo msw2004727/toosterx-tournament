@@ -15,6 +15,8 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#ESTANDTEAMWIDTH standings team width capped', file: 'css/modules/public.css',
+    from: 'width:100%;max-width:100%;white-space:nowrap', to: 'width:100%;max-width:8em;white-space:nowrap' },
   { name: '#ESTANDTEAMFADE 積分榜長隊名失去右側淡出', file: 'css/modules/public.css',
     from: '.ptable__teamName[data-overflow]{', to: '.ptable__teamName[data-missing-overflow]{' },
   { name: '#EHOMEBOARDDATE 看板混入另一日場次', file: 'js/modules/public/home.js',

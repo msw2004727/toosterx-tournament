@@ -1,5 +1,7 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ESTANDTEAMWIDTH: { spec: 'tests/e2e/public-site.spec.js', grep: '@teamfade', minTests: 1,
+    assertions: ['expect(roomy).toBeGreaterThan(150)'], failure: 'expect(roomy).toBeGreaterThan(150)' },
   ESTANDTEAMFADE: { spec: 'tests/e2e/public-site.spec.js', grep: '@teamfade', minTests: 1,
     assertions: ["expect(bounds.mask).toContain('linear-gradient')"],
     failure: "expect(bounds.mask).toContain('linear-gradient')" },

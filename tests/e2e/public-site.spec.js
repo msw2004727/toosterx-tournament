@@ -298,7 +298,7 @@ test('⭐ 完全沒有資料時每一頁都有話說，不留白畫面 @public @
 test('積分榜長隊名單行右側淡出且仍可點選 @public @teamfade', async ({ page }) => {
   const seed = full();
   const standing = seed[`events/${EVENT}/standings/adult-open__group__A`];
-  const names = ['ORIGINAL漂亮媽媽說的都隊', '圖斯特足球俱樂部 (黃)', 'Taichung Ronin FC', 'InternationalFootballClubWithoutSpaces'];
+  const names = ['ORIGINAL漂亮媽媽說的都隊', '圖斯特足球俱樂部 (黃)', 'Taichung Ronin FC', 'InternationalFootballClubWithoutSpaces'.repeat(4)];
   standing.rows = names.map((name, i) => ({ ...standing.rows[0], rank: i + 1, teamId: `t-${101 + i}`, name }));
   await stub(page, seed);
   await go(page, '/#/division/adult-open');
@@ -314,14 +314,24 @@ test('積分榜長隊名單行右側淡出且仍可點選 @public @teamfade', as
         mask: getComputedStyle(label).maskImage, clipped: label.scrollWidth > label.clientWidth };
     });
     expect(bounds.lines).toBe(1);
-    expect(bounds.clipped).toBe(true);
-    expect(bounds.mask).toContain('linear-gradient');
+    if (bounds.clipped) expect(bounds.mask).toContain('linear-gradient');
+    else expect(bounds.mask).toBe('none');
     expect(bounds.tapHeight).toBeGreaterThanOrEqual(44);
   }
-  const label = page.getByRole('button', { name: names[0], exact: true }).locator('.ptable__teamName');
-  await page.getByRole('button', { name: names[0], exact: true }).evaluate(node => { node.style.maxWidth = '40em'; });
-  await expect(label).not.toHaveAttribute('data-overflow', '');
-  await expect(label).toHaveCSS('mask-image', 'none');
+  const table = page.locator('.ptable').first();
+  const label = page.getByRole('button', { name: names[3], exact: true }).locator('.ptable__teamName');
+  await expect(label).toHaveAttribute('data-overflow', '');
+  await expect(label).toHaveCSS('mask-image', /linear-gradient/);
+  const roomy = await label.evaluate(node => node.clientWidth);
+  expect(roomy).toBeGreaterThan(150);
+  await table.locator('tbody tr').evaluateAll(rows => {
+    for (const row of rows) for (const cell of [...row.cells].slice(2)) cell.textContent = '12345';
+  });
+  await expect.poll(() => label.evaluate(node => node.clientWidth)).toBeLessThan(roomy - 40);
+  await table.locator('tbody tr').evaluateAll(rows => {
+    for (const row of rows) for (const cell of [...row.cells].slice(2)) cell.textContent = '0';
+  });
+  await expect.poll(() => label.evaluate(node => node.clientWidth)).toBeGreaterThanOrEqual(roomy);
   await noHScroll(page);
   await page.getByRole('button', { name: names[0], exact: true }).click();
   await expect(page).toHaveURL(/#\/team\/t-101$/);
