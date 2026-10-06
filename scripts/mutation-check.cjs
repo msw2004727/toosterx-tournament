@@ -9,6 +9,7 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  // Daily staff tools: EFREQUENTSTAFFORDER / EFREQUENTSTAFFCOLOR in mutation-e2e.cjs.
   // Adjudication UI: EADJUDICATIONINPUT / EADJUDICATIONLAYOUT in mutation-e2e.cjs.
   // LIVE timer lifecycle: ELIVECLOCKLOAD / ELIVECLOCKDISPOSE in mutation-e2e.cjs.
   // 積分榜隊名淡出須由瀏覽器驗證：ESTANDTEAMFADE / ESTANDTEAMWIDTH 在 mutation-e2e.cjs 執行。

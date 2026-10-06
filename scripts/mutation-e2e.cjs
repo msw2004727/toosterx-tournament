@@ -15,6 +15,10 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#EFREQUENTSTAFFORDER daily tools no longer first', file: 'js/modules/account/my.js',
+    from: 'const ready = mine.filter(f => f.route);', to: 'const ready = mine.filter(f => f.route).reverse();' },
+  { name: '#EFREQUENTSTAFFCOLOR daily tools lose highlight', file: 'js/modules/account/my.js',
+    from: "class: `acct__tile${f.frequent ? ' acct__tile--frequent' : ''}`,", to: "class: 'acct__tile'," },
   { name: '#EADJUDICATIONINPUT score typing replaces focused field', file: 'js/modules/admin/match.js',
     from: "mount(root.querySelector('.adm-match__preview'), scorePreview());", to: 'render();' },
   { name: '#EADJUDICATIONLAYOUT desktop loses two-column design', file: 'css/modules/admin.css',

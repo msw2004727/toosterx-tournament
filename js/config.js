@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20261006e';
+export const CACHE_VERSION = '0.20261006f';
 
 /**
  * PWA 安裝入口。主辦 2026-09-06 決定關閉：頁首不畫「安裝」，Chrome 自己的安裝橫幅也在
@@ -266,11 +266,11 @@ export function effectivePerms(roles = [], matrix = {}) {
  * 自己的身分沒生效。折衷是「看得到、標明規劃中、按不下去」。
  */
 export const FEATURES = [
+  { code: 'match.score.write',label: '賽務台',     hint: '記錄比分、事件與完賽送出',  route: '/staff', icon: 'whistle', frequent: true },
+  { code: 'challenge.attempt.write', label: '挑戰攤位', hint: '挑戰區成績登錄',      route: '/booth', icon: 'goal', frequent: true },
   { code: 'team.manage', label: '匯入球隊名冊', hint: '上傳 CSV，批次建立球隊與球員', route: '/admin/team-import', icon: 'team' },
   { code: 'checkin.write',    label: '檢錄',       hint: '賽前 30 分鐘核對名單與證件', route: '/staff', icon: 'list' },
   { code: 'matchsheet.write', label: '出場名單',   hint: '確認先發與替補',           route: '/staff', icon: 'team' },
-  { code: 'match.score.write',label: '賽務台',     hint: '記錄比分、事件與完賽送出',  route: '/staff', icon: 'whistle' },
-  { code: 'challenge.attempt.write', label: '挑戰攤位', hint: '挑戰區成績登錄',      route: '/booth', icon: 'goal' },
   { code: 'team.manage',      label: '報名審核',   hint: '審核球隊報名與名單',       route: '/admin/teams', icon: 'check' },
   { code: 'schedule.manage',  label: '賽程管理',   hint: '產生對戰、排定時間與場地',  route: '/admin/schedule', icon: 'table' },
   { code: 'standing.manual',  label: '人工裁定同分', hint: '完全同分時由主辦裁定或抽籤', route: '/admin/standings', icon: 'shuffle' },

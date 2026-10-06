@@ -209,7 +209,7 @@ export async function myPage({ scope, view }) {
       el('h2', { class: 'acct__cardHead' }, iconText('list', `我的功能（${mine.length}）`)),
       ready.length
         ? el('div', { class: 'acct__grid' }, ready.map(f => el('button', {
-            class: 'acct__tile', type: 'button',
+            class: `acct__tile${f.frequent ? ' acct__tile--frequent' : ''}`, type: 'button',
             onClick: () => navigate(f.route)
           }, [
             el('span', { class: 'acct__tileIcon' }, icon(f.icon)),

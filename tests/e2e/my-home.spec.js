@@ -238,3 +238,23 @@ test('⭐ 被系統退件的球員在「我報名的球員」看得到原因 @my
   await expect(card.locator('.acct__rowReason')).toHaveCount(1);
   await expect(card.locator('.acct__rowReason')).toContainText('已經有一筆待審的申請');
 });
+
+
+test('daily staff tools are first and share a highlight @my @frequentstaff', async ({ page }, info) => {
+  await stub(page, {roles:['admin']});
+  await go(page);
+  const buttons = tiles(page);
+  await expect(buttons.first()).toContainText('賽務台');
+  await expect(buttons.nth(1)).toContainText('挑戰攤位');
+  for (const theme of ['light','dark']) {
+    await page.evaluate(t => document.documentElement.dataset.theme=t, theme);
+    await page.waitForTimeout(300);
+    const colors = await buttons.evaluateAll(ns => ns.slice(0,3).map(n=>getComputedStyle(n).backgroundColor));
+    expect(colors[0]).toBe(colors[1]);
+    expect(colors[0]).not.toBe(colors[2]);
+    const tops = await buttons.evaluateAll(ns => ns.slice(0,2).map(n=>n.getBoundingClientRect().top));
+    expect(tops[0]).toBeLessThanOrEqual(tops[1]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.screenshot({path:`tmp/frequent-staff-${info.project.name}-${theme}.png`});
+  }
+});

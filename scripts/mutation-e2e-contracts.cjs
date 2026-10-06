@@ -1,5 +1,9 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EFREQUENTSTAFFORDER: { spec: 'tests/e2e/my-home.spec.js', grep: '@frequentstaff', minTests: 1,
+    assertions: ["await expect(buttons.first()).toContainText('賽務台')"], failure: "await expect(buttons.first()).toContainText('賽務台')" },
+  EFREQUENTSTAFFCOLOR: { spec: 'tests/e2e/my-home.spec.js', grep: '@frequentstaff', minTests: 1,
+    assertions: ['expect(colors[0]).not.toBe(colors[2])'], failure: 'expect(colors[0]).not.toBe(colors[2])' },
   EADJUDICATIONINPUT: { spec: 'tests/e2e/admin-match.spec.js', grep: '@matchdesign', minTests: 1,
     assertions: ['await expect(score).toBeFocused()'], failure: 'await expect(score).toBeFocused()' },
   EADJUDICATIONLAYOUT: { spec: 'tests/e2e/admin-match.spec.js', grep: '@matchdesign', minTests: 1,
