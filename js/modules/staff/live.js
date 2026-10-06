@@ -34,6 +34,7 @@ import {
 } from './live-actions.js';
 import { syncIndicator } from './sync-indicator.js';
 import { isOnline } from '../../core/sync.js';
+import { hold } from '../../core/store.js';
 
 export async function liveConsole({ params, scope, view }) {
   const { matchId } = params;
@@ -50,21 +51,31 @@ export async function liveConsole({ params, scope, view }) {
   const root = el('div', { class: 'live' });
   view.replaceChildren(root);
 
-  let stopTicker = null;
+  // Start independently of roster reads; a slow/offline read must not freeze time.
+  let disposed = false;
+  const stopTicker = startTicker(() => paintClock());
+  const dispose = hold(scope, () => {
+    disposed = true;
+    stopTicker();
+    indicator.destroy();
+  }, 'live:clock');
 
   watchMatch(scope, matchId, async (m) => {
+    if (disposed) return;
     const first = !state.match;
     state.match = m;
     if (!m) { render(); return; }
     if (first) {
       // 這三筆只讀一次：組別設定與名單在比賽期間不會變
       state.division = await getDivision(m.divisionId).catch(() => null);
+      if (disposed) return;
       await loadRosters();
+      if (disposed) return;
       state.loaded = true;
-      stopTicker = startTicker(() => paintClock());
     }
     render();
   }, err => {
+    if (disposed) return;
     console.error('[live] match', err);
     mount(root, emptyState({ title: '讀不到這個場次', note: err.message }));
   });
@@ -78,6 +89,7 @@ export async function liveConsole({ params, scope, view }) {
       if (!teamId) { state.rosters[side] = []; continue; }
       // 出場名單優先；還沒確認名單時退回全隊名冊，現場才不會卡住
       const s = await getMatchSheet(matchId, teamId).catch(() => null);
+      if (disposed) return;
       state.rosters[side] = s?.players?.length
         ? s.players
         : await getTeamRoster(teamId).catch(() => []);
@@ -89,6 +101,7 @@ export async function liveConsole({ params, scope, view }) {
   // ══════════════════════════════════════════════════════════
 
   function render() {
+    if (disposed) return;
     setDivisionTheme(root, state.division || state.match?.divisionId);
     const m = state.match;
     if (!m) {
@@ -182,26 +195,28 @@ export async function liveConsole({ params, scope, view }) {
 
   /** 只更新數字，不重畫整頁——每 250ms 重畫整頁會讓按鈕點不到 */
   function paintClock() {
+    if (disposed) return;
     const m = state.match;
     if (!m) return;
     const sec = elapsedSec(m.clock, now());
-    const t = document.getElementById('match-clock');
-    const mi = document.getElementById('match-minute');
-    if (t) t.textContent = clockText(sec);
+    const t = root.querySelector('#match-clock');
+    const mi = root.querySelector('#match-minute');
+    const timeText = clockText(sec);
+    if (t && t.textContent !== timeText) t.textContent = timeText;
     if (mi) {
       const dur = state.division?.matchDurationMin ?? 30;
       const per = state.division?.periods ?? 2;
       const txt = displayMinute(sec, m.period, dur, per);
-      mi.textContent = txt;
+      if (mi.textContent !== txt) mi.textContent = txt;
       mi.classList.toggle('is-added', isInAddedTime(m.clock, m.period, dur, per));
     }
 
     // 撤回倒數：只換數字。歸零的那一秒重畫整列，把按鈕換成說明文字。
-    const left = document.getElementById('undo-left');
+    const left = root.querySelector('#undo-left');
     if (left) {
       const u = undoState({ match: m, nowMs: now(), online: isOnline(), uid: user()?.uid ?? null });
       if (!u.can) render();
-      else left.textContent = mmss(u.leftSec);
+      else if (left.textContent !== mmss(u.leftSec)) left.textContent = mmss(u.leftSec);
     }
   }
 
@@ -667,8 +682,5 @@ export async function liveConsole({ params, scope, view }) {
   }
 
   // router 換頁時呼叫；監聽由 scope 自動回收
-  return () => {
-    stopTicker?.();
-    indicator.destroy();
-  };
+  return dispose;
 }

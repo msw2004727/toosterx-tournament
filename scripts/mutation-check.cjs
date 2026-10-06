@@ -9,6 +9,7 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  // LIVE timer lifecycle: ELIVECLOCKLOAD / ELIVECLOCKDISPOSE in mutation-e2e.cjs.
   // 積分榜隊名淡出須由瀏覽器驗證：ESTANDTEAMFADE / ESTANDTEAMWIDTH 在 mutation-e2e.cjs 執行。
   { name: '#JER6 999 號與空背號排序混淆', file: 'js/modules/account/my-players.js', from: '(a.jerseyNo ?? 1000) - (b.jerseyNo ?? 1000)', to: '(a.jerseyNo ?? 999) - (b.jerseyNo ?? 999)', testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/my-players.test.js --silent' },
   { name: '#JER4 三位數數值背號被拒絕', file: 'js/engine/member-identity.js', from: 'value <= 999)', to: 'value <= 99)', testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/member-identity.test.js --silent' },

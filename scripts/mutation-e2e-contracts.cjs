@@ -1,5 +1,11 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ELIVECLOCKLOAD: { spec: 'tests/e2e/staff-console.spec.js', grep: '@clockload', minTests: 1,
+    assertions: ["await expect.poll(() => page.locator('#match-clock').textContent()).not.toBe('00:00')"],
+    failure: "await expect.poll(() => page.locator('#match-clock').textContent()).not.toBe('00:00')" },
+  ELIVECLOCKDISPOSE: { spec: 'tests/e2e/staff-console.spec.js', grep: '@clocklifecycle', minTests: 1,
+    assertions: ['expect(await page.evaluate(() => window.__clockIntervals.size)).toBe(1)'],
+    failure: 'expect(await page.evaluate(() => window.__clockIntervals.size)).toBe(1)' },
   ESTANDTEAMWIDTH: { spec: 'tests/e2e/public-site.spec.js', grep: '@teamfade', minTests: 1,
     assertions: ['expect(roomy).toBeGreaterThan(150)'], failure: 'expect(roomy).toBeGreaterThan(150)' },
   ESTANDTEAMFADE: { spec: 'tests/e2e/public-site.spec.js', grep: '@teamfade', minTests: 1,

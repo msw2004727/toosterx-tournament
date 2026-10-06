@@ -345,3 +345,55 @@ test('⭐ 開頁時只有快取 → 顯示提示；連上線之後提示必須�
   await expect(page.locator('.sync')).toHaveAttribute('data-level', 'saved');
   await expect(page.locator('.notice--info')).toHaveCount(0);
 });
+
+async function delayFirstSheetRead(page) {
+  const delayed = FAKE.replace('export async function getDoc(ref) {', `export async function getDoc(ref) {
+    if (ref.path.includes('/matchSheets/') && !window.__sheetDelayed) {
+      window.__sheetDelayed = true;
+      await new Promise(resolve => { window.__releaseSheet = resolve; });
+    }`);
+  await page.route('https://www.gstatic.com/firebasejs/**', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: delayed }));
+  await page.addInitScript(() => {
+    const start = window.setInterval.bind(window), stop = window.clearInterval.bind(window);
+    window.__clockIntervals = new Set();
+    window.setInterval = (fn, ms, ...args) => { const id = start(fn, ms, ...args); if (ms === 250) window.__clockIntervals.add(id); return id; };
+    window.clearInterval = id => { window.__clockIntervals.delete(id); stop(id); };
+  });
+}
+
+test('clock starts while roster read is pending @staff @clockload', async ({ page }) => {
+  await delayFirstSheetRead(page);
+  await gotoApp(page, `/#/staff/match/${MATCH}`);
+  await page.waitForFunction(() => typeof window.__releaseSheet === 'function');
+  await page.getByRole('button', { name: /開賽/ }).click();
+  await expect(page.locator('.clockbox__period')).toHaveText('上半場');
+  await expect.poll(() => page.locator('#match-clock').textContent()).not.toBe('00:00');
+  await page.evaluate(() => window.__releaseSheet());
+});
+
+test('leaving during roster load cannot create a stale clock @staff @clocklifecycle', async ({ page }) => {
+  await delayFirstSheetRead(page);
+  await gotoApp(page, `/#/staff/match/${MATCH}`);
+  await page.waitForFunction(() => typeof window.__releaseSheet === 'function');
+  await page.evaluate(() => { location.hash = '#/staff'; });
+  await expect(page.getByRole('button', { name: '進入賽務台' })).toBeVisible();
+  await page.getByRole('button', { name: '進入賽務台' }).click();
+  await page.getByRole('button', { name: /開賽/ }).click();
+  await expect.poll(() => page.locator('#match-clock').textContent()).not.toBe('00:00');
+  await page.evaluate(() => window.__releaseSheet());
+  await page.waitForTimeout(400);
+  expect(await page.evaluate(() => window.__clockIntervals.size)).toBe(1);
+  await page.evaluate(() => {
+    window.__times = [];
+    const n = document.getElementById('match-clock');
+    window.__timeObserver = new MutationObserver(() => window.__times.push(n.textContent));
+    window.__timeObserver.observe(n, {childList:true,subtree:true,characterData:true});
+  });
+  await page.waitForTimeout(1500);
+  const times = await page.evaluate(() => { window.__timeObserver.disconnect(); return window.__times.map(t => { const [m,s] = t.split(':').map(Number); return m*60+s; }); });
+  expect(times.length).toBeGreaterThan(0);
+  expect(times.every((t,i) => t > 0 && (i === 0 || t >= times[i-1]))).toBe(true);
+  await page.evaluate(() => { location.hash = '#/staff'; });
+  await expect.poll(() => page.evaluate(() => window.__clockIntervals.size)).toBe(0);
+});

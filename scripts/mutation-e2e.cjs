@@ -15,6 +15,10 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#ELIVECLOCKLOAD timer waits for roster', file: 'js/modules/staff/live.js',
+    from: 'const stopTicker = startTicker(() => paintClock());', to: 'const stopTicker = () => {};' },
+  { name: '#ELIVECLOCKDISPOSE old timer survives navigation', file: 'js/modules/staff/live.js',
+    from: '    stopTicker();', to: '    /* timer cleanup removed */' },
   { name: '#ESTANDTEAMWIDTH standings team width capped', file: 'css/modules/public.css',
     from: 'width:100%;max-width:100%;white-space:nowrap', to: 'width:100%;max-width:8em;white-space:nowrap' },
   { name: '#ESTANDTEAMFADE 積分榜長隊名失去右側淡出', file: 'css/modules/public.css',
