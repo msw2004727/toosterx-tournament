@@ -235,13 +235,23 @@ test('後端拒絕同隊重號及無效背號，允许維持本人的號碼與�
   const { teamIds: [id] } = await importTeamsFor(request([row(), row({ jerseyNo: '0', isCaptain: '' })]));
   const ref = root().collection('teams').doc(id), memberId = `p-${id.slice(4)}-1`;
   for (const jerseyNo of [0, '00']) await expect(updateMemberIdentityFor(editRequest(id, { jerseyNo }))).rejects.toMatchObject({ code: 'already-exists' });
-  for (const jerseyNo of [100, -1, 1.1, true, {}, '1e1']) await expect(updateMemberIdentityFor(editRequest(id, { jerseyNo }))).rejects.toMatchObject({ code: 'invalid-argument' });
+  for (const jerseyNo of [1000, -1, 1.1, true, {}, '1e1']) await expect(updateMemberIdentityFor(editRequest(id, { jerseyNo }))).rejects.toMatchObject({ code: 'invalid-argument' });
   expect((await root().collection('audits').get()).size).toBe(1);
   expect((await ref.collection('members').doc(memberId).get()).data().jerseyNo).toBe(7);
   await expect(updateMemberIdentityFor(editRequest(id, { jerseyNo: 7 }))).resolves.toMatchObject({ jerseyNo: 7 });
   await expect(updateMemberIdentityFor(editRequest(id, { revision: 1, idLast4: '0033' }))).resolves.toMatchObject({ jerseyNo: 7 });
   const { teamIds: [other] } = await importTeamsFor(request([row({ teamName: '別隊', jerseyNo: '' })]));
   await expect(updateMemberIdentityFor(editRequest(other, { jerseyNo: 7 }))).resolves.toMatchObject({ jerseyNo: 7 });
+});
+
+test('三位數背號可匯入與修改，公開投影同步並保留重號檢查', async () => {
+  const {teamIds:[id]}=await importTeamsFor(request([row({jerseyNo:'167'}),row({playerName:'乙',jerseyNo:'111',isCaptain:''})]));
+  const ref=root().collection('teams').doc(id);
+  const members=await ref.collection('members').get();
+  const m=members.docs.find(d=>d.data().jerseyNo===167);
+  await expect(updateMemberIdentityFor(editRequest(id,{memberId:m.id,jerseyNo:111}))).rejects.toMatchObject({code:'already-exists'});
+  await expect(updateMemberIdentityFor(editRequest(id,{memberId:m.id,jerseyNo:999}))).resolves.toMatchObject({jerseyNo:999});
+  expect((await ref.collection('roster').doc(m.id).get()).data().jerseyNo).toBe(999);
 });
 
 test('兩位管理員同時給不同球員同一背號，交易只讓一位成功', async () => {

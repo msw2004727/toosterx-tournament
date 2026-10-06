@@ -67,7 +67,7 @@ export function buildMyPlayerRows({ members, teamsById = {} }) {
   rows.sort((a, b) =>
     (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9)
     || a.teamName.localeCompare(b.teamName, 'zh-Hant')
-    || (a.jerseyNo ?? 999) - (b.jerseyNo ?? 999)
+    || (a.jerseyNo ?? 1000) - (b.jerseyNo ?? 1000)
     || a.name.localeCompare(b.name, 'zh-Hant'));
   return rows;
 }

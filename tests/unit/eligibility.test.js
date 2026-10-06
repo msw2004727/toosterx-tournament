@@ -121,10 +121,11 @@ describe('T39-3 名單欄位檢查', () => {
     expect(validateMember({ ...ok, name: 'x'.repeat(21) }, U10).errors.name).toContain('太長');
   });
 
-  test('背號限 0–99', () => {
+  test('背號限 0–999', () => {
     expect(validateMember({ ...ok, jerseyNo: 7 }, U10).ok).toBe(true);
+    for (const jerseyNo of [100, 111, 167, 999]) expect(validateMember({ ...ok, jerseyNo }, U10).ok).toBe(true);
     expect(validateMember({ ...ok, jerseyNo: 0 }, U10).ok).toBe(true);
-    expect(validateMember({ ...ok, jerseyNo: 100 }, U10).errors.jerseyNo).toBeTruthy();
+    expect(validateMember({ ...ok, jerseyNo: 1000 }, U10).errors.jerseyNo).toBeTruthy();
     expect(validateMember({ ...ok, jerseyNo: -1 }, U10).errors.jerseyNo).toBeTruthy();
     expect(validateMember({ ...ok, jerseyNo: null }, U10).ok).toBe(true);   // 選填
   });

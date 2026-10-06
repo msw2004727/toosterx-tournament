@@ -23,6 +23,28 @@ async function setup(page, { fail = null, empty = false } = {}) {
   await page.addInitScript(({ seed, fail }) => { window.__FAKE_USER = { uid: 'jersey-admin' }; window.__FAKE_SEED = seed; window.__FAKE_SNAPSHOT_FAIL = fail; }, { seed, fail });
 }
 
+test('三位數可由 CSV 匯入、後台修改及公開名冊顯示 @jersey', async ({page}) => {
+  await page.setViewportSize({width:320,height:568});
+  await setup(page); await page.goto('/#/admin/team-import');
+  await page.getByLabel('上傳 CSV 球隊名冊').setInputFiles({name:'三位數.csv',mimeType:'text/csv',buffer:Buffer.from('divisionId,teamName,playerName,jerseyNo\nu10,新隊,甲,167\nu10,新隊,乙,111')});
+  await expect(page.getByText('匯入預覽：1 支球隊、2 位球員')).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await page.goto('/#/admin/teams');
+  await page.getByRole('tab',{name:/已通過/}).click();
+  await page.locator('.adm__itemHead').filter({hasText:'尚未排賽程隊'}).click();
+  await page.getByRole('button',{name:'補填或修改 測試球員0 的資料'}).click();
+  await page.getByLabel('背號（可留空）',{exact:true}).fill('167');
+  await page.getByLabel('修改原因',{exact:true}).fill('三位數背號');
+  await page.getByRole('button',{name:'儲存資料'}).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect((await page.evaluate(()=>window.__FAKE_CALLS)).at(-1).payload.jerseyNo).toBe(167);
+  // Firebase 替身不執行後端公開投影；真實同步由 functions 整合測試驗證。
+  await page.evaluate(({teamPath}) => window.__fake.__seed({[`${teamPath}/roster/p0`]:{memberId:'p0',displayName:'測試球員0',jerseyNo:167,role:'player'}}),{teamPath});
+  await page.goto('/#/team/imported');
+  await expect(page.locator('.proster__row').filter({hasText:'測試球員0'}).locator('.proster__no')).toHaveText('167');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
 test('CSV 多人留空與 0 號正常預覽，同隊 0/00 重複阻擋 @jersey', async ({ page }) => {
   await setup(page); await page.goto('/#/admin/team-import');
   await expect(page.getByRole('table')).toContainText('多位球員可同時沒有背號');
@@ -49,7 +71,7 @@ test('空背號可補 0 再清空，錯誤不假成功，窄螢幕表單完整 @
   await page.getByLabel('背號（可留空）', { exact: true }).fill('-1');
   await page.getByLabel('修改原因', { exact: true }).fill('教練更新背號');
   await page.getByRole('button', { name: '儲存資料' }).click();
-  await expect(page.getByRole('alert')).toContainText('0–99');
+  await expect(page.getByRole('alert')).toContainText('0–999');
   await page.getByLabel('背號（可留空）', { exact: true }).fill('0');
   await page.evaluate(() => { window.__FAKE_CALL_ERROR = '同隊已有球員使用 0 號，請更換背號或留空。'; });
   await page.getByRole('button', { name: '儲存資料' }).click();

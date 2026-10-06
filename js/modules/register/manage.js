@@ -361,8 +361,8 @@ export async function managePage({ params, scope, view }) {
       // 背號只有球員有：隊職員不上場，帶著背號會在名單與審核頁跟球員撞號
       // （2026-09-06 驗收 R-6：教練名單顯示背號、背號應該不可重複）
       f.kind === 'player' ? field('m-no', '背號', textInput('m-no', {
-        value: f.jerseyNo, maxlength: 2, inputmode: 'numeric', placeholder: '9',
-        onInput: v => { f.jerseyNo = v.replace(/\D/g, '').slice(0, 2); }
+        value: f.jerseyNo, maxlength: 3, inputmode: 'numeric', placeholder: '9',
+        onInput: v => { f.jerseyNo = v.replace(/\D/g, '').slice(0, 3); }
       }), { hint: '之後還能改，現在可以先留空。同一隊的球員不能同號。' }) : null,
       f.kind === 'player' ? err('jerseyNo') : null,
 

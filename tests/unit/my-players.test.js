@@ -83,6 +83,14 @@ describe('T53-2 buildMyPlayerRows', () => {
     ]);
   });
 
+  test('999 號排在未填背號之前', () => {
+    const rows = buildMyPlayerRows({ members: [
+      m('t-1', 'empty', { name: '同名球員', status: 'approved', jerseyNo: null }),
+      m('t-1', 'numbered', { name: '同名球員', status: 'approved', jerseyNo: 999 })
+    ], teamsById: TEAMS });
+    expect(rows.map(r => r.jerseyNo)).toEqual([999, null]);
+  });
+
   test('狀態文字給家長看；沒見過的狀態照原樣印，不會變成 undefined', () => {
     const rows = buildMyPlayerRows({
       members: [

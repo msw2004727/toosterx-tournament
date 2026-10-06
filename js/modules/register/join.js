@@ -155,8 +155,8 @@ export async function joinPage({ params, scope, view }) {
 
       // 背號只有球員有：教練、隊職員不上場（2026-09-06 驗收 R-6）
       form.kind === 'player' ? field('m-no', '背號（選填）', textInput('m-no', {
-        value: form.jerseyNo, placeholder: '7', maxlength: 2, inputmode: 'numeric',
-        onInput: v => { form.jerseyNo = v.replace(/\D/g, '').slice(0, 2); }
+        value: form.jerseyNo, placeholder: '7', maxlength: 3, inputmode: 'numeric',
+        onInput: v => { form.jerseyNo = v.replace(/\D/g, '').slice(0, 3); }
       }), { hint: '重複的話隊長之後可以調整。' }) : null,
 
       field('m-kind', '身分', selectInput('m-kind', [

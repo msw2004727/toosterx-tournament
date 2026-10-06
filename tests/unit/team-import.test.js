@@ -8,6 +8,14 @@ const row = over => ({ divisionId: 'youth', teamName: '飛達', shortName: '飛�
 const csv = rows => toCsv(IMPORT_COLUMNS.map(([key, label]) => ({ key, label })), rows);
 const errors = (rows, context = ctx) => validateTeamImport(rows, context).errors;
 
+test('三位數 CSV 匯入與重號正規化', () => {
+  const plan = validateTeamImport(parseTeamCsv(csv([row({jerseyNo:'167'}), row({playerName:'乙',jerseyNo:'111'}), row({playerName:'丙',jerseyNo:'999'})])),ctx);
+  expect(plan.errors).toEqual([]);
+  expect(plan.teams[0].members.map(m=>m.jerseyNo)).toEqual([167,111,999]);
+  expect(errors([row({jerseyNo:'7'}),row({playerName:'乙',jerseyNo:'007'})]).some(e=>e.message.includes('號重複'))).toBe(true);
+  expect(errors([row({jerseyNo:'1000'})]).length).toBeGreaterThan(0);
+});
+
 test('UTF-8 BOM 範本可往返，保留後四碼開頭 0', () => {
   expect(parseTeamCsv(csv([row()]))).toEqual([row()]);
   expect(parseTeamCsv(teamCsvTemplate('youth'))[0].divisionId).toBe('youth');
@@ -32,7 +40,7 @@ test('多隊分組、直接核准、未成年只以暱稱投影', () => {
 test.each([
   { divisionId: 'missing' }, { birthDate: '115-01-01' }, { birthDate: '2020-02-30' }, { birthDate: '2015-08-01' },
   { birthDate: '2027-01-01' }, { idLast4: '12' }, { idLast4: 'A123456789' }, { jerseyNo: '1.5' }, { jerseyNo: '-1' },
-  { jerseyNo: '100' }, { playerName: '' }, { teamName: 'x\nname' }, { isCaptain: 'maybe' }, { jerseyNo: 5 }
+  { jerseyNo: '1000' }, { playerName: '' }, { teamName: 'x\nname' }, { isCaptain: 'maybe' }, { jerseyNo: 5 }
 ])('第 2 列格式或資格錯誤會擋匯入 %j', patch => {
   expect(errors([row(patch)])[0].row).toBe(2);
 });

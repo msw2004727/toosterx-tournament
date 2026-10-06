@@ -18,7 +18,7 @@ export function editCsvIdentity({ team, member, division, scope, onSaved }) {
   const field = (label, value, maxLength) => el('input', { class: 'adm__identityInput', 'aria-label': label, value: value ?? '', inputmode: 'numeric', maxlength: maxLength });
   const year = field('出生民國年', roc?.y, 3), month = field('出生月', roc?.m, 2), day = field('出生日', roc?.d, 2);
   const last4 = field('身分證後四碼', member.idLast4, 4);
-  const jersey = field('背號（可留空）', member.jerseyNo, 2);
+  const jersey = field('背號（可留空）', member.jerseyNo, 3);
   const reason = el('textarea', { class: 'adm__textarea', 'aria-label': '修改原因', maxlength: 200, rows: 2, placeholder: '例如：依教練提供的證件補齊資料' });
   const error = el('p', { role: 'alert', class: 'adm__blocked' });
   const cancel = el('button', { type: 'button', class: 'btn btn--lg', onClick: close }, '取消');
@@ -29,8 +29,8 @@ export function editCsvIdentity({ team, member, division, scope, onSaved }) {
     el('div', { class: 'modal__body' }, [
       el('p', { class: 'adm__note', text: '可修改隊員姓名／暱稱，最多 40 字。未成年隊員請使用暱稱；既有公開姓名遮蔽規則仍適用。修改後需重新檢錄，並保留修改紀錄。' }),
       el('label', { class: 'adm__identityField' }, ['隊員姓名／暱稱（必填）', name]),
-      !nameOnly ? el('p', { class: 'adm__note', text: '背號可留空或清空；填寫 0–99，同隊已填背號不可重複。生日與身分證後四碼未補齊不能確認出賽。賽務頁請重新載入最新名單。' }) : null,
-      !nameOnly ? el('label', { class: 'adm__identityField' }, ['背號（0–99，可留空）', jersey]) : null,
+      !nameOnly ? el('p', { class: 'adm__note', text: '背號可留空或清空；填寫 0–999，同隊已填背號不可重複。生日與身分證後四碼未補齊不能確認出賽。賽務頁請重新載入最新名單。' }) : null,
+      !nameOnly ? el('label', { class: 'adm__identityField' }, ['背號（0–999，可留空）', jersey]) : null,
       !nameOnly ? el('fieldset', { class: 'adm__identityDate' }, [el('legend', { text: '出生日期（民國年；未知時三格全留空）' }),
         el('label', {}, ['年', year]), el('label', {}, ['月', month]), el('label', {}, ['日', day])]) : null,
       !nameOnly ? el('label', { class: 'adm__identityField' }, ['身分證後四碼（保留開頭 0，可留空）', last4]) : null,

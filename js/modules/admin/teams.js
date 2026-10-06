@@ -77,7 +77,7 @@ export async function adminTeamsPage({ scope, view }) {
   /** 已核准的成員：球員先（依背號），隊職員後 */
   function sortForReview(list) {
     const rows = (list ?? []).filter(m => m.status === 'approved');
-    const byNo = (a, b) => (a.jerseyNo ?? 999) - (b.jerseyNo ?? 999);
+    const byNo = (a, b) => (a.jerseyNo ?? 1000) - (b.jerseyNo ?? 1000);
     return [
       ...rows.filter(m => !isStaffMember(m)).sort(byNo),
       ...rows.filter(isStaffMember)

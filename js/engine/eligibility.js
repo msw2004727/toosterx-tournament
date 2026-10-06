@@ -126,7 +126,7 @@ export function validateMember(member, division) {
   const jersey = member?.jerseyNo;
   if (jersey != null && jersey !== '') {
     const n = Number(jersey);
-    if (!Number.isInteger(n) || n < 0 || n > 99) errors.jerseyNo = '背號請填 0–99';
+    if (!Number.isInteger(n) || n < 0 || n > 999) errors.jerseyNo = '背號請填 0–999';
   }
 
   return { ok: Object.keys(errors).length === 0, errors };

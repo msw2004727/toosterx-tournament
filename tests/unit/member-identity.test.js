@@ -14,10 +14,10 @@ test.each([['  陳小飛  ', '陳小飛'], ['Mary Jane', 'Mary Jane'], ['名'.re
 test.each([null, undefined, '', '  '])('未指定背號 %j 不變成 0', value => {
   expect(validateJerseyNo(value)).toEqual({ value: null, error: null });
 });
-test.each([[0, 0], ['0', 0], ['00', 0], ['07', 7], [' 99 ', 99]])('有效背號 %j 正規化', (input, value) => {
+test.each([[0, 0], ['0', 0], ['00', 0], ['07', 7], [' 99 ', 99], [100, 100], ['111', 111], ['167', 167], ['999', 999], ['007', 7], ['000', 0]])('有效背號 %j 正規化', (input, value) => {
   expect(validateJerseyNo(input)).toEqual({ value, error: null });
 });
-test.each([-1, 100, 1.5, true, {}, [], NaN, '1e1', '+1', '7.0', '000', '０'])('拒絕非法背號 %j', value => {
+test.each([-1, 1000, 1.5, true, {}, [], NaN, '1e1', '+1', '7.0', '0000', '０'])('拒絕非法背號 %j', value => {
   expect(validateJerseyNo(value).error).toBeTruthy();
 });
 test('沒有背號不影響有效身分檢錄；0 號仍保留', () => {

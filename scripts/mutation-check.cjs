@@ -9,6 +9,9 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: '#JER6 999 號與空背號排序混淆', file: 'js/modules/account/my-players.js', from: '(a.jerseyNo ?? 1000) - (b.jerseyNo ?? 1000)', to: '(a.jerseyNo ?? 999) - (b.jerseyNo ?? 999)', testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/my-players.test.js --silent' },
+  { name: '#JER4 三位數數值背號被拒絕', file: 'js/engine/member-identity.js', from: 'value <= 999)', to: 'value <= 99)', testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/member-identity.test.js --silent' },
+  { name: '#JER5 三位數文字背號被拒絕', file: 'js/engine/member-identity.js', from: '/^\\d{1,3}$/', to: '/^\\d{1,2}$/', testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/member-identity.test.js --silent' },
   { name: '#CANCEL-PLACEHOLDER 新建場次預設值誤鎖撤銷', file: 'js/engine/admin-match.js',
     from: 'match.result?.winner != null', to: 'match.result != null',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/cancel-start.test.js --testNamePattern=CANCELDEFAULT --silent' },

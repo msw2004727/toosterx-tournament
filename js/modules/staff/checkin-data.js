@@ -69,7 +69,7 @@ export async function getCheckinRoster(teamId) {
  */
 export function sortForCheckin(rows) {
   const isStaff = m => (m?.role ?? 'player') !== 'player';
-  const byNo = (a, b) => (a.jerseyNo ?? 999) - (b.jerseyNo ?? 999);
+  const byNo = (a, b) => (a.jerseyNo ?? 1000) - (b.jerseyNo ?? 1000);
   const list = rows ?? [];
   return [...list.filter(m => !isStaff(m)).sort(byNo), ...list.filter(isStaff)];
 }
