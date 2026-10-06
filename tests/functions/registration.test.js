@@ -80,7 +80,7 @@ describe('FR01–FR04 公開投影', () => {
     await syncRosterFor({ eventId: E, teamId: TEAM, memberId: 'm-1' });
 
     const doc = (await rosterRef('m-1').get()).data();
-    expect(doc.displayName).toBe('王小＊');
+    expect(doc.displayName).toBe('王O明');
     expect(doc.photoUrl).toBeNull();
   });
 
@@ -135,7 +135,7 @@ describe('FR01–FR04 公開投影', () => {
     await memberRef('m-9').set(member({ memberId: 'm-9', name: '李教練', birthDate: '1985-06-02' }));
     await syncRosterFor({ eventId: E, teamId: TEAM, memberId: 'm-9' });
     // 算不出年齡就當未成年——寧可遮過頭，不可漏
-    expect((await rosterRef('m-9').get()).data().displayName).toBe('李教＊');
+    expect((await rosterRef('m-9').get()).data().displayName).toBe('李O練');
   });
 });
 

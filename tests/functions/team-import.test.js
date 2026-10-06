@@ -71,8 +71,8 @@ test('MEMBERNAME 既有真名遮蔽仍套用到公開名單與射手榜', async 
   await root().collection('boards').doc('scorers').set({ rows: [{ playerId: member.memberId, teamId: teamRef.id, name: '旧名', goals: 2 }] });
   req.data.name = '陳小飛';
   await updateMemberIdentityFor(req);
-  expect((await teamRef.collection('roster').doc(member.memberId).get()).data().displayName).toBe('陳小＊');
-  expect((await root().collection('boards').doc('scorers').get()).data().rows[0].name).toBe('陳小＊');
+  expect((await teamRef.collection('roster').doc(member.memberId).get()).data().displayName).toBe('陳O飛');
+  expect((await root().collection('boards').doc('scorers').get()).data().rows[0].name).toBe('陳O飛');
   expect((await teamRef.collection('members').doc(member.memberId).get()).data()).toMatchObject({ name: '陳小飛', nameKind: 'real' });
 });
 

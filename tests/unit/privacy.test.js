@@ -12,30 +12,29 @@ import {
 } from '../../js/engine/privacy.js';
 
 describe('T33-1 遮蔽姓名', () => {
-  test('姓氏＋名字首字＋＊（docs/03 §7.3）', () => {
-    expect(maskName('王小明')).toBe('王小＊');
-    expect(maskName('歐陽小明')).toBe('歐陽＊');
+  test('姓氏＋O＋末字', () => {
+    expect(maskName('王小明')).toBe('王O明');
+    expect(maskName('歐陽小明')).toBe('歐OO明');
   });
 
-  test('兩個字以下維持原樣', () => {
-    // 「王＊」只剩姓，家長在名單上找不到自己的小孩會直接打電話問主辦
-    expect(maskName('王明')).toBe('王明');
-    expect(maskName('王')).toBe('王');
+  test('兩字名與單字名亦不公開全名', () => {
+    expect(maskName('王明')).toBe('王O');
+    expect(maskName('王')).toBe('O');
     expect(maskName('')).toBe('');
     expect(maskName(null)).toBe('');
   });
 });
 
 describe('T33-2 年齡判定', () => {
-  test('滿 13 歲就不遮', () => {
-    expect(isMinor('2013-10-09', '2026-10-09')).toBe(false);   // 生日當天剛好滿 13
-    expect(isMinor('2013-10-08', '2026-10-09')).toBe(false);
+  test('滿 18 歲就不遮', () => {
+    expect(isMinor('2008-10-09', '2026-10-09')).toBe(false);   // 生日當天剛好滿 18
+    expect(isMinor('2008-10-08', '2026-10-09')).toBe(false);
     expect(isMinor('2000-01-01', '2026-10-09')).toBe(false);
   });
 
   test('⭐ 生日還沒到就還沒滿，要遮', () => {
-    expect(isMinor('2013-10-10', '2026-10-09')).toBe(true);    // 差一天
-    expect(isMinor('2013-11-01', '2026-10-09')).toBe(true);
+    expect(isMinor('2008-10-10', '2026-10-09')).toBe(true);    // 差一天
+    expect(isMinor('2008-11-01', '2026-10-09')).toBe(true);
     expect(isMinor('2016-03-14', '2026-10-09')).toBe(true);
   });
 
@@ -48,7 +47,7 @@ describe('T33-2 年齡判定', () => {
   });
 
   test('門檻可調，預設 13', () => {
-    expect(MASK_AGE).toBe(13);
+    expect(MASK_AGE).toBe(18);
     expect(isMinor('2010-01-01', '2026-10-09', 18)).toBe(true);
     expect(isMinor('2010-01-01', '2026-10-09', 13)).toBe(false);
   });
@@ -58,13 +57,13 @@ describe('T33-3 公開顯示名', () => {
   const asOf = '2026-10-09';
 
   test('⭐ 依年齡決定，不是依組別', () => {
-    // 兒童組偶爾有超齡的隨隊職員，成人組也可能有未滿 13 歲的球員
-    expect(publicDisplayName({ name: '王小明', birthDate: '2016-03-14' }, asOf)).toBe('王小＊');
+    // 兒童組偶爾有超齡的隨隊職員，成人組也可能有未滿 18 歲的球員
+    expect(publicDisplayName({ name: '王小明', birthDate: '2016-03-14' }, asOf)).toBe('王O明');
     expect(publicDisplayName({ name: '李教練', birthDate: '1985-06-02' }, asOf)).toBe('李教練');
   });
 
   test('沒有 birthDate 就遮', () => {
-    expect(publicDisplayName({ name: '王小明' }, asOf)).toBe('王小＊');
+    expect(publicDisplayName({ name: '王小明' }, asOf)).toBe('王O明');
   });
 });
 
@@ -96,9 +95,9 @@ describe('T33-4 公開投影（docs/01b §1.6.1）', () => {
     expect(JSON.stringify(p)).not.toContain('不該出現');
   });
 
-  test('⭐ 未滿 13 歲遮名，且照片預設不公開', () => {
+  test('⭐ 未滿 18 歲遮名，且照片預設不公開', () => {
     const p = rosterProjection(member, { teamId: 't-1', divisionId: 'u10', asOf });
-    expect(p.displayName).toBe('王小＊');
+    expect(p.displayName).toBe('王O明');
     expect(p.photoUrl).toBeNull();
   });
 
@@ -142,13 +141,13 @@ describe('T40 暱稱名單（學童組由教練建立）', () => {
     // applyMember() 不會寫 nameKind，所以家長填的真名仍然受保護。
     // 這個例外只對 addMemberByCoach() 寫進來的那幾筆生效。
     const m = { name: '王小明', birthDate: '2017-03-05' };
-    expect(publicDisplayName(m, ASOF)).toBe('王小＊');
+    expect(publicDisplayName(m, ASOF)).toBe('王O明');
   });
 
   test('⭐ nameKind 是別的值也照樣遮（白名單，不是黑名單）', () => {
     for (const k of ['legal', '', null, undefined, 'nick', 'NICKNAME']) {
       const m = { name: '王小明', nameKind: k, birthDate: '2017-03-05' };
-      expect(publicDisplayName(m, ASOF)).toBe('王小＊');
+      expect(publicDisplayName(m, ASOF)).toBe('王O明');
     }
   });
 
@@ -169,4 +168,16 @@ describe('T40 暱稱名單（學童組由教練建立）', () => {
     expect(out.nameKind).toBeUndefined();
     expect(extraRosterFields(out)).toEqual([]);
   });
+});
+
+
+test('主辦報名表真名只留私密名冊，公開投影不改寫原始資料', () => {
+  const member = { name: '王小明', nameKind: 'real', source: 'csv', birthDate: '2016-03-14', jerseyNo: 144 };
+  const projected = rosterProjection(member, { asOf: '2026-10-09' });
+  expect(projected.displayName).toBe('王O明');
+  expect(projected.name).toBeUndefined();
+  expect(projected.birthDate).toBeUndefined();
+  expect(member.name).toBe('王小明');
+  expect(projected.jerseyNo).toBe(144);
+  expect(maskName('𠮷小明')).toBe('𠮷O明');
 });

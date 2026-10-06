@@ -253,7 +253,7 @@ test('⭐ 兒童組要說明填的是小孩的資料，並預告姓名會被遮 
   await stub(page, base(), { uid: PARENT, displayName: '家長' });
   await go(page, `/#/join/${CODE}`);
   await expect(page.locator('.reg')).toContainText('請填「小孩」的資料');
-  await expect(page.locator('.reg')).toContainText('王小＊');
+  await expect(page.locator('.reg')).toContainText('王O明');
 });
 
 test('⭐ 球隊已送出報名時，先說名單凍結，不要讓人填完才被擋 @register', async ({ page }) => {

@@ -16,7 +16,7 @@
  */
 
 /** 未滿這個歲數就遮蔽姓名（R-PRIV-001） */
-export const MASK_AGE = 13;
+export const MASK_AGE = 18;
 
 /**
  * 公開投影的**唯一權威欄位清單**（docs/01b §1.6.1）。
@@ -27,16 +27,13 @@ export const ROSTER_FIELDS = [
   'role', 'isCaptain', 'isGoalkeeper', 'photoUrl', 'stats', 'order'
 ];
 
-/**
- * 遮蔽姓名：**姓氏＋名字首字＋＊**（王小明 → 王小＊，docs/03 §7.3）。
- *
- * 兩個字以下沒得遮，維持原樣——「王＊」等於只剩姓，反而看不出是誰的小孩，
- * 家長在名單上找不到自己的孩子會直接打電話問主辦。
- */
+/** 公開真名以半形 O 遮住中間字；兩字名遮末字，單字名亦不公開。 */
 export function maskName(name) {
-  const s = String(name ?? '');
-  if (s.length <= 2) return s;
-  return s.slice(0, 2) + '＊';
+  const chars = Array.from(String(name ?? '').trim());
+  if (!chars.length) return '';
+  if (chars.length === 1) return 'O';
+  if (chars.length === 2) return chars[0] + 'O';
+  return chars[0] + 'O'.repeat(chars.length - 2) + chars.at(-1);
 }
 
 /**
@@ -72,11 +69,11 @@ function parseYmd(v) {
 }
 
 /**
- * 公開端要顯示的名字。未滿 13 歲就遮。
+ * 公開端要顯示的名字。未滿 18 歲就遮。
  *
  * ⚠️ 判斷依據是**年齡**，不是組別。把 divisionId 寫死（`if (id === 'u10')`）
  *    在兩件事上會錯：兒童組偶爾有超齡的隨隊職員，而成人組也可能有
- *    未滿 13 歲的球員（規程沒有禁止）。年齡才是規格說的那條線。
+ *    未滿 18 歲的球員（規程沒有禁止）。年齡才是規格說的那條線。
  *
  * **例外：`nameKind === 'nickname'` 不遮。**
  * 學童三組由教練直接建立名單，那一格填的本來就是暱稱不是真名

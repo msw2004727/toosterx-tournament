@@ -257,7 +257,7 @@ test('MC19 同時／亂序重複申請保留最早一筆，同 timestamp 以 id 
 test('MC20 公開投影維持未成年遮名與白名單，交易重放讀取最新名單',async()=>{
   await member('member').set(person({phone:'private',guardianName:'私密',photoUrl:'private-photo'}));
   await syncRosterFor({eventId:E,teamId:'t1',memberId:'member'});const doc=(await roster('member').get()).data();
-  expect(doc.displayName).toBe('王小＊');for(const field of ['birthDate','idLast4','guardianUid','guardianName','phone'])expect(doc[field]).toBeUndefined();expect(doc.photoUrl).toBeNull();
+  expect(doc.displayName).toBe('王O明');for(const field of ['birthDate','idLast4','guardianUid','guardianName','phone'])expect(doc[field]).toBeUndefined();expect(doc.photoUrl).toBeNull();
 });
 test('MC21 投影與計數不能讀取交易開始前的舊快照',async()=>{
   await member('member').set(person());injectAtTransactionStart(()=>member('member').update({status:'removed'}));

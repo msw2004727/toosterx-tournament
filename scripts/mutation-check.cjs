@@ -378,13 +378,10 @@ const MUTANTS = [
     to: `    if (false) continue;`
   },
   {
-    name: '#27 遮蔽名保留名字最後一字（遮蔽力更弱，且與公開名冊不一致）',
+    name: '#27 PRIVACY-O 公開姓名漏遮中間字',
     file: 'js/engine/privacy.js',
-    from: `  if (s.length <= 2) return s;
-  return s.slice(0, 2) + '＊';`,
-    to: `  if (s.length <= 1) return s;
-  if (s.length === 2) return s[0] + '○';
-  return s[0] + '○'.repeat(s.length - 2) + s.at(-1);`
+    from: `  return chars[0] + 'O'.repeat(chars.length - 2) + chars.at(-1);`,
+    to: `  return chars.join('');`
   },
   // ── M5：公開端（純函式，跑 tests/unit/public-*.test.js）──────
   {
