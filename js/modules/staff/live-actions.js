@@ -214,7 +214,7 @@ export function checkSubLimit(events, side, limit) {
  * 組出完賽送出的 patch。
  * 一次寫完所有欄位，才不會出現「比分寫了但狀態沒寫」的中間態。
  */
-export function buildFinishPatch({ score, htScore, penaltyScore, events, uid, matchDurationMin }) {
+export function buildFinishPatch({ score, htScore, penaltyScore, events, uid, matchDurationMin, periods = 2, clock }) {
   const check = consistencyCheck(score, events);
   const h = Number(score?.home) || 0;
   const a = Number(score?.away) || 0;
@@ -232,7 +232,8 @@ export function buildFinishPatch({ score, htScore, penaltyScore, events, uid, ma
     penaltyScore: pk,
     status: 'finished',
     period: 'ft',
-    clock: { running: false, periodStartedAt: null, elapsedSecAtPause: 0, addedTimeSec: 0 },
+    clock: { ...(clock ?? {}), running: false, periodStartedAt: null, elapsedSecAtPause: clock?.elapsedSecAtPause ?? 0,
+      addedTimeSec: Math.max(0, (clock?.elapsedSecAtPause ?? 0) - (clock?.periodId?.startsWith('et') ? 300 : (matchDurationMin ?? 30) * 60 / periods)) },
     result,
     lock: { locked: true, lockedBy: uid },
     scoreMismatch: !check.ok,

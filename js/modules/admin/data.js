@@ -10,6 +10,7 @@ import { hold } from '../../core/store.js';
 import { EVENT_ID } from '../../config.js';
 import { summary as syncSummary } from '../../core/sync.js';
 import { timelineEditBasis } from '../../engine/timeline-edit.js';
+import { clockEditBasis } from '../../engine/match-clock.js';
 import { manualPayloadOf } from '../../engine/manual-schedule.js';
 
 const uid = () => user()?.uid ?? null;
@@ -58,6 +59,12 @@ export const manageMatch = async (matchId, { action, match, patch = {}, reason =
   }
   return result;
 };
+export async function correctMatchClock({ match, context, seconds, reason }) {
+  const result = await onlineManagement('editMatchClock', { matchId: match.matchId, context, expected: clockEditBasis(match), seconds, reason });
+  if (!result?.auditId || result.matchId !== match.matchId || result.seconds !== seconds
+      || result.managementRevision !== (match.managementRevision ?? 0) + 1) throw new Error('尚未確認時間修改結果，請重新載入核對或重送原請求。');
+  return result;
+}
 export async function correctTimelineEvent({ match, event, context, patch, reason }) {
   const result = await onlineManagement('editTimelineEvent', { matchId: match.matchId, timelineId: event.timelineId,
     context, expected: { match: matchBasis(match), event: timelineEditBasis(event) }, patch, reason });

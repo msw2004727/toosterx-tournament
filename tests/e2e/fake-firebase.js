@@ -445,6 +445,16 @@ export const httpsCallable = (_fns, name) => async (payload) => {
     }
     return { data: { ok: true, data: { shareId, action: payload.action, changed: true } } };
   }
+  if (name === 'editMatchClock') {
+    if (Object.hasOwn(window,'__FAKE_CLOCK_RESULT'))return {data:{ok:true,data:window.__FAKE_CLOCK_RESULT}};
+    const { buildClockCorrection }=await import(location.origin+'/js/engine/match-clock.js');
+    const base=`events/${payload.eventId}`,path=`${base}/matches/${payload.matchId}`,match=store.get(path);
+    const clock=buildClockCorrection({match,division:store.get(`${base}/divisions/${match.divisionId}`),seconds:payload.seconds,nowMs:Date.now()});
+    const result={matchId:payload.matchId,seconds:payload.seconds,addedTimeSec:clock.addedTimeSec,managementRevision:(match.managementRevision??0)+1,auditId:'clock-'+payload.operationId};
+    store.set(path,{...match,clock,managementRevision:result.managementRevision});
+    store.set(`${base}/audits/${result.auditId}`,{entity:'match',entityId:payload.matchId,action:'match.clock.edit',before:{clock:match.clock},after:{clock},reason:payload.reason});
+    notify();return {data:{ok:true,data:result}};
+  }
   if (name === 'editTimelineEvent') {
     // UI wiring only: actual validation, permissions, races and rollback are tested with Firestore Emulator.
     if (Object.hasOwn(window, '__FAKE_TIMELINE_RESULT')) return { data: { ok: true, data: window.__FAKE_TIMELINE_RESULT } };

@@ -186,6 +186,13 @@ export function describeAudit(a, lookup = {}) {
       title = `取消了 ${a.entityId ?? '某場次'}`;
       detail.push('比分沒有被清掉，這一場不計入積分榜');
       break;
+    case 'match.clock.edit': {
+      const text = c => `${Math.floor((c?.elapsedSecAtPause ?? 0)/60)}:${String((c?.elapsedSecAtPause ?? 0)%60).padStart(2,'0')}`;
+      title = `修改了 ${a.entityId} 的比賽時間`;
+      detail.push(`${text(a.before?.clock)} → ${text(a.after?.clock)}`);
+      detail.push(`補時 ${Math.floor((a.after?.clock?.addedTimeSec ?? 0)/60)}:${String((a.after?.clock?.addedTimeSec ?? 0)%60).padStart(2,'0')}`);
+      break;
+    }
     case 'timeline.edit':
       title = `修改了 ${a.entityId ?? '某場次'} 的一筆事件`;
       detail.push(`事件修訂 ${a.after?.event?.editRevision ?? ''}，保留修改前後資料`);

@@ -33,6 +33,8 @@ import {
   isLive, undoState, buildUndoPatch, UNDO_WINDOW_SEC, isPlayerRow, onFieldIds
 } from './live-actions.js';
 import { openEventEditor } from './event-editor.js';
+import { openClockEditor } from './clock-editor.js';
+import { clockPeriodFor, clockLimitSec } from '../../engine/match-clock.js';
 import { syncIndicator } from './sync-indicator.js';
 import { isOnline } from '../../core/sync.js';
 import { hold } from '../../core/store.js';
@@ -172,6 +174,7 @@ export async function liveConsole({ params, scope, view }) {
       el('div', { class: 'clockbox__period', text: periodLabel(period, state.division?.periods ?? 2) }),
       el('div', { class: 'clockbox__time num', id: 'match-clock', text: '00:00' }),
       el('div', { class: 'clockbox__minute', id: 'match-minute' }),
+      readOnly || !can('match.period') || !state.division || !['live','halftime'].includes(m.status) ? null : el('button', { class:'btn btn--ghost', type:'button', onClick:()=>openClockEditor({ scope, match:m, division:state.division, context:'live' }) }, iconText('edit','修改比賽時間')),
       // ⚠️ 時鐘是獨立的一條權限（`match.period`）。主辦關掉之後不要只是
       //    把按鈕拿掉——現場會以為系統壞了，然後開始重整頁面。
       (readOnly || can('match.period')) ? null
@@ -207,9 +210,10 @@ export async function liveConsole({ params, scope, view }) {
     if (mi) {
       const dur = state.division?.matchDurationMin ?? 30;
       const per = state.division?.periods ?? 2;
-      const txt = displayMinute(sec, m.period, dur, per);
+      const p = ['ft', 'ht'].includes(m.period) ? clockPeriodFor(m, state.division ?? { periods: per }) : m.period;
+      const txt = `${displayMinute(sec, p, dur, per)}${sec > clockLimitSec(m, { periods:per, matchDurationMin:dur }) ? ' · 補時 ' + clockText(sec - clockLimitSec(m, { periods:per, matchDurationMin:dur })) : ''}`;
       if (mi.textContent !== txt) mi.textContent = txt;
-      mi.classList.toggle('is-added', isInAddedTime(m.clock, m.period, dur, per));
+      mi.classList.toggle('is-added', isInAddedTime(m.clock, p, dur, per));
     }
 
     // 撤回倒數：只換數字。歸零的那一秒重畫整列，把按鈕換成說明文字。
@@ -636,7 +640,9 @@ export async function liveConsole({ params, scope, view }) {
 
     const patch = buildFinishPatch({
       score: m.score, htScore: m.htScore, penaltyScore: m.penaltyScore,
-      events: state.events, uid: user()?.uid ?? null
+      events: state.events, uid: user()?.uid ?? null,
+      clock: { ...pauseClock(m.clock, now()), periodId: clockPeriodFor(m, state.division) },
+      matchDurationMin: state.division?.matchDurationMin, periods: state.division?.periods
     });
 
     // 用 submitFinish 而不是 patchMatch：它會補上伺服器時間的 scoreSubmittedAt，

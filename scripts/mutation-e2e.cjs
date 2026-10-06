@@ -15,6 +15,8 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#ECLOCKVALUE 時間編輯送出錯誤秒數', file: 'js/modules/staff/clock-editor.js',
+    from: 'context,seconds:value(),reason:reason.value.trim()', to: 'context,seconds:0,reason:reason.value.trim()' },
   { name: '#EMEDICALTAP 踩點只有選取沒有登錄', file: 'js/modules/booth/booth.js',
     from: 'onClick: () => { state.value = 1; submit(); }', to: 'onClick: () => { state.value = 1; render(); }' },
   { name: '#EEVENTRECEIPT incomplete event receipt shows success', file: 'js/modules/admin/data.js',

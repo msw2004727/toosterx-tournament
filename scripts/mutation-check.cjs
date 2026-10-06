@@ -10,6 +10,12 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  { name: '#CLOCK-ADDED 時間修正未計入補時', file: 'js/engine/match-clock.js',
+    from: 'addedTimeSec: Math.max(0, seconds - limit)', to: 'addedTimeSec: 0',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/match-clock.test.js --silent' },
+  { name: '#CLOCK-FINISH 完賽抹除修正後時間', file: 'js/modules/staff/live-actions.js',
+    from: 'elapsedSecAtPause: clock?.elapsedSecAtPause ?? 0', to: 'elapsedSecAtPause: 0',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/match-clock.test.js --silent' },
   { name: '#BOOTHCONFIG-HEADER 頭球100cm被舊最低值拒絕', file: 'scripts/seed/build.js',
     from: "minValue: 100, maxValue: 260, inputMode: 'ladder'", to: "minValue: 150, maxValue: 260, inputMode: 'ladder'",
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-seven.test.js --silent' },

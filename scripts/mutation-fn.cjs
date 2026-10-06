@@ -12,6 +12,12 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#CLOCK-STALE 時鐘更新後仍可覆寫', file: 'functions/clock-edit.js',
+    from: 'canonical(expected) !== canonical(clockEditBasis(match))', to: 'false',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/clock-edit.test.js --silent' },
+  { name: 'FN#CLOCK-VENUE 未指派場地仍可修改時間', file: 'functions/clock-edit.js',
+    from: 'venues.length && !venues.includes(match.venueId)', to: 'false',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/clock-edit.test.js --silent' },
   { name: 'FN#TIMELINE-STALE stale event overwrites newer data', file: 'functions/timeline-edit.js',
     from: 'canonical(expected?.event) !== canonical(timelineEditBasis(before))', to: 'false',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/timeline-edit.test.js --testNamePattern=EDIT-STALE --silent' },

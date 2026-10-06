@@ -1,5 +1,8 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ECLOCKVALUE: { spec:'tests/e2e/event-editor.spec.js', grep:'@clockedit', minTests:2,
+    assertions:["expect((await dump(page))[PATH].clock.addedTimeSec).toBe(150)"],
+    failure:"expect((await dump(page))[PATH].clock.addedTimeSec).toBe(150)" },
   EMEDICALTAP: { spec: 'tests/e2e/challenge-seven.spec.js', grep: '@medicaltap', minTests: 1,
     assertions: ['await expect.poll(async () => (await attempts(page)).length).toBe(1)'],
     failure: 'await expect.poll(async () => (await attempts(page)).length).toBe(1)' },

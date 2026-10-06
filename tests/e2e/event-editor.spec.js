@@ -113,3 +113,34 @@ test('事件表單保持在手機畫面內並可捲到儲存 @eventedit @eventsc
   await expect(dlg(page).getByRole('button', { name: '儲存修改' })).toBeInViewport();
   await page.screenshot({ path: 'tmp/event-edit-scroll-' + test.info().project.name + '.png' });
 });
+
+for(const final of [false,true]) test(`${final?'賽後':'賽中'}可修改比賽時間，超過正規時間列入補時 @clockedit`,async({page})=>{
+  await open(page,final);
+  await page.getByRole('button',{name:'修改比賽時間',exact:true}).click();
+  const d=page.getByRole('dialog',{name:'修改比賽時間'});
+  await d.locator('[name=minutes]').fill('32');await d.locator('[name=seconds]').fill('30');
+  await expect(d).toContainText('正規時間 30:00 · 補時 02:30');
+  await d.locator('[name=reason]').fill('核對裁判時間');await d.getByRole('button',{name:'儲存時間'}).click();
+  await expect(d).toHaveCount(0);
+  expect((await dump(page))[PATH].clock.addedTimeSec).toBe(150);
+  expect((await dump(page))[PATH].clock.running).toBe(!final);
+  expect((await dump(page))[PATH].status).toBe(final?'confirmed':'live');
+  if(!final){
+    await expect.poll(async()=>Number((await page.locator('#match-clock').innerText()).split(':')[1])).not.toBe(30);
+    await page.getByRole('button',{name:'完賽送出',exact:true}).click();
+    await page.getByRole('dialog',{name:'確認完賽'}).getByRole('button',{name:'確認完賽',exact:true}).click();
+    await expect.poll(async()=>(await dump(page))[PATH].status).toBe('finished');
+    expect((await dump(page))[PATH].clock.elapsedSecAtPause).toBeGreaterThanOrEqual(1950);
+    expect((await dump(page))[PATH].clock.running).toBe(false);
+  }
+});
+test('時間修改未確認收據時保留草稿與錯誤 @clockreceipt',async({page})=>{
+  await open(page,true);
+  await page.evaluate(()=>window.__FAKE_CLOCK_RESULT={matchId:'edit-match',seconds:1950,managementRevision:1});
+  await page.getByRole('button',{name:'修改比賽時間',exact:true}).click();
+  const d=page.getByRole('dialog',{name:'修改比賽時間'});
+  await d.locator('[name=minutes]').fill('32');await d.locator('[name=seconds]').fill('30');await d.locator('[name=reason]').fill('核對裁判時間');
+  await d.getByRole('button',{name:'儲存時間'}).click();
+  await expect(d.getByRole('alert')).toContainText('尚未確認');
+  await expect(d.locator('[name=minutes]')).toHaveValue('32');
+});

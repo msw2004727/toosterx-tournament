@@ -39,6 +39,9 @@ import {
 } from './match-actions.js';
 import * as data from './data.js';
 import { openEventEditor } from '../staff/event-editor.js';
+import { openClockEditor } from '../staff/clock-editor.js';
+import { elapsedSec } from '../../core/clock.js';
+import { clockLimitSec } from '../../engine/match-clock.js';
 import { watchTimeline, getDivision } from '../staff/data.js';
 import { eventText, sortEventsDesc } from '../staff/live-actions.js';
 import { adminHead, denied } from './bits.js';
@@ -660,6 +663,17 @@ export async function adminMatchPage({ scope, view, params }) {
     ]);
   }
 
+  function clockBox() {
+    const m=state.match,d=state.division;
+    if(!d || ![1,2].includes(d.periods) || !Number.isFinite(d.matchDurationMin) || !['live','halftime','finished','confirmed'].includes(m.status))return null;
+    const sec=Math.floor(elapsedSec(m.clock)),limit=clockLimitSec(m,d);
+    const text=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+    return el('section',{class:'adm-match__card','aria-label':'比賽時間修正'},[
+      el('h3',{class:'adm__sectionHead'},iconText('clock','比賽時間')),
+      el('p',{class:'adm__note',text:`目前 ${text(sec)} · 正規時間 ${text(limit)} · 補時 ${text(Math.max(0,sec-limit))}`}),
+      can('match.score.override') ? el('button',{type:'button',class:'btn',onClick:()=>openClockEditor({scope,match:m,division:d,context:'admin',onSaved:async()=>{state.audits=await data.getMatchAudits(matchId);render();}})},iconText('edit','修改比賽時間')):null
+    ]);
+  }
   function eventsBox() {
     return el('section', { class: 'adm-match__events adm-match__section', 'aria-label': '比賽事件修正' }, [
       el('h3', { class: 'adm__sectionHead' }, iconText('note', '比賽事件修正')),
@@ -697,6 +711,7 @@ export async function adminMatchPage({ scope, view, params }) {
       headBox(),
       el('p', { class: 'adm-match__notice' }, iconText('info', '變更會同步至公開頁；送出時須填寫原因並留下紀錄。')),
       el('div', { class: 'adm-match__main' }, [scoreEditor(), actionsBox()]),
+      clockBox(),
       eventsBox(),
       el('div', { class: 'adm-match__secondary' }, [appealBox(), streamBox()]),
       auditsBox()
