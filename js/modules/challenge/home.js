@@ -131,7 +131,7 @@ export async function challengeHomePage({ scope, view }) {
         el('span', { class: 'chal__itemVenue', text: c.boothLocation ?? '' }),
         c.summary ? el('span', { class: 'chal__itemRule', text: c.summary }) : null
       ]),
-      el('span', { class: 'chal__itemScore', text: b ? formatScore(b.rawValue, c) : (ok ? (c.inputMode === 'checkin' ? '已簽到' : '已完成') : '') }),
+      el('span', { class: 'chal__itemScore', text: b ? formatScore(b.rawValue, c) : (ok ? (c.inputMode === 'checkin' ? formatScore(1, c) : '已完成') : '') }),
       el('span', { class: 'chal__itemGo' }, icon('forward'))
     ]));
   }
@@ -141,7 +141,7 @@ export async function challengeHomePage({ scope, view }) {
       el('strong', {}, iconText('ticket', '集章與抽獎規則')),
       el('ol', { class: 'chal__rules' }, [
         el('li', { text: '用 LINE 領取挑戰卡，到各項目出示同一張 QR。' }),
-        el('li', { text: '完成項目後，由現場工作人員登錄集章。中醫運動恢復站只需現場簽到打卡。' }),
+        el('li', { text: '完成項目後，由現場工作人員登錄集章。中醫運動恢復站由工作人員點選「已踩點」即可完成。' }),
         el('li', { text: state.rewards?.rule === DAILY_RULE
           ? '每天分開集章：完成該日所有開放攤位，即取得當日 1 次抽獎機會；未開放攤位不需完成，重複登錄不增加張數。'
           : '七項全部完成，才取得 1 次抽獎機會；重複挑戰不增加抽獎次數。' })

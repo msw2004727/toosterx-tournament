@@ -10,6 +10,12 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  { name: '#BOOTHCONFIG-HEADER 頭球100cm被舊最低值拒絕', file: 'scripts/seed/build.js',
+    from: "minValue: 100, maxValue: 260, inputMode: 'ladder'", to: "minValue: 150, maxValue: 260, inputMode: 'ladder'",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-seven.test.js --silent' },
+  { name: '#BOOTHCONFIG-TOUCH 停球誤用舊分數', file: 'scripts/seed/build.js',
+    from: 'shotOptions: [50, 30, 20, 10]', to: 'shotOptions: [0, 1, 2, 3]',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-seven.test.js --silent' },
   { name: '#TIMELINE-ASSIST historical assist player cannot be retained', file: 'js/engine/timeline-edit.js',
     from: "player(next.assistPlayerId, 'assist')?.id", to: 'player(next.assistPlayerId)?.id',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/timeline-edit.test.js --silent' },

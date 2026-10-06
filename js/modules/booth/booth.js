@@ -508,11 +508,12 @@ export async function boothPage({ scope, view, params, query }) {
   }
 
   function checkinInput() {
+    const locked = state.busy || serverNow() < state.lockUntil;
     return el('div', { class: 'booth__checkin' }, [
-      el('p', { class: 'booth__note', text: state.challenge.rulesText ?? '確認玩家已到現場，由工作人員簽到打卡即可完成。' }),
-      el('button', { class: `btn btn--xl${state.value === 1 ? ' btn--primary' : ''}`, type: 'button',
-        'aria-pressed': String(state.value === 1), onClick: () => { state.value = state.value === 1 ? null : 1; render(); }
-      }, iconText('check', state.value === 1 ? '已確認現場簽到' : '確認玩家已到現場'))
+      el('p', { class: 'booth__note', text: state.challenge.rulesText ?? '確認玩家已到現場，點選「已踩點」即可通過。' }),
+      el('button', { class: 'btn btn--xl btn--primary', type: 'button', disabled: locked || !canRegisterToday(),
+        onClick: () => { state.value = 1; submit(); }
+      }, iconText('check', locked ? '請稍候…' : (state.challenge.valueLabels?.[1] ?? '已踩點')))
     ]);
   }
 
@@ -553,7 +554,7 @@ export async function boothPage({ scope, view, params, query }) {
 
   function ladderInput(c) {
     const steps = Array.isArray(c.ladderSteps) ? c.ladderSteps : [];
-    return el('div', { class: 'booth__ladder' }, [...steps].reverse().map(s =>
+    return el('div', { class: 'booth__ladder' }, steps.map(s =>
       el('button', {
         class: `booth__ladderStep${state.value === s ? ' is-on' : ''}`, type: 'button',
         'aria-pressed': state.value === s ? 'true' : 'false',
@@ -583,6 +584,7 @@ export async function boothPage({ scope, view, params, query }) {
   }
 
   function submitBar() {
+    if (inputModeOf(state.challenge) === 'checkin') return null;
     const locked = serverNow() < state.lockUntil;
     const r = resolveScore({ challenge: state.challenge, value: state.value, detail: state.detail });
     return el('div', { class: 'booth__submitBar' }, [
@@ -600,7 +602,7 @@ export async function boothPage({ scope, view, params, query }) {
   function resultBox() {
     const rank = state.board ? myRank(state.board.rows ?? [], state.playerId) : null;
     return el('div', { class: 'booth__box booth__box--ok' }, [
-      el('strong', {}, iconText('check', inputModeOf(state.challenge) === 'checkin' ? '簽到已登錄' : '成績已記錄')),
+      el('strong', {}, iconText('check', inputModeOf(state.challenge) === 'checkin' ? '踩點已登錄' : '成績已記錄')),
       el('p', { class: 'booth__resultLine', text: state.result.headline }),
       inputModeOf(state.challenge) === 'checkin' ? null : el('p', { class: 'booth__note', text: `${state.result.sub}・${state.result.best}` }),
       rank && state.challenge?.leaderboardEnabled !== false ? el('p', { class: 'booth__note', text: `目前排名 第 ${rank.rank} 名` }) : null,

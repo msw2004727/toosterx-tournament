@@ -41,7 +41,7 @@ test('七項清單、規則、六項進度與手機集章 @challenge', async ({ 
   await setup(page, { done: 6 });
   await page.goto('/#/challenge'); await boot(page);
   await expect(page.locator('.chal__item')).toHaveCount(7);
-  await expect(page.locator('.chal__itemScore').nth(5)).toHaveText('已簽到');
+  await expect(page.locator('.chal__itemScore').nth(5)).toHaveText('已踩點');
   await expect(page.locator('.chal__list')).not.toContainText('未挑戰');
   await expect(page.locator('.chal')).toContainText('中醫運動恢復站');
   await expect(page.locator('.chal')).toContainText('一球三桶');
@@ -71,17 +71,15 @@ test('舊五關七張的版本未重算前，不能呈現有效抽獎資格 @cha
   await expect(page.locator('.chal__card--draw')).not.toContainText('7 張');
 });
 
-test('中醫確認現場簽到後可登錄，沒有分數鍵盤 @booth', async ({ page }) => {
+test('中醫已踩點單次點擊即可登錄，沒有第二次送出 @booth @medicaltap', async ({ page }) => {
   await setup(page, { booth: true });
   await page.goto(`/#/booth/${ids[5]}`); await boot(page); await lookup(page);
-  const submit = page.getByRole('button', { name: '送出簽到', exact: true });
-  await expect(submit).toBeDisabled();
   await expect(page.locator('.booth__numpad')).toHaveCount(0);
-  await page.getByRole('button', { name: '確認玩家已到現場', exact: true }).click();
-  await expect(submit).toBeEnabled(); await submit.click();
+  await expect(page.getByRole('button', { name: '送出簽到', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: '已踩點', exact: true }).click();
   await expect.poll(async () => (await attempts(page)).length).toBe(1);
   expect((await attempts(page))[0]).toMatchObject({ challengeId: ids[5], rawValue: 1, detail: null, staffUid: UID });
-  await expect(page.locator('.booth')).toContainText('簽到已登錄');
+  await expect(page.locator('.booth')).toContainText('踩點已登錄');
 });
 
 test('一球三桶每球成功失敗選完才能送出，儲存三球細項 @booth', async ({ page }) => {
@@ -104,4 +102,22 @@ test('中醫項目顯示簽到規則並且不顯示排行榜 @challenge', async 
   await page.goto(`/#/challenge/board/${ids[5]}`); await boot(page);
   await expect(page.locator('.chal')).toContainText('此項不計分、不排名');
   await expect(page.locator('.chal__board')).toHaveCount(0);
+});
+
+
+test('頭球100 cm可送出，停球各球使用新分數 @booth @boothscores', async ({ page }) => {
+  await setup(page, { booth: true });
+  await page.goto(`/#/booth/${ids[1]}`); await boot(page); await lookup(page);
+  await expect(page.locator('.booth__ladderStep').first()).toHaveText('100 cm');
+  await page.getByRole('button', { name: '100 cm', exact: true }).click();
+  await page.getByRole('button', { name: '送出成績', exact: true }).click();
+  await expect.poll(async () => (await attempts(page)).length).toBe(1);
+  expect((await attempts(page))[0].rawValue).toBe(100);
+  await page.goto(`/#/booth/${ids[4]}`); await boot(page); await lookup(page);
+  const rows = page.locator('.booth__shotRow');
+  const scores = [50, 30, 20, 10, 50];
+  for (let i = 0; i < 5; i++) await rows.nth(i).getByRole('button', { name: String(scores[i]), exact: true }).click();
+  await page.getByRole('button', { name: '送出成績', exact: true }).click();
+  await expect.poll(async () => (await attempts(page)).length).toBe(2);
+  expect((await attempts(page)).find(a => a.challengeId === ids[4])).toMatchObject({ rawValue: 160, detail: scores });
 });

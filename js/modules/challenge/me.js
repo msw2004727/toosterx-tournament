@@ -196,7 +196,7 @@ export async function challengeMePage({ scope, view }) {
                 el('span', { class: 'chal__itemVenue', text: c.boothLocation ?? '' })
               ]),
               el('span', { class: 'chal__itemScore', text: b ? formatScore(b.rawValue, c)
-                : ok ? (c.inputMode === 'checkin' ? '已簽到' : '已完成') : (c.inputMode === 'checkin' ? '未簽到' : '未挑戰') }),
+                : ok ? (c.inputMode === 'checkin' ? formatScore(1, c) : '已完成') : (c.inputMode === 'checkin' ? '未簽到' : '未挑戰') }),
               ok ? el('span', { class: 'chal__itemDone' }, icon('check')) : null
             ].filter(Boolean));
           }))

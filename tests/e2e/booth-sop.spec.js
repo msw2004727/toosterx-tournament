@@ -62,8 +62,8 @@ test('從挑戰區找到入口，複數攤位先選關卡再看到相機與手�
   await expect(page.getByRole('button', { name: '開啟相機掃描挑戰卡', exact: true })).toBeVisible();
   await expect(page.getByLabel('手動輸入玩家挑戰卡號')).toBeVisible();
   await page.locator('#booth-id').fill('0182'); await page.getByRole('button', { name: '查詢', exact: true }).click();
-  await page.getByRole('button', { name: '確認玩家已到現場', exact: true }).click();
-  await page.getByRole('button', { name: '送出簽到', exact: true }).click();
+  await page.getByRole('button', { name: '已踩點', exact: true }).click();
+  await expect.poll(async () => Object.keys(await dump(page)).filter(p => p.includes('/attempts/')).length).toBe(1);
   const attempts = Object.entries(await dump(page)).filter(([p]) => p.includes('/attempts/')).map(([, a]) => a);
   expect(attempts).toHaveLength(1); expect(attempts[0]).toMatchObject({ playerId: PID, challengeId: ids[5], rawValue: 1, staffUid: UID });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

@@ -1,5 +1,8 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EMEDICALTAP: { spec: 'tests/e2e/challenge-seven.spec.js', grep: '@medicaltap', minTests: 1,
+    assertions: ['await expect.poll(async () => (await attempts(page)).length).toBe(1)'],
+    failure: 'await expect.poll(async () => (await attempts(page)).length).toBe(1)' },
   EEVENTRECEIPT: { spec: 'tests/e2e/event-editor.spec.js', grep: '錯誤保留草稿', minTests: 1,
     assertions: ["await expect(dlg(page).getByRole('alert')).toContainText('尚未確認')"],
     failure: "await expect(dlg(page).getByRole('alert')).toContainText('尚未確認')" },

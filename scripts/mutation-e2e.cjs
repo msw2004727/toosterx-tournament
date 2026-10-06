@@ -15,6 +15,8 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#EMEDICALTAP 踩點只有選取沒有登錄', file: 'js/modules/booth/booth.js',
+    from: 'onClick: () => { state.value = 1; submit(); }', to: 'onClick: () => { state.value = 1; render(); }' },
   { name: '#EEVENTRECEIPT incomplete event receipt shows success', file: 'js/modules/admin/data.js',
     from: "    throw new Error('尚未確認事件修改結果，請重新載入核對或重送原請求。');", to: '    return result;' },
   { name: '#EEVENTSCROLL event form cannot scroll to save', file: 'css/components.css',
@@ -77,7 +79,7 @@ const MUTANTS = [
   { name: '#ESTREAM1 所有用戶都看到他人直播移除入口', file: 'js/modules/public/stream-shares.js',
     from: 'const mayRemove = state.own.has(row.shareId) || allowModeration;', to: 'const mayRemove = true;' },
   { name: '#ESOP4 集章說明殘留舊的中醫名稱', file: 'js/modules/challenge/home.js',
-    from: '中醫運動恢復站只需現場簽到打卡。', to: '中醫問診只需現場簽到打卡。' },
+    from: '中醫運動恢復站由工作人員點選「已踩點」即可完成。', to: '中醫問診只需現場簽到打卡。' },
   { name: '#ESOP1 缺少內建辨識又隱藏相機', file: 'js/modules/booth/scan.js',
     from: "return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;",
     to: "return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && 'BarcodeDetector' in window;" },

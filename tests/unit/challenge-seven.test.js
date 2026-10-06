@@ -49,7 +49,7 @@ describe('新增項目輸入與完成認定', () => {
     expect(resolveScore({ challenge: medical, value: null }).ok).toBe(false);
     expect(resolveScore({ challenge: medical, value: 0 }).ok).toBe(false);
     expect(resolveScore({ challenge: medical, value: 1 })).toMatchObject({ ok: true, rawValue: 1, detail: null });
-    expect(formatScore(1, medical)).toBe('已簽到');
+    expect(formatScore(1, medical)).toBe('已踩點');
     expect(medical.leaderboardEnabled).toBe(false);
   });
   test('三球逐球記錄成功／失敗，加總全倒次數', () => {
@@ -66,4 +66,17 @@ describe('新增項目輸入與完成認定', () => {
     expect(completesChallenge({ rawValue: 1, voided: true }, { completionMinValue: 1 })).toBe(false);
     expect(completesChallenge({ rawValue: 1 }, { completionMinValue: '1' })).toBe(false);
   });
+});
+
+
+test('頭球從100 cm起，停球五次使用50/30/20/10分', () => {
+  const header = CHALLENGES.find(c => c.scoreType === 'height');
+  expect(header.ladderSteps[0]).toBe(100);
+  expect(resolveScore({ challenge: header, value: 100 }).ok).toBe(true);
+  expect(resolveScore({ challenge: header, value: 90 }).ok).toBe(false);
+  const touch = CHALLENGES.find(c => c.challengeId === 'g05-first-touch');
+  expect(touch.shotOptions).toEqual([50, 30, 20, 10]);
+  expect(resolveScore({ challenge: touch, detail: [50, 30, 20, 10, 50] })).toMatchObject({ ok: true, rawValue: 160 });
+  expect(resolveScore({ challenge: touch, detail: [50, 50, 50, 50, 50] })).toMatchObject({ ok: true, rawValue: 250 });
+  expect(resolveScore({ challenge: touch, detail: [3, 3, 3, 3, 3] }).ok).toBe(false);
 });
