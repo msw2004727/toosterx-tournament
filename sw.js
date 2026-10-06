@@ -4,7 +4,7 @@
  * ⚠️ R-REL-013：HTML 一律 network-first，禁止 cache-first。
  * ⚠️ R-REL-014：新資源必須由 scripts/bump-version.js 納管。
  */
-const CACHE_NAME = 'feda-cup-0.20261006g';
+const CACHE_NAME = 'feda-cup-0.20261006h';
 
 // 由 bump-version.js 依 js/ 目錄產生，新增模組不會漏掉離線快取。
 const OFFLINE_MODULES = [
@@ -52,6 +52,7 @@ const OFFLINE_MODULES = [
   "/js/engine/tally.js",
   "/js/engine/team-import.js",
   "/js/engine/team-name.js",
+  "/js/engine/timeline-edit.js",
   "/js/engine/timeline.js",
   "/js/firebase-config.js",
   "/js/lib/csv-file.js",
@@ -125,6 +126,7 @@ const OFFLINE_MODULES = [
   "/js/modules/staff/checkin-data.js",
   "/js/modules/staff/checkin.js",
   "/js/modules/staff/data.js",
+  "/js/modules/staff/event-editor.js",
   "/js/modules/staff/home.js",
   "/js/modules/staff/index.js",
   "/js/modules/staff/live-actions.js",

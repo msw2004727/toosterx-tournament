@@ -15,6 +15,10 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#EEVENTRECEIPT incomplete event receipt shows success', file: 'js/modules/admin/data.js',
+    from: "    throw new Error('尚未確認事件修改結果，請重新載入核對或重送原請求。');", to: '    return result;' },
+  { name: '#EEVENTSCROLL event form cannot scroll to save', file: 'css/components.css',
+    from: '.event-edit__panel{max-width:620px;max-height:calc(100dvh - 2 * var(--sp-4));overflow-y:auto;overscroll-behavior:contain}', to: '.event-edit__panel{max-width:620px}' },
   { name: '#EPWAFALLBACK broken native prompt gives no help', file: 'js/core/appbar.js',
     from: "if (await promptInstall() === 'unavailable') showInstallHelp('manual', btn);", to: 'await promptInstall();' },
   { name: '#EPWAPOSITION install entry moves away from home', file: 'js/core/appbar.js',

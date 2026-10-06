@@ -12,6 +12,12 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#TIMELINE-STALE stale event overwrites newer data', file: 'functions/timeline-edit.js',
+    from: 'canonical(expected?.event) !== canonical(timelineEditBasis(before))', to: 'false',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/timeline-edit.test.js --testNamePattern=EDIT-STALE --silent' },
+  { name: 'FN#TIMELINE-LOCK finished events can be edited in LIVE', file: 'functions/timeline-edit.js',
+    from: "if (context === 'live' && (!['live', 'halftime'].includes(match.status) || match.lock?.locked !== false))", to: 'if (false)',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/timeline-edit.test.js --testNamePattern=EDIT-AUTH --silent' },
   { name: 'FN#CANCEL-REBASE 保留名單未更新寫入世代', file: 'functions/management.js',
     from: 'doc:{resetRevision:resultPatch.resetRevision}', to: 'doc:{resetRevision:resultPatch.resetRevision-1}',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/consistency.test.js --testNamePattern=CANCEL1 --silent' },

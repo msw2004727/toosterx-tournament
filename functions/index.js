@@ -34,6 +34,7 @@ import { loginWithLine } from './line.js';
 import { importTeamsFor, TeamImportError } from './team-import.js';
 import { updateMemberIdentityFor } from './member-identity.js';
 import { generateScheduleFor } from './schedule.js';
+import { editTimelineEventFor } from './timeline-edit.js';
 import { manageEventFor } from './management.js';
 import { shareMatchStreamFor } from './stream-shares.js';
 import { updateTeamNameFor } from './team-name.js';
@@ -452,6 +453,7 @@ const managementCall = handler => onCall({ timeoutSeconds: 120 }, async request 
 export const generateSchedule = managementCall(generateScheduleFor);
 export const publishManualSchedule = managementCall(publishManualScheduleFor);
 export const manageEvent = managementCall(manageEventFor);
+export const editTimelineEvent = managementCall(editTimelineEventFor);
 export const updateTeamName = managementCall(updateTeamNameFor);
 export const shareMatchStream = managementCall(shareMatchStreamFor);
 export const scheduleMatches  = onCall(unimplemented('scheduleMatches', 'M4'));

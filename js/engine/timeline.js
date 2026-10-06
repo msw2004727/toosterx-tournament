@@ -31,10 +31,10 @@ export const isLive = e => !!e && e.voided !== true;
  * @param {Array<object>} events
  * @returns {{home:number, away:number}}
  */
-export function scoreFromTimeline(events) {
+export function scoreFromTimeline(events, { includeShootout = false } = {}) {
   const out = { home: 0, away: 0 };
   for (const e of events || []) {
-    if (!isLive(e) || !GOAL_EVENT_TYPES.includes(e.type)) continue;
+    if (!isLive(e) || !GOAL_EVENT_TYPES.includes(e.type) || (!includeShootout && e.periodId === 'pk')) continue;
     if (e.side !== 'home' && e.side !== 'away') continue;
     const credit = e.type === 'own_goal'
       ? (e.side === 'home' ? 'away' : 'home')

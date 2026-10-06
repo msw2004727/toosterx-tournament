@@ -186,6 +186,10 @@ export function describeAudit(a, lookup = {}) {
       title = `取消了 ${a.entityId ?? '某場次'}`;
       detail.push('比分沒有被清掉，這一場不計入積分榜');
       break;
+    case 'timeline.edit':
+      title = `修改了 ${a.entityId ?? '某場次'} 的一筆事件`;
+      detail.push(`事件修訂 ${a.after?.event?.editRevision ?? ''}，保留修改前後資料`);
+      break;
     case 'timeline.void':
       title = `作廢了 ${a.entityId ?? '某場次'} 的一筆事件`;
       detail.push('事件不會被刪除，只是標記為作廢');

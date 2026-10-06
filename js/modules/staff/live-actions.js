@@ -398,6 +398,7 @@ export function eventText(e, { periods = 2 } = {}) {
     case 'penalty_missed': return `罰球失　${who}`;
     case 'own_goal':       return `烏龍球　${who}（記給對隊）`;
     case 'card':           return `${CARD_LABEL[e.cardType] || '出牌'}　${who}`;
+    case 'injury':         return `傷停　${who}${e.note ? '　' + e.note : ''}`;
     case 'substitution':   return `換人　${who} 下場 ／ ${e.subInJerseyNo != null ? '#' + e.subInJerseyNo + ' ' : ''}${e.subInPlayerName ?? ''} 上場`;
     case 'period_start':   return `${periodLabel(e.periodId, periods)} 開始`;
     case 'period_end':     return `${periodLabel(e.periodId, periods)} 結束`;

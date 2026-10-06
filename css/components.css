@@ -422,3 +422,23 @@ input[type="file"]::file-selector-button{
   :is(.adm__itemHead,.prow__btn,.proster__btn,.pteams__btn,.mlist__btn,.acct__row,.chal__item--link):hover{background:var(--control-hover)}
 }
 :is(.adm__itemHead,.prow__btn,.proster__btn,.pteams__btn,.mlist__btn,.acct__row,.chal__item--link):focus-visible{outline:2px solid var(--accent);outline-offset:-3px;border-radius:var(--control-radius)}
+
+/* Shared event correction form: two fields per row, single column on narrow phones. */
+.event-edit__panel{max-width:620px;max-height:calc(100dvh - 2 * var(--sp-4));overflow-y:auto;overscroll-behavior:contain}
+.event-edit{display:flex;flex-direction:column;gap:var(--sp-3)}
+.event-edit__intro{color:var(--text-secondary);line-height:1.6}
+.event-edit__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-3)}
+.event-edit__field{display:flex;flex-direction:column;gap:var(--sp-1);min-width:0;font-size:var(--fs-sm);font-weight:600}
+.event-edit__field .input{width:100%;min-width:0;font-weight:400}
+.event-edit__time{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2)}
+.event-edit__void{display:flex;align-items:center;gap:var(--sp-2);min-height:var(--tap);font-size:var(--fs-sm)}
+.event-edit__void input{width:20px;min-width:20px;height:20px;flex:none;margin:0;padding:0}
+.event-edit__preview{margin:0;padding:var(--sp-3);background:var(--control-selected-bg);color:var(--control-selected-text);border-radius:var(--control-radius);font-weight:700}
+.event-edit__error{color:var(--danger-text);margin:0;line-height:1.5}
+.event-edit [hidden]{display:none}
+.event-corrections{list-style:none;padding:0;margin:0}
+.event-corrections li{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);padding:var(--sp-3) 0;border-bottom:1px solid var(--border)}
+.event-corrections li>div{min-width:0;overflow-wrap:anywhere}
+.event-corrections li>.btn{flex:none}
+.event-corrections .is-voided strong{color:var(--text-muted);text-decoration:line-through}
+@media(max-width:359px){.event-edit__grid{grid-template-columns:minmax(0,1fr)}}

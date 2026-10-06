@@ -10,6 +10,18 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  { name: '#TIMELINE-ASSIST historical assist player cannot be retained', file: 'js/engine/timeline-edit.js',
+    from: "player(next.assistPlayerId, 'assist')?.id", to: 'player(next.assistPlayerId)?.id',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/timeline-edit.test.js --silent' },
+  { name: '#TIMELINE-MASKTOKEN standings mask uses hardcoded theme color', file: 'css/modules/public.css',
+    from: 'var(--text-primary) calc(100% - 1.2em)', to: '#000 calc(100% - 1.2em)',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/public-guards.test.js --silent' },
+  { name: '#TIMELINE-DELTA correction replaces manual scoreboard', file: 'js/engine/timeline-edit.js',
+    from: 'home: base.home + delta.home, away: base.away + delta.away', to: 'home: newScore.home, away: newScore.away',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/timeline-edit.test.js --silent' },
+  { name: '#TIMELINE-PK shootout counts in regulation score', file: 'js/engine/timeline.js',
+    from: " || (!includeShootout && e.periodId === 'pk')", to: '',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/timeline-edit.test.js --silent' },
   // Daily staff tools: EFREQUENTSTAFFORDER / EFREQUENTSTAFFCOLOR in mutation-e2e.cjs.
   // Adjudication UI: EADJUDICATIONINPUT / EADJUDICATIONLAYOUT in mutation-e2e.cjs.
   // LIVE timer lifecycle: ELIVECLOCKLOAD / ELIVECLOCKDISPOSE in mutation-e2e.cjs.

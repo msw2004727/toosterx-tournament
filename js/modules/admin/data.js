@@ -9,6 +9,7 @@ import { db, sdk, user, callFunction } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { EVENT_ID } from '../../config.js';
 import { summary as syncSummary } from '../../core/sync.js';
+import { timelineEditBasis } from '../../engine/timeline-edit.js';
 import { manualPayloadOf } from '../../engine/manual-schedule.js';
 
 const uid = () => user()?.uid ?? null;
@@ -57,6 +58,15 @@ export const manageMatch = async (matchId, { action, match, patch = {}, reason =
   }
   return result;
 };
+export async function correctTimelineEvent({ match, event, context, patch, reason }) {
+  const result = await onlineManagement('editTimelineEvent', { matchId: match.matchId, timelineId: event.timelineId,
+    context, expected: { match: matchBasis(match), event: timelineEditBasis(event) }, patch, reason });
+  if (!result?.auditId || result.matchId !== match.matchId || result.timelineId !== event.timelineId
+      || result.editRevision !== (event.editRevision ?? 0) + 1) {
+    throw new Error('尚未確認事件修改結果，請重新載入核對或重送原請求。');
+  }
+  return result;
+}
 export const manageSchedule = (division, { action, updates = [], reason = null }) => onlineManagement('manageEvent', {
   action, divisionId: division.divisionId, expected: division.scheduleRevision ?? 0, reason,
   updates: updates.map(u => ({ ...u, patch: { ...u.patch, ...(Object.hasOwn(u.patch, 'kickoffAt')

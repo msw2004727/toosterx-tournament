@@ -445,6 +445,26 @@ export const httpsCallable = (_fns, name) => async (payload) => {
     }
     return { data: { ok: true, data: { shareId, action: payload.action, changed: true } } };
   }
+  if (name === 'editTimelineEvent') {
+    // UI wiring only: actual validation, permissions, races and rollback are tested with Firestore Emulator.
+    if (Object.hasOwn(window, '__FAKE_TIMELINE_RESULT')) return { data: { ok: true, data: window.__FAKE_TIMELINE_RESULT } };
+    const { buildTimelineEdit, timelineEditMatchPatch } = await import(location.origin + '/js/engine/timeline-edit.js');
+    const base = `events/${payload.eventId}`, path = `${base}/matches/${payload.matchId}`, ep = `${path}/timeline/${payload.timelineId}`;
+    const receipts = (window.__FAKE_TIMELINE_RECEIPTS ||= {});
+    if (receipts[payload.operationId]) return { data: { ok: true, data: receipts[payload.operationId] } };
+    const match = store.get(path), event = { ...store.get(ep), timelineId: payload.timelineId };
+    const division = store.get(`${base}/divisions/${match.divisionId}`), rosters = {};
+    for (const side of ['home', 'away']) rosters[side] = [...store.entries()]
+      .filter(([p]) => p.startsWith(`${base}/teams/${match[side]?.teamId}/roster/`)).map(([p, r]) => ({ ...r, memberId: p.split('/').at(-1) }));
+    const after = buildTimelineEdit({ event, patch: payload.patch, match, division, rosters });
+    const events = [...store.entries()].filter(([p]) => p.startsWith(path + '/timeline/')).map(([p, e]) => ({ ...e, timelineId: p.split('/').at(-1) }));
+    const mp = timelineEditMatchPatch({ match, events, before: event, after, division });
+    store.set(ep, after); store.set(path, { ...match, ...mp, managementRevision: (match.managementRevision ?? 0) + 1 });
+    const result = { operationId: payload.operationId, matchId: payload.matchId, timelineId: payload.timelineId,
+      editRevision: after.editRevision, auditId: `timeline-${payload.operationId}`, score: mp.score, penaltyScore: mp.penaltyScore ?? match.penaltyScore ?? null };
+    store.set(`${base}/audits/${result.auditId}`, { entity: 'match', entityId: payload.matchId, action: 'timeline.edit', reason: payload.reason, before: { event }, after: { event: after } });
+    receipts[payload.operationId] = result; notify(); return { data: { ok: true, data: result } };
+  }
   if (name === 'manageEvent' && Object.hasOwn(window, '__FAKE_MANAGEMENT_RESULT')) return { data: { ok: true, data: window.__FAKE_MANAGEMENT_RESULT } };
   if (name === 'generateSchedule' || name === 'manageEvent') return fakeManagement(name, payload);
   if (name === 'publishManualSchedule') {

@@ -671,3 +671,7 @@ Cloud Functions 解晉級讀的就是這一份——只改 `division.formatId`
 而沒有把範本寫進來的話，晉級會在比賽當天才失敗。
 
 詳細內容見 `02-賽制引擎與排名規則.md`。
+
+### 事件修訂中繼資料（2026-10-06）
+
+`timeline` 修訂保留 `timelineId`、`seq`、`createdBy` 與建立時間，新增 `editRevision`（預設 0、每次加 1）、`editedBy`、`editedAt`、`editReason`。每次修改的完整事件 before／after 與比分記在不可修改的 `audits`，action 為 `timeline.edit`。

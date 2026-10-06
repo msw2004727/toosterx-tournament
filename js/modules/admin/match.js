@@ -24,7 +24,7 @@ import { el, mount, toast, skeleton, confirmDialog } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { can, onAuth, user } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
-import { hhmm, dateLabelFromYmd, STATUS_LABEL } from '../../lib/format.js';
+import { hhmm, dateLabelFromYmd, STATUS_LABEL, periodLabel } from '../../lib/format.js';
 import { normalizeAudit, describeAudit } from '../../engine/audit.js';
 import {
   APPEAL_ROLES, appealWindow, buildAppealDoc, buildAppealDecision, matchAppealFlag
@@ -38,6 +38,9 @@ import {
   buildWalkoverPatch, buildStatusPatch, consequencesOf, scoreOf, resultOf
 } from './match-actions.js';
 import * as data from './data.js';
+import { openEventEditor } from '../staff/event-editor.js';
+import { watchTimeline, getDivision } from '../staff/data.js';
+import { eventText, sortEventsDesc } from '../staff/live-actions.js';
 import { adminHead, denied } from './bits.js';
 
 export async function adminMatchPage({ scope, view, params }) {
@@ -50,6 +53,9 @@ export async function adminMatchPage({ scope, view, params }) {
   const state = {
     match: undefined,          // undefined = 還沒載入；null = 不存在
     audits: [],
+    events: null,
+    eventError: null,
+    division: null,
     // 改判比分的草稿
     draft: null,
     // 申訴（規章第二十條）：這一場的申訴紀錄、登記表單、裁決意見
@@ -70,14 +76,21 @@ export async function adminMatchPage({ scope, view, params }) {
 
   data.watchMatch(scope, matchId, m => {
     state.match = m;
+    if (m && !state.division) void loadEventDivision(m.divisionId);
     // 伺服器的比分變了就重建草稿——但只在自己沒有在編輯時
     if (!state.draft) state.draft = draftFrom(m);
     if (state.streamInput === null) state.streamInput = m?.stream?.videoId ?? '';
     render();
   }, err => { state.error = err; state.match = null; render(); });
 
+  watchTimeline(scope, matchId, rows => { state.events = rows; state.eventError = null; render(); }, err => { state.eventError = err; render(); });
+
   data.getMatchAudits(matchId).then(rows => { state.audits = rows; render(); }).catch(() => {});
   loadAppeals();
+
+  async function loadEventDivision(id) {
+    try { state.division = await getDivision(id); render(); } catch { /* 編輯時會再次讀取並顯示錯誤 */ }
+  }
 
   async function loadAppeals() {
     if (!can('appeal.manage')) { state.appeals = []; return; }
@@ -647,6 +660,23 @@ export async function adminMatchPage({ scope, view, params }) {
     ]);
   }
 
+  function eventsBox() {
+    return el('section', { class: 'adm-match__events adm-match__section', 'aria-label': '比賽事件修正' }, [
+      el('h3', { class: 'adm__sectionHead' }, iconText('note', '比賽事件修正')),
+      el('p', { class: 'adm__note', text: '完賽後也可修正球員、時間、類型或恢復作廢事件；得分差異會同步調整比分。' }),
+      state.eventError ? el('p', { role: 'alert', text: data.explain(state.eventError) })
+        : state.events === null ? skeleton(2)
+        : !state.events.length ? el('p', { class: 'adm__note', text: '這一場沒有事件紀錄。' })
+        : el('ul', { class: 'event-corrections' }, sortEventsDesc(state.events).map(e => el('li', { 'data-timeline-id': e.timelineId, class: e.voided ? 'is-voided' : '' }, [
+          el('div', {}, [el('strong', { text: eventText(e, { periods: state.division?.periods ?? 2 }) }),
+            el('p', { class: 'adm__note', text: `${state.match[e.side]?.name ?? '不分隊伍'} · ${periodLabel(e.periodId, state.division?.periods ?? 2)} ${Math.floor((e.clockSec ?? 0) / 60)}:${String((e.clockSec ?? 0) % 60).padStart(2, '0')}${e.voided ? ' · 已作廢' : ''}` })]),
+          can('match.score.override') ? el('button', { type: 'button', class: 'btn btn--ghost', 'aria-label': '修改這筆事件',
+            onClick: () => openEventEditor({ scope, match: state.match, event: e, events: state.events, context: 'admin',
+              onSaved: async result => { state.draft = draftFrom({ ...state.match, score: result.score, penaltyScore: result.penaltyScore }); state.audits = await data.getMatchAudits(matchId); render(); } }) }, iconText('edit', '修改')) : null
+        ])))
+    ]);
+  }
+
   function render() {
     setDivisionTheme(root, state.match?.divisionId);
     if (state.match === undefined) { mount(root, adminHead('場次改判'), skeleton(4)); return; }
@@ -667,6 +697,7 @@ export async function adminMatchPage({ scope, view, params }) {
       headBox(),
       el('p', { class: 'adm-match__notice' }, iconText('info', '變更會同步至公開頁；送出時須填寫原因並留下紀錄。')),
       el('div', { class: 'adm-match__main' }, [scoreEditor(), actionsBox()]),
+      eventsBox(),
       el('div', { class: 'adm-match__secondary' }, [appealBox(), streamBox()]),
       auditsBox()
     );

@@ -1,5 +1,10 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EEVENTRECEIPT: { spec: 'tests/e2e/event-editor.spec.js', grep: '錯誤保留草稿', minTests: 1,
+    assertions: ["await expect(dlg(page).getByRole('alert')).toContainText('尚未確認')"],
+    failure: "await expect(dlg(page).getByRole('alert')).toContainText('尚未確認')" },
+  EEVENTSCROLL: { spec: 'tests/e2e/event-editor.spec.js', grep: '@eventscroll', minTests: 1,
+    assertions: ['expect(bounds.bottom).toBeLessThanOrEqual(viewport.height)'], failure: 'expect(bounds.bottom).toBeLessThanOrEqual(viewport.height)' },
   EPWAFALLBACK: { spec: 'tests/e2e/appbar.spec.js', grep: '@pwainstall', minTests: 1,
     assertions: ["await expect(page.getByRole('dialog')).toContainText('安裝到裝置')"],
     failure: "await expect(page.getByRole('dialog')).toContainText('安裝到裝置')" },

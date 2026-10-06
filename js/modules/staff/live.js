@@ -23,15 +23,16 @@ import { user, can, canScore, assignedToVenue } from '../../core/firebase.js';
 import { navigate } from '../../core/router.js';
 import {
   watchMatch, watchTimeline, getTeamRoster, getMatchSheet, getDivision,
-  patchMatch, addTimelineEvent, voidTimelineEvent, writeAudit,
+  patchMatch, addTimelineEvent, writeAudit,
   submitFinish, undoFinish
 } from './data.js';
 import {
   buildGoalEvent, buildCardEvent, buildSubEvent, buildPeriodEvent,
   buildFinishPatch, finishSummary, suggestCardType, sentOffPlayerIds,
   checkSubLimit, eventText, EVENT_ICON, CARD_LABEL, sortEventsDesc,
-  scoreFromTimeline, isLive, undoState, buildUndoPatch, UNDO_WINDOW_SEC, isPlayerRow, onFieldIds
+  isLive, undoState, buildUndoPatch, UNDO_WINDOW_SEC, isPlayerRow, onFieldIds
 } from './live-actions.js';
+import { openEventEditor } from './event-editor.js';
 import { syncIndicator } from './sync-indicator.js';
 import { isOnline } from '../../core/sync.js';
 import { hold } from '../../core/store.js';
@@ -273,6 +274,7 @@ export async function liveConsole({ params, scope, view }) {
     const dur = state.division?.matchDurationMin ?? 30;
     const per = state.division?.periods ?? 2;
     wrap.append(el('ul', { class: 'tl__list' }, rows.map(e => el('li', {
+      'data-timeline-id': e.timelineId,
       class: `tl__item ${e.voided ? 'is-voided' : ''} tl__item--${e.side}`
     }, [
       el('span', { class: 'tl__min num', text: displayMinute(e.clockSec ?? 0, e.periodId, dur, per) }),
@@ -284,8 +286,8 @@ export async function liveConsole({ params, scope, view }) {
       })),
       el('span', { class: 'tl__text', text: eventText(e, { periods: state.division?.periods ?? 2 }) }),
       el('span', { class: 'tl__team', text: teamNameOf(e.side) }),
-      (!readOnly && !e.voided)
-        ? el('button', { class: 'tl__more', type: 'button', 'aria-label': '修正這筆事件', onClick: () => voidFlow(e) }, icon('more'))
+      (!readOnly && ['live', 'halftime'].includes(m.status))
+        ? el('button', { class: 'tl__more', type: 'button', 'aria-label': '修正這筆事件', onClick: () => openEventEditor({ scope, match: state.match, event: e, events: state.events, context: 'live' }) }, icon('edit'))
         : null
     ].filter(Boolean)))));
     return wrap;
@@ -614,31 +616,6 @@ export async function liveConsole({ params, scope, view }) {
   }
 
   // ── 修正事件 ───────────────────────────────────────────
-
-  async function voidFlow(e) {
-    const isScoring = ['goal', 'own_goal', 'penalty_scored'].includes(e.type);
-    const ok = await confirmDialog({
-      title: '作廢這筆事件？',
-      body: el('div', {}, [
-        el('p', { text: eventText(e, { periods: state.division?.periods ?? 2 }) }),
-        el('p', { class: 'muted', text: isScoring ? '作廢後比分會一併扣回。原紀錄不會刪除，只會標記作廢。' : '原紀錄不會刪除，只會標記作廢。' })
-      ]),
-      confirmText: '作廢',
-      tone: 'danger'
-    });
-    if (!ok) return;
-
-    voidTimelineEvent(matchId, e.timelineId, '賽務現場修正', `作廢事件　${eventText(e, { periods: state.division?.periods ?? 2 })}`);
-
-    if (isScoring) {
-      const after = scoreFromTimeline(state.events.map(x => x.timelineId === e.timelineId ? { ...x, voided: true } : x));
-      patchMatch(matchId, { score: after }, `比分修正為 ${after.home}:${after.away}`, { kind: 'score' });
-    }
-    writeAudit({
-      entity: 'match', entityId: matchId, action: 'timeline.void',
-      before: { timelineId: e.timelineId, type: e.type }, reason: '賽務現場修正'
-    });
-  }
 
   // ── 完賽送出 ───────────────────────────────────────────
 
