@@ -1,5 +1,8 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ESTANDTEAMWRAP: { spec: 'tests/e2e/public-site.spec.js', grep: '@teamwrap', minTests: 1,
+    assertions: ['expect(bounds.width).toBeLessThanOrEqual(1)'],
+    failure: 'expect(bounds.width).toBeLessThanOrEqual(1)' },
   EHOMEBOARDDATE: { spec: 'tests/e2e/home-date.spec.js', grep: 'HOMEBOARDDATE', minTests: 2,
     assertions: ["expect(page.locator('.prow')).toContainText('第11日主隊')"], failure: "expect(page.locator('.prow')).toContainText('第11日主隊')" },
   "EHOMEDATE": { "spec": "tests/e2e/home-date.spec.js", "grep": "HOMEDATE.*2026-10-12", "assertions": ["expect(selected(page)).toContainText('10/' + day)"], "failure": "expect(selected(page)).toContainText('10/' + day)", "minTests": 1 },

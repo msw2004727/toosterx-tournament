@@ -278,7 +278,7 @@
 .ptable tbody tr{border-top:1px solid var(--border)}
 .ptable td{font-variant-numeric:tabular-nums}
 .ptable__team{font-weight:700;font-size:var(--fs-sm);text-align:left;
-  max-width:8em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  max-width:8em;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
 /* 隊名可以點進球隊頁：整顆按鈕都是觸控目標，高度不得低於 --tap（驗收 D-15） */
 button.ptable__team{
   display:inline-flex;align-items:center;min-height:var(--tap);

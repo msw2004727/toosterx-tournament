@@ -295,6 +295,32 @@ test('⭐ 完全沒有資料時每一頁都有話說，不留白畫面 @public @
   }
 });
 
+test('積分榜長隊名完整換行且仍可點選 @public @teamwrap', async ({ page }) => {
+  const seed = full();
+  const standing = seed[`events/${EVENT}/standings/adult-open__group__A`];
+  const names = ['ORIGINAL漂亮媽媽說的都隊', '圖斯特足球俱樂部 (黃)', 'Taichung Ronin FC', 'InternationalFootballClubWithoutSpaces'];
+  standing.rows = names.map((name, i) => ({ ...standing.rows[0], rank: i + 1, teamId: `t-${101 + i}`, name }));
+  await stub(page, seed);
+  await go(page, '/#/division/adult-open');
+  for (const name of names) {
+    const button = page.getByRole('button', { name, exact: true });
+    await expect(button).toBeVisible();
+    const bounds = await button.evaluate(node => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      return { width: node.scrollWidth - node.clientWidth, height: node.scrollHeight - node.clientHeight,
+        lines: range.getClientRects().length, tapHeight: node.getBoundingClientRect().height };
+    });
+    expect(bounds.width).toBeLessThanOrEqual(1);
+    expect(bounds.height).toBeLessThanOrEqual(1);
+    expect(bounds.lines).toBeGreaterThan(1);
+    expect(bounds.tapHeight).toBeGreaterThanOrEqual(44);
+  }
+  await noHScroll(page);
+  await page.getByRole('button', { name: names[0], exact: true }).click();
+  await expect(page).toHaveURL(/#\/team\/t-101$/);
+});
+
 test('⭐ 積分榜 rows 是空陣列時顯示「整理中」，不是壞掉 @public @empty', async ({ page }) => {
   const seed = full();
   seed[`events/${EVENT}/standings/adult-open__group__A`] = {
