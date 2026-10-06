@@ -186,11 +186,12 @@ test('⭐ 換頁不會累積出第二列頁首 @appbar', async ({ page }) => {
    安裝到裝置
    ══════════════════════════════════════════════════════════════ */
 
-test('SVG 安裝緊接首頁、窄版不溢出 @appbar @pwainstall', async ({ page }) => {
+test('SVG 安裝到桌面位於右側我的／登入左側、窄版不溢出 @appbar @pwainstall', async ({ page }) => {
   await stub(page); await go(page, '/#/');
   const btn = page.locator('.apphead__install');
   await expect(btn).toBeVisible();
-  await expect(page.locator('.apphead > a:first-child + .apphead__install')).toHaveCount(1);
+  await expect(btn).toHaveText('安裝到桌面');
+  await expect(page.locator('.apphead__spacer + .apphead__install + a[data-nav]')).toHaveCount(1);
   await expect(btn.locator('svg')).toHaveCount(1);
   expect(await btn.locator('span').evaluate(e => e.getBoundingClientRect().width)).toBeGreaterThan(20);
   expect(await page.locator('.apphead').evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);

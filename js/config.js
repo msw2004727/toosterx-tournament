@@ -5,9 +5,9 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20261006j';
+export const CACHE_VERSION = '0.20261006k';
 
-/** PWA 安裝入口：首頁右側提供原生安裝或各平台教學。 */
+/** PWA 安裝入口：右側「我的／登入」左邊提供原生安裝或各平台教學。 */
 export const PWA_INSTALL = true;
 
 /** 本次活動。未來要辦第二場時，這裡改成從路由或設定讀取。 */
