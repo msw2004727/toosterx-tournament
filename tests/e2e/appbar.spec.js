@@ -186,38 +186,50 @@ test('⭐ 換頁不會累積出第二列頁首 @appbar', async ({ page }) => {
    安裝到裝置
    ══════════════════════════════════════════════════════════════ */
 
-test('⭐ PWA 安裝入口已關閉：就算接到 beforeinstallprompt 也不畫安裝鈕（主辦 2026-09-06 決定）@appbar', async ({ page }) => {
-  await stub(page, { install: 'prompt' });
-  await go(page, '/#/');
-  await expect(page.locator('.apphead__link').first()).toBeVisible();
-  await expect(page.locator('.apphead__install')).toHaveCount(0);
+test('SVG 安裝緊接首頁、窄版不溢出 @appbar @pwainstall', async ({ page }) => {
+  await stub(page); await go(page, '/#/');
+  const btn = page.locator('.apphead__install');
+  await expect(btn).toBeVisible();
+  await expect(page.locator('.apphead > a:first-child + .apphead__install')).toHaveCount(1);
+  await expect(btn.locator('svg')).toHaveCount(1);
+  expect(await btn.locator('span').evaluate(e => e.getBoundingClientRect().width)).toBeGreaterThan(20);
+  expect(await page.locator('.apphead').evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);
 });
-
-test('PWA 安裝入口已關閉：沒有事件時也不畫 @appbar', async ({ page }) => {
-  await stub(page, { install: 'none' });
-  await go(page, '/#/');
-  await expect(page.locator('.apphead__link').first()).toBeVisible();
-  await expect(page.locator('.apphead__install')).toHaveCount(0);
+test('原生安裝成功後隱藏入口 @appbar @pwainstall', async ({ page }) => {
+  await stub(page, { install: 'prompt' }); await go(page, '/#/');
+  await page.waitForFunction(() => !!window.__fedaInstall?.deferred);
+  await page.locator('.apphead__install').click();
+  await expect(page.locator('.apphead__install')).toBeHidden();
+  expect(await page.evaluate(() => window.__promptCalls)).toBe(1);
 });
-
-test('⭐ 已經安裝（standalone）不畫安裝鈕 @appbar', async ({ page }) => {
-  await stub(page, { install: 'installed' });
-  await go(page, '/#/');
+test('原生安裝失敗仍有手動教學 @appbar @pwainstall', async ({ page }) => {
+  await stub(page, { install: 'prompt' }); await go(page, '/#/');
+  await page.waitForFunction(() => !!window.__fedaInstall?.deferred);
+  await page.evaluate(() => { window.__fedaInstall.deferred.prompt = async () => { throw new Error('unavailable'); }; });
+  await page.locator('.apphead__install').click();
+  await expect(page.getByRole('dialog')).toContainText('安裝到裝置');
+});
+test('已安裝的獨立視窗隱藏入口 @appbar', async ({ page }) => {
+  await stub(page, { install: 'installed' }); await go(page, '/#/');
   await expect(page.locator('.apphead__install')).toBeHidden();
 });
-
-test('PWA 安裝入口已關閉：iOS 也不畫 @appbar', async ({ page }) => {
-  await stub(page, { install: 'ios' });
-  await go(page, '/#/');
-  await expect(page.locator('.apphead__link').first()).toBeVisible();
-  await expect(page.locator('.apphead__install')).toHaveCount(0);
+test('iOS 三步 SVG 教學 @appbar @pwainstall', async ({ page }) => {
+  await stub(page, { install: 'ios' }); await go(page, '/#/');
+  const btn = page.locator('.apphead__install'); await btn.click();
+  const dlg = page.getByRole('dialog');
+  await expect(dlg.locator('.install__steps li')).toHaveCount(3);
+  await expect(dlg.locator('.install__steps svg')).toHaveCount(3);
+  await expect(dlg).toContainText('分享');
+  await expect(dlg).toContainText('加入主畫面');
+  await expect(dlg).toContainText('打開為網頁 App');
+  await page.screenshot({ path: 'tmp/pwa-ios-' + test.info().project.name + '.png' });
+  await dlg.getByRole('button', { name: '知道了' }).click();
+  await expect(dlg).toHaveCount(0); await expect(btn).toBeFocused();
 });
-
-test('PWA 安裝入口已關閉：LINE 內建瀏覽器也不畫 @appbar', async ({ page }) => {
-  await stub(page, { install: 'inapp' });
-  await go(page, '/#/');
-  await expect(page.locator('.apphead__link').first()).toBeVisible();
-  await expect(page.locator('.apphead__install')).toHaveCount(0);
+test('LINE 提供外部瀏覽器教學 @appbar', async ({ page }) => {
+  await stub(page, { install: 'inapp' }); await go(page, '/#/');
+  await page.locator('.apphead__install').click();
+  await expect(page.getByRole('dialog')).toContainText('請改用瀏覽器開啟');
 });
 
 test('manifest 與圖示真的抓得到（不是 404）@appbar', async ({ page }) => {

@@ -15,6 +15,10 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#EPWAFALLBACK broken native prompt gives no help', file: 'js/core/appbar.js',
+    from: "if (await promptInstall() === 'unavailable') showInstallHelp('manual', btn);", to: 'await promptInstall();' },
+  { name: '#EPWAPOSITION install entry moves away from home', file: 'js/core/appbar.js',
+    from: "links[0], install, el('div', { class: 'apphead__spacer' }),", to: "links[0], el('div', { class: 'apphead__spacer' }), install," },
   { name: '#EFREQUENTSTAFFORDER daily tools no longer first', file: 'js/modules/account/my.js',
     from: 'const ready = mine.filter(f => f.route);', to: 'const ready = mine.filter(f => f.route).reverse();' },
   { name: '#EFREQUENTSTAFFCOLOR daily tools lose highlight', file: 'js/modules/account/my.js',

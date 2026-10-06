@@ -372,7 +372,8 @@ input[type="file"]::file-selector-button{
 .apphead__link:focus-visible,.apphead__install:focus-visible{
   outline:2px solid var(--accent);outline-offset:1px;
 }
-.apphead__install{color:var(--accent)}
+.apphead__install{color:var(--control-selected-text);background:var(--control-selected-bg);border-color:var(--control-selected-border);font-weight:700}
+.apphead__install:hover{background:var(--control-hover);color:var(--control-selected-text)}
 .apphead__install[hidden]{display:none}
 .apphead__linkText{white-space:nowrap}
 
@@ -386,12 +387,19 @@ input[type="file"]::file-selector-button{
   .apphead__link,.apphead__install{padding:0 var(--sp-1)}
 }
 
+.apphead__install .apphead__linkText{position:static;width:auto;height:auto;overflow:visible;clip-path:none}
+
 /* 安裝教學（iOS／LINE 內建瀏覽器） */
 .install__note{margin:0 0 var(--sp-3);line-height:1.7}
 .install__steps{
-  margin:0;padding-left:1.4em;display:flex;flex-direction:column;gap:var(--sp-2);
+  margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:var(--sp-2);
   color:var(--text-primary);line-height:1.6;
 }
+
+.install__steps li{display:flex;align-items:flex-start;gap:var(--sp-3);padding:var(--sp-3);border:1px solid var(--border);border-radius:var(--control-radius);background:var(--bg-elevated)}
+.install__stepNumber{display:grid;place-items:center;flex:none;width:28px;height:28px;border-radius:50%;background:var(--control-selected-bg);color:var(--control-selected-text);font-weight:800}
+.install__stepContent{display:flex;align-items:flex-start;gap:var(--sp-2);min-width:0}
+.install__stepContent svg{flex:none;margin-top:3px;color:var(--accent)}
 
 /* ── 版面寬度：手機優先，桌機置中不拉寬 ─────────────── */
 #app-view{max-width:var(--page-max);margin:0 auto;width:100%}

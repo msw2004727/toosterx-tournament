@@ -5,14 +5,10 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20261006f';
+export const CACHE_VERSION = '0.20261006g';
 
-/**
- * PWA 安裝入口。主辦 2026-09-06 決定關閉：頁首不畫「安裝」，Chrome 自己的安裝橫幅也在
- * index.html 被 preventDefault 擋掉。Service Worker 與離線快取不受影響（賽務端的離線記分照常）。
- * 要打開就改成 true，安裝鈕與各平台的教學都還在 js/core/install.js。
- */
-export const PWA_INSTALL = false;
+/** PWA 安裝入口：首頁右側提供原生安裝或各平台教學。 */
+export const PWA_INSTALL = true;
 
 /** 本次活動。未來要辦第二場時，這裡改成從路由或設定讀取。 */
 export const EVENT_ID = 'feda-cup-2026';

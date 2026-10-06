@@ -9,7 +9,7 @@
  *
  * 主辦 2026-09-03 指定的版型，**不管什麼身分、在哪一頁都一樣**：
  *
- *   [首頁]                    [安裝] [登入／我的] [☾ ☀ ▣]
+ *   [首頁] [安裝]                    [登入／我的] [☾ ☀ ▣]
  *
  * ・「首頁」永遠是**公開首頁**（賽程、比分、積分榜）。
  *   總管也看得到家長看到的畫面——現場有人回報問題時核對得起來。
@@ -96,8 +96,8 @@ function installButton() {
       const st = installState();
       // 只有 'prompt' 有原生對話框。其餘兩種呼叫 promptInstall() 會回
       // 'unavailable' 然後**什麼都不做**——那就是一顆按了沒反應的按鈕。
-      if (st.mode !== 'prompt') { showInstallHelp(st.mode); return; }
-      await promptInstall();
+      if (st.mode !== 'prompt') { showInstallHelp(st.mode, btn); return; }
+      if (await promptInstall() === 'unavailable') showInstallHelp('manual', btn);
       sync();
     }
   }, [icon('install'), el('span', { class: 'apphead__linkText', text: '安裝' })]);
@@ -164,12 +164,12 @@ export function mountAppBar({
     }
 
     const links = defs.map(d => navLink({ ...d, current: d.isCurrent ? d.isCurrent() : false }));
-    const install = PWA_INSTALL ? installButton() : null;     // 關閉時整顆不畫（主辦 2026-09-06 決定）
+    const install = PWA_INSTALL ? installButton() : null;
     const theme = themeSwitch();
 
     const bar = el('nav', { class: 'apphead', 'aria-label': '全站導覽' });
-    // 首頁靠左，其餘往右靠
-    mount(bar, links[0], el('div', { class: 'apphead__spacer' }), install, links[1], theme);
+    // 首頁與安裝靠左，登入與主題靠右
+    mount(bar, links[0], install, el('div', { class: 'apphead__spacer' }), links[1], theme);
     host.replaceChildren(bar);
     parts = { links, install, theme, signedIn };
   };

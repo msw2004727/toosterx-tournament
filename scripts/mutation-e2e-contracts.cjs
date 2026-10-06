@@ -1,5 +1,11 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EPWAFALLBACK: { spec: 'tests/e2e/appbar.spec.js', grep: '@pwainstall', minTests: 1,
+    assertions: ["await expect(page.getByRole('dialog')).toContainText('安裝到裝置')"],
+    failure: "await expect(page.getByRole('dialog')).toContainText('安裝到裝置')" },
+  EPWAPOSITION: { spec: 'tests/e2e/appbar.spec.js', grep: '@pwainstall', minTests: 1,
+    assertions: ["await expect(page.locator('.apphead > a:first-child + .apphead__install')).toHaveCount(1)"],
+    failure: "await expect(page.locator('.apphead > a:first-child + .apphead__install')).toHaveCount(1)" },
   EFREQUENTSTAFFORDER: { spec: 'tests/e2e/my-home.spec.js', grep: '@frequentstaff', minTests: 1,
     assertions: ["await expect(buttons.first()).toContainText('賽務台')"], failure: "await expect(buttons.first()).toContainText('賽務台')" },
   EFREQUENTSTAFFCOLOR: { spec: 'tests/e2e/my-home.spec.js', grep: '@frequentstaff', minTests: 1,

@@ -104,9 +104,9 @@ export async function promptInstall() {
 // ── 教學（沒有 API 的兩種環境） ───────────────────────────────
 
 const IOS_STEPS = [
-  '在畫面最下方按「分享」（往上的箭頭）',
+  '按 Safari 的「分享」（方框向上箭頭）。若沒看到，先按網址列旁的「⋯」選單，再選「分享」。',
   '往下捲，選「加入主畫面」',
-  '右上角按「加入」'
+  '若有「打開為網頁 App」，請保持開啟，再按「加入」。'
 ];
 
 const INAPP_STEPS = [
@@ -115,25 +115,31 @@ const INAPP_STEPS = [
   '在瀏覽器裡再按一次這顆「安裝」'
 ];
 const MANUAL_STEPS = [
-  '按瀏覽器右上角的選單（⋮）',
-  '選「安裝應用程式」或「加到主畫面」',
-  '安裝後從主畫面點開，畫面會全螢幕、載入也更快'
+  '電腦 Chrome／Edge：按網址列的安裝圖示，或右上角選單（⋮）。手機：開啟瀏覽器選單。',
+  '選「安裝應用程式」或「加到主畫面」。Mac Safari 可從「檔案」選「加入 Dock」。',
+  '安裝完成後，從桌面或主畫面的 FEDA CUP 圖示開啟'
 ];
 
 /** 教學彈窗。用 .modal 的樣式，跟 confirmDialog 同一套視覺。 */
-export function showInstallHelp(mode = installState().mode) {
+export function showInstallHelp(mode = installState().mode, returnFocus = document.activeElement) {
   const ios = mode === 'ios';
   const manual = mode === 'manual' || mode === 'prompt' || mode == null;
   const steps = ios ? IOS_STEPS : manual ? MANUAL_STEPS : INAPP_STEPS;
   const title = ios ? '加到主畫面' : manual ? '安裝到裝置' : '請改用瀏覽器開啟';
   const note = ios
-    ? 'iPhone 的 Safari 不支援一鍵安裝，要手動加入。加入後從主畫面點開，畫面會全螢幕、載入也更快。'
+    ? '用 Safari 開啟本站，照下面 3 步加入主畫面，下次點 FEDA CUP 圖示就能開啟。'
     : manual
       ? '這個瀏覽器沒有主動跳出安裝框，但多半可以從選單安裝。已經裝過的話，請直接從主畫面開啟。'
       : 'LINE 內建的瀏覽器沒辦法安裝網頁應用程式。用 Safari 或 Chrome 開啟後就可以了。';
 
   const list = el('ol', { class: 'install__steps' },
-    steps.map(s => el('li', { text: s })));
+    steps.map((s, i) => el('li', {}, [
+      el('span', { class: 'install__stepNumber', 'aria-hidden': 'true', text: String(i + 1) }),
+      el('div', { class: 'install__stepContent' }, [
+        icon(ios ? ['share', 'home', 'check'][i] : 'install'),
+        el('span', { text: s })
+      ])
+    ])));
 
   const dlg = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, [
     el('div', { class: 'modal__panel' }, [
@@ -145,10 +151,12 @@ export function showInstallHelp(mode = installState().mode) {
     ])
   ]);
 
+  const previousFocus = returnFocus;
   const onKey = e => { if (e.key === 'Escape') close(); };
   function close() {
     document.removeEventListener('keydown', onKey);
     dlg.remove();
+    if (previousFocus?.isConnected) previousFocus.focus();
   }
   dlg.addEventListener('click', e => { if (e.target === dlg) close(); });
   document.addEventListener('keydown', onKey);

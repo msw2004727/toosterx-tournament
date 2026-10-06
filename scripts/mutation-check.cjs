@@ -8,6 +8,7 @@
  */
 const { runMutants } = require('./lib/mutate.cjs');
 
+// PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
   // Daily staff tools: EFREQUENTSTAFFORDER / EFREQUENTSTAFFCOLOR in mutation-e2e.cjs.
   // Adjudication UI: EADJUDICATIONINPUT / EADJUDICATIONLAYOUT in mutation-e2e.cjs.
