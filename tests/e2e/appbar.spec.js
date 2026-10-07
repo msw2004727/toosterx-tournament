@@ -250,3 +250,31 @@ test('manifest 與圖示真的抓得到（不是 404）@appbar', async ({ page }
     expect(st, `${ic.src} 應該抓得到`).toBe(200);
   }
 });
+
+test('圖示導覽：五個等寬項目、文字在圖示下方、深淺主題 @iconnav',async({page})=>{
+ await stub(page,{user:{uid:UID}});await go(page,'/#/');
+ const nav=page.locator('.apphead');await expect(nav).toHaveCSS('align-items','stretch');
+ const actions=nav.locator('a,button');await expect(actions).toHaveCount(5);
+ const widths=[];
+ for(const label of ['首頁','查看場地圖','安裝到桌面','我的','主題']){
+   const text=nav.getByText(label,{exact:true});await expect(text).toBeVisible();
+   const parent=text.locator('..'),svg=parent.locator('svg');await expect(svg).toBeVisible();
+   const {bounds,iconBounds}=await text.evaluate(e=>({bounds:e.getBoundingClientRect().toJSON(),iconBounds:e.parentElement.querySelector('svg').getBoundingClientRect().toJSON()}));
+   expect(iconBounds.y+iconBounds.height).toBeLessThanOrEqual(bounds.y);
+   expect(bounds.width).toBeGreaterThan(15);widths.push((await parent.boundingBox()).width);
+ }
+ expect(Math.max(...widths)-Math.min(...widths)).toBeLessThan(1);
+ expect(await nav.evaluate(e=>e.scrollWidth)).toBeLessThanOrEqual(page.viewportSize().width);
+ const map=nav.getByRole('button',{name:'查看場地圖',exact:true});
+ const light=await map.evaluate(e=>getComputedStyle(e).backgroundColor);
+ await nav.locator('.theme-switch__opt').click();
+ await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+ await expect(nav.locator('.theme-switch__caption')).toHaveText('主題');
+ expect(await map.evaluate(e=>getComputedStyle(e).backgroundColor)).not.toBe(light);
+ await page.mouse.move(0,0);await page.waitForTimeout(350);
+ await page.screenshot({path:'tmp/icon-nav-dark-'+test.info().project.name+'.png'});
+ await nav.locator('.theme-switch__opt').click();await expect(nav.locator('.theme-switch__caption')).toHaveText('主題');
+ await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+ await page.mouse.move(0,0);await page.waitForTimeout(350);
+ await page.screenshot({path:'tmp/icon-nav-light-'+test.info().project.name+'.png'});
+});

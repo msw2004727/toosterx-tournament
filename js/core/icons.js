@@ -54,6 +54,7 @@ const P = {
   list:        '<path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.1" fill="currentColor" stroke="none"/>',
   person:      '<circle cx="12" cy="8" r="3.6"/><path d="M4.6 20.2a7.4 7.4 0 0 1 14.8 0"/>',
   team:        '<circle cx="9" cy="8.4" r="3.2"/><path d="M2.8 20a6.2 6.2 0 0 1 12.4 0"/><path d="M16.2 6a3.2 3.2 0 0 1 0 6M17.6 14.6a6.2 6.2 0 0 1 3.6 5.4"/>',
+  map:         '<path d="m9 18-6 3V6l6-3 6 3 6-3v15l-6 3-6-3ZM9 3v15M15 6v15"/>',
   table:       '<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9.5h18M9 9.5V19.5"/>',
   // 抽獎券：一張票，中間有一道撕線的凹口。
   // ⚠️ 不畫禮物盒——那是「獎品」不是「資格」，而這一格顯示的是張數。

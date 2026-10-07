@@ -9,13 +9,13 @@
  *
  * 主辦 2026-09-03 指定的版型，**不管什麼身分、在哪一頁都一樣**：
  *
- *   [首頁]                    [安裝到桌面] [登入／我的] [☾ ☀ ▣]
+ *   [首頁] [查看場地圖] [安裝到桌面] [登入／我的] [主題]
  *
  * ・「首頁」永遠是**公開首頁**（賽程、比分、積分榜）。
  *   總管也看得到家長看到的畫面——現場有人回報問題時核對得起來。
  * ・「我的」是**專屬首頁**（`#/my`）：身分、功能區、我的球隊、登出。
  *   還沒登入時這一格顯示「登入」。
- * ・主題只留圖示：文字標籤在窄螢幕會斷行，把頁首撐成兩列。
+ * ・全列使用上方圖示、下方短標籤；手機維持等寬單列。
  *
  * ⚠️ 這一列在賽務端**也要顯示**（改動前是收起來的）。所以賽務首頁自己
  *    那顆主題切換必須拿掉，否則畫面上會有兩個。
@@ -168,12 +168,12 @@ export function mountAppBar({
     const venue = el('button', {
       class: 'apphead__link apphead__venue', type: 'button',
       'aria-label': '查看場地圖', title: '查看場地圖', onClick: onViewVenueMap
-    }, [icon('table'), el('span', { class: 'apphead__linkText', text: '查看場地圖' })]);
+    }, [icon('map'), el('span', { class: 'apphead__linkText', text: '查看場地圖' })]);
     const install = PWA_INSTALL ? installButton() : null;
-    const theme = themeSwitch();
+    const theme = themeSwitch({ caption: '主題' });
 
     const bar = el('nav', { class: 'apphead', 'aria-label': '全站導覽' });
-    // 首頁靠左；安裝、登入／我的與主題靠右
+    // 主辦選定圖示導覽：五個等寬入口，安裝緊鄰登入／我的。
     mount(bar, links[0], el('div', { class: 'apphead__spacer' }), venue, install, links[1], theme);
     host.replaceChildren(bar);
     parts = { links, install, theme, signedIn };

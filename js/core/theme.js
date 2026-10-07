@@ -128,7 +128,7 @@ export function initTheme() {
 }
 
 /** 單一循環按鈕。圖示表示目前偏好，輔助標籤同時說明目前與下一個狀態。 */
-export function themeSwitch() {
+export function themeSwitch({ caption = '' } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'theme-switch';
   const b = document.createElement('button');
@@ -136,6 +136,8 @@ export function themeSwitch() {
   b.className = 'theme-switch__opt';
   const label = document.createElement('span');
   label.className = 'theme-switch__label';
+  const captionNode = caption ? document.createElement('span') : null;
+  if (captionNode) { captionNode.className = 'theme-switch__caption'; captionNode.textContent = caption; }
   const stateLabel = () => current === 'system'
     ? `跟隨系統（目前${LABEL[getResolved()]}）` : `${LABEL[current]}模式`;
   let closeToast = () => {};
@@ -156,7 +158,7 @@ export function themeSwitch() {
     b.title = description;
     b.setAttribute('aria-label', description);
     label.textContent = description;
-    mount(b, icon(ICON[current]), label);
+    mount(b, icon(ICON[current]), label, captionNode);
   };
 
   wrap.append(b);

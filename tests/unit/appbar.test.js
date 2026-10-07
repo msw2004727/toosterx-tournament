@@ -111,14 +111,12 @@ describe('T34-3b 這一列在每一頁都要顯示', () => {
 describe('T34-4 樣式與版面', () => {
   const css = read('css/components.css');
 
-  test('⭐ 窄機（320px）把文字收起來只留圖示', () => {
-    // 首頁＋安裝＋我的＋三態主題切換，帶中文標籤在 320px 上排不下，
-    // 會把主題切換擠出畫面外。R-UI-006。
-    const narrow = css.slice(css.indexOf('@media (max-width:359px)'));
-    expect(narrow).toContain('.apphead__linkText');
+  test('窄機保留圖示與文字標籤，使用 11px 字級', () => {
+    expect(css).toContain('@media(max-width:359px)');
+    expect(css).toContain('font-size:11px');
   });
 
-  test('⭐ 主題切換任何寬度都只有圖示，沒有文字', () => {
+  test('詳細主題狀態保留螢幕閱讀器標籤', () => {
     // 主辦 2026-09-03：文字標籤在窄螢幕會斷行，把整條頁首撐成兩列。
     // 標籤仍留在 DOM（title／aria-label），只是視覺上藏起來——
     // 用 display:none 的話螢幕閱讀器也讀不到了。
@@ -129,11 +127,11 @@ describe('T34-4 樣式與版面', () => {
     expect(css).not.toMatch(/@media[^{]*\{\s*\.theme-switch__label\{display:none\}/);
   });
 
-  test('文字是用 clip-path 藏起來而不是 display:none（螢幕閱讀器還要讀得到）', () => {
+  test('頁首每個動作的短標籤均可見', () => {
     const block = css.slice(css.indexOf('.apphead{'), css.indexOf('/* 安裝教學'));
-    const narrow = block.slice(block.indexOf('@media (max-width:359px)'));
-    expect(narrow).toContain('clip-path');
-    expect(narrow).not.toMatch(/\.apphead__linkText\{[^}]*display:none/);
+    expect(block).toContain('.theme-switch__caption');
+    expect(block).toContain('position:static');
+    expect(block).not.toContain('clip-path:inset');
   });
 
   test('R-UI-005：這一段不得出現 prefers-color-scheme', () => {

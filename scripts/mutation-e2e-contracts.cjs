@@ -1,5 +1,9 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EICONNAVSTACK:{spec:'tests/e2e/appbar.spec.js',grep:'@iconnav',minTests:1,
+    assertions:['expect(iconBounds.y+iconBounds.height).toBeLessThanOrEqual(bounds.y)'],failure:'expect(iconBounds.y+iconBounds.height).toBeLessThanOrEqual(bounds.y)'},
+  EICONNAVTHEME:{spec:'tests/e2e/appbar.spec.js',grep:'@iconnav',minTests:1,
+    assertions:['await expect(text).toBeVisible()'],failure:'await expect(text).toBeVisible()'},
   EVENUESTABLE:{spec:'tests/e2e/venue-map.spec.js',grep:'@venuestable',minTests:1,
     assertions:['expect(await page.evaluate(()=>window.__venueSourceWrites)).toBe(0)'],failure:'expect(await page.evaluate(()=>window.__venueSourceWrites)).toBe(0)'},
   EVENUERESIZE:{spec:'tests/e2e/venue-map.spec.js',grep:'@venuestable',minTests:1,

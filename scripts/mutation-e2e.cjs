@@ -15,6 +15,10 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name:'#EICONNAVSTACK Icons return beside captions',file:'css/components.css',
+    from:'justify-content:center;flex-direction:column;gap:7px',to:'justify-content:center;flex-direction:row;gap:7px' },
+  { name:'#EICONNAVTHEME Theme caption disappears',file:'js/core/appbar.js',
+    from:"themeSwitch({ caption: '主題' })",to:'themeSwitch()' },
   { name:'#EVENUESTABLE Source reassignment flashes decoded pictures',file:'js/modules/public/venue-map.js',
     from:"const image = slide.firstElementChild;",to:"const image = slide.firstElementChild; image.src = image.src;" },
   { name:'#EVENUERESIZE Resize completes unwanted navigation',file:'js/modules/public/venue-map.js',
