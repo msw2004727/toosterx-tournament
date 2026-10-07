@@ -33,7 +33,7 @@ test('省略身分欄位、多人留白不會誤判重複，仍可建立已核�
   const plan = validateTeamImport(rows, { divisions: [division], asOf: date });
   expect(plan.errors).toEqual([]);
   expect(plan.teams[0].members).toHaveLength(2);
-  expect(plan.teams[0].members.every(m => m.status === 'approved' && m.identityComplete === false && m.nameKind === 'nickname')).toBe(true);
+  expect(plan.teams[0].members.every(m => m.status === 'approved' && m.identityComplete === false && m.nameKind === 'real')).toBe(true);
 });
 test.each([{ birthDate: '', idLast4: '' }, { birthDate: '2017-01-01', idLast4: '' }, { birthDate: '', idLast4: '0012' }])('允許部分補件但不當作完整 %j', fields => {
   expect(validateIdentity(fields, division, date)).toEqual({ errors: [], complete: false });

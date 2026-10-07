@@ -218,6 +218,9 @@ npm run deploy:fn:demo         Cloud Functions（需 Blaze；predeploy 會自動
 `functions/member-identity.js` 交易驗角色、年齡與版本，允許同人跨隊，保留修改及檢錄失效稽核。
 待補資料不可勾出賽，rules 檢查實際欄位與 identityRevision，公開投影不擴充個資。
 CSV 說明表逐欄標示必填、格式與範例，下載 CSV UTF-8 範本後填寫；公開投影不含生日或身分證後四碼。
+2026-10-07 主辦更新：CSV 只保留組別、球隊名稱必填，球員欄位均可留空或省略。
+有填才驗格式，匯入不檢查年齡資格，也不依賴賽事日期設定；僅有球隊資料的列建立零人球隊，不新增佔位球員。
+匯入回報人數依實際 members 計算。後台補件與檢錄的既有資格、隱私及權限規則維持。
 
 2026-09-29 主辦回報「另存 UTF-8 仍被拒絕」：修正前端把所有 TypeError 誤標為編碼錯誤的問題。
 `js/lib/csv-file.js` 支援 UTF-8／Big5／含 BOM 的 UTF-16，提供編碼選單及 FileReader 備援；

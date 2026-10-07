@@ -38,10 +38,10 @@ test('多隊分組、直接核准、未成年只以暱稱投影', () => {
   expect(plan.teams[0].members[0]).not.toHaveProperty('guardianUid');
 });
 test.each([
-  { divisionId: 'missing' }, { birthDate: '115-01-01' }, { birthDate: '2020-02-30' }, { birthDate: '2015-08-01' },
-  { birthDate: '2027-01-01' }, { idLast4: '12' }, { idLast4: 'A123456789' }, { jerseyNo: '1.5' }, { jerseyNo: '-1' },
-  { jerseyNo: '1000' }, { playerName: '' }, { teamName: 'x\nname' }, { isCaptain: 'maybe' }, { jerseyNo: 5 }
-])('第 2 列格式或資格錯誤會擋匯入 %j', patch => {
+  { divisionId: 'missing' }, { birthDate: '115-01-01' }, { birthDate: '2020-02-30' },
+  { idLast4: '12' }, { idLast4: 'A123456789' }, { jerseyNo: '1.5' }, { jerseyNo: '-1' },
+  { jerseyNo: '1000' }, { teamName: 'x\nname' }, { isCaptain: 'maybe' }, { jerseyNo: 5 }
+])('第 2 列已填資料格式錯誤會擋匯入 %j', patch => {
   expect(errors([row(patch)])[0].row).toBe(2);
 });
 test('同隊背號重複、簡稱不同與兩位隊長均擋下', () => {
@@ -92,4 +92,23 @@ test('多人沒有背號或省略背號欄皆可匯入，0 號是有效已填值
 test.each([['0', '00'], ['7', '07']])('同隊已填背號 %s/%s 重複，跨隊可相同', (first, second) => {
   expect(errors([row({ jerseyNo: first }), row({ jerseyNo: second })]).some(e => e.message.includes('號重複'))).toBe(true);
   expect(errors([row({ jerseyNo: first }), row({ teamName: '別隊', jerseyNo: second })])).toEqual([]);
+});
+
+test('CSVPARTIAL 球員欄位可省略、可留空，只有球隊資料不建立佔位球員',()=>{
+ const rows=parseTeamCsv('divisionId,teamName\nyouth,待補隊');
+ const plan=validateTeamImport(rows,{divisions:[div]});
+ expect(plan.errors).toEqual([]);expect(plan.teams[0].members).toEqual([]);
+ const partial=validateTeamImport([row({playerName:'',birthDate:'',idLast4:'',isCaptain:'',isGoalkeeper:''})],ctx);
+ expect(partial.errors).toEqual([]);
+ expect(partial.teams[0].members[0]).toMatchObject({name:'',jerseyNo:7,birthDate:'',idLast4:'',identityComplete:false});
+});
+test('CSVFORMAT 僅驗格式，不以缺賽事日期或年齡資格擋匯入',()=>{
+ for(const birthDate of ['', '2015-08-01', '2027-01-01']){
+  expect(errors([row({birthDate})],{divisions:[div]})).toEqual([]);
+ }
+ for(const patch of [{birthDate:'2020-02-30'},{idLast4:'123'},{jerseyNo:'1.5'},{divisionId:''},{teamName:''}]){
+  expect(errors([row(patch)])).not.toEqual([]);
+ }
+ const unknown=validateTeamImport([row({birthDate:''})],ctx).teams[0].members[0];
+ expect(unknown.nameKind).toBe('real');
 });

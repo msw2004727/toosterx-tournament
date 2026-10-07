@@ -12,6 +12,9 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  {name:'FN#CSVIMPORTCOUNT 純球隊列錯算球員人數',file:'functions/team-import.js',
+    from:'playerCount: prepared.reduce((n, team) => n + team.members.length, 0)',to:'playerCount: rows.length',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-import.test.js --testNamePattern=CSVPARTIAL --silent'},
   { name:'FN#SCORER-POLICY 重建看板忽略禁用統計', file:'functions/pipeline.js',
     from:'enabled: divisionSnap.data()?.stats?.scorers !== false',to:'enabled: true',
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/scorer-policy.test.js --silent' },

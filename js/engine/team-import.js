@@ -1,6 +1,6 @@
 /** CSV 球隊名冊：前端預覽與伺服器共用，任何錯誤都整份拒絕。 */
 import { parseYmd } from './eligibility.js';
-import { validateIdentity, validateJerseyNo } from './member-identity.js';
+import { validateJerseyNo } from './member-identity.js';
 import { isMinor } from './privacy.js';
 import { toCsv } from './csv.js';
 
@@ -11,7 +11,7 @@ export const IMPORT_COLUMNS = [
   ['playerName', '球員姓名或暱稱'], ['jerseyNo', '背號'], ['birthDate', '出生日期'],
   ['idLast4', '身分證後四碼'], ['isGoalkeeper', '守門員'], ['isCaptain', '隊長']
 ];
-const REQUIRED = ['divisionId', 'teamName', 'playerName'];
+const REQUIRED = ['divisionId', 'teamName'];
 export const normalizedTeamName = name => String(name ?? '').normalize('NFKC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('zh-TW');
 export const importTeamKey = (divisionId, name) => JSON.stringify([divisionId, normalizedTeamName(name)]);
 
@@ -44,7 +44,7 @@ export function parseTeamCsv(text) {
   }
   if (quoted) throw new Error('CSV 有未關閉的雙引號。');
   endRow();
-  if (table.length < 2) throw new Error('CSV 需要標題列及至少一位球員。');
+  if (table.length < 2) throw new Error('CSV 需要標題列及至少一筆球隊或球員資料。');
   const aliases = new Map(IMPORT_COLUMNS.flatMap(([key, label]) => [[key, key], [label, key]]));
   const headers = table.shift().map(h => aliases.get(h));
   if (headers.some(h => !h)) throw new Error('CSV 有不支援的欄位，請使用下載的範本（勿包含完整身分證字號或聯絡資料）。');
@@ -69,7 +69,6 @@ export function validateTeamImport(rows, { divisions = [], existingTeams = [], a
   const errors = [], teams = new Map();
   const add = (row, message) => errors.push({ row, message });
   if (!Array.isArray(rows) || !rows.length || rows.length > IMPORT_MAX_ROWS) return { teams: [], errors: [{ row: 0, message: `請提供 1–${IMPORT_MAX_ROWS} 位球員。` }] };
-  if (!parseYmd(asOf)) return { teams: [], errors: [{ row: 0, message: '賽事日期未設定，無法檢查參賽資格。' }] };
   const exists = new Set(existingTeams.map(t => importTeamKey(t.divisionId, t.name)));
   for (const [i, raw] of rows.entries()) {
     const rowNo = i + 2;
@@ -87,8 +86,11 @@ export function validateTeamImport(rows, { divisions = [], existingTeams = [], a
     }
     const jersey = validateJerseyNo(r.jerseyNo);
     if (jersey.error) add(rowNo, jersey.error);
-    const identity = validateIdentity(r, div, asOf);
-    for (const message of identity.errors) add(rowNo, message);
+    // Administrative import validates supplied values, not registration completeness
+    // or eligibility. Missing dates/settings do not prevent saving a roster.
+    if (r.birthDate && !parseYmd(r.birthDate)) add(rowNo, '出生日期須為有效西元 YYYY-MM-DD。');
+    if (r.idLast4 && !/^\d{4}$/.test(r.idLast4)) add(rowNo, '身分證後四碼須為四位數字（含開頭的 0），勿填完整字號。');
+    const identity = { complete: !!r.birthDate && !!r.idLast4 && !!parseYmd(r.birthDate) && /^\d{4}$/.test(r.idLast4) };
     const flag = key => {
       if (['', '否', 'false', '0'].includes(r[key])) return false;
       if (['是', 'true', '1'].includes(r[key])) return true;
@@ -102,10 +104,13 @@ export function validateTeamImport(rows, { divisions = [], existingTeams = [], a
     }
     const team = teams.get(key);
     if (r.shortName && team.shortName !== r.shortName) add(rowNo, '同一球隊的簡稱不一致。');
+    const isGoalkeeper = flag('isGoalkeeper'), isCaptain = flag('isCaptain');
+    const hasMemberData = ['playerName', 'jerseyNo', 'birthDate', 'idLast4'].some(key => !!r[key]) || isGoalkeeper || isCaptain;
+    if (!hasMemberData) continue; // A team-only row does not create a placeholder player.
     const member = {
-      name: r.playerName, nameKind: isMinor(r.birthDate, asOf, 18) ? 'nickname' : 'real',
+      name: r.playerName, nameKind: parseYmd(r.birthDate) && parseYmd(asOf) && isMinor(r.birthDate, asOf, 18) ? 'nickname' : 'real',
       birthDate: r.birthDate, idLast4: r.idLast4, identityComplete: identity.complete, jerseyNo: jersey.value,
-      isGoalkeeper: flag('isGoalkeeper'), isCaptain: flag('isCaptain'), kind: 'player', role: 'player', status: 'approved'
+      isGoalkeeper, isCaptain, kind: 'player', role: 'player', status: 'approved'
     };
     if (member.jerseyNo != null && team.members.some(m => m.jerseyNo === member.jerseyNo)) add(rowNo, `「${team.name}」的 ${r.jerseyNo} 號重複。`);
     if (member.isCaptain && team.members.some(m => m.isCaptain)) add(rowNo, `「${team.name}」只能有一位場上隊長。`);

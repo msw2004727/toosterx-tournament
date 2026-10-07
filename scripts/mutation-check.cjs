@@ -10,6 +10,15 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  {name:'#CSVOPTIONAL 球員姓名又變必填',file:'js/engine/team-import.js',
+    from:"const REQUIRED = ['divisionId', 'teamName'];",to:"const REQUIRED = ['divisionId', 'teamName', 'playerName'];",
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/team-import.test.js --silent'},
+  {name:'#CSVTEAMONLY 建立空白佔位球員',file:'js/engine/team-import.js',
+    from:'if (!hasMemberData) continue;',to:'if (false) continue;',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/team-import.test.js --silent'},
+  {name:'#CSVFORMAT 空生日又擋下',file:'js/engine/team-import.js',
+    from:'if (r.birthDate && !parseYmd(r.birthDate))',to:'if (!parseYmd(r.birthDate))',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/team-import.test.js --silent'},
   { name:'#GESTUREZOOM Multi-touch zoom is not cancelled', file:'js/core/gesture-zoom.js',
     from:'event.touches.length > 1', to:'event.touches.length > 2',
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/gesture-zoom.test.js --silent' },

@@ -186,7 +186,7 @@ test('停用管理員、未確認名冊及惡意 eventId 不能寫入', async ()
   await expect(importTeamsFor(req)).rejects.toMatchObject({ code: 'invalid-argument' });
 });
 test('伺服器重新驗證：壞資料混在後面不會留下前面的隊伍或稽核', async () => {
-  await expect(importTeamsFor(request([row(), row({ teamName: '壞隊', idLast4: '9999', birthDate: '2010-01-01' })]))).rejects.toMatchObject({ code: 'invalid-argument' });
+  await expect(importTeamsFor(request([row(), row({ teamName: '壞隊', idLast4: '9999', birthDate: '2010-02-30' })]))).rejects.toMatchObject({ code: 'invalid-argument' });
   expect((await root().collection('teams').get()).empty).toBe(true);
   expect((await root().collection('audits').get()).empty).toBe(true);
 });
@@ -203,11 +203,11 @@ test('既有跨隊同人可新增，仍禁止覆蓋同名球隊', async () => {
   await expect(importTeamsFor(request([row({ idLast4: '9999' })]))).rejects.toMatchObject({ code: 'invalid-argument' });
   expect((await root().collection('teams').get()).size).toBe(2);
 });
-test('不存在的賽事與缺少日期一律擋下', async () => {
+test('不存在賽事仍擋下，缺少賽事日期可匯入', async () => {
   await root().delete();
   await expect(importTeamsFor(request())).rejects.toMatchObject({ code: 'failed-precondition' });
   await root().set({ name: '缺日期' });
-  await expect(importTeamsFor(request())).rejects.toMatchObject({ code: 'invalid-argument' });
+  await expect(importTeamsFor(request())).resolves.toMatchObject({teamCount:1,playerCount:1});
 });
 
 const editRequest = (teamId, over = {}, uid = 'admin') => ({ auth: uid ? { uid } : null, data: { eventId: E, teamId, memberId: `p-${teamId.slice(4)}-1`, birthDate: '2017-01-02', idLast4: '0001', revision: 0, reason: '依證件補填', ...over } });
@@ -331,4 +331,16 @@ test('更改身分讓舊檢錄失效，待開賽場次退回檢錄且不動對�
   expect((await root().collection('checkins').doc('match__p-11a0e9e231b01869997d7297bd4231f7-1').get()).data()).toMatchObject({ result: null, failReason: 'IDENTITY_CHANGED' });
   expect((await root().collection('matches').doc('match').get()).data()).toMatchObject({ status: 'checkin', score: { home: 0, away: 0 }, checkin: { homeConfirmed: false, awayConfirmed: true, homePresent: null } });
   expect((await root().collection('audits').doc(saved.auditId).get()).data().before.checkins).toEqual([{ checkinId: 'match__p-11a0e9e231b01869997d7297bd4231f7-1', result: 'pass', scannedBy: null, scannedAt: null }]);
+});
+
+test('CSVPARTIAL 球隊與部分球員資料可實際寫入，回報不含空白佔位人數',async()=>{
+ const empty={playerName:'',jerseyNo:'',birthDate:'',idLast4:'',isCaptain:'',isGoalkeeper:''};
+ const result=await importTeamsFor(request([row({...empty,teamName:'只有球隊',shortName:''}),row({...empty,teamName:'部分資料',shortName:'',jerseyNo:'167'})]));
+ expect(result).toMatchObject({teamCount:2,playerCount:1});
+ const refs=result.teamIds.map(id=>root().collection('teams').doc(id));
+ expect((await refs[0].get()).data()).toMatchObject({memberCount:0,playerCount:0,status:'approved'});
+ expect((await refs[0].collection('members').get()).size).toBe(0);
+ const members=await refs[1].collection('members').get();expect(members.size).toBe(1);
+ expect(members.docs[0].data()).toMatchObject({name:'',jerseyNo:167,birthDate:'',idLast4:'',identityComplete:false});
+ expect((await root().collection('audits').doc(result.importId).get()).data().after.playerCount).toBe(1);
 });

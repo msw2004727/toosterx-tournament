@@ -47,7 +47,7 @@ test('CSV 同隊 30 人可完整預覽及確認匯入，無 15 人上限阻擋 @
 
 test('生日後四碼可留空，多位球員能預覽並提示後補入口 @csvidentity', async ({ page }) => {
   await stub(page); await page.goto('/#/admin/team-import');
-  await expect(page.getByText('可後補', { exact: true })).toHaveCount(2);
+  await expect(page.getByText('可後補', { exact: true })).toHaveCount(3);
   await upload(page, [row({ birthDate: '', idLast4: '' }), row({ jerseyNo: '8', birthDate: '', idLast4: '', isCaptain: '' })]);
   await expect(page.getByRole('alert')).toHaveCount(0);
   await page.locator('.adm__importTeam summary').click();
@@ -193,4 +193,15 @@ test('已開啟的報名頁收到隱藏設定後立即離開表單', async ({ pa
   await expect(page.locator('.reg')).toBeVisible();
   await page.evaluate(() => window.__fake.__seed({ 'config/registration': { open: false, hidden: true } }));
   await expect(page.getByRole('heading', { name: '線上報名已關閉' })).toBeVisible();
+});
+
+test('球員資料空白可匯入，僅球隊資料不新增佔位球員 @csvpartial',async({page})=>{
+ await stub(page);await page.goto('/#/admin/team-import');
+ await page.getByLabel('上傳 CSV 球隊名冊').setInputFiles({name:'待補.csv',mimeType:'text/csv',buffer:Buffer.from('divisionId,teamName,jerseyNo\nu10,只有球隊,\nu10,部分資料,167')});
+ await expect(page.getByText('匯入預覽：2 支球隊、1 位球員')).toBeVisible();
+ await expect(page.getByRole('alert')).toHaveCount(0);
+ await page.locator('.adm__importTeam summary').nth(1).click();await expect(page.getByText(/姓名待補/)).toBeVisible();
+ await page.locator('.adm__importConfirm input').check();await page.getByRole('button',{name:'匯入並核准球隊'}).click();
+ await page.getByRole('button',{name:'確認匯入',exact:true}).click();
+ await expect(page.getByText('匯入完成：2 支球隊、1 位球員，已通過。')).toBeVisible();
 });

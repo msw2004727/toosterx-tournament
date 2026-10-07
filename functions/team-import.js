@@ -56,7 +56,7 @@ export async function importTeamsFor(request) {
         tx.create(ref.collection('roster').doc(memberId), rosterProjection(member, { teamId: team.teamId, divisionId: team.divisionId, asOf }));
       }
     }
-    const result = { importId: auditRef.id, teamCount: prepared.length, playerCount: rows.length, teamIds: prepared.map(t => t.teamId) };
+    const result = { importId: auditRef.id, teamCount: prepared.length, playerCount: prepared.reduce((n, team) => n + team.members.length, 0), teamIds: prepared.map(t => t.teamId) };
     tx.create(auditRef, {
       auditId: auditRef.id, eventId, action: 'team.import', entity: 'event', entityId: eventId,
       before: null, after: result, reason: '管理員確認 CSV 名冊後匯入，直接核准並鎖定名單。',

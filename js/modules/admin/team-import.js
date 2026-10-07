@@ -12,7 +12,7 @@ const CSV_GUIDE = {
   divisionId: ['必填', '使用下方列出的代碼，例如 u10；不要填組別中文名稱。'],
   teamName: ['必填', '例如 飛達小將。同組別、同隊名的列會合併為一隊；不同球員每列重複填隊名。'],
   shortName: ['選填', '例如 飛達。最多 20 字，同隊須一致；留白時使用隊名的前 20 字。'],
-  playerName: ['必填', '例如 小飛。未滿 18 歲填暱稱，成年可填姓名；最多 40 字。'],
+  playerName: ['可後補', '可留白或省略此欄，例如 小飛。未滿 18 歲填暱稱，成年可填姓名；最多 40 字。只有球隊資料的列不會新增空白球員。'],
   jerseyNo: ['選填', '例如 7 或 0；可留空，多位球員可同時沒有背號。有填須為 0–999 的整數，同隊不可重複，管理員可於球隊名單補填、修改或清空。'],
   birthDate: ['可後補', '可留白，由管理員後續補填。例如 2017-01-01。西元年四碼，月份與日期各兩碼，以半形 - 分隔；不使用民國年。'],
   idLast4: ['可後補', '可留白，由管理員後續補填。例如 0012。只填四位數字；Excel 請設為「文字」以保留開頭 0，勿填完整身分證。'],
@@ -78,7 +78,7 @@ export async function adminTeamImportPage({ scope, view }) {
     const plan = state.plan;
     mount(root,
       adminHead('匯入球隊名冊', { sub: 'CSV 批次新增球隊與球員' }),
-      el('p', { class: 'adm__note', text: '一列一位球員；同組別、同隊名會合併為一支球隊。CSV 匯入不受每隊 15 人上限限制；每份檔案最多 100 隊、1,000 位球員、1 MB。' }),
+      el('p', { class: 'adm__note', text: '球隊名稱與組別必填，球員資料均可留空或省略欄位，有填才檢查格式。只有球隊資料的列會建立球隊，不新增空白球員。同組別、同隊名會合併為一支球隊。CSV 匯入不受每隊 15 人上限限制；每份檔案最多 100 隊、1,000 位球員、1 MB。' }),
       el('p', { class: 'adm__note', text: '同一球員可參加不同球隊／盃賽，不因生日與身分證後四碼相同而阻擋。相同球隊仍不可重複匯入；背號可留空，只有同隊已填寫的背號不可重複。' }),
       el('p', { class: 'adm__note', text: '未滿 18 歲只填暱稱，請勿填真名。出生日期填西元 YYYY-MM-DD，身分證只填後四碼；Excel 請保留開頭的 0，另存為 CSV UTF-8。守門員、隊長填「是／否」，可留白。' }),
       el('p', { class: 'adm__note', text: '生日與身分證後四碼可先留空，之後到「查看球隊清單 → 已通過 → 展開球隊 → 補填資料／修改資料」處理。球隊可先排賽程；未補齊的球員標示待補資料，不能確認出賽。公開名冊不顯示生日與後四碼。' }),
@@ -128,7 +128,7 @@ export async function adminTeamImportPage({ scope, view }) {
         ]) : null,
         ...plan.teams.map(t => el('details', { class: 'adm__importTeam division-card', ...divisionThemeAttrs(t.divisionId) }, [
           el('summary', { text: `${t.name} · ${state.divisions.find(d => d.divisionId === t.divisionId)?.name ?? t.divisionId} · ${t.members.length} 人` }),
-          el('ul', {}, t.members.map(m => el('li', { text: `#${m.jerseyNo ?? '—'} ${m.name} · ${m.birthDate || '生日待補'} · 末四碼 ${m.idLast4 || '待補'}${m.identityComplete ? '' : ' · 待補資料'}${m.isGoalkeeper ? ' · 守門員' : ''}${m.isCaptain ? ' · 隊長' : ''}` })))
+          el('ul', {}, t.members.map(m => el('li', { text: `#${m.jerseyNo ?? '—'} ${m.name || '姓名待補'} · ${m.birthDate || '生日待補'} · 末四碼 ${m.idLast4 || '待補'}${m.identityComplete ? '' : ' · 待補資料'}${m.isGoalkeeper ? ' · 守門員' : ''}${m.isCaptain ? ' · 隊長' : ''}` })))
         ])),
         !plan.errors.length ? el('label', { class: 'adm__importConfirm' }, [
           el('input', { type: 'checkbox', checked: state.confirmed, disabled: state.busy, onChange: e => { state.confirmed = e.target.checked; render(); } }),

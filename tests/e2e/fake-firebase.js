@@ -561,7 +561,7 @@ export const httpsCallable = (_fns, name) => async (payload) => {
     const rows = parseTeamCsv(payload.csv);
     const divisions = [...store.entries()].filter(([p]) => p.startsWith(`events/${payload.eventId}/divisions/`)).map(([, d]) => d);
     const plan = validateTeamImport(rows, { divisions, asOf: '2026-10-09' });
-    return { data: { ok: true, data: { importId: 'fake-import', teamCount: plan.teams.length, playerCount: rows.length } } };
+    return { data: { ok: true, data: { importId: 'fake-import', teamCount: plan.teams.length, playerCount: plan.teams.reduce((n, team) => n + team.members.length, 0) } } };
   }
   if (name === 'issuePlayerQr') {
     // 綁 LINE 帳號配發：沒登入就拒絕；有登入就配（固定 FEDA-0182，spec 可用 __FAKE_PASS_ID 換）
