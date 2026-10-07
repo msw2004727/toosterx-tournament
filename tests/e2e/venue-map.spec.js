@@ -11,16 +11,26 @@ async function setup(page, date='2026-10-09T04:00:00Z') {
 }
 const dialog=page=>page.getByRole('dialog',{name:'今日場地配置'});
 test('10/9 首張 ABCD、原圖完整、左右滑動及按鈕換圖 @venuemap',async({page})=>{
- await setup(page);const d=dialog(page),image=d.locator('img');
+ await setup(page);const d=dialog(page),image=d.locator('.venue-map__slide[aria-hidden="false"] img');
  await expect(image).toHaveAttribute('src',/taiyuan-abcd/);
  await expect(image).toHaveJSProperty('naturalWidth',1536);
  expect(await image.evaluate(e=>getComputedStyle(e).objectFit)).toBe('contain');
+ expect(await d.locator('.venue-map__track').evaluate(e=>getComputedStyle(e).transitionDuration)).toBe('0.32s');
  await d.getByRole('button',{name:'下一張場地圖'}).click();await expect(image).toHaveAttribute('src',/taiyuan-ab\.png/);
  const box=await image.boundingBox();const x=box.x+box.width*.75,y=box.y+box.height/2;
  await image.dispatchEvent('pointerdown',{pointerId:1,pointerType:'touch',isPrimary:true,clientX:x,clientY:y});
+ await image.dispatchEvent('pointermove',{pointerId:1,pointerType:'touch',isPrimary:true,clientX:x-60,clientY:y});
+ await expect.poll(()=>d.locator('.venue-map__track').evaluate(e=>parseFloat(e.style.getPropertyValue('--venue-offset')))).toBe(-60);
+ const dragPosition=await image.evaluate(e=>e.getBoundingClientRect().left-e.closest('.venue-map__stage').getBoundingClientRect().left);
+ expect(Math.round(dragPosition)).toBe(-60);
  await image.dispatchEvent('pointerup',{pointerId:1,pointerType:'touch',isPrimary:true,clientX:x-100,clientY:y});
  await expect(image).toHaveAttribute('src',/taiyuan-abcd/);
  await d.press('ArrowLeft');await expect(image).toHaveAttribute('src',/taiyuan-ab\.png/);
+ for(const pattern of [/taiyuan-abcd/,/taiyuan-ab\.png/,/taiyuan-abcd/,/taiyuan-ab\.png/]){
+  await d.getByRole('button',{name:'下一張場地圖'}).click();await expect(image).toHaveAttribute('src',pattern);
+  expect(await d.locator('.venue-map__track').evaluate(e=>e.style.getPropertyValue('--venue-offset'))).toBe('0px');
+  expect(await image.evaluate(e=>Math.abs(e.getBoundingClientRect().left-e.closest('.venue-map__stage').getBoundingClientRect().left))).toBeLessThan(1);
+ }
  const bounds=await d.boundingBox();const size=page.viewportSize();expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.x+bounds.width).toBeLessThanOrEqual(size.width+1);expect(bounds.y+bounds.height).toBeLessThanOrEqual(size.height+1);
  await page.screenshot({path:`tmp/venue-map-${size.width}.png`});
  await d.getByRole('button',{name:'關閉場地配置'}).click();await expect(d).toHaveCount(0);
@@ -33,16 +43,27 @@ test('同日不再顯示、可手動重開、台灣午夜後恢復並換 AB 優�
  await page.getByRole('button',{name:'場地配置',exact:true}).click();await expect(dialog(page)).toBeVisible();await expect(dialog(page).getByRole('checkbox')).toBeChecked();
  await dialog(page).press('Escape');await expect(dialog(page)).toHaveCount(0);
  await page.clock.setFixedTime(new Date('2026-10-09T16:00:00Z'));await page.reload();
- await expect(dialog(page)).toBeVisible();await expect(dialog(page).locator('img')).toHaveAttribute('src',/taiyuan-ab\.png/);
+ await expect(dialog(page)).toBeVisible();await expect(dialog(page).locator('.venue-map__slide[aria-hidden="false"] img')).toHaveAttribute('src',/taiyuan-ab\.png/);
  await expect(dialog(page).getByRole('checkbox')).not.toBeChecked();
 });
 test('深色主題、取消隱藏以及路由離開後清理 @venuemap',async({page})=>{
  await setup(page,'2026-10-07T04:00:00Z');
  await page.evaluate(()=>document.documentElement.dataset.theme='dark');
- await expect(dialog(page).locator('img')).toHaveAttribute('src',/taiyuan-ab\.png/);
+ await expect(dialog(page).locator('.venue-map__slide[aria-hidden="false"] img')).toHaveAttribute('src',/taiyuan-abcd/);
  await dialog(page).getByRole('checkbox').check();await dialog(page).getByRole('checkbox').uncheck();
  await page.screenshot({path:`tmp/venue-map-dark-${page.viewportSize().width}.png`});
  await page.evaluate(()=>location.hash='/schedule');await expect(dialog(page)).toHaveCount(0);
  expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe('hidden');
  await page.evaluate(()=>location.hash='/');await expect(dialog(page)).toBeVisible();
+});
+
+test('18:00 前後自動換序，已開啟彈窗也切到 AB，之後永久 AB 優先 @venuemap',async({page})=>{
+ await setup(page,'2026-10-09T09:59:59Z');
+ const image=dialog(page).locator('.venue-map__slide[aria-hidden="false"] img');
+ await expect(image).toHaveAttribute('src',/taiyuan-abcd/);
+ await page.clock.setFixedTime(new Date('2026-10-09T10:00:00Z'));
+ await expect(image).toHaveAttribute('src',/taiyuan-ab\.png/);
+ await expect(dialog(page).locator('.venue-map__caption')).toContainText('1 / 2');
+ await page.clock.setFixedTime(new Date('2027-10-09T04:00:00Z'));await page.reload();
+ await expect(dialog(page).locator('.venue-map__slide[aria-hidden="false"] img')).toHaveAttribute('src',/taiyuan-ab\.png/);
 });

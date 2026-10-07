@@ -15,8 +15,14 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name:'#EVENUEMAPSMOOTH 缺少平滑過渡',file:'css/modules/public.css',
+    from:'transition:transform .32s cubic-bezier(.22,.61,.36,1)',to:'transition:none' },
+  { name:'#EVENUEMAPVISUAL CSS 未實際跟手位移',file:'css/modules/public.css',
+    from:'calc(-100% + var(--venue-offset,0px))',to:'-100%' },
+  { name:'#EVENUEMAPDRAG 圖片未跟隨手指移動',file:'js/modules/public/venue-map.js',
+    from:'if (Math.abs(dx) > Math.abs(dy)) offset(',to:'if (false) offset(' },
   { name:'#EVENUEMAPSWIPE 左右滑動沒有換圖', file:'js/modules/public/venue-map.js',
-    from:'Math.abs(dx) >= 40',to:'false',testCmd:'npx playwright test tests/e2e/venue-map.spec.js --grep "10/9 首張" --project=chromium-mobile --workers=1' },
+    from:'const commit = !cancelled && horizontal &&',to:'const commit = false &&',testCmd:'npx playwright test tests/e2e/venue-map.spec.js --grep "10/9 首張" --project=chromium-mobile --workers=1' },
   { name: '#ECLOCKVALUE 時間編輯送出錯誤秒數', file: 'js/modules/staff/clock-editor.js',
     from: 'context,seconds:value(),reason:reason.value.trim()', to: 'context,seconds:0,reason:reason.value.trim()' },
   { name: '#EMEDICALTAP 踩點只有選取沒有登錄', file: 'js/modules/booth/booth.js',

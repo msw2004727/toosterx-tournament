@@ -1,5 +1,13 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EVENUEMAPSMOOTH: { spec:'tests/e2e/venue-map.spec.js',grep:'10/9 首張',minTests:1,
+    assertions:["expect(await d.locator('.venue-map__track').evaluate(e=>getComputedStyle(e).transitionDuration)).toBe('0.32s')"],
+    failure:"expect(await d.locator('.venue-map__track').evaluate(e=>getComputedStyle(e).transitionDuration)).toBe('0.32s')" },
+  EVENUEMAPVISUAL: { spec:'tests/e2e/venue-map.spec.js',grep:'10/9 首張',minTests:1,
+    assertions:['expect(Math.round(dragPosition)).toBe(-60)'],failure:'expect(Math.round(dragPosition)).toBe(-60)' },
+  EVENUEMAPDRAG: { spec:'tests/e2e/venue-map.spec.js',grep:'10/9 首張',minTests:1,
+    assertions:["await expect.poll(()=>d.locator('.venue-map__track').evaluate(e=>parseFloat(e.style.getPropertyValue('--venue-offset')))).toBe(-60)"],
+    failure:"await expect.poll(()=>d.locator('.venue-map__track').evaluate(e=>parseFloat(e.style.getPropertyValue('--venue-offset')))).toBe(-60)" },
   EVENUEMAPSWIPE: { spec:'tests/e2e/venue-map.spec.js', grep:'10/9 首張', minTests:1,
     assertions:["await expect(image).toHaveAttribute('src',/taiyuan-abcd/)"],
     failure:"await expect(image).toHaveAttribute('src',/taiyuan-abcd/)" },

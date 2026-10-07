@@ -1,4 +1,4 @@
-/** 以活動時區的日曆日決定圖片順序與當日隱藏，不使用首頁預覽日期。 */
+/** 圖片順序使用設定的截止時間；當日隱藏以活動時區判定，不使用首頁預覽日期。 */
 export function venueMapDay(date = new Date(), timezone = 'Asia/Taipei') {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: timezone,
     year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
@@ -6,8 +6,8 @@ export function venueMapDay(date = new Date(), timezone = 'Asia/Taipei') {
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 export const venueMapStorageKey = eventId => `venue-map:${eventId}:hidden-day`;
-export function orderedVenueMaps(maps, day) {
-  const first = maps.find(m => m.preferredDate === day) ?? maps.find(m => m.default) ?? maps[0];
+export function orderedVenueMaps(maps, instant = new Date()) {
+  const first = maps.find(m => instant.getTime() < Date.parse(m.preferredUntil)) ?? maps.find(m => m.default) ?? maps[0];
   return first ? [first, ...maps.filter(m => m !== first)] : [];
 }
 export function shouldShowVenueMap(storage, eventId, day) {

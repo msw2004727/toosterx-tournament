@@ -10,8 +10,11 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  { name:'#VENUEMAP-CUTOFF 18:00 邊界仍顯示四場圖',file:'js/lib/venue-map-policy.js',
+    from:'instant.getTime() < Date.parse(m.preferredUntil)',to:'instant.getTime() <= Date.parse(m.preferredUntil)',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/venue-map.test.js --silent' },
   { name:'#VENUEMAP-DATE 10/9 未優先四場圖', file:'js/lib/venue-map-policy.js',
-    from:'maps.find(m => m.preferredDate === day)',to:'maps.find(m => false)',
+    from:'maps.find(m => instant.getTime() < Date.parse(m.preferredUntil))',to:'maps.find(m => false)',
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/venue-map.test.js --silent' },
   { name:'#VENUEMAP-DAY 隱藏跨日不復原', file:'js/lib/venue-map-policy.js',
     from:'storage.getItem(venueMapStorageKey(eventId)) !== day',to:'storage.getItem(venueMapStorageKey(eventId)) == null',

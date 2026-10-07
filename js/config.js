@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20261007a';
+export const CACHE_VERSION = '0.20261007b';
 
 /** PWA 安裝入口：右側「我的／登入」左邊提供原生安裝或各平台教學。 */
 export const PWA_INSTALL = true;
@@ -23,10 +23,10 @@ export const EVENT = {
   timezone: 'Asia/Taipei'
 };
 
-/** 首頁場地配置圖：指定日期優先，其餘日期採預設圖。 */
+/** 首頁場地配置圖：截止時間前優先四場圖，截止後永久採預設兩場圖。 */
 export const VENUE_MAPS = [
   { id: 'ab', src: '/img/venue/taiyuan-ab.png', label: 'AB 兩場配置', default: true },
-  { id: 'abcd', src: '/img/venue/taiyuan-abcd.png', label: 'ABCD 四場配置（10/9）', preferredDate: '2026-10-09' }
+  { id: 'abcd', src: '/img/venue/taiyuan-abcd.png', label: 'ABCD 四場配置', preferredUntil: '2026-10-09T18:00:00+08:00' }
 ];
 
 /** 組別顯示順序與代碼（實際賽制設定放 Firestore config/formats） */
