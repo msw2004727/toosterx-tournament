@@ -12,8 +12,10 @@ import { EVENT } from './js/config.js';
 import { mountAppBar } from './js/core/appbar.js';
 import { initInstall } from './js/core/install.js';
 import { initGestureZoom } from './js/core/gesture-zoom.js';
+import { venueMapPopup } from './js/modules/public/venue-map.js';
 
 initGestureZoom();
+window.addEventListener('hashchange', () => venueMapPopup().close());
 
 const App = {
   env: ENV,
@@ -42,7 +44,7 @@ async function boot() {
   // 「登入」或「我的」。appbar 自己不 import firebase（見那個檔的說明），
   // 所以由這裡把兩支函式傳進去。
   const { user, onAuth } = await import('./js/core/firebase.js');
-  mountAppBar({ isSignedIn: () => !!user(), onAuthChange: onAuth });
+  mountAppBar({ onViewVenueMap: () => venueMapPopup().open(), isSignedIn: () => !!user(), onAuthChange: onAuth });
 
   Object.assign(App, { navigate });
 

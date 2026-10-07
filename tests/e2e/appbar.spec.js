@@ -191,7 +191,7 @@ test('SVG 安裝到桌面位於右側我的／登入左側、窄版不溢出 @ap
   const btn = page.locator('.apphead__install');
   await expect(btn).toBeVisible();
   await expect(btn).toHaveText('安裝到桌面');
-  await expect(page.locator('.apphead__spacer + .apphead__install + a[data-nav]')).toHaveCount(1);
+  await expect(page.locator('.apphead__spacer + .apphead__venue + .apphead__install + a[data-nav]')).toHaveCount(1);
   await expect(btn.locator('svg')).toHaveCount(1);
   expect(await btn.locator('span').evaluate(e => e.getBoundingClientRect().width)).toBeGreaterThan(20);
   expect(await page.locator('.apphead').evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);

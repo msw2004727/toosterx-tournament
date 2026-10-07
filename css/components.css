@@ -389,6 +389,15 @@ input[type="file"]::file-selector-button{
 
 .apphead__install .apphead__linkText{position:static;width:auto;height:auto;overflow:visible;clip-path:none}
 
+/* Keep both frequent actions readable without squeezing the narrow header. */
+.apphead__venue .apphead__linkText{position:static;width:auto;height:auto;overflow:visible;clip-path:none}
+@media (max-width:599px){
+  .apphead{gap:0;padding-left:var(--sp-2);padding-right:var(--sp-2)}
+  .apphead__link:not(.apphead__venue) .apphead__linkText{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  .apphead__venue,.apphead__install{font-size:12px;padding:0 var(--sp-1)}
+  .apphead__venue svg,.apphead__install svg{display:none}
+}
+
 /* 安裝教學（iOS／LINE 內建瀏覽器） */
 .install__note{margin:0 0 var(--sp-3);line-height:1.7}
 .install__steps{

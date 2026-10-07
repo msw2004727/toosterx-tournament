@@ -124,6 +124,7 @@ function installButton() {
  * @param {HTMLElement} [o.host]
  */
 export function mountAppBar({
+  onViewVenueMap = () => {},
   isSignedIn = () => false,
   onAuthChange = () => () => {},
   host = document.getElementById('app-header')
@@ -164,12 +165,16 @@ export function mountAppBar({
     }
 
     const links = defs.map(d => navLink({ ...d, current: d.isCurrent ? d.isCurrent() : false }));
+    const venue = el('button', {
+      class: 'apphead__link apphead__venue', type: 'button',
+      'aria-label': '查看場地圖', title: '查看場地圖', onClick: onViewVenueMap
+    }, [icon('table'), el('span', { class: 'apphead__linkText', text: '查看場地圖' })]);
     const install = PWA_INSTALL ? installButton() : null;
     const theme = themeSwitch();
 
     const bar = el('nav', { class: 'apphead', 'aria-label': '全站導覽' });
     // 首頁靠左；安裝、登入／我的與主題靠右
-    mount(bar, links[0], el('div', { class: 'apphead__spacer' }), install, links[1], theme);
+    mount(bar, links[0], el('div', { class: 'apphead__spacer' }), venue, install, links[1], theme);
     host.replaceChildren(bar);
     parts = { links, install, theme, signedIn };
   };

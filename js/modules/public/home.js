@@ -10,7 +10,7 @@
  * 沒有 live 場次時整區隱藏，「接下來」上移（§2.3）。
  */
 
-import { createVenueMapPopup } from './venue-map.js';
+import { venueMapPopup } from './venue-map.js';
 import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, mount, skeleton, toast } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
@@ -27,7 +27,7 @@ import { matchRow, sectionCard, empty, pageHead, statusBadge } from './bits.js';
 export async function publicHome({ scope, view, query }) {
   const root = el('div', { class: 'pub p-home' });
   mount(view, root);
-  const venueMap = createVenueMapPopup();
+  const venueMap = venueMapPopup();
   venueMap.open({ automatic: true });
 
   const state = {
@@ -358,7 +358,7 @@ export async function publicHome({ scope, view, query }) {
     }
   }
 
-  return () => { venueMap.dispose(); disposed = true; closeRankingsToast?.(); stopTicker?.(); stopMatches?.(); dropBoard(); };
+  return () => { venueMap.close(); disposed = true; closeRankingsToast?.(); stopTicker?.(); stopMatches?.(); dropBoard(); };
 }
 
 /** 與攤位共用活動時區及測試時間，賽前保留首日、賽後保留末日。 */

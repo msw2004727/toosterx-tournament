@@ -135,5 +135,11 @@ export function createVenueMapPopup() {
     paint(); previousFocus = document.activeElement; oldOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden'; document.body.append(dialog); dialog.showModal();
   }
-  return { open, dispose() { close(); disposed = true; } };
+  return { open, close, dispose() { close(); disposed = true; } };
+}
+
+// The header and homepage share one popup, including daily visibility preferences.
+let sharedPopup;
+export function venueMapPopup() {
+  return sharedPopup ??= createVenueMapPopup();
 }

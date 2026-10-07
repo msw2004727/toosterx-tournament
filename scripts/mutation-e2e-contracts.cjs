@@ -1,5 +1,7 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EVENUEHEADER: {spec:'tests/e2e/venue-map.spec.js',grep:'@venueheader',minTests:1,
+    assertions:['await button.click();await expect(d).toBeVisible()'],failure:'await button.click();await expect(d).toBeVisible()' },
   EVENUEMAPSMOOTH: { spec:'tests/e2e/venue-map.spec.js',grep:'10/9 首張',minTests:1,
     assertions:["expect(await d.locator('.venue-map__track').evaluate(e=>getComputedStyle(e).transitionDuration)).toBe('0.32s')"],
     failure:"expect(await d.locator('.venue-map__track').evaluate(e=>getComputedStyle(e).transitionDuration)).toBe('0.32s')" },
@@ -26,8 +28,8 @@ module.exports = {
     assertions: ["await expect(page.getByRole('dialog')).toContainText('安裝到裝置')"],
     failure: "await expect(page.getByRole('dialog')).toContainText('安裝到裝置')" },
   EPWAPOSITION: { spec: 'tests/e2e/appbar.spec.js', grep: '@pwainstall', minTests: 1,
-    assertions: ["await expect(page.locator('.apphead__spacer + .apphead__install + a[data-nav]')).toHaveCount(1)"],
-    failure: "await expect(page.locator('.apphead__spacer + .apphead__install + a[data-nav]')).toHaveCount(1)" },
+    assertions: ["await expect(page.locator('.apphead__spacer + .apphead__venue + .apphead__install + a[data-nav]')).toHaveCount(1)"],
+    failure: "await expect(page.locator('.apphead__spacer + .apphead__venue + .apphead__install + a[data-nav]')).toHaveCount(1)" },
   EFREQUENTSTAFFORDER: { spec: 'tests/e2e/my-home.spec.js', grep: '@frequentstaff', minTests: 1,
     assertions: ["await expect(buttons.first()).toContainText('賽務台')"], failure: "await expect(buttons.first()).toContainText('賽務台')" },
   EFREQUENTSTAFFCOLOR: { spec: 'tests/e2e/my-home.spec.js', grep: '@frequentstaff', minTests: 1,

@@ -67,3 +67,21 @@ test('18:00 前後自動換序，已開啟彈窗也切到 AB，之後永久 AB �
  await page.clock.setFixedTime(new Date('2027-10-09T04:00:00Z'));await page.reload();
  await expect(dialog(page).locator('.venue-map__slide[aria-hidden="false"] img')).toHaveAttribute('src',/taiyuan-ab\.png/);
 });
+
+test('上方查看場地圖在安裝左側，同日隱藏及其他頁仍可重開 @venueheader', async({page})=>{
+ await setup(page);const d=dialog(page);
+ await d.getByRole('checkbox',{name:'今日不再顯示'}).check();
+ await d.getByRole('button',{name:'關閉場地配置'}).click();
+ const button=page.getByRole('button',{name:'查看場地圖',exact:true});
+ await expect(button).toBeVisible();
+ const venueBounds=await button.boundingBox(),installBounds=await page.locator('[data-install]').boundingBox();
+ expect(venueBounds.x+venueBounds.width).toBeLessThanOrEqual(installBounds.x+1);
+ expect(await button.locator('span').evaluate(e=>getComputedStyle(e).position)).toBe('static');
+ expect(await page.locator('.apphead').evaluate(e=>e.scrollWidth)).toBeLessThanOrEqual(page.viewportSize().width);
+ await button.click();await expect(d).toBeVisible();await expect(d).toHaveCount(1);
+ await expect(d.getByRole('checkbox')).toBeChecked();
+ await d.getByRole('button',{name:'關閉場地配置'}).click();
+ await page.evaluate(()=>location.hash='/schedule');await expect(page.getByRole('tablist',{name:'日期'})).toBeVisible();
+ await button.click();await expect(d).toBeVisible();await expect(d).toHaveCount(1);
+ await d.press('Escape');await expect(d).toHaveCount(0);await expect(button).toBeFocused();
+});

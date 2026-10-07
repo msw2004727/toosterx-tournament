@@ -15,6 +15,8 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name:'#EVENUEHEADER Header button does not open venue popup',file:'app.js',
+    from:'onViewVenueMap: () => venueMapPopup().open()',to:'onViewVenueMap: () => {}' },
   { name:'#EVENUEMAPSMOOTH 缺少平滑過渡',file:'css/modules/public.css',
     from:'transition:transform .32s cubic-bezier(.22,.61,.36,1)',to:'transition:none' },
   { name:'#EVENUEMAPVISUAL CSS 未實際跟手位移',file:'css/modules/public.css',
@@ -34,7 +36,7 @@ const MUTANTS = [
   { name: '#EPWAFALLBACK broken native prompt gives no help', file: 'js/core/appbar.js',
     from: "if (await promptInstall() === 'unavailable') showInstallHelp('manual', btn);", to: 'await promptInstall();' },
   { name: '#EPWAPOSITION install entry moves away from account', file: 'js/core/appbar.js',
-    from: "links[0], el('div', { class: 'apphead__spacer' }), install,", to: "links[0], install, el('div', { class: 'apphead__spacer' })," },
+    from: "links[0], el('div', { class: 'apphead__spacer' }), venue, install,", to: "links[0], install, el('div', { class: 'apphead__spacer' }), venue," },
   { name: '#EFREQUENTSTAFFORDER daily tools no longer first', file: 'js/modules/account/my.js',
     from: 'const ready = mine.filter(f => f.route);', to: 'const ready = mine.filter(f => f.route).reverse();' },
   { name: '#EFREQUENTSTAFFCOLOR daily tools lose highlight', file: 'js/modules/account/my.js',
