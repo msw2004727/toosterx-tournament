@@ -131,6 +131,8 @@ async function go(page, hash) {
   // 靜態站由 scripts/dev-server.mjs 服務，併發數在 playwright.config.js 限制。
   await page.waitForFunction(() => !!window.__fake, null, { timeout: 30_000 });
   await page.waitForSelector('.pub', { timeout: 10_000 });
+  const venueMap = page.getByRole('dialog', { name: '今日場地配置' });
+  if (await venueMap.isVisible()) await venueMap.getByRole('button', { name: '關閉場地配置' }).click();
 }
 
 /** 整頁不得出現橫向捲軸，失敗時要說出是誰溢出 */

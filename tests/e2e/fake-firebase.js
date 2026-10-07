@@ -1,3 +1,9 @@
+// 一般功能測試已看過首頁場地圖；專屬 venue-map spec 驗證首次開啟。
+if (!window.__FAKE_VENUE_MAP_VISIBLE) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone:'Asia/Taipei', year:'numeric', month:'2-digit', day:'2-digit' }).formatToParts(new Date());
+  const value = type => parts.find(p => p.type === type).value;
+  try { localStorage.setItem('venue-map:feda-cup-2026:hidden-day', `${value('year')}-${value('month')}-${value('day')}`); } catch {}
+}
 /**
  * 記憶體版 Firebase SDK 替身（只給 E2E 用）
  * ------------------------------------------------------------------

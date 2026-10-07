@@ -58,7 +58,8 @@ for(const scheme of ['light','dark']){
     for (const logo of await page.locator('.psponsor img').all()) {
       expect(await logo.evaluate(async image => { await image.decode(); return image.naturalWidth; })).toBe(1254);
     }
-    await expect(page.locator('.p-homeShortcuts button')).toHaveCount(3);
+    await expect(page.locator('.p-homeShortcuts button')).toHaveCount(4);
+    await expect(page.getByRole('button',{name:'場地配置',exact:true})).toBeVisible();
     for(const d of DIVISIONS){const tile=page.locator(`.pdiv[data-division="${d.divisionId}"]`);await expect(tile).toHaveAttribute('data-division-tone',d.colorToken);expect(await contrast(tile)).toBeGreaterThanOrEqual(4.5)}
     await expect(page.locator('.prow[data-division-tone]').first()).toBeVisible();
     const challenge=page.locator('.pub__challengeEntry');expect(await challenge.evaluate(n=>getComputedStyle(n).borderTopWidth)).toBe('0px');

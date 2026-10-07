@@ -10,6 +10,7 @@
  * 沒有 live 場次時整區隱藏，「接下來」上移（§2.3）。
  */
 
+import { createVenueMapPopup } from './venue-map.js';
 import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, mount, skeleton, toast } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
@@ -26,6 +27,8 @@ import { matchRow, sectionCard, empty, pageHead, statusBadge } from './bits.js';
 export async function publicHome({ scope, view, query }) {
   const root = el('div', { class: 'pub p-home' });
   mount(view, root);
+  const venueMap = createVenueMapPopup();
+  venueMap.open({ automatic: true });
 
   const state = {
     date: EVENT.dates.includes(query?.get('date')) ? query.get('date') : todayInEvent(),
@@ -280,6 +283,7 @@ export async function publicHome({ scope, view, query }) {
 
   function homeShortcuts() {
     return el('nav', { class: 'p-homeShortcuts', 'aria-label': '賽事快捷功能' }, [
+      ['table', '場地配置', () => venueMap.open()],
       ['list', '完整賽程', () => navigate(`/schedule?date=${encodeURIComponent(state.date)}`)],
       ['table', '各組排名', showRankings],
       ['goal', '射手榜', () => navigate('/stats')]
@@ -354,7 +358,7 @@ export async function publicHome({ scope, view, query }) {
     }
   }
 
-  return () => { disposed = true; closeRankingsToast?.(); stopTicker?.(); stopMatches?.(); dropBoard(); };
+  return () => { venueMap.dispose(); disposed = true; closeRankingsToast?.(); stopTicker?.(); stopMatches?.(); dropBoard(); };
 }
 
 /** 與攤位共用活動時區及測試時間，賽前保留首日、賽後保留末日。 */

@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20261007';
+export const CACHE_VERSION = '0.20261007a';
 
 /** PWA 安裝入口：右側「我的／登入」左邊提供原生安裝或各平台教學。 */
 export const PWA_INSTALL = true;
@@ -22,6 +22,12 @@ export const EVENT = {
   venueName: '太原足球場',
   timezone: 'Asia/Taipei'
 };
+
+/** 首頁場地配置圖：指定日期優先，其餘日期採預設圖。 */
+export const VENUE_MAPS = [
+  { id: 'ab', src: '/img/venue/taiyuan-ab.png', label: 'AB 兩場配置', default: true },
+  { id: 'abcd', src: '/img/venue/taiyuan-abcd.png', label: 'ABCD 四場配置（10/9）', preferredDate: '2026-10-09' }
+];
 
 /** 組別顯示順序與代碼（實際賽制設定放 Firestore config/formats） */
 export const DIVISION_ORDER = ['u6', 'u8', 'u10', 'women', 'adult-fun', 'adult-open'];

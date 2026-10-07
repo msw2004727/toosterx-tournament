@@ -15,6 +15,8 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name:'#EVENUEMAPSWIPE 左右滑動沒有換圖', file:'js/modules/public/venue-map.js',
+    from:'Math.abs(dx) >= 40',to:'false',testCmd:'npx playwright test tests/e2e/venue-map.spec.js --grep "10/9 首張" --project=chromium-mobile --workers=1' },
   { name: '#ECLOCKVALUE 時間編輯送出錯誤秒數', file: 'js/modules/staff/clock-editor.js',
     from: 'context,seconds:value(),reason:reason.value.trim()', to: 'context,seconds:0,reason:reason.value.trim()' },
   { name: '#EMEDICALTAP 踩點只有選取沒有登錄', file: 'js/modules/booth/booth.js',

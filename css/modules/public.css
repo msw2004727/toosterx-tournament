@@ -18,7 +18,7 @@
 .p-homeHero__sponsor{font-size:var(--fs-sm);line-height:1.5;font-weight:600;margin:4px 0 8px}
 .p-homeHero__slogan{font-size:var(--fs-sm);line-height:1.5;margin:0}
 .p-homeHero__meta{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-3);font-size:var(--fs-xs);margin:6px 0 0;font-variant-numeric:tabular-nums}
-.p-homeShortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--border);border-radius:12px;background:var(--bg-card);margin-bottom:var(--sp-4);overflow:hidden}
+.p-homeShortcuts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--border);border-radius:12px;background:var(--bg-card);margin-bottom:var(--sp-4);overflow:hidden}
 .p-homeShortcuts button{min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;font-size:var(--fs-sm);font-weight:600;padding:12px 4px}
 .p-homeShortcuts button+button::before{content:'';position:absolute;left:0;height:30px;border-left:1px solid var(--border)}
 .p-homeShortcuts .icon{width:22px;height:22px;color:var(--accent)}
@@ -511,3 +511,26 @@ button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-colo
 .pshares__player .video{min-height:200px}
 .pshares__player .video iframe{min-height:200px}
 @media(min-width:600px){.pshares__grid[data-density="compact"]{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}}
+
+/* 首頁場地配置：保留圖片全幅，深淺主題沿用設計 tokens。 */
+.venue-map{border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-card);color:var(--text-primary);padding:0;width:min(920px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 32px);overflow:auto;box-shadow:var(--shadow-2);animation:venue-map-in .22s ease-out}
+.venue-map::backdrop{background:var(--overlay);backdrop-filter:blur(5px)}
+.venue-map__head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 20px 12px}
+.venue-map__eyebrow{font-size:12px;color:var(--text-secondary);margin:0 0 4px}
+.venue-map h2{font-size:20px;margin:0}
+.venue-map__close,.venue-map__arrow{display:grid;place-items:center;min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:50%;background:var(--bg-card);color:var(--text-primary);cursor:pointer}
+.venue-map__stage{touch-action:pan-y pinch-zoom;user-select:none;margin:0 12px;overflow:hidden;border-radius:var(--r-md);background:var(--bg-root)}
+.venue-map__image{display:block;width:100%;height:auto;max-height:58vh;max-height:58dvh;object-fit:contain}
+.venue-map__navigation{display:flex;justify-content:center;align-items:center;gap:24px;padding:12px 16px 0}
+.venue-map__dots{display:flex;gap:4px}
+.venue-map__dot{width:32px;height:44px;border:0;background:transparent;cursor:pointer;display:grid;place-items:center}
+.venue-map__dot::after{content:'';width:7px;height:7px;border-radius:50%;background:var(--text-secondary);opacity:.4}
+.venue-map__dot[aria-pressed="true"]::after{width:22px;border-radius:6px;background:var(--text-primary);opacity:1}
+.venue-map__caption{text-align:center;color:var(--text-secondary);font-size:12px;margin:4px 12px 14px}
+.venue-map__footer{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--border);padding:12px 20px}
+.venue-map__remember{display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;cursor:pointer}
+.venue-map__remember input{width:18px;height:18px;accent-color:var(--text-primary)}
+.venue-map__hint{font-size:12px;color:var(--text-secondary)}
+@keyframes venue-map-in{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
+@media(max-width:480px){.venue-map__head{padding:14px 14px 10px}.venue-map__footer{padding:8px 14px;flex-wrap:wrap}.venue-map__hint{font-size:11px}.venue-map h2{font-size:18px}}
+@media(prefers-reduced-motion:reduce){.venue-map{animation:none}}

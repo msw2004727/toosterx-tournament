@@ -1,5 +1,8 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EVENUEMAPSWIPE: { spec:'tests/e2e/venue-map.spec.js', grep:'10/9 首張', minTests:1,
+    assertions:["await expect(image).toHaveAttribute('src',/taiyuan-abcd/)"],
+    failure:"await expect(image).toHaveAttribute('src',/taiyuan-abcd/)" },
   ECLOCKVALUE: { spec:'tests/e2e/event-editor.spec.js', grep:'@clockedit', minTests:2,
     assertions:["expect((await dump(page))[PATH].clock.addedTimeSec).toBe(150)"],
     failure:"expect((await dump(page))[PATH].clock.addedTimeSec).toBe(150)" },

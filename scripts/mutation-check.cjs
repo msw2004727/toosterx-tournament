@@ -10,6 +10,12 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  { name:'#VENUEMAP-DATE 10/9 未優先四場圖', file:'js/lib/venue-map-policy.js',
+    from:'maps.find(m => m.preferredDate === day)',to:'maps.find(m => false)',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/venue-map.test.js --silent' },
+  { name:'#VENUEMAP-DAY 隱藏跨日不復原', file:'js/lib/venue-map-policy.js',
+    from:'storage.getItem(venueMapStorageKey(eventId)) !== day',to:'storage.getItem(venueMapStorageKey(eventId)) == null',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/venue-map.test.js --silent' },
   { name:'#SCORER-HIDE 全站顯示開關暴露停用統計的組別', file:'js/modules/public/selectors.js',
     from:'d.stats?.scorers === false ||',to:'false ||',
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/scorer-policy.test.js --silent' },
