@@ -11,6 +11,9 @@ import { IS_DEMO, ENV } from './js/firebase-config.js';
 import { EVENT } from './js/config.js';
 import { mountAppBar } from './js/core/appbar.js';
 import { initInstall } from './js/core/install.js';
+import { initGestureZoom } from './js/core/gesture-zoom.js';
+
+initGestureZoom();
 
 const App = {
   env: ENV,

@@ -2,7 +2,7 @@
    手機優先。所有版面的最小驗證寬度是 320px，設計基準是 360px。 */
 
 *,*::before,*::after{box-sizing:border-box}
-html,body{margin:0;padding:0}
+html,body{margin:0;padding:0;touch-action:pan-x pan-y}
 
 html{
   /* 主題切換時整頁不閃白：背景畫在 html 上，body 的過場才不會露出底色 */

@@ -10,6 +10,9 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  { name:'#GESTUREZOOM Multi-touch zoom is not cancelled', file:'js/core/gesture-zoom.js',
+    from:'event.touches.length > 1', to:'event.touches.length > 2',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/gesture-zoom.test.js --silent' },
   { name:'#VENUEMAP-CUTOFF 18:00 邊界仍顯示四場圖',file:'js/lib/venue-map-policy.js',
     from:'instant.getTime() < Date.parse(m.preferredUntil)',to:'instant.getTime() <= Date.parse(m.preferredUntil)',
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/venue-map.test.js --silent' },
