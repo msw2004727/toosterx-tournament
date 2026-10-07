@@ -660,3 +660,12 @@ test('訪客與非隊長看不到「管理名單」鈕 @public @team', async ({ 
   await expect(page.locator('.prec')).toBeVisible();
   await expect(page.locator('#pteam-captain')).toHaveCount(0);
 });
+
+test('停用兒童射手統計不受全站顯示開關影響 @scorerpolicy',async({page})=>{
+ const seed=withBoards();seed['config/featureFlags'].youthScorerBoard=true;
+ seed[`events/${EVENT}/divisions/u10`].stats={scorers:false};
+ await stub(page,seed);await go(page,'/#/stats');
+ await expect(page.locator('.ptop__row')).toHaveCount(1);
+ await expect(page.locator('.pub')).not.toContainText('陳小＊');
+ await go(page,'/#/');await expect(page.locator('.ptop__name').first()).toHaveText('王小明');
+});

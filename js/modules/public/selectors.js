@@ -275,15 +275,15 @@ export function publicMember(doc) {
  * 這樣寫的。**不可以把 divisionId 寫死**（`if (id === 'u6')`）：飛達盃只是第一個
  * Event，賽制與組別都要能在後台改。
  *
- * `config/featureFlags.youthScorerBoard === true` 時全部解除（主辦可以整場打開）。
+ * `stats.scorers === false` 代表停用統計，任何顯示旗標都不能解除。
+ * `config/featureFlags.youthScorerBoard === true` 只解除舊的顯示限制。
  * 讀不到旗標就當成沒開——保守的那一邊。
  *
  * @returns {Set<string>} 不顯示個人榜的 divisionId
  */
 export function hiddenScorerDivisions(divisions, featureFlags) {
-  if (featureFlags?.youthScorerBoard === true) return new Set();
   return new Set((divisions || [])
-    .filter(d => d?.display?.scorerBoard === false && d?.divisionId)
+    .filter(d => d?.divisionId && (d.stats?.scorers === false || (featureFlags?.youthScorerBoard !== true && d.display?.scorerBoard === false)))
     .map(d => d.divisionId));
 }
 

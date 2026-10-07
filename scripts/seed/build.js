@@ -605,7 +605,7 @@ export function buildSeed({ seed = 20261009, dailyChallenges = false } = {}) {
       eligibility: div.eligibility,
       formatId: div.formatId, requiredFormatId: div.requiredFormatId, groupNames: div.groupNames, rankingRuleId: div.rankingRuleId,
       colorToken: div.colorToken, order: div.order, code: div.code,
-      display: div.display,
+      display: div.display, stats: div.stats ?? {},
       status: 'scheduled', finalRankingPublished: false, finalRanking: null,
       // 種子資料是「已經發布的賽程」，不然 demo 的公開端會是空的。
       // ⚠️ 公開端把「沒有這個欄位」當成已發布（既有資料沒有它），

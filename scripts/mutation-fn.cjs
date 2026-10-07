@@ -12,6 +12,9 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name:'FN#SCORER-POLICY 重建看板忽略禁用統計', file:'functions/pipeline.js',
+    from:'enabled: divisionSnap.data()?.stats?.scorers !== false',to:'enabled: true',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/scorer-policy.test.js --silent' },
   { name: 'FN#CLOCK-STALE 時鐘更新後仍可覆寫', file: 'functions/clock-edit.js',
     from: 'canonical(expected) !== canonical(clockEditBasis(match))', to: 'false',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/clock-edit.test.js --silent' },

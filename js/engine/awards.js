@@ -27,6 +27,7 @@ const COUNTED_STATUSES = ['finished', 'confirmed', 'walkover'];
  * @returns {Array<object>} 依名次排序；並列時 rank 相同
  */
 export function computeScorers(events, opts = {}) {
+  if (opts.enabled === false) return [];
   const only = opts.countedMatchIds
     ? new Set(opts.countedMatchIds)
     : null;

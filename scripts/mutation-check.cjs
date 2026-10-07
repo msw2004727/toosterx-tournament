@@ -10,6 +10,12 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  { name:'#SCORER-HIDE 全站顯示開關暴露停用統計的組別', file:'js/modules/public/selectors.js',
+    from:'d.stats?.scorers === false ||',to:'false ||',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/scorer-policy.test.js --silent' },
+  { name:'#SCORER-POLICY 禁用統計仍計入兒童進球', file:'js/engine/awards.js',
+    from:'if (opts.enabled === false) return [];',to:'if (false) return [];',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/scorer-policy.test.js --silent' },
   { name: '#CLOCK-ADDED 時間修正未計入補時', file: 'js/engine/match-clock.js',
     from: 'addedTimeSec: Math.max(0, seconds - limit)', to: 'addedTimeSec: 0',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/match-clock.test.js --silent' },
@@ -491,14 +497,14 @@ const MUTANTS = [
   {
     name: '#P17 兒童組守衛讀不存在的欄位（division.youth，永遠不會生效）',
     file: 'js/modules/public/selectors.js',
-    from: `    .filter(d => d?.display?.scorerBoard === false && d?.divisionId)`,
+    from: `    .filter(d => d?.divisionId && (d.stats?.scorers === false || (featureFlags?.youthScorerBoard !== true && d.display?.scorerBoard === false)))`,
     to: `    .filter(d => d?.youth === true && d?.divisionId)`
   },
   {
     name: '#P18 youthScorerBoard 用寬鬆比較（字串 "false" 也會解除隱藏）',
     file: 'js/modules/public/selectors.js',
-    from: `  if (featureFlags?.youthScorerBoard === true) return new Set();`,
-    to: `  if (featureFlags?.youthScorerBoard) return new Set();`
+    from: `featureFlags?.youthScorerBoard !== true`,
+    to: `!featureFlags?.youthScorerBoard`
   },
   {
     name: '#P19 生日缺漏時當成成年（fail-open → 沒填生日的兒童以真名公開）',
@@ -624,9 +630,9 @@ const MUTANTS = [
     name: '#R8 把仁慈規則加回兒童組（規章沒有這一條，公開端會顯示假比分）',
     file: 'js/engine/formats.js',
     from: `    colorToken: 'div-u6',    order: 1, code: 'U6',
-    display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: false } },`,
+    stats: { scorers: false }, display: { mercyRule: { enabled: false, cap: 7 }, scorerBoard: false } },`,
     to: `    colorToken: 'div-u6',    order: 1, code: 'U6',
-    display: { mercyRule: { enabled: true, cap: 7 }, scorerBoard: false } },`
+    stats: { scorers: false }, display: { mercyRule: { enabled: true, cap: 7 }, scorerBoard: false } },`
   },
   {
     name: '#R9 球員人數上限改掉（規章是最多 15 人）',

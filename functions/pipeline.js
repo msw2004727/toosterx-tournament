@@ -525,7 +525,7 @@ export async function rebuildBoardsFor({ eventId, divisionId }) {
         jerseyNo: r?.jerseyNo ?? null
       };
     }
-    const scorers = computeScorers(events, { countedMatchIds: counted, playerMeta })
+    const scorers = computeScorers(events, { countedMatchIds: counted, playerMeta, enabled: divisionSnap.data()?.stats?.scorers !== false })
       .slice(0, BOARD_LIMIT).map(r => ({ ...r, divisionId }));
     const fairPlay = computeFairPlayBoard({ matches, cardEvents: events, teams, withdrawalPolicy });
     for (const [i, rows] of [scorers, fairPlay].entries()) {
