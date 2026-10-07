@@ -1,5 +1,9 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EVENUESTABLE:{spec:'tests/e2e/venue-map.spec.js',grep:'@venuestable',minTests:1,
+    assertions:['expect(await page.evaluate(()=>window.__venueSourceWrites)).toBe(0)'],failure:'expect(await page.evaluate(()=>window.__venueSourceWrites)).toBe(0)'},
+  EVENUERESIZE:{spec:'tests/e2e/venue-map.spec.js',grep:'@venuestable',minTests:1,
+    assertions:["await expect(centre).toHaveAttribute('src',/taiyuan-abcd/)"],failure:"await expect(centre).toHaveAttribute('src',/taiyuan-abcd/)"},
   EVENUEHEADER: {spec:'tests/e2e/venue-map.spec.js',grep:'@venueheader',minTests:1,
     assertions:['await button.click();await expect(d).toBeVisible()'],failure:'await button.click();await expect(d).toBeVisible()' },
   EVENUEMAPSMOOTH: { spec:'tests/e2e/venue-map.spec.js',grep:'10/9 首張',minTests:1,

@@ -85,3 +85,31 @@ test('上方查看場地圖在安裝左側，同日隱藏及其他頁仍可重�
  await button.click();await expect(d).toBeVisible();await expect(d).toHaveCount(1);
  await d.press('Escape');await expect(d).toHaveCount(0);await expect(button).toBeFocused();
 });
+
+test('圖片節點不重載，連續換張與視窗變動不交替閃跳 @venuestable',async({page})=>{
+ await setup(page);const d=dialog(page),centre=d.locator('.venue-map__slide[aria-hidden="false"] img');
+ await page.evaluate(()=>{
+   window.__venueSourceWrites=0;
+   window.__venueSourceObserver=new MutationObserver(ms=>window.__venueSourceWrites+=ms.length);
+   window.__venueSourceObserver.observe(document.querySelector('.venue-map__track'),{subtree:true,attributes:true,attributeFilter:['src']});
+   document.querySelector('.venue-map__track').children[2].dataset.expectedCentre='1';
+ });
+ await d.getByRole('button',{name:'下一張場地圖'}).click();
+ await expect(centre).toHaveAttribute('src',/taiyuan-ab\.png/);
+ await expect(d.locator('.venue-map__slide[aria-hidden="false"]')).toHaveAttribute('data-expected-centre','1');
+ await d.getByRole('button',{name:'上一張場地圖'}).click();await expect(centre).toHaveAttribute('src',/taiyuan-abcd/);
+ for(let i=0;i<4;i++){
+   await d.getByRole('button',{name:'下一張場地圖'}).click();
+   await expect(centre).toHaveAttribute('src',i%2===0?/taiyuan-ab\.png/:/taiyuan-abcd/);
+ }
+ expect(await page.evaluate(()=>window.__venueSourceWrites)).toBe(0);
+ await page.evaluate(()=>{
+   document.querySelector('.venue-map__arrow[aria-label="下一張場地圖"]').click();
+   window.dispatchEvent(new Event('resize'));
+ });
+ await page.waitForTimeout(500);
+ await expect(centre).toHaveAttribute('src',/taiyuan-abcd/);
+ expect(await centre.evaluate(e=>Math.abs(e.getBoundingClientRect().left-e.closest('.venue-map__stage').getBoundingClientRect().left))).toBeLessThan(1);
+ expect(await page.evaluate(()=>window.__venueSourceWrites)).toBe(0);
+ await page.evaluate(()=>window.__venueSourceObserver.disconnect());
+});

@@ -15,6 +15,10 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name:'#EVENUESTABLE Source reassignment flashes decoded pictures',file:'js/modules/public/venue-map.js',
+    from:"const image = slide.firstElementChild;",to:"const image = slide.firstElementChild; image.src = image.src;" },
+  { name:'#EVENUERESIZE Resize completes unwanted navigation',file:'js/modules/public/venue-map.js',
+    from:'clearTimeout(settleTimer); settleTimer = null; animation = null;',to:'if (animation) finish();' },
   { name:'#EVENUEHEADER Header button does not open venue popup',file:'app.js',
     from:'onViewVenueMap: () => venueMapPopup().open()',to:'onViewVenueMap: () => {}' },
   { name:'#EVENUEMAPSMOOTH 缺少平滑過渡',file:'css/modules/public.css',

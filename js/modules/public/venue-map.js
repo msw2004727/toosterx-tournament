@@ -27,21 +27,26 @@ export function createVenueMapPopup() {
     const caption = el('p', { class: 'venue-map__caption', 'aria-live': 'polite' });
     const dots = maps.map((map, i) => el('button', { class: 'venue-map__dot', type: 'button',
       'aria-label': `查看${map.label}`, onClick: () => { if (i !== index) move(i > index ? 1 : -1); } }));
-    const slides = [-1, 0, 1].map(offset => el('div', { class: 'venue-map__slide',
-      'aria-hidden': String(offset !== 0) }, el('img', { class: 'venue-map__image',
-      draggable: 'false', width: 1536, height: 1024, decoding: 'async' })));
+    // Keep decoded images attached to their nodes. A whole number of cycles lets
+    // the visible neighbour become the centre without replacing any image URL.
+    const wrap = i => (i + maps.length) % maps.length;
+    const slides = Array.from({ length: Math.max(3, maps.length * 2) }, (_, slot) => {
+      const map = maps[wrap(slot - 1)];
+      return el('div', { class: 'venue-map__slide', 'aria-hidden': String(slot !== 1) },
+        el('img', { class: 'venue-map__image', src: `${map.src}?v=${CACHE_VERSION}`,
+          draggable: 'false', width: 1536, height: 1024, decoding: 'sync' }));
+    });
     const track = el('div', { class: 'venue-map__track', onTransitionend: e => {
       if (e.target === track && e.propertyName === 'transform') finish();
     } }, slides);
     const offset = px => track.style.setProperty('--venue-offset', `${px}px`);
-    const wrap = i => (i + maps.length) % maps.length;
     function paint() {
       // 前後各保留一張鄰圖；切換完成後無動畫歸位，不露白也不反向滑回。
       track.classList.add('is-resetting');
       slides.forEach((slide, slot) => {
-        const map = maps[wrap(index + slot - 1)], image = slide.firstElementChild;
-        image.src = `${map.src}?v=${CACHE_VERSION}`;
-        image.alt = slot === 1 ? `${EVENT.venueName}：${map.label}` : '';
+        const image = slide.firstElementChild;
+        slide.setAttribute('aria-hidden', String(slot !== 1));
+        image.alt = slot === 1 ? `${EVENT.venueName}：${maps[index].label}` : '';
       });
       offset(0);
       caption.textContent = `${index === 0 ? '今日配置' : '其他日期配置'} · ${maps[index].label} · ${index + 1} / ${maps.length}`;
@@ -54,6 +59,10 @@ export function createVenueMapPopup() {
       if (!animation) return;
       const completed = animation; animation = null;
       clearTimeout(settleTimer); settleTimer = null;
+      // Disable transitions before moving the same decoded neighbour to centre.
+      track.classList.add('is-resetting');
+      if (completed.step > 0) { const first = slides.shift(); slides.push(first); track.append(first); }
+      else if (completed.step < 0) { const last = slides.pop(); slides.unshift(last); track.prepend(last); }
       index = wrap(index + completed.step);
       if (completed.order) { maps = completed.order; index = 0; }
       paint();
@@ -99,7 +108,9 @@ export function createVenueMapPopup() {
     }
     const orderTimer = setInterval(updateOrder, 1000);
     const resize = () => { start = null; queued = 0; track.classList.remove('is-dragging');
-      if (animation) finish(); else paint(); };
+      // Browser chrome / orientation changes must not count as a completed swipe.
+      clearTimeout(settleTimer); settleTimer = null; animation = null;
+      paint(); };
     window.addEventListener('resize', resize);
     document.addEventListener('visibilitychange', updateOrder);
     stopCarousel = () => { clearInterval(orderTimer); clearTimeout(settleTimer);
