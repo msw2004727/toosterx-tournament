@@ -34,8 +34,10 @@ for (const [time, day] of [['2026-10-08T12:00:00+08:00', 9], ['2026-10-10T12:00:
   });
 }
 test('STAFF-MIDNIGHT automatic view switches without refresh and cleans old subscriptions @staff', async ({ page }) => {
-  await boot(page, '2026-10-09T23:59:59+08:00');
+  await boot(page, '2026-10-09T23:59:00+08:00');
   await expect(tab(page, 9)).toHaveAttribute('aria-selected', 'true');
+  // Bootstrap must finish before the boundary; slower CI must not cross midnight during goto.
+  await page.clock.pauseAt(new Date('2026-10-09T23:59:59+08:00'));
   await page.clock.fastForward(2500);
   await expect(tab(page, 10)).toHaveAttribute('aria-selected', 'true');
   await expect(rows(page)).toContainText('10日a場');
@@ -45,9 +47,10 @@ test('STAFF-MIDNIGHT automatic view switches without refresh and cleans old subs
   await expect.poll(() => page.evaluate(async () => (await import('/js/core/store.js')).describe().flatMap(s => s.labels).filter(label => label.startsWith('myMatches:')))).toEqual([]);
 });
 test('STAFF-MANUAL manual date stays pinned across midnight and LIVE; follow-today resumes auto @staff', async ({ page }) => {
-  await boot(page, '2026-10-09T23:59:59+08:00');
+  await boot(page, '2026-10-09T23:59:00+08:00');
   await tab(page, 11).click();
   await expect(rows(page)).toContainText('11日a場');
+  await page.clock.pauseAt(new Date('2026-10-09T23:59:59+08:00'));
   await page.clock.fastForward(2500);
   await expect(tab(page, 11)).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('button', { name: '跟隨今日（10/10）', exact: true })).toBeVisible();
