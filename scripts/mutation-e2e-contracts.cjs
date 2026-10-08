@@ -1,5 +1,7 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ECOARSEBUTTON: { spec: 'tests/e2e/button-system.spec.js', grep: '球隊操作列完整.*dark', minTests: 1,
+    failure: 'toBeGreaterThanOrEqual', assertions: ['expect(await contrast(primary)).toBeGreaterThanOrEqual(4.5)'] },
   ETM1: { spec: 'tests/e2e/team-management.spec.js', grep: '隊長只看到', minTests: 1,
     failure: 'toHaveCount', assertions: ["await expect(page.getByRole('button', { name: /公開組/ })).toHaveCount(0);"] },
   EICONNAVSTACK:{spec:'tests/e2e/appbar.spec.js',grep:'@iconnav',minTests:1,

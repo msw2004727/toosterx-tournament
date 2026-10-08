@@ -37,7 +37,7 @@ button{
 }
 
 a{color:var(--accent);text-decoration:none}
-a:hover{color:var(--accent-hover)}
+a:hover:where(:not(.btn)){color:var(--accent-hover)}
 
 input,select,textarea{
   font:inherit;font-size:var(--fs-md);   /* iOS 低於 16px 會自動放大整頁 */

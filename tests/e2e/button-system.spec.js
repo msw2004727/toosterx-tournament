@@ -25,6 +25,9 @@ async function stub(page, theme) {
 }
 
 async function contrast(locator) {
+  await locator.evaluate(async node => {
+    await Promise.allSettled(node.getAnimations().map(animation => animation.finished));
+  });
   return locator.evaluate(node => {
     const rgb = s => s.match(/[\d.]+/g).map(Number);
     const luminance = c => c.slice(0, 3).map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((s, v, i) => s + v * [.2126, .7152, .0722][i], 0);

@@ -15,6 +15,8 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#ECOARSEBUTTON 觸控裝置的主要按鈕被一般連結 hover 色覆蓋', file: 'css/base.css',
+    from: 'a:hover:where(:not(.btn)){color:var(--accent-hover)}', to: 'a:hover{color:var(--accent-hover)}' },
   { name: '#ETM1 管理頁不再限制隊長所屬球隊', file: 'js/modules/admin/manage-teams.js',
     from: 'stopTeams = canManageAllTeams() ? data.watchTeams', to: 'stopTeams = true ? data.watchTeams',
     testCmd: 'npx playwright test tests/e2e/team-management.spec.js --project=chromium-mobile --grep 隊長只看到 --reporter=dot' },

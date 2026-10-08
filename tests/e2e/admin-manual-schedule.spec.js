@@ -140,9 +140,12 @@ test('手機真觸控手把拖曳能邊緣捲頁落入位置，普通卡片滑�
   await expect(page.locator('.manual__dragGhost')).toBeVisible();
   const target = slot(page, rr[0].matchId, 'home');
   await expect.poll(async () => { const rect = await target.boundingBox(); return rect.y > 80 && rect.y + rect.height < size.height - 70; }, { timeout: 12_000 }).toBe(true);
-  const destination = await target.boundingBox();
-  await touch('touchMove', destination.x + destination.width / 2, destination.y + destination.height / 2);
-  await expect(page.locator(`.manual__slot[data-match-id="${rr[0].matchId}"][data-side="home"]`)).toHaveClass(/is-dropTarget/);
+  const targetSlot = page.locator(`.manual__slot[data-match-id="${rr[0].matchId}"][data-side="home"]`);
+  await expect.poll(async () => {
+    const destination = await target.boundingBox();
+    await touch('touchMove', destination.x + destination.width / 2, destination.y + destination.height / 2);
+    return (await targetSlot.getAttribute('class')).includes('is-dropTarget');
+  }, { timeout: 12_000 }).toBe(true);
   await touch('touchEnd'); await expect(target).toContainText('野狼');
   await expect(card(page, 't-1')).toHaveCount(1);
   await card(page, 't-2').evaluate(element => element.scrollIntoView({ block: 'center' })); const normal = await card(page, 't-2').boundingBox();
