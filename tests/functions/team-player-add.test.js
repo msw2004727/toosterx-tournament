@@ -60,11 +60,24 @@ test('ADD-RETRY 重送及同時重送只建立一批，換人或換資料不能�
   await expect(addTeamPlayersFor(request(undefined,'admin'))).rejects.toMatchObject({code:'already-exists'});
 },30_000);
 test('ADD-CONCURRENT 兩人搶同背號只有一位成功，保留既有成員',async()=>{
-  const results=await Promise.allSettled([addTeamPlayersFor(request([{name:'甲',jerseyNo:9}],'admin')),
-    addTeamPlayersFor(request([{name:'乙',jerseyNo:9}],'super_admin',{operationId:'add-2'}))]);
+  const before=(await team().collection('members').doc('old').get()).data();
+  const commands=[request([{name:'甲',jerseyNo:9}],'admin'),request([{name:'乙',jerseyNo:9}],'super_admin',{operationId:'add-2'})];
+  const results=await Promise.allSettled(commands.map(addTeamPlayersFor));
   expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);
-  expect(results.find(r=>r.status==='rejected').reason.code).toBe('invalid-argument');
+  const loser=results.findIndex(r=>r.status==='rejected'),error=results[loser].reason;
+  // 與既有更名競爭測試相同：Emulator 有時以 gRPC 3 中斷敗方交易。
+  // 不重試整個測試；只重送原封不動的敗方請求，仍必須得到重複背號拒絕。
+  if(error.code===3){
+    console.warn('Emulator concurrent player add: replay original rejected command once:',error.message);
+    await expect(addTeamPlayersFor(commands[loser])).rejects.toMatchObject({code:'invalid-argument'});
+  }else expect(error.code).toBe('invalid-argument');
   expect((await team().get()).data().playerCount).toBe(2);
+  const members=await team().collection('members').get();
+  expect(members.docs.filter(d=>d.get('jerseyNo')===9)).toHaveLength(1);
+  expect(members.size).toBe(3);expect((await team().collection('roster').get()).size).toBe(2);
+  expect((await base().collection('audits').get()).size).toBe(1);
+  expect((await base().collection('managementOperations').get()).size).toBe(1);
+  expect((await team().collection('members').doc('old').get()).data()).toEqual(before);
 },30_000);
 test('完整選填資料可儲存，傳入來源、權限、狀態與公開名稱均不採用',async()=>{
   const result=await addTeamPlayersFor(request([{name:'小飛',birthDate:'2020-01-01',idLast4:'0012',jerseyNo:0,isGoalkeeper:true,source:'admin',role:'super_admin',status:'rejected',displayName:'公開真名'}]));
