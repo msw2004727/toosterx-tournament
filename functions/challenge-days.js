@@ -14,7 +14,7 @@ export async function updateChallengeDayFor({ eventId, challengeId, date, open, 
     const staff = (await tx.get(db().doc(`staff/${actorUid}`))).data();
     const roles = staff?.roles ?? [];
     const admin = roles.some(r => ['admin', 'super_admin'].includes(r));
-    if (staff?.active !== true || (!admin && (!roles.some(r => ['booth', 'checkin', 'referee', 'scorer'].includes(r))
+    if (staff?.active !== true || (!admin && (!roles.some(r => ['booth', 'checkin', 'referee', 'scorer', 'staff'].includes(r))
       || staff.assignment?.eventId !== eventId || !staff.assignment?.challengeIds?.includes(challengeId)))) fail('permission-denied', '只能設定自己負責的攤位');
     const rewards = (await tx.get(db().doc('config/challengeRewards'))).data();
     if (rewards?.rule !== DAILY_RULE || !rewards.dates?.includes(date)) fail('invalid-argument', '不是活動日期');

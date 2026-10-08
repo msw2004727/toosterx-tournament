@@ -12,6 +12,12 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name:'FN#STAFFCLOCK 賽務員修改時間被後端擋下', file:'functions/clock-edit.js',
+    from:"['scorer', 'staff'].includes(r)", to:"['scorer'].includes(r)",
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/clock-edit.test.js --silent' },
+  { name:'FN#STAFFEVENT 賽務員事件修正被後端擋下', file:'functions/timeline-edit.js',
+    from:"['scorer', 'staff'].includes(r)", to:"['scorer'].includes(r)",
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/timeline-edit.test.js --silent' },
   { name: 'FN#TM5 上鎖後隊長仍可更名', file: 'functions/team-name.js',
     from: 'if (!admin && team.managementLocked === true)', to: 'if (false)',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --runTestsByPath tests/functions/team-management.test.js --silent' },

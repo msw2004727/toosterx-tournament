@@ -24,7 +24,7 @@ import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, mount, toast, skeleton } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
-import { user, staff, onAuth, signOutStaff, db, sdk, can, myRoles } from '../../core/firebase.js';
+import { user, staff, onAuth, signOutStaff, db, sdk, can, myRoles, reloadIdentity } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { watchCaptainTeams, canManageAllTeams } from '../../core/team-management.js';
 import { watchRegistrationVisibility } from '../../core/registration.js';
@@ -45,7 +45,7 @@ export async function myPage({ scope, view }) {
   const root = el('div', { class: 'acct' });
   mount(view, root);
 
-  const state = { teams: null, profile: null, players: null, playersError: false, loading: true, registrationVisible: false };
+  const state = { teams: null, profile: null, players: null, playersError: false, loading: true, registrationVisible: false, refreshing: false };
 
   // ⚠️ 不可以寫成「掛載時如果已登入就讀一次」。
   //    onAuth 的第一次回呼可能在頁面掛載**之後**才到（Firebase 要先還原
@@ -150,6 +150,14 @@ export async function myPage({ scope, view }) {
   }
 
   // ── 你是誰 ──────────────────────────────────────────────
+  async function refreshIdentity() {
+    if (state.refreshing) return;
+    state.refreshing = true; render();
+    try { await reloadIdentity(); toast('已更新身分與權限'); }
+    catch (err) { toast(err.message || '權限更新失敗，請稍後重試。', 'error'); }
+    finally { state.refreshing = false; render(); }
+  }
+
   function identityCard() {
     const u = user();
     const s = staff();
@@ -188,6 +196,7 @@ export async function myPage({ scope, view }) {
       ]),
       // 跟 uid 放在一起：回報問題時這兩個一起截圖就夠了
       el('p', { class: 'acct__fine', text: `系統版本 ${CACHE_VERSION}` }),
+      el('button', { type: 'button', class: 'btn btn--lg', disabled: state.refreshing, onClick: refreshIdentity }, iconText('person', state.refreshing ? '更新中…' : '更新權限')),
       el('a', {
         class: 'btn btn--lg', href: `/docs/manual/quickstart.pdf?v=${CACHE_VERSION}`,
         target: '_blank', rel: 'noopener'

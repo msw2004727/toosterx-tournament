@@ -19,7 +19,7 @@ beforeEach(async()=>{
   await env.clearFirestore();await env.clearStorage();
   await env.withSecurityRulesDisabled(async ctx=>{
     const db=ctx.firestore();
-    for(const role of ['booth','checkin','referee','scorer','admin','super_admin'])await setDoc(doc(db,'staff',role),{active:true,roles:[role]});
+    for(const role of ['booth','checkin','referee','scorer','staff','admin','super_admin'])await setDoc(doc(db,'staff',role),{active:true,roles:[role]});
     for(const [uid,data]of Object.entries({inactive:{active:false,roles:['admin']},missingActive:{roles:['admin']},empty:{active:true,roles:[]},invalid:{active:true,roles:['captain']},missingRoles:{active:true},wrongType:{active:true,roles:'admin'}}))await setDoc(doc(db,'staff',uid),data);
     for(const p of [raw,'members-public/t-test/public.png','teams/t-test/logo.png','sponsors/a.png','gallery/2026-10-09/a.png','exports/private.csv'])await upload(ctx.storage(),p);
   });
@@ -31,7 +31,7 @@ test.each([null,'absent','inactive','missingActive','empty','invalid','missingRo
   await assertFails(read(s,raw));
   for(const p of [raw,'teams/t-test/logo.png','sponsors/a.png','gallery/2026-10-09/a.png'])await assertFails(upload(s,p));
 });
-test.each(['booth','checkin','referee','scorer','admin','super_admin'])('ST2 %s 合法角色遵循公開與原圖權限',async uid=>{
+test.each(['booth','checkin','referee','scorer','staff','admin','super_admin'])('ST2 %s 合法角色遵循公開與原圖權限',async uid=>{
   const s=env.authenticatedContext(uid).storage();
   for(const p of ['teams/t-test/logo.png','sponsors/a.png','gallery/2026-10-09/a.png',raw])await assertSucceeds(upload(s,p));
   await (uid==='booth'?assertFails:assertSucceeds)(read(s,raw));

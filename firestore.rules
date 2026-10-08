@@ -46,11 +46,11 @@ service cloud.firestore {
     //    這裡明列，所以不會。與 js/config.js 的 STAFF_CHAIN 是同一份清單。
     function isSuperAdmin() { return myRoles().hasAny(['super_admin']); }
     function isAdmin()      { return myRoles().hasAny(['admin', 'super_admin']); }
-    function isScorer()     { return myRoles().hasAny(['scorer', 'admin', 'super_admin']); }
-    function isReferee()    { return myRoles().hasAny(['referee', 'scorer', 'admin', 'super_admin']); }
-    function isCheckin()    { return myRoles().hasAny(['checkin', 'referee', 'scorer',
+    function isScorer()     { return myRoles().hasAny(['scorer', 'staff', 'admin', 'super_admin']); }
+    function isReferee()    { return myRoles().hasAny(['referee', 'scorer', 'staff', 'admin', 'super_admin']); }
+    function isCheckin()    { return myRoles().hasAny(['checkin', 'referee', 'scorer', 'staff',
                                                         'admin', 'super_admin']); }
-    function isBooth()      { return myRoles().hasAny(['booth', 'checkin', 'referee', 'scorer',
+    function isBooth()      { return myRoles().hasAny(['booth', 'checkin', 'referee', 'scorer', 'staff',
                                                         'admin', 'super_admin']); }
 
     // ── 指派範圍 ─────────────────────────────────────────────
@@ -97,7 +97,7 @@ service cloud.firestore {
     // 走的是 Admin SDK，不經過 rules。
     function staffRolesAssignable(d) {
       return d.roles is list && d.roles.size() > 0
-          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin']);
+          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'staff', 'admin']);
     }
 
     // ── Demo 自助身分（見下方 match /staff/{u} 的說明）─────────
@@ -120,7 +120,7 @@ service cloud.firestore {
         //    admin 在 demo 上是必要的——覆核完賽、退回報名這些流程要測得到，
         //    而這一整段本來就只在 config/env.allowSelfServeStaff 為真的專案生效，
         //    正式專案沒有那份文件。
-        && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin']);
+        && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'staff', 'admin']);
     }
 
     // ── 欄位控制 ─────────────────────────────────────────────

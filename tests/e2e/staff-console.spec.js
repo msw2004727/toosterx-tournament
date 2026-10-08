@@ -51,12 +51,13 @@ const SEED = {
 
 /** 把四個 gstatic 模組都換成同一份替身，並在載入前塞好種子資料與身分 */
 async function stubFirebase(page) {
+  await page.clock.install({time:new Date('2026-10-11T12:00:00+08:00')});
   await page.route('https://www.gstatic.com/firebasejs/**', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: FAKE }));
 
   // 伺服器校時的探測請求：沙箱連不出去會噴 tunnel 錯誤，直接回一個假的
   await page.route('https://firestore.googleapis.com/**', route =>
-    route.fulfill({ status: 200, headers: { date: new Date().toUTCString() }, body: '{}' }));
+    route.fulfill({ status: 200, headers: { date: new Date('2026-10-11T12:00:00+08:00').toUTCString() }, body: '{}' }));
 
   // ⚠️ 必須在模組求值「之前」設好，路由守衛在初始化當下就會讀 user()
   await page.addInitScript(({ seed }) => {

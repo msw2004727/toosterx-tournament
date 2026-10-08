@@ -5,19 +5,23 @@
  * 規格：docs/04-功能規格-賽務裁判端.md §3
  *
  * 驗收條件 S01：登入後直接看到自己的場地與場次，**0 次額外點選**。
- * 所以這頁不做任何篩選器——staff.assignment 就是篩選條件。
+ * 場地由 staff.assignment 限定；日期預設跟隨今日，也可手動切換活動日期。
  */
 
 import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, emptyState, toast, mount, sheet } from '../../core/ui.js';
 import { iconText } from '../../core/icons.js';
 import { hhmm, dateLabelFromYmd, STATUS_LABEL } from '../../lib/format.js';
-import { staff, user, isPersistenceDegraded, can } from '../../core/firebase.js';
+import { staff, user, isPersistenceDegraded, can, isAdmin, onAuth, reloadIdentity } from '../../core/firebase.js';
+import { hold } from '../../core/store.js';
+import { now } from '../../core/clock.js';
 import { navigate } from '../../core/router.js';
 import { watchMyMatches, getVenues } from './data.js';
 import { syncIndicator } from './sync-indicator.js';
 import { isOnline, subscribe as onSyncChange } from '../../core/sync.js';
 import { EVENT } from '../../config.js';
+import { selectedEventDate, eventDateAt } from '../../engine/staff-date.js';
+import { readDateChoice, saveDateChoice } from './date-selection.js';
 
 /** 現場最關心的那一場：進行中 > 檢錄中 > 下一場未開始 */
 export function pickCurrent(matches, nowMs = Date.now()) {
@@ -36,62 +40,143 @@ const msOf = v => (v?.toMillis ? v.toMillis() : Date.parse(v ?? '') || Number.MA
 const DONE = new Set(['finished', 'confirmed', 'walkover']);
 
 export async function staffHome({ scope, view }) {
-  const me = staff();
+  let me = staff();
   const indicator = syncIndicator();
   const root = el('div', { class: 'staff' });
-  view.replaceChildren(root);
+  mount(view, root);
 
-  // 沒有指派日期時用活動第一天；三日活動由 assignment.date 決定今天負責哪一天
-  const date = me?.assignment?.date || todayInEvent();
-  const venueIds = me?.assignment?.venueIds || [];
-  const divisionIds = me?.assignment?.divisionIds || [];
+  // 舊 assignment.date 不再綁定首頁；所有人都能查看活動的每個日期。
+  let manualDate = readDateChoice(user()?.uid);
+  let automaticDate = eventDateAt(now(), EVENT.dates, EVENT.timezone);
+  let date = currentDate();
+  let venueIds = isAdmin() ? [] : me?.assignment?.venueIds || [];
+  let divisionIds = isAdmin() ? [] : me?.assignment?.divisionIds || [];
 
   let matches = [];
   let fromCache = false;
   let venueNames = {};
   let rendered = false;
+  let disposed = false, stopMatches = null, generation = 0, loadError = null, refreshing = false;
 
   // 場地名稱只讀一次；讀不到就退回代碼，不要讓整頁失敗
-  getVenues()
-    .then(vs => { venueNames = Object.fromEntries(vs.map(v => [v.venueId, v.name || v.venueId])); render(); })
-    .catch(() => {});
+  void loadVenues();
+  async function loadVenues() {
+    try {
+      const vs = await getVenues();
+      if (disposed) return;
+      venueNames = Object.fromEntries(vs.map(v => [v.venueId, v.name || v.venueId])); render();
+    } catch { /* fall back to venue IDs */ }
+  }
   const venueLabel = id => venueNames[id] || id;
 
   // ⚠️ 連線狀態會在開頁後才穩定下來：
   //    Firestore 的第一筆快照來自本機快取，會讓 sync 先判定為離線，
   //    伺服器確認後才轉回線上。若不跟著重畫，開頁瞬間那則「你在離線」
   //    就會永遠掛在畫面上——實機上真的發生過。
-  const offSync = onSyncChange(() => { if (rendered) render(); });
-
-  watchMyMatches(scope, { date, venueIds, divisionIds }, (rows, meta) => {
-    matches = rows;
-    fromCache = meta?.fromCache === true;
-    render();
-  }, err => {
-    console.error('[staff] matches', err);
-    mount(root, header(), emptyState({
-      title: '讀不到賽程',
-      note: err.code === 'permission-denied'
-        ? '你的帳號可能還沒被指派為工作人員，請聯絡主辦。'
-        : err.message
-    }));
+  const offSync = onSyncChange(() => { if (rendered) { checkDate(); render(); } });
+  const offAuth = onAuth(() => {
+    if (disposed) return;
+    me = staff();
+    manualDate = readDateChoice(user()?.uid);
+    date = currentDate();
+    venueIds = isAdmin() ? [] : me?.assignment?.venueIds || [];
+    divisionIds = isAdmin() ? [] : me?.assignment?.divisionIds || [];
+    subscribeMatches();
   });
+  // 手機背景可能暫停計時器，回到頁面時立即核對日期。
+  let timer = setTimeout(tickDate, 1000);
+  function tickDate() {
+    checkDate();
+    if (!disposed) timer = setTimeout(tickDate, 1000);
+  }
+  document.addEventListener('visibilitychange', checkDate);
+  window.addEventListener('focus', checkDate);
+  const dispose = hold(scope, () => {
+    disposed = true; generation++;
+    clearTimeout(timer);
+    document.removeEventListener('visibilitychange', checkDate);
+    window.removeEventListener('focus', checkDate);
+    stopMatches?.(); offAuth(); offSync(); indicator.destroy();
+  }, 'staff:date-lifecycle');
 
-  render();
+  function currentDate() {
+    return selectedEventDate({ nowMs: now(), dates: EVENT.dates, timezone: EVENT.timezone, manualDate });
+  }
+
+  function checkDate() {
+    if (disposed || !can('staff.access')) return;
+    const nextAutomatic = eventDateAt(now(), EVENT.dates, EVENT.timezone);
+    const automaticChanged = nextAutomatic !== automaticDate;
+    automaticDate = nextAutomatic;
+    const next = currentDate();
+    if (next !== date) { date = next; subscribeMatches(); }
+    else if (automaticChanged) render();
+  }
+
+  function selectDate(next) {
+    manualDate = next;
+    saveDateChoice(user()?.uid, next);
+    date = currentDate();
+    subscribeMatches();
+  }
+
+  function subscribeMatches() {
+    stopMatches?.(); stopMatches = null;
+    const request = ++generation;
+    matches = []; fromCache = false; loadError = null;
+    render();
+    if (!can('staff.access')) return;
+    stopMatches = watchMyMatches(scope, { date, venueIds, divisionIds }, (rows, meta) => {
+      if (disposed || request !== generation) return;
+      matches = rows; fromCache = meta?.fromCache === true; loadError = null; render();
+    }, err => {
+      if (disposed || request !== generation) return;
+      loadError = err; render();
+    });
+  }
+
+  async function refreshIdentity() {
+    if (refreshing) return;
+    refreshing = true; render();
+    try { await reloadIdentity(); toast(can('staff.access') ? '已更新權限' : '目前沒有有效的賽務身分', can('staff.access') ? 'success' : 'warn'); }
+    catch (err) { toast(err.message || '權限更新失敗，請稍後重試。', 'error'); }
+    finally { refreshing = false; render(); }
+  }
 
   function render() {
+    if (disposed) return;
     rendered = true;
+    if (!can('staff.access')) {
+      mount(root, emptyState({ title: '沒有賽務台權限', note: '請主辦指派有效的賽務身分，或確認身分是否已停用。' }));
+      return;
+    }
     const current = pickCurrent(matches);
     mount(root,
       header(),
+      dateTabs(),
       isPersistenceDegraded() ? degradedNotice() : null,
       // 只有「資料來自快取」且「確實離線」才提示。
       // 單看 fromCache 會在開頁那一瞬間閃一則假的離線警告，久了賽務就不信燈號了。
       (fromCache && !isOnline()) ? el('div', { class: 'notice notice--info' }, '目前顯示的是手機裡的資料，恢復連線後會自動更新。') : null,
-      currentCard(current),
-      listCard(),
-      toolsBar()
+      loadError ? emptyState({ title: '讀不到賽程', note: loadError.message, actionLabel: '重試', onAction: subscribeMatches })
+        : el('div', { role: 'tabpanel', id: 'staff-matches', 'aria-label': `${shortDate(date)} 場次` }, [currentCard(current), listCard(), toolsBar()])
     );
+  }
+
+  function shortDate(ymd) { return `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))}`; }
+
+  function dateTabs() {
+    const today = automaticDate;
+    return el('section', { class: 'staff__dates', 'aria-label': '賽務日期' }, [
+      el('div', { class: 'staff__dateTabs', role: 'tablist', 'aria-label': '切換賽務日期' }, EVENT.dates.map(ymd =>
+        el('button', { type: 'button', role: 'tab', class: `btn${date === ymd ? ' btn--primary' : ''}`,
+          'aria-selected': String(date === ymd), 'aria-controls': 'staff-matches', onClick: () => selectDate(ymd) }, shortDate(ymd)))),
+      el('div', { class: 'staff__dateMode' }, [
+        el('button', { type: 'button', class: 'btn btn--sm', 'aria-pressed': String(!manualDate), onClick: () => selectDate(null) }, `跟隨今日（${shortDate(today)}）`),
+        el('span', { class: 'muted', text: manualDate ? '手動選擇日期' : '自動依台北日期切換' }),
+        el('button', { type: 'button', class: 'btn btn--sm', disabled: refreshing, onClick: refreshIdentity }, refreshing ? '更新中…' : '更新權限')
+      ])
+    ]);
   }
 
   function header() {
@@ -118,7 +203,7 @@ export async function staffHome({ scope, view }) {
     if (!m) {
       return el('section', { class: 'card' }, [
         el('h2', { class: 'card__head', text: '目前場次' }),
-        el('p', { class: 'muted', text: '今天沒有待進行的場次。' })
+        el('p', { class: 'muted', text: '所選日期沒有待進行的場次。' })
       ]);
     }
     return el('section', { class: 'card card--current division-card', ...divisionThemeAttrs(m.divisionId) }, [
@@ -142,12 +227,12 @@ export async function staffHome({ scope, view }) {
   function listCard() {
     if (!matches.length) {
       return el('section', { class: 'card' }, [
-        el('h2', { class: 'card__head', text: '今日我的場次' }),
+        el('h2', { class: 'card__head', text: manualDate ? `${shortDate(date)} 我的場次` : '今日我的場次' }),
         el('p', { class: 'muted', text: '這個日期沒有指派給你的場次。若不正確，請聯絡主辦確認你的指派設定。' })
       ]);
     }
     return el('section', { class: 'card' }, [
-      el('h2', { class: 'card__head', text: `今日我的場次（${matches.length}）` }),
+      el('h2', { class: 'card__head', text: `${manualDate ? `${shortDate(date)} 我的場次` : '今日我的場次'}（${matches.length}）` }),
       el('ul', { class: 'mlist' }, matches.map(m => el('li', { ...divisionThemeAttrs(m.divisionId), class: `mlist__item division-card ${DONE.has(m.status) ? 'is-done' : ''}` }, [
         el('button', {
           class: 'mlist__btn', type: 'button',
@@ -215,11 +300,5 @@ export async function staffHome({ scope, view }) {
     return el('div', { class: 'toolbar' }, btns);
   }
 
-  return () => { offSync(); indicator.destroy(); };
-}
-
-/** 活動期間就用今天，否則落在活動第一天（賽前試用不會看到空畫面） */
-function todayInEvent() {
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-  return EVENT.dates.includes(today) ? today : EVENT.dates[0];
+  return dispose;
 }

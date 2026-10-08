@@ -77,6 +77,16 @@ test.beforeEach(({ page }) => {
   page.on('console', m => { if (m.type() === 'error') console.log('[browser error]', m.text()); });
 });
 
+test('STAFF-ASSIGN 總管可以指派賽務員並保存場地 @admin', async ({ page }) => {
+  await stub(page); await go(page);
+  await person(page, '陳阿明').locator('.adm__itemHead').click();
+  await roleBtn(page, '賽務員').click();
+  await page.locator('.adm__detail').getByRole('button', { name: 'A場', exact: true }).click();
+  await page.getByRole('button', { name: '指派身分', exact: true }).click();
+  await expect.poll(async () => (await staffOf(page, 'u-a'))?.roles).toEqual(['staff']);
+  expect((await staffOf(page, 'u-a')).assignment.venueIds).toEqual(['venue-a']);
+});
+
 test('⭐ 管理員進不來，而且看得到原因 @admin', async ({ page }) => {
   // 指派身分是總管專屬。管理員看到空白頁的話會以為系統壞了
   await stub(page, { roles: ['admin'] });
@@ -117,7 +127,7 @@ test('⭐ 身分選單裡沒有總管，而且說得出為什麼 @admin', async 
   await person(page, '陳阿明').locator('.adm__itemHead').click();
 
   const choices = page.locator('.adm__choice');
-  await expect(choices).toHaveCount(5);                          // booth/checkin/referee/scorer/admin
+  await expect(choices).toHaveCount(6);                          // booth/checkin/referee/scorer/admin
   await expect(page.locator('.adm__choices').first()).not.toContainText('總管');
   await expect(page.locator('.adm__detail')).toContainText('總管不在清單裡');
 });

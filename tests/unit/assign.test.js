@@ -59,7 +59,7 @@ describe('T36-B 向上包含要看得見', () => {
   });
 
   test('管理員含全部賽務角色', () => {
-    expect(impliedBy('admin')).toEqual(['booth', 'checkin', 'referee', 'scorer', 'admin']);
+    expect(impliedBy('admin')).toEqual(['booth', 'checkin', 'referee', 'scorer', 'staff', 'admin']);
   });
 });
 

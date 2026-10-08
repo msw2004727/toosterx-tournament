@@ -14,7 +14,7 @@ beforeEach(async()=>{
  const resp=await fetch(`http://${process.env.FIRESTORE_EMULATOR_HOST}/emulator/v1/projects/${process.env.GCLOUD_PROJECT}/databases/(default)/documents`,{method:'DELETE'});if(!resp.ok)throw Error('reset failed');
  const b=db().batch();b.set(base(),{});b.set(mr(),match);b.set(base().collection('divisions').doc('d'),{periods:1,matchDurationMin:25});
  b.set(mr().collection('timeline').doc('goal'),{type:'goal',clockSec:123});
- for(const [uid,roles,active,venueIds] of [['scorer',['scorer'],true,['v']],['admin',['admin'],true,[]],['other',['scorer'],true,['wrong']],['inactive',['admin'],false,[]],['booth',['booth'],true,[]]])b.set(db().doc(`staff/${uid}`),{roles,active,assignment:{venueIds}});
+ for(const [uid,roles,active,venueIds] of [['scorer',['scorer'],true,['v']],['operator',['staff'],true,['v']],['admin',['admin'],true,[]],['other',['scorer'],true,['wrong']],['inactive',['admin'],false,[]],['booth',['booth'],true,[]]])b.set(db().doc(`staff/${uid}`),{roles,active,assignment:{venueIds}});
  await b.commit();
 });
 afterEach(()=>jest.restoreAllMocks());
@@ -46,4 +46,11 @@ test('CLOCK-ROLLBACK failed audit leaves time and receipt unchanged',async()=>{
 });
 test('CLOCK-VALIDATION server rejects empty reason and invalid time',async()=>{
  const req=await request();for(const change of [{reason:''},{seconds:-1},{seconds:1.5},{seconds:86401}])await expect(editMatchClockFor({...req,data:{...req.data,...change}})).rejects.toMatchObject({code:'invalid-argument'});
+});
+
+test('STAFF-CLOCK operator corrects clock but cannot use admin context or another venue', async () => {
+ await expect(editMatchClockFor(await request({uid:'operator',context:'admin'}))).rejects.toMatchObject({code:'permission-denied'});
+ expect(await editMatchClockFor(await request({uid:'operator'}))).toMatchObject({seconds:1650});
+ await db().doc('staff/operator').update({assignment:{venueIds:['wrong']}});
+ await expect(editMatchClockFor(await request({uid:'operator',operationId:'clock-2'}))).rejects.toMatchObject({code:'permission-denied'});
 });

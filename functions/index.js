@@ -100,7 +100,7 @@ async function requireStaff(request, roles = []) {
 
 const ADMIN = ['admin', 'super_admin'];
 // 賽務角色向上包含（R-ROLE-002）：攤位以上都做得了攤位的事
-const BOOTH = ['booth', 'checkin', 'referee', 'scorer', 'admin', 'super_admin'];
+const BOOTH = ['booth', 'checkin', 'referee', 'scorer', 'staff', 'admin', 'super_admin'];
 
 export const updateChallengeDay = onCall(async request => {
   await requireStaff(request, BOOTH);

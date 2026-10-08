@@ -25,7 +25,7 @@ const perms = (roles, matrix) => [...effectivePerms(roles, matrix)];
 
 describe('T42-1 繼承鏈', () => {
   test('⭐ 順序就是主辦指定的那一條', () => {
-    expect(STAFF_CHAIN).toEqual(['booth', 'checkin', 'referee', 'scorer', 'admin', 'super_admin']);
+    expect(STAFF_CHAIN).toEqual(['booth', 'checkin', 'referee', 'scorer', 'staff', 'admin', 'super_admin']);
   });
 
   test('⭐ 高階展開成鏈上所有更低的角色', () => {
@@ -36,7 +36,7 @@ describe('T42-1 繼承鏈', () => {
   });
 
   test('多個角色取最高的那一個展開', () => {
-    expect(impliedRoles(['booth', 'admin'])).toEqual(['booth', 'checkin', 'referee', 'scorer', 'admin']);
+    expect(impliedRoles(['booth', 'admin'])).toEqual(['booth', 'checkin', 'referee', 'scorer', 'staff', 'admin']);
     expect(impliedRoles(['scorer', 'checkin'])).toEqual(['booth', 'checkin', 'referee', 'scorer']);
   });
 
@@ -92,8 +92,8 @@ describe('T42-2 level 與階層一致（但只用來顯示）', () => {
 });
 
 describe('T42-3 預設權限（依 minRole ＋ 繼承）', () => {
-  test('⭐ 挑戰攤位只有一項', () => {
-    expect(defaultPermsOf('booth')).toEqual(['challenge.attempt.write']);
+  test('⭐ 挑戰攤位可登錄挑戰與查看賽務首頁', () => {
+    expect(defaultPermsOf('booth')).toEqual(['challenge.attempt.write', 'staff.access']);
   });
 
   test('⭐ 檢錄員拿得到挑戰攤位的，加上檢錄與看個資', () => {
@@ -139,12 +139,13 @@ describe('T42-3 預設權限（依 minRole ＋ 繼承）', () => {
     expect(perms(['venue_owner'])).toEqual([]);
   });
 
-  test('⭐ 權限數量隨階層嚴格遞增', () => {
+  test('⭐ 權限數量隨階層增加，賽務員與記錄員使用相同操作權限', () => {
     // 「層級越高權限越大功能越多」——主辦的原話。
-    // 兩階一樣多就代表中間那一階沒有存在的意義。
+    // 賽務員是主辦新增的完整賽務身份，操作集合與既有記錄員相同。
     const counts = STAFF_CHAIN.map(r => effectivePerms([r]).size);
     for (let i = 1; i < counts.length; i++) {
-      expect(counts[i]).toBeGreaterThan(counts[i - 1]);
+      if (STAFF_CHAIN[i] === 'staff') expect(counts[i]).toBe(counts[i - 1]);
+      else expect(counts[i]).toBeGreaterThan(counts[i - 1]);
     }
   });
 

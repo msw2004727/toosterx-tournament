@@ -13,6 +13,10 @@ const { runMutants } = require('./lib/mutate.cjs');
 const F = 'firestore.rules';
 
 const MUTANTS = [
+  { name:'RU#STAFF 賽務員未接上記分權限', file:F,
+    from:"function isScorer()     { return myRoles().hasAny(['scorer', 'staff', 'admin', 'super_admin']); }",
+    to:"function isScorer()     { return myRoles().hasAny(['scorer', 'admin', 'super_admin']); }",
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/staff-operator.test.js --silent' },
   { name: 'RU#TM1 直接寫入繞過球隊管理鎖', file: F,
     from: "return get(teamPath(tid)).data.get('managementLocked', false) != true;", to: 'return true;',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --runTestsByPath tests/firestore-rules/team-management.test.js --silent' },
@@ -79,8 +83,8 @@ const MUTANTS = [
   {
     name: 'RU#2 角色白名單含 super_admin（介面就能造出第二個大總管）',
     file: F,
-    from: `          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin']);`,
-    to: `          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin', 'super_admin']);`
+    from: `          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'staff', 'admin']);`,
+    to: `          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'staff', 'admin', 'super_admin']);`
   },
   {
     name: 'RU#3 報名設定讀不到就當開著（fail-open）',
@@ -199,9 +203,9 @@ const MUTANTS = [
   {
     name: 'RU#19 檢錄併進 isScorer（每個檢錄志工都能改比分）',
     file: F,
-    from: `    function isScorer()     { return myRoles().hasAny(['scorer', 'admin', 'super_admin']); }
+    from: `    function isScorer()     { return myRoles().hasAny(['scorer', 'staff', 'admin', 'super_admin']); }
     function isReferee()`,
-    to: `    function isScorer()     { return myRoles().hasAny(['checkin', 'scorer', 'admin', 'super_admin']); }
+    to: `    function isScorer()     { return myRoles().hasAny(['checkin', 'scorer', 'staff', 'admin', 'super_admin']); }
     function isReferee()`
   },
   {
@@ -243,15 +247,15 @@ const MUTANTS = [
   {
     name: 'RU#25 檢錄不含更高階（記錄員反而檢錄不了）',
     file: F,
-    from: `    function isCheckin()    { return myRoles().hasAny(['checkin', 'referee', 'scorer',
+    from: `    function isCheckin()    { return myRoles().hasAny(['checkin', 'referee', 'scorer', 'staff',
                                                         'admin', 'super_admin']); }`,
     to: `    function isCheckin()    { return myRoles().hasAny(['checkin']); }`
   },
   {
     name: 'RU#26 記分含裁判（裁判 < 記錄員，不該記得了分）',
     file: F,
-    from: `    function isScorer()     { return myRoles().hasAny(['scorer', 'admin', 'super_admin']); }`,
-    to: `    function isScorer()     { return myRoles().hasAny(['referee', 'scorer', 'admin', 'super_admin']); }`
+    from: `    function isScorer()     { return myRoles().hasAny(['scorer', 'staff', 'admin', 'super_admin']); }`,
+    to: `    function isScorer()     { return myRoles().hasAny(['referee', 'scorer', 'staff', 'admin', 'super_admin']); }`
   },
   {
     name: 'RU#27 出場名單只給記錄員（裁判編不了名單）',
@@ -262,8 +266,8 @@ const MUTANTS = [
   {
     name: 'RU#28 繼承鏈含 venue_owner（FC 的場主自動變成記錄員）',
     file: F,
-    from: `    function isScorer()     { return myRoles().hasAny(['scorer', 'admin', 'super_admin']); }`,
-    to: `    function isScorer()     { return myRoles().hasAny(['venue_owner', 'scorer', 'admin', 'super_admin']); }`
+    from: `    function isScorer()     { return myRoles().hasAny(['scorer', 'staff', 'admin', 'super_admin']); }`,
+    to: `    function isScorer()     { return myRoles().hasAny(['venue_owner', 'scorer', 'staff', 'admin', 'super_admin']); }`
   },
   {
     name: 'RU#29 ⭐ 報名開關退回 isAdmin（管理員改得動截止日）',

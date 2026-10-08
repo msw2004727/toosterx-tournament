@@ -348,7 +348,8 @@ export async function adminStaffPage({ scope, view }) {
       el('p', { class: 'adm__note', text: '總管不在清單裡：那是唯一能指派身分的人，只能用後台腳本建立。' }),
       venuePicker(),
       challengePicker(),
-      el('p', { class: 'adm__note', text: '儲存後，請人員到「FEDA CUP 挑戰區 → 攤位登錄」並按「更新權限」，即可掃碼或輸入挑戰卡號。' }),
+      el('p', { class: 'adm__note', text: '賽務員可檢錄、編輯出場名單、控制時鐘、記分與送出完賽；覆核、重開與改判保留給管理員以上。日期由賽務台自動選擇，也可用頁籤手動切換。' }),
+      el('p', { class: 'adm__note', text: '儲存後，請人員重新進入「我的 → 賽務台」，或在賽務台按「更新權限」。挑戰攤位人員請到「FEDA CUP 挑戰區 → 攤位登錄」按「更新權限」。' }),
       el('div', { class: 'adm__actions' }, [
         el('button', {
           class: 'btn btn--primary btn--lg', type: 'button',

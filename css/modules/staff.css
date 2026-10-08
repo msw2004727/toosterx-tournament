@@ -30,6 +30,9 @@
 .staff__head .theme-switch__opt.is-on{background:rgba(255,255,255,.92);color:var(--primary);box-shadow:none}
 
 /* ── 賽務首頁 ───────────────────────────────────────── */
+.staff__dates{margin:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2)}
+.staff__dateTabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-2)}
+.staff__dateMode{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);font-size:var(--fs-xs)}
 .cur{display:flex;flex-direction:column;gap:var(--sp-2)}
 .cur__meta{font-size:var(--fs-sm);color:var(--text-muted)}
 .cur__teams{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-lg);font-weight:700}

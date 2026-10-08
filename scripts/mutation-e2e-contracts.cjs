@@ -1,5 +1,11 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ESTAFFMIDNIGHT: { spec:'tests/e2e/staff-dates.spec.js', grep:'STAFF-MIDNIGHT', minTests:1, failure:'toHaveAttribute',
+    assertions:["await expect(tab(page, 10)).toHaveAttribute('aria-selected', 'true');"] },
+  ESTAFFACTIVE: { spec:'tests/e2e/staff-dates.spec.js', grep:'STAFF-AUTH', minTests:1, failure:'toBeVisible',
+    assertions:["await expect(page.getByText('沒有賽務台權限', { exact: true })).toBeVisible();"] },
+  ESTAFFLISTENER: { spec:'tests/e2e/staff-dates.spec.js', grep:'STAFF-MIDNIGHT', minTests:1, failure:'toEqual',
+    assertions:["expect(listeners).toEqual(['myMatches:2026-10-10']);"] },
   ECOARSEBUTTON: { spec: 'tests/e2e/button-system.spec.js', grep: '球隊操作列完整.*dark', minTests: 1,
     failure: 'toBeGreaterThanOrEqual', assertions: ['expect(await contrast(primary)).toBeGreaterThanOrEqual(4.5)'] },
   ETM1: { spec: 'tests/e2e/team-management.spec.js', grep: '隊長只看到', minTests: 1,

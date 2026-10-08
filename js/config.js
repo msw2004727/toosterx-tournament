@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20261008a';
+export const CACHE_VERSION = '0.20261008b';
 
 /** PWA 安裝入口：右側「我的／登入」左邊提供原生安裝或各平台教學。 */
 export const PWA_INSTALL = true;
@@ -56,7 +56,7 @@ export const PERIODS = ['pre', 'h1', 'ht', 'h2', 'et1', 'et2', 'pk', 'ft'];
  *
  * ── 兩邊刻意不同的地方（有意識的分歧，不是漂移）──────────────
  *
- * 1. **多出四個賽務角色**：booth／checkin／referee／scorer。
+ * 1. **多出五個賽務角色**：booth／checkin／referee／scorer／staff。
  *    FC 沒有這些（它不辦賽事）。level 用小數插在領隊(2)與管理員(4)之間，
  *    不撞到 FC 既有的整數，對接時語意也對（比領隊高、比管理員低）。
  *
@@ -79,13 +79,14 @@ export const ROLE_INFO = {
   booth:       { level: 2.1, label: '挑戰攤位', fc: false },
   checkin:     { level: 2.2, label: '檢錄員',   fc: false },
   referee:     { level: 2.3, label: '裁判',     fc: false },
-  scorer:      { level: 2.4, label: '記錄員',   fc: false }
+  scorer:      { level: 2.4, label: '記錄員',   fc: false },
+  staff:       { level: 2.5, label: '賽務員',   fc: false }
 };
 
 /**
  * 賽務角色的**繼承鏈**（主辦 2026-09-03 指定：向上包含）。
  *
- *   挑戰攤位 < 檢錄員 < 裁判 < 記錄員 < 管理員 < 總管
+ *   挑戰攤位 < 檢錄員 < 裁判 < 記錄員 < 賽務員 < 管理員 < 總管
  *
  * ⚠️ **為什麼用一條明列的鏈，而不是比 `level` 大小。**
  *    FC 的 `venue_owner` 是 level 3，正好夾在記錄員(2.4)與管理員(4)之間。
@@ -95,7 +96,7 @@ export const ROLE_INFO = {
  *
  * `level` 仍然存在，但**只用來排序與顯示**。
  */
-export const STAFF_CHAIN = ['booth', 'checkin', 'referee', 'scorer', 'admin', 'super_admin'];
+export const STAFF_CHAIN = ['booth', 'checkin', 'referee', 'scorer', 'staff', 'admin', 'super_admin'];
 
 /**
  * 展開一組角色的實際身分（含繼承來的）。
@@ -167,6 +168,7 @@ export const PERMISSIONS = [
   { code: 'challenge.attempt.write', label: '登錄挑戰成績', group: '挑戰區', minRole: 'booth' },
 
   // ── 檢錄 ──
+  { code: 'staff.access',     label: '進入賽務首頁與切換日期', group: '賽務', minRole: 'booth' },
   { code: 'checkin.write',    label: '檢錄勾選出賽',   group: '檢錄', minRole: 'checkin' },
   { code: 'member.read',      label: '看球員個資（生日／身分證後四碼）', group: '檢錄', minRole: 'checkin' },
   // 人數不足時「仍要完成檢錄」只有管理員以上做得到，而且要記錄原因（docs/04 §4.6）。
@@ -268,7 +270,7 @@ export function effectivePerms(roles = [], matrix = {}) {
  * 自己的身分沒生效。折衷是「看得到、標明規劃中、按不下去」。
  */
 export const FEATURES = [
-  { code: 'match.score.write',label: '賽務台',     hint: '記錄比分、事件與完賽送出',  route: '/staff', icon: 'whistle', frequent: true },
+  { code: 'match.score.write',label: '賽務台',     hint: '切換日期、檢錄、名單與比賽記錄',  route: '/staff', icon: 'whistle', frequent: true },
   { code: 'challenge.attempt.write', label: '挑戰攤位', hint: '挑戰區成績登錄',      route: '/booth', icon: 'goal', frequent: true },
   { code: 'team.manage', label: '匯入球隊名冊', hint: '上傳 CSV，批次建立球隊與球員', route: '/admin/team-import', icon: 'team' },
   { code: 'team.manage', label: '管理球隊', hint: '查看名冊、修改資料與管理球隊鎖定', route: '/my/teams', icon: 'team', frequent: true },

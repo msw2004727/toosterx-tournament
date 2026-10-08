@@ -64,7 +64,7 @@ describe('R103–R108 這一頁寫得進去嗎', () => {
   });
 
   test('R104 ⭐ 五種可指派的身分都放行，super_admin 擋住', async () => {
-    for (const role of ['booth', 'checkin', 'referee', 'scorer', 'admin']) {
+    for (const role of ['booth', 'checkin', 'referee', 'scorer', 'staff', 'admin']) {
       await assertSucceeds(
         setDoc(staffRef(authed(env, 'u-super'), 'u-plain'), staffDoc({ roles: [role] })));
     }

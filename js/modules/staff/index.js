@@ -8,8 +8,8 @@
  */
 
 import { route, navigate, lazy } from '../../core/router.js';
-import { whenAuthReady, user } from '../../core/firebase.js';
-import { el } from '../../core/ui.js';
+import { whenAuthReady, user, can } from '../../core/firebase.js';
+import { el, mount, emptyState } from '../../core/ui.js';
 import { CACHE_VERSION } from '../../config.js';
 
 async function requireStaff() {
@@ -24,7 +24,14 @@ async function requireStaff() {
 const page = (path, fn) => {
   const url = new URL(path, import.meta.url).href + `?v=${CACHE_VERSION}`;
   const load = lazy(() => import(/* @vite-ignore */ url), url);
-  return ctx => load().then(m => fn(m)(ctx));
+  return async ctx => {
+    if (!can('staff.access')) {
+      mount(ctx.view, emptyState({ title: '沒有賽務台權限', note: '請主辦指派有效的賽務身分，或確認身分是否已停用。', actionLabel: '回我的', onAction: () => navigate('/my') }));
+      return;
+    }
+    const module = await load();
+    return fn(module)(ctx);
+  };
 };
 
 export function registerStaffRoutes() {

@@ -10,6 +10,15 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  { name:'#STAFFDATE-END 活動後又跳回第一天', file:'js/engine/staff-date.js',
+    from:'?? ordered.at(-1)', to:'?? ordered[0]',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/staff-date.test.js --silent' },
+  { name:'#STAFFDATE-TZ 日期依 UTC 換日', file:'js/engine/staff-date.js',
+    from:'timeZone: timezone,', to:"timeZone: 'UTC',",
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/staff-date.test.js --silent' },
+  { name:'#STAFFDATE-MANUAL 手動選擇被今日覆蓋', file:'js/engine/staff-date.js',
+    from:'return dates.includes(manualDate) ? manualDate :', to:'return false ? manualDate :',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/staff-date.test.js --silent' },
   {name:'#CSVOPTIONAL 球員姓名又變必填',file:'js/engine/team-import.js',
     from:"const REQUIRED = ['divisionId', 'teamName'];",to:"const REQUIRED = ['divisionId', 'teamName', 'playerName'];",
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/team-import.test.js --silent'},
@@ -682,8 +691,8 @@ const MUTANTS = [
   {
     name: '#P35 賽務角色的 level 撞到 FC 的整數（兩邊排序衝突）',
     file: 'js/config.js',
-    from: `  scorer:      { level: 2.4, label: '記錄員',   fc: false }`,
-    to: `  scorer:      { level: 3, label: '記錄員',   fc: false }`
+    from: `  scorer:      { level: 2.4, label: '記錄員',   fc: false },`,
+    to: `  scorer:      { level: 3, label: '記錄員',   fc: false },`
   },
   {
     name: '#P36 topRole 把不認得的角色當成最高（對接時給出不該給的權限）',
@@ -699,16 +708,16 @@ const MUTANTS = [
     from: `        && d.roles.size() > 0
         // ⚠️ **不含 super_admin**`,
     to: `        && d.roles.size() > 0
-        && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin', 'super_admin'])
+        && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'staff', 'admin', 'super_admin'])
         // ⚠️ **不含 super_admin**`
   },
   {
     name: '#P32b 大總管可指派的角色包含 super_admin（大總管不再唯一）',
     file: 'firestore.rules',
     from: `      return d.roles is list && d.roles.size() > 0
-          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin']);`,
+          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'staff', 'admin']);`,
     to: `      return d.roles is list && d.roles.size() > 0
-          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'admin', 'super_admin']);`
+          && d.roles.hasOnly(['scorer', 'referee', 'checkin', 'booth', 'staff', 'admin', 'super_admin']);`
   },
   {
     name: '#P33 介面提供了 rules 不放行的身分（選了才被擋，看起來像壞掉）',
@@ -847,8 +856,8 @@ const MUTANTS = [
   {
     name: '#H3 裁判排在記錄員之上（主辦指定的順序反了）',
     file: 'js/config.js',
-    from: `export const STAFF_CHAIN = ['booth', 'checkin', 'referee', 'scorer', 'admin', 'super_admin'];`,
-    to: `export const STAFF_CHAIN = ['booth', 'checkin', 'scorer', 'referee', 'admin', 'super_admin'];`
+    from: `export const STAFF_CHAIN = ['booth', 'checkin', 'referee', 'scorer', 'staff', 'admin', 'super_admin'];`,
+    to: `export const STAFF_CHAIN = ['booth', 'checkin', 'scorer', 'referee', 'staff', 'admin', 'super_admin'];`
   },
   {
     // ⚠️ 錨點會跟著 PERMISSIONS 那一行變。2026-09-05 覆核完賽上線、

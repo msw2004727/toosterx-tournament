@@ -15,6 +15,13 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name:'#ESTAFFMIDNIGHT 留在頁面不自動跨日', file:'js/modules/staff/home.js',
+    from:'if (next !== date) { date = next; subscribeMatches(); }', to:'if (false) { date = next; subscribeMatches(); }' },
+  { name:'#ESTAFFACTIVE 停用身分仍有 UI 操作權限', file:'js/core/firebase.js',
+    from:'currentStaff = nextStaff?.active === true ? nextStaff : null;',
+    to:'currentStaff = nextStaff;' },
+  { name:'#ESTAFFLISTENER 切換日期留下舊監聽', file:'js/modules/staff/home.js',
+    from:'stopMatches?.(); stopMatches = null;', to:'stopMatches = null;' },
   { name: '#ECOARSEBUTTON 觸控裝置的主要按鈕被一般連結 hover 色覆蓋', file: 'css/base.css',
     from: 'a:hover:where(:not(.btn)){color:var(--accent-hover)}', to: 'a:hover{color:var(--accent-hover)}' },
   { name: '#ETM1 管理頁不再限制隊長所屬球隊', file: 'js/modules/admin/manage-teams.js',

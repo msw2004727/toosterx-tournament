@@ -43,10 +43,11 @@ const SEED = {
 };
 
 async function stubFirebase(page) {
+  await page.clock.install({time:new Date('2026-10-11T12:00:00+08:00')});
   await page.route('https://www.gstatic.com/firebasejs/**', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: FAKE }));
   await page.route('https://firestore.googleapis.com/**', route =>
-    route.fulfill({ status: 200, headers: { date: new Date().toUTCString() }, body: '{}' }));
+    route.fulfill({ status: 200, headers: { date: new Date('2026-10-11T12:00:00+08:00').toUTCString() }, body: '{}' }));
   await page.addInitScript(({ seed }) => {
     window.__FAKE_SEED = seed;
     window.__FAKE_USER = { uid: 'u-e2e', displayName: '陳賽務' };

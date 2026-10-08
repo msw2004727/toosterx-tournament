@@ -17,7 +17,7 @@ export async function editMatchClockFor(request) {
   return db().runTransaction(async tx => {
     const staff = (await tx.get(db().doc(`staff/${uid}`))).data();
     const admin = staff?.roles?.some(r => ['admin','super_admin'].includes(r));
-    if (staff?.active !== true || (!admin && !staff?.roles?.includes('scorer')) || (context === 'admin' && !admin)) fail('permission-denied','沒有修改比賽時間的權限');
+    if (staff?.active !== true || (!admin && !staff?.roles?.some(r => ['scorer', 'staff'].includes(r))) || (context === 'admin' && !admin)) fail('permission-denied','沒有修改比賽時間的權限');
     const receipt = await tx.get(receiptRef);
     if (receipt.exists) {
       if (receipt.data().actorUid !== uid || receipt.data().requestHash !== hash) fail('already-exists','操作代碼已被使用');

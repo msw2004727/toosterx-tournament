@@ -96,12 +96,12 @@ describe('T37-A 調得動與調不動', () => {
 describe('T37-B 關掉之後誰不受影響', () => {
   test('⭐ 記錄員的權限關掉，管理員與總管仍然有', () => {
     // 少了這句話，主辦會以為整個功能被關掉了，然後在現場找不到人送出完賽
-    expect(stillAllowed(P('match.finish'))).toEqual(['admin', 'super_admin']);
+    expect(stillAllowed(P('match.finish'))).toEqual(['staff', 'admin', 'super_admin']);
   });
 
   test('挑戰攤位的權限關掉，上面四階都還有', () => {
     expect(stillAllowed(P('challenge.attempt.write')))
-      .toEqual(['checkin', 'referee', 'scorer', 'admin', 'super_admin']);
+      .toEqual(['checkin', 'referee', 'scorer', 'staff', 'admin', 'super_admin']);
   });
 
   test('管理員的權限關掉，只剩總管', () => {
@@ -199,7 +199,7 @@ describe('T37-D 整張表', () => {
   test('⭐ 角色標在每一列，不標在組標題', () => {
     // 「賽務」組裡同時有裁判的（出場名單）與記錄員的（比分、完賽）
     const 賽務 = groups.find(g => g.group === '賽務');
-    expect(new Set(賽務.rows.map(r => r.role))).toEqual(new Set(['referee', 'scorer']));
+    expect(new Set(賽務.rows.map(r => r.role))).toEqual(new Set(['booth', 'referee', 'scorer']));
     expect(賽務).not.toHaveProperty('role');
   });
 

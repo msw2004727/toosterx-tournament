@@ -23,7 +23,7 @@ beforeEach(async () => {
   const r = await fetch(`http://${process.env.FIRESTORE_EMULATOR_HOST}/emulator/v1/projects/${process.env.GCLOUD_PROJECT}/databases/(default)/documents`, { method: 'DELETE' });
   if (!r.ok) throw Error('Emulator reset failed');
   const b = db().batch(); b.set(base(), { dates: ['2026-10-09'] });
-  for (const [uid, roles, active, venueIds] of [['admin', ['admin'], true, []], ['scorer', ['scorer'], true, ['v']], ['other', ['scorer'], true, ['wrong']], ['booth', ['booth'], true, []], ['inactive', ['admin'], false, []]])
+  for (const [uid, roles, active, venueIds] of [['admin', ['admin'], true, []], ['scorer', ['scorer'], true, ['v']], ['operator', ['staff'], true, ['v']], ['other', ['scorer'], true, ['wrong']], ['booth', ['booth'], true, []], ['inactive', ['admin'], false, []]])
     b.set(db().doc(`staff/${uid}`), { roles, active, assignment: { venueIds }, name: uid });
   b.set(mr(), match); b.set(er(), event);
   b.set(base().collection('divisions').doc('d'), { periods: 1, matchDurationMin: 30, formatId: 'EDIT', rankingRuleId: 'RR_FEDA_DEFAULT', withdrawalPolicy: 'voidAll', finalRankingPublished: true });
@@ -98,3 +98,10 @@ test('EDIT-STATS finished corrections update result, standing, scorer board and 
   await onTimelineWritten.run({ params: { eventId: E, matchId: 'm', timelineId: 'e' } });
   expect((await base().collection('boards').doc('fairplay').get()).data().rows.find(r => r.teamId === 'h').fairPlayPoints).toBe(-4);
 }, 30000);
+
+test('STAFF-EVENT operator corrects events but cannot use admin context or another venue', async () => {
+ await expect(editTimelineEventFor(await request({type:'own_goal'},{uid:'operator',context:'admin'}))).rejects.toMatchObject({code:'permission-denied'});
+ expect(await editTimelineEventFor(await request({type:'own_goal'},{uid:'operator'}))).toMatchObject({matchId:'m',timelineId:'e'});
+ await db().doc('staff/operator').update({assignment:{venueIds:['wrong']}});
+ await expect(editTimelineEventFor(await request({type:'goal'},{uid:'operator',operationId:'edit-2'}))).rejects.toMatchObject({code:'permission-denied'});
+});

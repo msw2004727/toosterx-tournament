@@ -8,13 +8,13 @@ service firebase.storage {
         && firestore.exists(/databases/(default)/documents/staff/$(request.auth.uid))
         && staffData().get('active', false) == true
         && staffData().get('roles', []) is list
-        && staffData().get('roles', []).hasAny(['booth', 'checkin', 'referee', 'scorer', 'admin', 'super_admin']);
+        && staffData().get('roles', []).hasAny(['booth', 'checkin', 'referee', 'scorer', 'staff', 'admin', 'super_admin']);
     }
     function staffData() {
       return firestore.get(/databases/(default)/documents/staff/$(request.auth.uid)).data;
     }
     function canReadOriginal() {
-      return isStaff() && staffData().roles.hasAny(['checkin', 'referee', 'scorer', 'admin', 'super_admin']);
+      return isStaff() && staffData().roles.hasAny(['checkin', 'referee', 'scorer', 'staff', 'admin', 'super_admin']);
     }
     function isImage()  { return request.resource.contentType.matches('image/.*'); }
     function under(mb)  { return request.resource.size < mb * 1024 * 1024; }

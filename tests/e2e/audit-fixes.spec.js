@@ -78,10 +78,11 @@ const LIFF_STUB = `window.liff = {
 };`;
 
 async function stub(page, seed, { user = { uid: UID, displayName: '陳賽務' }, init = null } = {}) {
+  await page.clock.install({time:new Date('2026-10-09T12:00:00+08:00')});
   await page.route('https://www.gstatic.com/firebasejs/**', r =>
     r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: FAKE }));
   await page.route('https://firestore.googleapis.com/**', r =>
-    r.fulfill({ status: 200, headers: { date: new Date().toUTCString() }, body: '{}' }));
+    r.fulfill({ status: 200, headers: { date: new Date('2026-10-09T12:00:00+08:00').toUTCString() }, body: '{}' }));
   await page.route('https://static.line-scdn.net/**', r =>
     r.fulfill({ status: 200, contentType: 'text/javascript', body: LIFF_STUB }));
   await page.route('https://www.youtube-nocookie.com/**', r =>
