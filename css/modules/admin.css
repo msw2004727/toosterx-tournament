@@ -145,7 +145,7 @@
 .adm__newPlayerTitle{padding:0 6px;font-size:var(--fs-sm);font-weight:700;color:var(--accent)}
 .adm__removePlayerRow{position:absolute;top:-18px;right:6px;min-width:44px;height:44px;padding:8px;background:var(--bg-card)}
 .adm__removePlayerRow[hidden]{display:none}
-.adm__newPlayerMain{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:var(--sp-2);margin-top:4px}
+.adm__newPlayerMain{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:var(--sp-2);margin-top:20px}
 .adm__newPlayer label{min-width:0;font-size:var(--fs-sm)}
 .adm__newPlayer .adm__identityInput{margin-top:5px;min-width:0}
 .adm__newPlayerOptional{margin-top:var(--sp-3);font-size:var(--fs-sm);color:var(--text-secondary)}

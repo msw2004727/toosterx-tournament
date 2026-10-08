@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20261009';
+export const CACHE_VERSION = '0.20261009a';
 
 /** PWA 安裝入口：右側「我的／登入」左邊提供原生安裝或各平台教學。 */
 export const PWA_INSTALL = true;

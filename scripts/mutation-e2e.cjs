@@ -15,6 +15,8 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name:'#EADDOVERLAP 移除球員按鈕覆蓋輸入標籤',file:'css/modules/admin.css',
+    from:'gap:var(--sp-2);margin-top:20px}',to:'gap:var(--sp-2);margin-top:4px}' },
   { name:'#EADDROW 加號沒有新增第二位球員',file:'js/modules/admin/team-player-add.js',
     from:'rows.push(row); renderRows();',to:'if (!rows.length) rows.push(row); renderRows();' },
   { name:'#EADDRECEIPT 不完整新增回覆被當作成功',file:'js/modules/admin/data.js',

@@ -101,6 +101,9 @@ test('等待回覆禁止再加列、重複送出與關閉；換頁清除彈窗',
 for(const theme of ['light','dark'])test(`ADD-LAYOUT 多位球員表單可捲動，按鈕可見且 320px 不溢出：${theme}`,async({page})=>{
   await open(page,{theme});
   for(let i=0;i<5;i++)await dialog(page).getByRole('button',{name:'再新增球員'}).click();
+  const removeBounds=await row(page).getByRole('button',{name:'移除第 1 位球員'}).boundingBox();
+  const fieldsBounds=await row(page).locator('.adm__newPlayerMain').boundingBox();
+  expect(removeBounds.y+removeBounds.height).toBeLessThanOrEqual(fieldsBounds.y);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   const bounds=await dialog(page).locator('.adm__addPlayersPanel').boundingBox();expect(bounds.y).toBeGreaterThanOrEqual(0);expect(bounds.y+bounds.height).toBeLessThanOrEqual(page.viewportSize().height);
   const actions=await save(page).boundingBox();expect(actions.y+actions.height).toBeLessThanOrEqual(page.viewportSize().height);

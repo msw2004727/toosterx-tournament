@@ -1,5 +1,7 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EADDOVERLAP: {spec:'tests/e2e/team-player-add.spec.js',grep:'ADD-LAYOUT',minTests:2,failure:'toBeLessThanOrEqual',
+    assertions:['expect(removeBounds.y+removeBounds.height).toBeLessThanOrEqual(fieldsBounds.y);']},
   EADDROW: {spec:'tests/e2e/team-player-add.spec.js',grep:'ADD-UI',minTests:1,failure:'toHaveCount',
     assertions:["await expect(dialog(page).locator('.adm__newPlayer')).toHaveCount(2);"]},
   EADDRECEIPT: {spec:'tests/e2e/team-player-add.spec.js',grep:'ADD-RECEIPT',minTests:1,failure:'toContainText',
