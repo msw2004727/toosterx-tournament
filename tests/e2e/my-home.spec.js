@@ -62,11 +62,18 @@ async function go(page) {
 const tiles = page => page.locator('.acct__tile');
 const soon = page => page.locator('.acct__soonList li');
 
+test('一般使用者只看到球隊，未指派隊長時没有我的功能', async ({ page }) => {
+  await stub(page, { teams: { 't-1': { teamId: 't-1', name: '大甲金剛足球隊', divisionId: 'u10', captainUid: 'other', status: 'approved' } } });
+  await go(page);
+  await expect(page.locator('.acct__uidValue')).toHaveText(UID);
+  await expect(page.locator('.acct__card', { hasText: '我的功能' })).toHaveCount(0);
+});
+
 test.beforeEach(({ page }) => {
   page.on('console', m => { if (m.type() === 'error') console.log('[browser error]', m.text()); });
 });
 
-test('⭐ 一般使用者只看到球隊與登出，沒有功能區 @my', async ({ page }) => {
+test('⭐ 隊長看到球隊、管理球隊與登出 @my', async ({ page }) => {
   // 「層級越高功能越多」的另一端：沒有身分的人不該看到任何賽務入口。
   await stub(page);
   await go(page);
@@ -74,7 +81,7 @@ test('⭐ 一般使用者只看到球隊與登出，沒有功能區 @my', async 
   await expect(page.locator('.acct')).toContainText('我的球隊');
   await expect(page.locator('.acct')).toContainText('大甲金剛足球隊');
   await expect(page.getByRole('button', { name: '登出' })).toBeVisible();
-  await expect(page.locator('.acct__card', { hasText: '我的功能' })).toHaveCount(0);
+  await expect(page.locator('.acct__card', { hasText: '我的功能' })).toContainText('管理球隊');
 });
 
 test('⭐ 「我報名的球員」跨球隊列出自己報的，別人報的不列 @my', async ({ page }) => {

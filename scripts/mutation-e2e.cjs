@@ -15,6 +15,10 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name: '#ETM1 管理頁不再限制隊長所屬球隊', file: 'js/modules/admin/manage-teams.js',
+    from: 'stopTeams = canManageAllTeams() ? data.watchTeams', to: 'stopTeams = true ? data.watchTeams',
+    testCmd: 'npx playwright test tests/e2e/team-management.spec.js --project=chromium-mobile --grep 隊長只看到 --reporter=dot' },
+
   { name:'#EICONNAVSTACK Icons return beside captions',file:'css/components.css',
     from:'justify-content:center;flex-direction:column;gap:7px',to:'justify-content:center;flex-direction:row;gap:7px' },
   { name:'#EICONNAVTHEME Theme caption disappears',file:'js/core/appbar.js',
@@ -176,7 +180,7 @@ const MUTANTS = [
   },
   {
     name: '#E56 SVG 編輯鈕退回文字，窄機又出現直排',
-    file: 'js/modules/admin/teams.js',
+    file: 'js/modules/admin/team-roster.js',
     from: "}, icon('note')) : null", to: "}, '修改資料') : null"
   },
   {
@@ -194,7 +198,8 @@ const MUTANTS = [
   {
     name: '#E3 專屬首頁不依權限過濾功能（每個人都看到全部入口）',
     file: 'js/modules/account/my.js',
-    from: `    const mine = FEATURES.filter(f => can(f.code));`,
+    from: `    const mine = FEATURES.filter(f => f.route === '/my/teams'
+      ? canManageAllTeams() || !!state.teams?.length : can(f.code));`,
     to: `    const mine = FEATURES;`
   },
   {
@@ -362,8 +367,8 @@ const MUTANTS = [
   {
     name: '#E27 ⭐ 主題切換鈕退回 34px（320px 上點不到；D-15）',
     file: 'css/components.css',
-    from: `  min-height:var(--tap);min-width:var(--tap);padding:0 10px;border-radius:var(--r-full);`,
-    to: `  min-height:34px;padding:0 10px;border-radius:var(--r-full);`
+    from: `  min-height:62px;min-width:0;padding:6px 0;`,
+    to: `  height:34px;min-height:34px;max-height:34px;min-width:0;padding:6px 0;`
   },
   {
     name: '#E28 ⭐ 重開不讀事件流（timeline 打到下半場也退回第一期；D-06）',

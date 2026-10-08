@@ -33,6 +33,7 @@ import { writeAudit } from './store.js';
 import { loginWithLine } from './line.js';
 import { importTeamsFor, TeamImportError } from './team-import.js';
 import { updateMemberIdentityFor } from './member-identity.js';
+import { assignTeamCaptainFor, setTeamManagementLockFor } from './team-management.js';
 import { generateScheduleFor } from './schedule.js';
 import { editTimelineEventFor } from './timeline-edit.js';
 import { editMatchClockFor } from './clock-edit.js';
@@ -55,6 +56,22 @@ export const importTeamsCsv = onCall({ timeoutSeconds: 120 }, async request => {
 
 export const updateMemberIdentity = onCall({ timeoutSeconds: 120 }, async request => {
   try { return { ok: true, data: await updateMemberIdentityFor(request) }; }
+  catch (err) {
+    if (err instanceof TeamImportError) throw new HttpsError(err.code, err.message);
+    throw err;
+  }
+});
+
+export const assignTeamCaptain = onCall(async request => {
+  try { return { ok: true, data: await assignTeamCaptainFor(request) }; }
+  catch (err) {
+    if (err instanceof TeamImportError) throw new HttpsError(err.code, err.message);
+    throw err;
+  }
+});
+
+export const setTeamManagementLock = onCall({ timeoutSeconds: 120 }, async request => {
+  try { return { ok: true, data: await setTeamManagementLockFor(request) }; }
   catch (err) {
     if (err instanceof TeamImportError) throw new HttpsError(err.code, err.message);
     throw err;

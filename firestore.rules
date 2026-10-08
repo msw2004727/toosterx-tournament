@@ -321,6 +321,10 @@ service cloud.firestore {
             && get(teamPath(tid)).data.get('captainUid', '') == uid();
       }
 
+      function teamManagementUnlocked(tid) {
+        return get(teamPath(tid)).data.get('managementLocked', false) != true;
+      }
+
       // 名單凍結：隊長按下「送出報名」的當下就凍結（docs/10 §3.1）。
       // 從送出到主辦審核可能隔好幾天，這期間名單還能改的話，
       // 主辦審的跟通過的會是兩份不同的東西。
@@ -385,6 +389,7 @@ service cloud.firestore {
 
         allow update: if isAdmin()
                       || ( isCaptainOf(teamId)
+                           && teamManagementUnlocked(teamId)
                            && registrationVisible()
                            && captainTeamPatchOk()
                            && captainTeamTransition(resource.data.get('status', 'draft'),
@@ -393,7 +398,8 @@ service cloud.firestore {
 
         // 聯絡資訊等敏感欄位放子集合，避免公開讀取
         match /private/{docId} {
-          allow read, write: if isScorer();
+          allow read: if isScorer();
+          allow write: if isAdmin() || (isScorer() && teamManagementUnlocked(teamId));
         }
 
         // 完整名單（生日、身分證後四碼）：賽務以上、該隊隊長、以及自己報的那一筆
@@ -416,6 +422,7 @@ service cloud.firestore {
           allow create: if isAuth()
                         && regOpen()
                         && !rosterFrozen(teamId)
+                        && teamManagementUnlocked(teamId)
                         && (
                              // (A) 家長／本人用邀請碼申請 → 一定是 pending
                              ( request.resource.data.get('guardianUid', '') == uid()
@@ -427,10 +434,11 @@ service cloud.firestore {
                            );
 
           allow update: if isAdmin()
-                        || ( registrationVisible() && isCaptainOf(teamId) && captainMemberPatchOk(teamId) )
-                        || ( registrationVisible() && isCaptainOf(teamId) && coachMemberEditOk(teamId) )
+                        || ( registrationVisible() && isCaptainOf(teamId) && teamManagementUnlocked(teamId) && captainMemberPatchOk(teamId) )
+                        || ( registrationVisible() && isCaptainOf(teamId) && teamManagementUnlocked(teamId) && coachMemberEditOk(teamId) )
                         || ( isAuth()
                              && registrationVisible()
+                             && teamManagementUnlocked(teamId)
                              && resource.data.get('guardianUid', '') == uid()
                              && resource.data.status == 'pending'
                              && guardianMemberPatchOk() );

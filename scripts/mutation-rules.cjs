@@ -13,6 +13,13 @@ const { runMutants } = require('./lib/mutate.cjs');
 const F = 'firestore.rules';
 
 const MUTANTS = [
+  { name: 'RU#TM1 直接寫入繞過球隊管理鎖', file: F,
+    from: "return get(teamPath(tid)).data.get('managementLocked', false) != true;", to: 'return true;',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --runTestsByPath tests/firestore-rules/team-management.test.js --silent' },
+  { name: 'RU#PRE5 舊報名入口繞過關閉', file: F,
+    from: "allow create: if regOpen() && request.resource.data.status == 'pending';", to: "allow create: if request.resource.data.status == 'pending';",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/prelaunch.test.js --silent' },
+
   { name: 'RU#RESET-WRITE 歸零後放行舊裝置比分', file: F,
     from: 'allow update: if currentResetWrite() && (', to: 'allow update: if (',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/match-reset.test.js --silent' },

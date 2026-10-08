@@ -259,9 +259,9 @@ test('⭐ D-15 主題切換鈕與積分榜隊名的觸控目標高度 ≥ 44px @
     expect(box.height).toBeGreaterThanOrEqual(44);
     expect(box.width).toBeGreaterThanOrEqual(44);
   }
-  // 頁首的「首頁」「登入／我的」：Codex 在 320px 量到 21×44
+  // 頁首的「首頁」「場地圖」「登入／我的」皆維持完整觸控範圍。
   const links = page.locator('.apphead__link');
-  await expect(links).toHaveCount(2);
+  await expect(links).toHaveCount(3);
   for (const l of await links.all()) {
     const box = await l.boundingBox();
     expect(box.height).toBeGreaterThanOrEqual(44);

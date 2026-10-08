@@ -21,5 +21,6 @@ const page = (path, fn) => {
 
 export function registerAccountRoutes() {
   route('/login', page('./login.js', m => m.loginPage), { title: '登入' });
+  route('/my/teams', page('../admin/manage-teams.js', m => m.manageTeamsPage), { title: '管理球隊' });
   route('/my', page('./my.js', m => m.myPage), { title: '我的' });
 }

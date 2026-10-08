@@ -1,7 +1,7 @@
 /** 管理員更名：隊伍、公開顯示、稽核與重送收據同一交易提交。 */
 import { createHash } from 'node:crypto';
 import { FieldValue } from 'firebase-admin/firestore';
-import { db, evRef, adminActor, writeAudit } from './store.js';
+import { db, evRef, writeAudit } from './store.js';
 import { importTeamKey } from './engine/team-import.js';
 import { teamNameBasis, validateTeamNames, renamedMatchPatch, renamedRankingRows, renamedBoardPatch } from './engine/team-name.js';
 
@@ -23,16 +23,20 @@ export async function updateTeamNameFor(request) {
   const receiptRef = base.collection('managementOperations').doc(operationId);
   const requestHash = createHash('sha256').update(canonical({ action: 'team.rename', ...request.data })).digest('hex');
   return db().runTransaction(async tx => {
-    const actor = await adminActor(tx, uid);
+    const [staffSnap, eventSnap, teamSnap] = await Promise.all([tx.get(db().doc(`staff/${uid}`)), tx.get(base), tx.get(teamRef)]);
+    const team = teamSnap.data();
+    const staff = staffSnap.data();
+    const admin = staff?.active === true && Array.isArray(staff.roles) && staff.roles.some(role => ['admin', 'super_admin'].includes(role));
+    if (!admin && (!team || team.captainUid !== uid)) fail('permission-denied', '只有管理員、大總管或該隊隊長能修改球隊名稱。');
+    if (!admin && team.managementLocked === true) fail('permission-denied', '球隊已上鎖，請聯絡管理員或大總管解鎖。');
+    const actor = { uid, name: staff?.name ?? (team?.captainUid === uid ? team.captainName ?? null : null) };
     const receipt = await tx.get(receiptRef);
     if (receipt.exists) {
       if (receipt.data().requestHash !== requestHash || receipt.data().actorUid !== uid) fail('already-exists', '操作代碼已被使用。');
       return receipt.data().result;
     }
-    const [eventSnap, teamSnap] = await Promise.all([tx.get(base), tx.get(teamRef)]);
     if (!eventSnap.exists || !teamSnap.exists) fail('not-found', '找不到賽事或球隊。');
-    const team = teamSnap.data();
-    if (canonical(teamNameBasis(team)) !== canonical(expected)) fail('aborted', '球隊名稱已被其他管理員修改，請關閉表單並重新載入後再試。');
+    if (canonical(teamNameBasis(team)) !== canonical(expected)) fail('aborted', '球隊名稱已被其他人修改，請關閉表單並重新載入後再試。');
     if (team.name === names.name && team.shortName === names.shortName) fail('invalid-argument', '球隊名稱與簡稱沒有變更。');
     if (!idOK(team.divisionId)) fail('failed-precondition', '球隊缺少有效的組別。');
     const [teams, homeMatches, awayMatches, standings, boards, division] = await Promise.all([

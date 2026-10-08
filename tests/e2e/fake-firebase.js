@@ -539,6 +539,19 @@ export const httpsCallable = (_fns, name) => async (payload) => {
     }
     return { data: { ok: true, data: result } };
   }
+  if (name === 'assignTeamCaptain') {
+    const path = `events/${payload.eventId}/teams/${payload.teamId}`;
+    const captainName = payload.captainUid ? store.get(`users/${payload.captainUid}`)?.displayName || payload.captainUid : null;
+    await updateDoc({ path, __doc: true }, { captainUid: payload.captainUid, captainName });
+    return { data: { ok: true, data: { teamId: payload.teamId, captainUid: payload.captainUid, captainName, auditId: 'fake-captain-audit' } } };
+  }
+  if (name === 'setTeamManagementLock') {
+    const prefix = `events/${payload.eventId}/teams/`;
+    const teams = [...store.entries()].filter(([path, team]) => path.startsWith(prefix) && path.split('/').length === 4
+      && (payload.all === true || path === `${prefix}${payload.teamId}`) && (team.managementLocked === true) !== payload.locked);
+    for (const [path] of teams) await updateDoc({ path, __doc: true }, { managementLocked: payload.locked });
+    return { data: { ok: true, data: { teamCount: teams.length, locked: payload.locked, auditId: teams.length ? 'fake-lock-audit' : null } } };
+  }
   if (name === 'updateMemberIdentity') {
     if (Object.hasOwn(window, '__FAKE_MEMBER_RESULT')) return { data: { ok: true, data: window.__FAKE_MEMBER_RESULT } };
     if (window.__FAKE_MEMBER_PENDING) await window.__FAKE_MEMBER_PENDING;

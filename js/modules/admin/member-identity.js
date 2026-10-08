@@ -1,6 +1,6 @@
 import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, mount } from '../../core/ui.js';
-import { can } from '../../core/firebase.js';
+import { canEditTeamRoster } from '../../core/team-management.js';
 import { hold } from '../../core/store.js';
 import { EVENT } from '../../config.js';
 import { isoToRoc, rocToIso } from '../../lib/roc.js';
@@ -8,7 +8,7 @@ import { validateIdentity, validateJerseyNo, validateMemberName } from '../../en
 import { updateMemberIdentity, explain } from './data.js';
 
 export function editCsvIdentity({ team, member, division, scope, onSaved }) {
-  if (!can('team.manage')) return;
+  if (!canEditTeamRoster(team)) return;
   const roc = isoToRoc(member.birthDate);
   const nameOnly = member.source !== 'csv' || member.status !== 'approved';
   const expectedName = member.name ?? '';
@@ -51,7 +51,7 @@ export function editCsvIdentity({ team, member, division, scope, onSaved }) {
     event.preventDefault();
     if (busy || !active) return;
     mount(error);
-    if (!can('team.manage')) { error.textContent = '目前沒有修改名冊的權限。'; return; }
+    if (!canEditTeamRoster(team)) { error.textContent = '球隊已上鎖或目前沒有修改名冊的權限。'; return; }
     if (!navigator.onLine) { error.textContent = '目前離線，請恢復連線後再儲存。'; return; }
     const nameResult = validateMemberName(name.value);
     if (nameResult.error) { error.textContent = nameResult.error; name.focus(); return; }

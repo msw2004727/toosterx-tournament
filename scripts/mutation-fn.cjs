@@ -12,6 +12,22 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#TM5 上鎖後隊長仍可更名', file: 'functions/team-name.js',
+    from: 'if (!admin && team.managementLocked === true)', to: 'if (false)',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --runTestsByPath tests/functions/team-management.test.js --silent' },
+  { name: 'FN#TM1 上鎖後隊長仍可寫入', file: 'functions/member-identity.js',
+    from: "if (!admin && team.managementLocked === true)", to: 'if (false)',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --runTestsByPath tests/functions/team-management.test.js --silent' },
+  { name: 'FN#TM2 隊長可修改別隊名冊', file: 'functions/member-identity.js',
+    from: 'if (!admin && (!team || team.captainUid !== uid))', to: 'if (false)',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --runTestsByPath tests/functions/team-management.test.js --silent' },
+  { name: 'FN#TM3 指派隊長放寬為管理員', file: 'functions/team-management.js',
+    from: "permitted(staff.data(), ['super_admin'])", to: "permitted(staff.data(), ['admin', 'super_admin'])",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --runTestsByPath tests/functions/team-management.test.js --silent' },
+  { name: 'FN#TM4 一鍵操作漏掉其他球隊', file: 'functions/team-management.js',
+    from: 'all === true ? targets.docs : [targets]', to: 'all === true ? targets.docs.slice(0, 1) : [targets]',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --runTestsByPath tests/functions/team-management.test.js --silent' },
+
   {name:'FN#CSVIMPORTCOUNT 純球隊列錯算球員人數',file:'functions/team-import.js',
     from:'playerCount: prepared.reduce((n, team) => n + team.members.length, 0)',to:'playerCount: rows.length',
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-import.test.js --testNamePattern=CSVPARTIAL --silent'},
@@ -58,8 +74,8 @@ const MUTANTS = [
   { name: 'FN#TEAMNAME-STALE 舊版本覆蓋他人隊名', file: 'functions/team-name.js',
     from: 'canonical(teamNameBasis(team)) !== canonical(expected)', to: 'false',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-name.test.js --silent' },
-  { name: 'FN#TEAMNAME-AUTH 更名不查管理員身分', file: 'functions/team-name.js',
-    from: 'const actor = await adminActor(tx, uid);', to: 'const actor = { uid };',
+  { name: 'FN#TEAMNAME-AUTH 更名不查管理員或所屬隊長身分', file: 'functions/team-name.js',
+    from: 'if (!admin && (!team || team.captainUid !== uid))', to: 'if (false)',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-name.test.js --silent' },
   { name: 'FN#STREAM-LINE 非 LINE 身份也能分享直播', file: 'functions/stream-shares.js',
     from: "const isLine = request.auth.token?.firebase?.sign_in_provider === 'custom';", to: 'const isLine = true;',

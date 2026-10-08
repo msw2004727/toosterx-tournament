@@ -35,6 +35,8 @@ const P = {
 
   /* 狀態 */
   check:       '<path d="m4.5 12.5 5 5.2L19.5 6.5"/>',
+  lock:        '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/>',
+  unlock:      '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0M12 14v3"/>',
   warn:        '<path d="M12 3.2 2.6 20.3h18.8z"/><path d="M12 10v4.2"/><circle cx="12" cy="17.4" r=".9" fill="currentColor" stroke="none"/>',
   close:       '<path d="m6 6 12 12M18 6 6 18"/>',
   retry:       '<path d="M20.2 12a8.2 8.2 0 1 1-2.7-6.1"/><path d="M20.5 3.8v5.4h-5.4"/>',

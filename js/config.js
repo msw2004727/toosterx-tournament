@@ -5,7 +5,7 @@
  * 手動改這裡會讓四處版號不同步（js/config.js、sw.js、index.html、asset query）。
  */
 
-export const CACHE_VERSION = '0.20261007g';
+export const CACHE_VERSION = '0.20261008';
 
 /** PWA 安裝入口：右側「我的／登入」左邊提供原生安裝或各平台教學。 */
 export const PWA_INSTALL = true;
@@ -271,6 +271,7 @@ export const FEATURES = [
   { code: 'match.score.write',label: '賽務台',     hint: '記錄比分、事件與完賽送出',  route: '/staff', icon: 'whistle', frequent: true },
   { code: 'challenge.attempt.write', label: '挑戰攤位', hint: '挑戰區成績登錄',      route: '/booth', icon: 'goal', frequent: true },
   { code: 'team.manage', label: '匯入球隊名冊', hint: '上傳 CSV，批次建立球隊與球員', route: '/admin/team-import', icon: 'team' },
+  { code: 'team.manage', label: '管理球隊', hint: '查看名冊、修改資料與管理球隊鎖定', route: '/my/teams', icon: 'team', frequent: true },
   { code: 'checkin.write',    label: '檢錄',       hint: '賽前 30 分鐘核對名單與證件', route: '/staff', icon: 'list' },
   { code: 'matchsheet.write', label: '出場名單',   hint: '確認先發與替補',           route: '/staff', icon: 'team' },
   { code: 'team.manage',      label: '報名審核',   hint: '審核球隊報名與名單',       route: '/admin/teams', icon: 'check' },
@@ -279,7 +280,7 @@ export const FEATURES = [
   { code: 'stream.manage',    label: '直播設定',   hint: 'YouTube 影片 ID 與開關',     route: '/admin/stream', icon: 'play' },
   { code: 'export',           label: '匯出資料',   hint: '抽獎名單 CSV',              route: '/admin/export', icon: 'install' },
   { code: 'audit.read',       label: '稽核紀錄',   hint: '誰在什麼時候改了什麼',      route: '/admin/audits', icon: 'note' },
-  { code: 'staff.assign',     label: '身分授權',   hint: '指派工作人員與負責攤位',  route: '/admin/staff', icon: 'person' },
+  { code: 'staff.assign',     label: '身分授權',   hint: '指派工作人員、球隊隊長與負責攤位',  route: '/admin/staff', icon: 'person' },
   { code: 'perms.manage',     label: '權限開關',   hint: '逐條調整每個身分能做的事',  route: '/admin/perms', icon: 'more' },
   { code: 'registration.manage', label: '報名開關', hint: '開放／截止與日期',        route: '/admin/registration', icon: 'clock' }
 ];

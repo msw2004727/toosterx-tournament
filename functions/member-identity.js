@@ -31,14 +31,17 @@ export async function updateMemberIdentityFor(request) {
   const jersey = validateJerseyNo(request.data.jerseyNo);
   if (hasJersey && jersey.error) fail('invalid-argument', jersey.error);
   const staffRef = db().doc(`staff/${uid}`);
-  if (!authorized((await staffRef.get()).data())) fail('permission-denied', '只有管理員或總管能修改名冊。');
   const eventRef = db().doc(`events/${eventId}`);
   const teamRef = eventRef.collection('teams').doc(teamId);
   const memberRef = teamRef.collection('members').doc(memberId);
   const auditRef = eventRef.collection('audits').doc();
   const receiptRef = operationId ? eventRef.collection('managementOperations').doc(operationId) : null;
   return db().runTransaction(async tx => {
-    if (!authorized((await tx.get(staffRef)).data())) fail('permission-denied', '管理權限已變更。');
+    const [staffSnap, teamSnap] = await Promise.all([tx.get(staffRef), tx.get(teamRef)]);
+    const team = teamSnap.data();
+    const admin = authorized(staffSnap.data());
+    if (!admin && (!team || team.captainUid !== uid)) fail('permission-denied', '只有管理員、大總管或該隊隊長能修改名冊。');
+    if (!admin && team.managementLocked === true) fail('permission-denied', '球隊已上鎖，請聯絡管理員或大總管解鎖。');
     if (receiptRef) {
       const receipt = await tx.get(receiptRef);
       if (receipt.exists) {
@@ -46,15 +49,14 @@ export async function updateMemberIdentityFor(request) {
         return receipt.data().result;
       }
     }
-    const [staffSnap, eventSnap, teamSnap, memberSnap, checkinsSnap, membersSnap] = await Promise.all([
-      tx.get(staffRef), tx.get(eventRef), tx.get(teamRef), tx.get(memberRef),
+    const [eventSnap, memberSnap, checkinsSnap, membersSnap] = await Promise.all([
+      tx.get(eventRef), tx.get(memberRef),
       tx.get(eventRef.collection('checkins').where('teamId', '==', teamId)), tx.get(teamRef.collection('members'))
     ]);
-    if (!authorized(staffSnap.data())) fail('permission-denied', '管理權限已變更。');
-    const team = teamSnap.data(), member = memberSnap.data();
+    const member = memberSnap.data();
     if (!eventSnap.exists || !team || !member) fail('not-found', '找不到球隊或球員。');
     if (!nameOnly && (member.source !== 'csv' || member.status !== 'approved')) fail('failed-precondition', '此入口只補件已通過的 CSV 球員名冊；其他隊員可修改姓名／暱稱。');
-    if ((member.identityRevision ?? 0) !== revision) fail('aborted', '資料已被其他管理員修改，請關閉表單並重新載入球隊名單。');
+    if ((member.identityRevision ?? 0) !== revision) fail('aborted', '資料已被其他人修改，請關閉表單並重新載入球隊名單。');
     if (hasName && (member.name ?? '') !== request.data.expectedName) fail('aborted', '隊員姓名已被其他人修改，請關閉表單並重新載入名單。');
     const fields = { ...identityFields, ...(!nameOnly ? { jerseyNo: hasJersey ? jersey.value : (member.jerseyNo ?? null) } : {}), ...(hasName ? { name: name.value } : {}) };
     if (fields.jerseyNo != null && membersSnap.docs.some(d => d.id !== memberId
@@ -112,7 +114,7 @@ export async function updateMemberIdentityFor(request) {
       before: { ...previous, checkins: records.map(d => ({ checkinId: d.id, result: d.data().result, scannedBy: d.data().scannedBy ?? null, scannedAt: d.data().scannedAt ?? null })) },
       after: { ...fields, ...(nameChanged && Object.hasOwn(member, 'displayName') ? { displayName: fields.name } : {}),
         ...(!nameOnly ? { identityComplete: identity.complete } : {}), invalidatedCheckins: records.map(d => d.id), updatedSheets },
-      reason: reason.trim(), actor: { uid, name: staffSnap.data().name ?? null }, createdAt: stamp });
+      reason: reason.trim(), actor: { uid, name: staffSnap.data()?.name ?? (team.captainUid === uid ? team.captainName ?? null : null) }, createdAt: stamp });
     const result = { memberId, ...fields, ...(!nameOnly ? { identityComplete: identity.complete } : {}), identityRevision: revision + 1, auditId: auditRef.id, ...(operationId ? { operationId } : {}) };
     if (receiptRef) tx.create(receiptRef, { requestHash, actorUid: uid, result, createdAt: stamp });
     return result;

@@ -1,12 +1,12 @@
 import { el, mount } from '../../core/ui.js';
-import { can } from '../../core/firebase.js';
+import { canEditTeamRoster } from '../../core/team-management.js';
 import { hold } from '../../core/store.js';
 import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { teamNameBasis, validateTeamNames } from '../../engine/team-name.js';
 import { renameTeam, explain } from './data.js';
 
 export function editTeamName({ team, division, scope, onSaved }) {
-  if (!can('team.manage')) return;
+  if (!canEditTeamRoster(team)) return;
   const expected = teamNameBasis(team);
   let active = true, busy = false;
   const name = el('input', { class: 'adm__identityInput', 'aria-label': '球隊名稱', value: team.name ?? '', maxlength: 60 });
@@ -41,7 +41,7 @@ export function editTeamName({ team, division, scope, onSaved }) {
     event.preventDefault();
     if (!active || busy) return;
     mount(error);
-    if (!can('team.manage')) { error.textContent = '目前沒有修改球隊的權限。'; return; }
+    if (!canEditTeamRoster(team)) { error.textContent = '目前沒有修改球隊的權限。'; return; }
     if (!navigator.onLine) { error.textContent = '目前離線，請恢復連線後再儲存。'; return; }
     const validation = validateTeamNames({ name: name.value, shortName: shortName.value, reason: reason.value });
     if (validation.errors.length) { error.textContent = validation.errors.join(' '); return; }

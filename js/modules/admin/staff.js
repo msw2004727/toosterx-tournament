@@ -20,7 +20,7 @@
 
 import { el, mount, toast, skeleton, confirmDialog } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
-import { user, can, onAuth, reloadIdentity } from '../../core/firebase.js';
+import { user, can, onAuth, reloadIdentity, callFunction } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { ROLE_INFO, EVENT_ID } from '../../config.js';
 import {
@@ -39,7 +39,7 @@ export async function adminStaffPage({ scope, view }) {
   mount(root, skeleton(4));
 
   const state = {
-    staff: null, users: [], venues: [], challenges: [], challengesError: null,
+    staff: null, users: [], venues: [], challenges: [], challengesError: null, teams: null, divisions: [], teamError: null,
     q: '',                 // 搜尋字串
     open: null,            // 展開中的 uid
     draft: null,           // { role, venueIds }
@@ -60,8 +60,15 @@ export async function adminStaffPage({ scope, view }) {
     mount(root, adminHead('身分授權'), errBox('讀不到工作人員清單', err));
   });
 
+  data.watchTeams(scope, teams => { state.teams = teams; state.teamError = null; render(); }, err => { state.teamError = err; render(); });
+  void loadDivisions();
   hold(scope, onAuth(() => render()), 'auth:admin-staff');
   void loadChallenges();
+
+  async function loadDivisions() {
+    try { state.divisions = await data.getDivisions(); render(); }
+    catch (err) { state.teamError = err; render(); }
+  }
 
   async function loadChallenges() {
     try { state.challenges = await data.getChallenges(); state.challengesError = null; }
@@ -122,7 +129,7 @@ export async function adminStaffPage({ scope, view }) {
     state.open = uid_;
     // 已經有身分就帶出來當預設，沒有就留空——預選一個身分等於誘導誤按
     state.draft = { role: row?.role && ASSIGNABLE_ROLES.includes(row.role) ? row.role : '',
-                    venueIds: [...(row?.venueIds ?? [])], challengeIds: [...(row?.challengeIds ?? [])] };
+                    venueIds: [...(row?.venueIds ?? [])], challengeIds: [...(row?.challengeIds ?? [])], divisionId: '', teamId: '' };
     render();
   }
 
@@ -208,6 +215,56 @@ export async function adminStaffPage({ scope, view }) {
 
   // ── 畫面 ─────────────────────────────────────────────────
 
+  function captainPicker(row) {
+    const assigned = (state.teams ?? []).filter(t => t.captainUid === row.uid);
+    const options = (state.teams ?? []).filter(t => t.divisionId === state.draft.divisionId);
+    return el('section', { class: 'adm__captainPicker' }, [
+      el('h3', { class: 'adm__sectionHead', text: '指派球隊隊長' }),
+      el('p', { class: 'adm__note', text: '先選組別，再選球隊。指派後該用戶的「我的」會出現管理球隊按鈕，可編輯自己球隊的名冊。' }),
+      state.teamError ? errBox('讀不到組別或球隊', state.teamError) : null,
+      state.teams === null ? skeleton(2) : null,
+      assigned.length ? el('ul', { class: 'adm__captainAssignments' }, assigned.map(team => el('li', { class: 'adm__captainAssignment' }, [
+        el('span', { text: `${state.divisions.find(d => d.divisionId === team.divisionId)?.name || team.divisionId} · ${team.name || team.teamId}（隊長）` }),
+        el('button', { type: 'button', class: 'btn btn--sm', disabled: state.busy, 'aria-label': `撤銷 ${team.name || team.teamId} 的隊長指派`, onClick: () => assignCaptain(row, team, true) }, '撤銷指派')
+      ]))) : null,
+      el('label', { class: 'adm__field' }, [el('span', { class: 'adm__fieldLabel', text: '組別' }),
+        el('select', { 'aria-label': '隊長組別', disabled: state.busy || !!state.teamError, value: state.draft.divisionId,
+          onChange: e => { state.draft.divisionId = e.target.value; state.draft.teamId = ''; render(); } }, [
+          el('option', { value: '', text: '請選擇組別', selected: !state.draft.divisionId }),
+          ...state.divisions.map(d => el('option', { value: d.divisionId, text: d.name || d.divisionId, selected: d.divisionId === state.draft.divisionId }))
+        ])]),
+      el('label', { class: 'adm__field' }, [el('span', { class: 'adm__fieldLabel', text: '球隊' }),
+        el('select', { 'aria-label': '隊長球隊', disabled: state.busy || !state.draft.divisionId || !!state.teamError, value: state.draft.teamId,
+          onChange: e => { state.draft.teamId = e.target.value; render(); } }, [
+          el('option', { value: '', text: options.length ? '請選擇球隊' : '此組別目前沒有球隊', selected: !state.draft.teamId }),
+          ...options.map(t => el('option', { value: t.teamId, text: `${t.name || t.teamId}${t.captainUid ? `（隊長：${t.captainName || '已指派'}）` : ''}`, selected: t.teamId === state.draft.teamId }))
+        ])]),
+      el('button', { type: 'button', class: 'btn btn--primary btn--lg', disabled: state.busy || !state.draft.teamId || !!state.teamError,
+        onClick: () => assignCaptain(row, state.teams.find(t => t.teamId === state.draft.teamId)) }, iconText('team', '指派為球隊隊長'))
+    ]);
+  }
+
+  async function assignCaptain(row, team, revoke = false) {
+    if (!team || state.busy || !can('staff.assign')) return;
+    if (!navigator.onLine) { toast('目前離線，請恢復連線後再指派。', 'warn'); return; }
+    if (revoke || (team.captainUid && team.captainUid !== row.uid)) {
+      const ok = await confirmDialog({ title: revoke ? `撤銷「${team.name}」的隊長指派？` : `更換「${team.name}」的隊長？`,
+        body: revoke ? `${row.name || row.uid} 將失去這支球隊的管理權限。` : `原隊長 ${team.captainName || team.captainUid} 將失去這支球隊的管理權限，改由 ${row.name || row.uid} 管理。`,
+        confirmText: revoke ? '撤銷指派' : '更換隊長' });
+      if (!ok) return;
+    }
+    if (state.busy || !can('staff.assign')) return;
+    state.busy = true; render();
+    try {
+      const result = await callFunction('assignTeamCaptain', { eventId: EVENT_ID, teamId: team.teamId, divisionId: team.divisionId,
+        captainUid: revoke ? null : row.uid, previousCaptainUid: team.captainUid ?? null });
+      if (result?.teamId !== team.teamId || !result.auditId) throw new Error('伺服器未回傳完整結果，請重新載入確認。');
+      toast(revoke ? '已撤銷隊長指派' : `已指派 ${row.name || row.uid} 為「${team.name}」隊長`, 'success');
+      if (state.open === row.uid && state.draft) state.draft.teamId = '';
+    } catch (err) { toast(data.explain(err, '隊長指派未成功。'), 'error'); }
+    finally { state.busy = false; render(); }
+  }
+
   function roleChoice(role) {
     const on = state.draft.role === role;
     const info = ROLE_INFO[role] ?? {};
@@ -273,6 +330,7 @@ export async function adminStaffPage({ scope, view }) {
             text: '降級之後升不回來（可指派的清單裡沒有總管）。要增減總管請用 scripts/grant-super-admin.mjs。'
           })
         ]),
+        captainPicker(row),
         el('p', { class: 'adm__uid', text: `uid ${row.uid}` })
       ]);
     }
@@ -304,12 +362,17 @@ export async function adminStaffPage({ scope, view }) {
             }, iconText(row.active ? 'close' : 'check', row.active ? '停用' : '重新啟用'))
           : null
       ].filter(Boolean)),
+      captainPicker(row),
       el('p', { class: 'adm__uid', text: `uid ${row.uid}` })
     ]);
   }
 
   function personItem(row) {
     const open = state.open === row.uid;
+    const captainTeams = (state.teams ?? []).filter(t => t.captainUid === row.uid);
+    const identity = captainTeams.length
+      ? [row.assigned ? roleText(row) : null, `球隊隊長 · ${captainTeams.map(t => t.name || t.teamId).join('、')}`].filter(Boolean).join(' · ')
+      : roleText(row);
     return el('li', { class: `adm__item${open ? ' is-open' : ''}` }, [
       el('button', {
         class: 'adm__itemHead', type: 'button',
@@ -318,7 +381,7 @@ export async function adminStaffPage({ scope, view }) {
       }, [
         el('span', { class: 'adm__itemMain' }, [
           el('span', { class: 'adm__teamName', text: row.name || row.uid }),
-          el('span', { class: 'adm__teamMeta', text: roleText(row) })
+          el('span', { class: 'adm__teamMeta', text: identity })
         ]),
         row.assigned
           ? el('span', {

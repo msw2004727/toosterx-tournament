@@ -120,6 +120,7 @@ test('CSV 只列所選日期，下載內容與檔名包含活動日，其他日�
   expect(download.suggestedFilename()).toBe('抽獎名單-2026-10-10.csv');
   const path = await download.path(), csv = fs.readFileSync(path, 'utf8');
   expect(csv).toContain('活動日期,當日開放關卡數'); expect(csv).toContain(`2026-10-10,3,${PID}`);
+  await expect(page.getByRole('button', { name: '下載 CSV' })).toBeEnabled();
   await page.getByRole('tab', { name: '10/09' }).click();
   await expect(page.locator('.adm')).toContainText('有資格的玩家 0 人');
   await expect(page.getByRole('button', { name: '下載 CSV' })).toBeDisabled();

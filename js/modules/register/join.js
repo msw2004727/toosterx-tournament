@@ -138,7 +138,7 @@ export async function joinPage({ params, scope, view }) {
       field('m-name', youth ? '球員姓名（小孩）' : '姓名', textInput('m-name', {
         value: form.name, placeholder: '王小明', maxlength: 20,
         onInput: v => { form.name = v; refreshSubmit(); }
-      }), { required: true, hint: youth ? '未滿 13 歲的球員在公開頁面只會顯示「王小＊」。' : null }),
+      }), { required: true, hint: youth ? '未滿 13 歲的球員在公開頁面只會顯示「王O明」。' : null }),
 
       // 民國年三格，跟教練表單同一個元件：原生的日期選擇器是西元、預設「今天」，
       // 正式站真的收到 5 筆 2026-09-06 出生的成人（2026-09-06 驗收）。

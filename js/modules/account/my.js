@@ -26,6 +26,7 @@ import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
 import { user, staff, onAuth, signOutStaff, db, sdk, can, myRoles } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
+import { watchCaptainTeams, canManageAllTeams } from '../../core/team-management.js';
 import { watchRegistrationVisibility } from '../../core/registration.js';
 import { logoutLine } from '../../core/liff.js';
 import { EVENT_ID, roleLabel, topRole, FEATURES, CACHE_VERSION } from '../../config.js';
@@ -51,13 +52,14 @@ export async function myPage({ scope, view }) {
   //    上一次的登入狀態），那時候 user() 還是 null，球隊就永遠不會被載入——
   //    畫面停在「你還沒有建立球隊」，而使用者明明有隊。
   //    所以讀取綁在身分變化上，不是綁在掛載時機上。
-  let loadedFor = null;
+  let loadedFor = null, stopTeams = null;
   watchRegistrationVisibility(scope, visible => { state.registrationVisible = visible; render(); });
 
   async function ensureTeams() {
     const u = user();
-    if (!u) { state.teams = null; state.profile = null; state.players = null; loadedFor = null; return; }
+    if (!u) { stopTeams?.(); stopTeams = null; state.teams = null; state.profile = null; state.players = null; loadedFor = null; return; }
     if (loadedFor === u.uid) return;         // 同一個人不重複讀
+    stopTeams?.(); state.teams = null;
     loadedFor = u.uid;
     await Promise.all([loadTeams(), loadProfile(), loadPlayers()]);
   }
@@ -128,18 +130,18 @@ export async function myPage({ scope, view }) {
 
   render();
 
-  async function loadTeams() {
-    try {
-      const { collection, getDocs, query, where } = sdk();
-      const snap = await getDocs(query(
-        collection(db(), 'events', EVENT_ID, 'teams'),
-        where('captainUid', '==', user().uid)
-      ));
-      state.teams = snap.docs.map(d => ({ teamId: d.id, ...d.data() }));
-    } catch (err) {
-      console.warn('[my] 讀不到球隊', err);
-      state.teams = [];
-    }
+  function loadTeams() {
+    const uid = user().uid;
+    return new Promise(resolve => {
+      stopTeams = watchCaptainTeams(scope, uid, rows => {
+        if (user()?.uid !== uid) { resolve(); return; }
+        state.teams = rows; render(); resolve();
+      }, err => {
+        console.warn('[my] 讀不到球隊', err);
+        if (user()?.uid === uid) { state.teams = []; render(); }
+        resolve();
+      });
+    });
   }
 
   function render() {
@@ -199,7 +201,8 @@ export async function myPage({ scope, view }) {
   // 判斷一律走 can()，不要在這裡再列一次角色——角色與權限的對應
   // 只有 js/config.js 一份（R-ROLE-001）。
   function featuresCard() {
-    const mine = FEATURES.filter(f => can(f.code));
+    const mine = FEATURES.filter(f => f.route === '/my/teams'
+      ? canManageAllTeams() || !!state.teams?.length : can(f.code));
     if (!mine.length) return null;      // 一般使用者不畫這一區
 
     const ready = mine.filter(f => f.route);
