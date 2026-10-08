@@ -9,6 +9,7 @@ import { needLogin } from '../account/login.js';
 import { adminHead } from './bits.js';
 import { teamRosterDetail } from './team-roster.js';
 import { editTeamName } from './team-name.js';
+import { addPlayersDialog } from './team-player-add.js';
 import * as data from './data.js';
 
 export async function manageTeamsPage({ scope, view }) {
@@ -94,13 +95,20 @@ export async function manageTeamsPage({ scope, view }) {
         ]),
         el('span', { class: `adm__badge${locked ? ' adm__badge--rejected' : ' adm__badge--approved'}`, text: locked ? '已上鎖' : '可編輯' }), icon(open ? 'up' : 'down')
       ]),
-      canEditTeamRoster(team) ? el('div', { class: 'adm__teamTools' }, el('button', {
+      canEditTeamRoster(team) ? el('div', { class: 'adm__teamTools' }, [el('button', {
         class: 'btn btn--sm', type: 'button', disabled: state.busy, 'aria-label': `編輯 ${team.name || team.teamId} 的球隊名稱`,
         onClick: () => editTeamName({ team, division: div, scope, onSaved: result => {
           Object.assign(team, { name: result.name, shortName: result.shortName, nameRevision: result.nameRevision });
           render(); toast('球隊名稱已儲存，修改紀錄已保留。', 'success');
         } })
-      }, iconText('note', '編輯球隊名稱'))) : null,
+      }, iconText('note', '編輯球隊名稱')), el('button', {
+        class: 'btn btn--primary btn--sm', type: 'button', disabled: state.busy, 'aria-label': `新增 ${team.name || team.teamId} 的球員`,
+        onClick: () => addPlayersDialog({ team, division: div, scope, onSaved: result => {
+          Object.assign(team, { memberCount: result.memberCount, playerCount: result.playerCount, rosterRevision: result.rosterRevision });
+          state.open = team.teamId; state.openDivisions.add(team.divisionId); delete state.members[team.teamId];
+          loadMembers(team); toast(`已新增 ${result.addedCount} 位球員`, 'success');
+        } })
+      }, iconText('injury', '新增球員'))]) : null,
       open ? el('div', { class: 'adm__detail' }, [
         canManageAllTeams() ? el('div', { class: 'adm__lockActions' }, [
           el('button', { type: 'button', class: 'btn btn--primary', disabled: state.busy, onClick: () => setLock(!locked, team) }, iconText(locked ? 'unlock' : 'lock', locked ? '解鎖球隊' : '上鎖球隊'))

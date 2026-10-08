@@ -12,6 +12,18 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name:'FN#ADDLOCK 上鎖隊長仍可新增球員',file:'functions/team-player-add.js',
+    from:'if (!admin && team.managementLocked === true)',to:'if (false)',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-player-add.test.js --testNamePattern=ADD-LOCK --silent' },
+  { name:'FN#ADDAUTH 非隊長可新增別隊球員',file:'functions/team-player-add.js',
+    from:'if (!admin && (!team || team.captainUid !== uid))',to:'if (false)',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-player-add.test.js --testNamePattern=ADD-AUTH --silent' },
+  { name:'FN#ADDPROJECTION 新球員漏建公開名冊',file:'functions/team-player-add.js',
+    from:"tx.create(teamRef.collection('roster').doc(member.memberId), rosterProjection",to:"false && tx.create(teamRef.collection('roster').doc(member.memberId), rosterProjection",
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-player-add.test.js --testNamePattern=ADD-ATOMIC --silent' },
+  { name:'FN#ADDRETRY 重送跳過回執而重複新增',file:'functions/team-player-add.js',
+    from:'if (receipt.exists) {',to:'if (false) {',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-player-add.test.js --testNamePattern=ADD-RETRY --silent' },
   { name:'FN#STAFFCLOCK 賽務員修改時間被後端擋下', file:'functions/clock-edit.js',
     from:"['scorer', 'staff'].includes(r)", to:"['scorer'].includes(r)",
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/clock-edit.test.js --silent' },

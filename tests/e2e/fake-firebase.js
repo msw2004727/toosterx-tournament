@@ -520,6 +520,37 @@ export const httpsCallable = (_fns, name) => async (payload) => {
     }
     return { data: { ok: true, data: result } };
   }
+  if (name === 'addTeamPlayers') {
+    if (window.__FAKE_ADD_PLAYERS_PENDING) await window.__FAKE_ADD_PLAYERS_PENDING;
+    if (Object.hasOwn(window, '__FAKE_ADD_PLAYERS_RESULT')) return { data: { ok: true, data: window.__FAKE_ADD_PLAYERS_RESULT } };
+    const receipts = (window.__FAKE_ADD_PLAYERS_RECEIPTS ||= {});
+    if (receipts[payload.operationId]) return { data: { ok: true, data: receipts[payload.operationId] } };
+    const path = `events/${payload.eventId}/teams/${payload.teamId}`;
+    const team = store.get(path);
+    const { validateTeamPlayers } = await import(location.origin + '/js/engine/team-player-add.js');
+    const { rosterProjection } = await import(location.origin + '/js/engine/privacy.js');
+    const existingMembers = [...store.entries()].filter(([key])=>key.startsWith(`${path}/members/`)).map(([,m])=>m);
+    const plan = validateTeamPlayers(payload.players, { division:store.get(`events/${payload.eventId}/divisions/${team.divisionId}`),
+      asOf:'2026-10-09', existingMembers });
+    if (plan.errors.length) throw Object.assign(new Error(plan.errors.join(' ')), {code:'functions/invalid-argument'});
+    const ids = [];
+    for (const [i,player] of plan.players.entries()) {
+      const memberId = `mg-${payload.operationId}-${i}`; ids.push(memberId);
+      const member = {...player,memberId,teamId:payload.teamId,divisionId:team.divisionId,source:'csv',createdVia:'team-management',identityRevision:0};
+      store.set(`${path}/members/${memberId}`,member);
+      store.set(`${path}/roster/${memberId}`,rosterProjection(member,{teamId:payload.teamId,divisionId:team.divisionId,asOf:'2026-10-09'}));
+    }
+    const result = { teamId:payload.teamId,operationId:payload.operationId,auditId:`add-${payload.operationId}`,
+      addedCount:ids.length,memberIds:ids,memberCount:(team.memberCount??1)+ids.length,playerCount:(team.playerCount??1)+ids.length,rosterRevision:(team.rosterRevision??0)+1 };
+    store.set(path,{...team,memberCount:result.memberCount,playerCount:result.playerCount,rosterRevision:result.rosterRevision});
+    store.set(`events/${payload.eventId}/audits/${result.auditId}`,{action:'team.players.add',after:result});
+    receipts[payload.operationId]=result; notify();
+    if (window.__FAKE_ADD_PLAYERS_LOST_RESPONSE) {
+      window.__FAKE_ADD_PLAYERS_LOST_RESPONSE=false;
+      throw Object.assign(new Error('response lost'),{code:'functions/unavailable'});
+    }
+    return {data:{ok:true,data:result}};
+  }
   if (name === 'updateTeamName') {
     if (window.__FAKE_TEAM_NAME_PENDING) await window.__FAKE_TEAM_NAME_PENDING;
     if (Object.hasOwn(window, '__FAKE_TEAM_NAME_RESULT')) return { data: { ok: true, data: window.__FAKE_TEAM_NAME_RESULT } };

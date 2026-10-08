@@ -1,5 +1,9 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EADDROW: {spec:'tests/e2e/team-player-add.spec.js',grep:'ADD-UI',minTests:1,failure:'toHaveCount',
+    assertions:["await expect(dialog(page).locator('.adm__newPlayer')).toHaveCount(2);"]},
+  EADDRECEIPT: {spec:'tests/e2e/team-player-add.spec.js',grep:'ADD-RECEIPT',minTests:1,failure:'toContainText',
+    assertions:["await expect(dialog(page).getByRole('alert')).toContainText('尚未確認');"]},
   ESTAFFMIDNIGHT: { spec:'tests/e2e/staff-dates.spec.js', grep:'STAFF-MIDNIGHT', minTests:1, failure:'toHaveAttribute',
     assertions:["await expect(tab(page, 10)).toHaveAttribute('aria-selected', 'true');"] },
   ESTAFFACTIVE: { spec:'tests/e2e/staff-dates.spec.js', grep:'STAFF-AUTH', minTests:1, failure:'toBeVisible',

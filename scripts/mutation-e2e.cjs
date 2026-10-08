@@ -15,6 +15,10 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name:'#EADDROW 加號沒有新增第二位球員',file:'js/modules/admin/team-player-add.js',
+    from:'rows.push(row); renderRows();',to:'if (!rows.length) rows.push(row); renderRows();' },
+  { name:'#EADDRECEIPT 不完整新增回覆被當作成功',file:'js/modules/admin/data.js',
+    from:"throw new Error('尚未確認新增結果，請重新載入名單核對；可重送原請求。');",to:'return result;' },
   { name:'#ESTAFFMIDNIGHT 留在頁面不自動跨日', file:'js/modules/staff/home.js',
     from:'if (next !== date) { date = next; subscribeMatches(); }', to:'if (false) { date = next; subscribeMatches(); }' },
   { name:'#ESTAFFACTIVE 停用身分仍有 UI 操作權限', file:'js/core/firebase.js',

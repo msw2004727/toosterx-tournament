@@ -71,7 +71,7 @@
   overflow-wrap:anywhere;line-height:1.5;
 }
 .adm__teamMeta{font-size:var(--fs-xs);color:var(--text-secondary)}
-.adm__teamTools{display:flex;justify-content:flex-end;padding:0 var(--sp-3) var(--sp-2)}
+.adm__teamTools{display:flex;justify-content:flex-end;gap:var(--sp-2);flex-wrap:wrap;padding:0 var(--sp-3) var(--sp-2)}
 .adm__teamNamePanel{display:flex;flex-direction:column;overflow-y:hidden}
 .adm__teamNamePanel .modal__title,.adm__teamNamePanel .modal__actions{flex-shrink:0}
 .adm__teamNamePanel .modal__body{min-height:0;overflow-y:auto;overscroll-behavior:contain}
@@ -135,6 +135,29 @@
 .adm__identityInput{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:var(--sp-2);font:inherit;color:inherit;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--r-sm)}
 .adm__identityField{display:block;margin-block:var(--sp-3)}
 .adm__identityPanel{max-height:100%;overflow-y:auto;overscroll-behavior:contain;overflow-wrap:anywhere}
+.adm__addPlayersPanel{max-width:620px;max-height:calc(100dvh - 2 * var(--sp-4));display:flex;flex-direction:column;min-height:0;padding:var(--sp-4);overflow:hidden}
+.adm__addPlayersHead{flex:none;padding-bottom:var(--sp-3);border-bottom:1px solid var(--border)}
+.adm__addPlayersHead .modal__title{margin-bottom:4px}
+.adm__addPlayersTeam{margin:0;font-size:var(--fs-sm);color:var(--text-secondary);overflow-wrap:anywhere}
+.adm__addPlayersBody{min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:0;padding:var(--sp-3) 2px}
+.adm__newPlayers{display:flex;flex-direction:column;gap:var(--sp-3)}
+.adm__newPlayer{min-width:0;margin:0;padding:var(--sp-3);border:1px solid var(--border);border-radius:var(--r-md);position:relative;color:var(--text-primary)}
+.adm__newPlayerTitle{padding:0 6px;font-size:var(--fs-sm);font-weight:700;color:var(--accent)}
+.adm__removePlayerRow{position:absolute;top:-18px;right:6px;min-width:44px;height:44px;padding:8px;background:var(--bg-card)}
+.adm__removePlayerRow[hidden]{display:none}
+.adm__newPlayerMain{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:var(--sp-2);margin-top:4px}
+.adm__newPlayer label{min-width:0;font-size:var(--fs-sm)}
+.adm__newPlayer .adm__identityInput{margin-top:5px;min-width:0}
+.adm__newPlayerOptional{margin-top:var(--sp-3);font-size:var(--fs-sm);color:var(--text-secondary)}
+.adm__newPlayerOptional summary{cursor:pointer;min-height:32px;line-height:32px}
+.adm__newPlayerOptional[open] summary{margin-bottom:var(--sp-2)}
+.adm__newPlayerFlags{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
+.adm__newPlayerFlags label{display:flex;align-items:center;gap:6px;min-height:44px}
+.adm__newPlayerFlags input{width:18px;height:18px;min-height:0;margin:0}
+.adm__addPlayerRow{width:100%;margin-top:var(--sp-3);border-style:dashed}
+.adm__addPlayersActions{flex:none;border-top:1px solid var(--border);padding-top:var(--sp-3);gap:var(--sp-2)}
+.adm__addPlayersBody>.adm__blocked:empty,.adm__addPlayersBody>[role=status]:empty{display:none}
+@media(max-width:380px){.adm__addPlayersPanel{padding:var(--sp-3)}.adm__newPlayer{padding:var(--sp-2)}.adm__addPlayersActions .btn{padding-inline:var(--sp-2)}}
 .adm__memberMeta{
   grid-area:meta;display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1) var(--sp-3);
   min-width:0;font-size:var(--fs-sm);line-height:1.6;color:var(--text-secondary);

@@ -43,6 +43,18 @@ export const publishManualSchedule = ({ draft, reason, operationId }) => onlineM
 });
 export const renameTeam = (teamId, payload) => onlineManagement('updateTeamName', { teamId, ...payload });
 export const updateMemberIdentity = payload => onlineManagement('updateMemberIdentity', payload);
+export async function addTeamPlayers(teamId, players) {
+  const result = await onlineManagement('addTeamPlayers', { teamId, players });
+  if (!result?.auditId || !result.operationId || result.teamId !== teamId || result.addedCount !== players.length
+    || !Array.isArray(result.memberIds) || result.memberIds.length !== players.length
+    || !result.memberIds.every(id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(id))
+    || new Set(result.memberIds).size !== players.length || !Number.isInteger(result.memberCount)
+    || !Number.isInteger(result.playerCount) || result.playerCount < players.length || result.memberCount < result.playerCount
+    || !Number.isInteger(result.rosterRevision) || result.rosterRevision < 1) {
+    throw new Error('尚未確認新增結果，請重新載入名單核對；可重送原請求。');
+  }
+  return result;
+}
 export const manageMatch = async (matchId, { action, match, patch = {}, reason = null, appeal = null }) => {
   const result = await onlineManagement('manageEvent', { action, matchId, expected: matchBasis(match), patch, reason, appeal });
   if (action === 'match.reset' && (result?.entityId !== matchId || result?.status !== 'scheduled'

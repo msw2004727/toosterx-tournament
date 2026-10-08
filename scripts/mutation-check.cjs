@@ -10,6 +10,12 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  { name:'#ADDNAME 新增球員不再要求姓名', file:'js/engine/team-player-add.js',
+    from:'if (name.error) addError(name.error);', to:'if (false) addError(name.error);',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/team-player-add.test.js --silent' },
+  { name:'#ADDZERO 新增時空背號錯存為 0', file:'js/engine/team-player-add.js',
+    from:'name: name.value, jerseyNo: jersey.value, ...fields', to:'name: name.value, jerseyNo: jersey.value ?? 0, ...fields',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/team-player-add.test.js --silent' },
   { name:'#STAFFDATE-END 活動後又跳回第一天', file:'js/engine/staff-date.js',
     from:'?? ordered.at(-1)', to:'?? ordered[0]',
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/staff-date.test.js --silent' },

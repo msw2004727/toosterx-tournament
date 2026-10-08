@@ -40,6 +40,7 @@ import { editMatchClockFor } from './clock-edit.js';
 import { manageEventFor } from './management.js';
 import { shareMatchStreamFor } from './stream-shares.js';
 import { updateTeamNameFor } from './team-name.js';
+import { addTeamPlayersFor } from './team-player-add.js';
 import { publishManualScheduleFor } from './manual-schedule.js';
 import { updateChallengeDayFor, dailyDrawExportFor } from './challenge-days.js';
 
@@ -56,6 +57,14 @@ export const importTeamsCsv = onCall({ timeoutSeconds: 120 }, async request => {
 
 export const updateMemberIdentity = onCall({ timeoutSeconds: 120 }, async request => {
   try { return { ok: true, data: await updateMemberIdentityFor(request) }; }
+  catch (err) {
+    if (err instanceof TeamImportError) throw new HttpsError(err.code, err.message);
+    throw err;
+  }
+});
+
+export const addTeamPlayers = onCall({ timeoutSeconds: 120 }, async request => {
+  try { return { ok: true, data: await addTeamPlayersFor(request) }; }
   catch (err) {
     if (err instanceof TeamImportError) throw new HttpsError(err.code, err.message);
     throw err;
