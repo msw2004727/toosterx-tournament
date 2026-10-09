@@ -18,6 +18,7 @@
 
 const P = {
   /* 賽事 */
+  trophy:      '<path d="M8 3h8v6a4 4 0 0 1-8 0V3ZM8 5H4v2a4 4 0 0 0 4 4M16 5h4v2a4 4 0 0 1-4 4M12 13v5M8 21h8M9 18h6"/>',
   goal:        '<circle cx="12" cy="12" r="9"/><path d="m12 6.6 5.2 3.8-2 6.1H8.8l-2-6.1z"/>',
   card:        '<rect x="7" y="2.5" width="10" height="19" rx="2"/>',
   sub:         '<path d="M4 8.5h11m-3-3 3 3-3 3"/><path d="M20 15.5H9m3 3-3-3 3-3"/>',

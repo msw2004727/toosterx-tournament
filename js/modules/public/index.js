@@ -34,6 +34,9 @@ export function registerPublicRoutes() {
   route('/division/:divisionId', page('./division.js', m => m.publicDivision),
     { title: '組別' });
 
+  route('/division/:divisionId/bracket', page('./bracket.js', m => m.publicBracket),
+    { title: '晉級／名次圖' });
+
   route('/team/:teamId', page('./team.js', m => m.publicTeam),
     { title: '球隊' });
 

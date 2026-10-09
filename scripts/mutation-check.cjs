@@ -10,6 +10,15 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  { name:'#BRACKET-DUP 重複場次任選一場', file:'js/modules/public/bracket-model.js',
+    from:'if (found.length > 1) invalid = true;', to:'if (false) invalid = true;',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/bracket.test.js --silent' },
+  { name:'#BRACKET-STALE 改判後沿用舊比分', file:'js/modules/public/bracket-model.js',
+    from:"view.status = 'scheduled'; view.score = null; view.penaltyScore = null; view.result = null;", to:'/* keep stale result */',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/bracket.test.js --silent' },
+  { name:'#BRACKET-REOPEN 重開後冠軍未撤回', file:'js/modules/public/bracket-model.js',
+    from:'if (!expected || expected.teamId !== upstream.match[s]?.teamId) return null;', to:'if (false) return null;',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/bracket.test.js --silent' },
   { name:'#ADDNAME 新增球員不再要求姓名', file:'js/engine/team-player-add.js',
     from:'if (name.error) addError(name.error);', to:'if (false) addError(name.error);',
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/team-player-add.test.js --silent' },

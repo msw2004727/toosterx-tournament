@@ -1,0 +1,533 @@
+{
+  "F4_RR_SEMIFINAL": {
+    "finalRankingMap": [
+      {
+        "from": {
+          "matchKey": "F1",
+          "type": "matchWinner"
+        },
+        "rank": 1
+      },
+      {
+        "from": {
+          "matchKey": "F1",
+          "type": "matchLoser"
+        },
+        "rank": 2
+      },
+      {
+        "rank": 3,
+        "from": {
+          "type": "matchWinner",
+          "matchKey": "F3"
+        }
+      },
+      {
+        "from": {
+          "type": "matchLoser",
+          "matchKey": "F3"
+        },
+        "rank": 4
+      }
+    ],
+    "formatId": "F4_RR_SEMIFINAL",
+    "stages": [
+      {
+        "order": 1,
+        "seedingMethod": "snake",
+        "name": "單循環",
+        "legs": 1,
+        "type": "roundRobin",
+        "stageId": "group",
+        "groupCount": 1,
+        "groupSize": 4
+      },
+      {
+        "name": "四強淘汰賽",
+        "order": 2,
+        "drawRule": "penalty",
+        "slots": [
+          {
+            "away": {
+              "rank": 3,
+              "groupId": "A",
+              "type": "standing",
+              "stageId": "group"
+            },
+            "home": {
+              "type": "standing",
+              "groupId": "A",
+              "stageId": "group",
+              "rank": 2
+            },
+            "label": "淘汰賽①",
+            "matchKey": "SF1"
+          },
+          {
+            "home": {
+              "type": "standing",
+              "rank": 1,
+              "groupId": "A",
+              "stageId": "group"
+            },
+            "away": {
+              "type": "standing",
+              "stageId": "group",
+              "rank": 4,
+              "groupId": "A"
+            },
+            "label": "淘汰賽②",
+            "matchKey": "SF2"
+          }
+        ],
+        "type": "knockout",
+        "stageId": "placement"
+      },
+      {
+        "type": "knockout",
+        "drawRule": "penalty",
+        "name": "名次決賽",
+        "stageId": "final",
+        "order": 3,
+        "slots": [
+          {
+            "away": {
+              "matchKey": "SF2",
+              "type": "matchLoser"
+            },
+            "label": "季軍賽",
+            "round": 1,
+            "home": {
+              "matchKey": "SF1",
+              "type": "matchLoser"
+            },
+            "matchKey": "F3"
+          },
+          {
+            "away": {
+              "type": "matchWinner",
+              "matchKey": "SF2"
+            },
+            "label": "冠軍賽",
+            "home": {
+              "matchKey": "SF1",
+              "type": "matchWinner"
+            },
+            "round": 2,
+            "matchKey": "F1"
+          }
+        ]
+      }
+    ],
+    "name": "4隊單循環＋四強淘汰與冠季軍賽",
+    "description": "四隊單循環6場；第2對第3、第1對第4，敗隊打季軍、勝隊打冠軍，共10場，每隊5場。",
+    "groupNames": {
+      "A": "女子"
+    },
+    "teamCount": 4,
+    "matchNames": {
+      "SF1": "淘汰賽①",
+      "SF2": "淘汰賽②"
+    }
+  },
+  "F6_GROUP_TOP_SEED_BYE": {
+    "name": "6隊兩組循環＋小組第一輪空淘汰賽",
+    "formatId": "F6_GROUP_TOP_SEED_BYE",
+    "stages": [
+      {
+        "type": "roundRobin",
+        "order": 1,
+        "groupCount": 2,
+        "groupSize": 3,
+        "stageId": "group",
+        "seedingMethod": "snake",
+        "name": "分組循環",
+        "legs": 1
+      },
+      {
+        "stageId": "qualifier",
+        "order": 2,
+        "slots": [
+          {
+            "away": {
+              "stageId": "group",
+              "groupId": "B",
+              "rank": 3,
+              "type": "standing"
+            },
+            "home": {
+              "groupId": "A",
+              "rank": 2,
+              "stageId": "group",
+              "type": "standing"
+            },
+            "label": "淘汰賽①",
+            "matchKey": "QF1"
+          },
+          {
+            "label": "淘汰賽②",
+            "home": {
+              "type": "standing",
+              "rank": 2,
+              "groupId": "B",
+              "stageId": "group"
+            },
+            "away": {
+              "type": "standing",
+              "stageId": "group",
+              "rank": 3,
+              "groupId": "A"
+            },
+            "matchKey": "QF2"
+          }
+        ],
+        "name": "交叉淘汰賽",
+        "drawRule": "penalty",
+        "type": "knockout"
+      },
+      {
+        "stageId": "placement",
+        "type": "knockout",
+        "drawRule": "penalty",
+        "name": "準決賽",
+        "slots": [
+          {
+            "home": {
+              "type": "standing",
+              "groupId": "B",
+              "stageId": "group",
+              "rank": 1
+            },
+            "away": {
+              "type": "matchWinner",
+              "matchKey": "QF1"
+            },
+            "label": "淘汰賽③",
+            "matchKey": "SF1"
+          },
+          {
+            "matchKey": "SF2",
+            "label": "淘汰賽④",
+            "home": {
+              "type": "standing",
+              "groupId": "A",
+              "rank": 1,
+              "stageId": "group"
+            },
+            "away": {
+              "type": "matchWinner",
+              "matchKey": "QF2"
+            }
+          }
+        ],
+        "order": 3
+      },
+      {
+        "type": "knockout",
+        "slots": [
+          {
+            "matchKey": "F3",
+            "home": {
+              "type": "matchLoser",
+              "matchKey": "SF1"
+            },
+            "round": 1,
+            "away": {
+              "matchKey": "SF2",
+              "type": "matchLoser"
+            },
+            "label": "季軍賽"
+          },
+          {
+            "matchKey": "F1",
+            "label": "冠軍賽",
+            "away": {
+              "type": "matchWinner",
+              "matchKey": "SF2"
+            },
+            "round": 2,
+            "home": {
+              "matchKey": "SF1",
+              "type": "matchWinner"
+            }
+          }
+        ],
+        "order": 4,
+        "stageId": "final",
+        "name": "名次決賽",
+        "drawRule": "penalty"
+      }
+    ],
+    "matchNames": {
+      "QF1": "淘汰賽①",
+      "SF1": "淘汰賽③",
+      "QF2": "淘汰賽②",
+      "SF2": "淘汰賽④"
+    },
+    "groupNames": {
+      "A": "甲組",
+      "B": "乙組"
+    },
+    "teamCount": 6,
+    "description": "甲乙兩組各3隊，循環6場；小組第一輪空，第二第三交叉淘汰後打準決賽、季軍及冠軍賽，共12場。僅決出第1至第4名，無5/6名賽。",
+    "finalRankingMap": [
+      {
+        "rank": 1,
+        "from": {
+          "matchKey": "F1",
+          "type": "matchWinner"
+        }
+      },
+      {
+        "from": {
+          "matchKey": "F1",
+          "type": "matchLoser"
+        },
+        "rank": 2
+      },
+      {
+        "from": {
+          "type": "matchWinner",
+          "matchKey": "F3"
+        },
+        "rank": 3
+      },
+      {
+        "from": {
+          "matchKey": "F3",
+          "type": "matchLoser"
+        },
+        "rank": 4
+      }
+    ]
+  },
+  "F8_GROUP_TOP_SEED_BYE": {
+    "stages": [
+      {
+        "legs": 1,
+        "name": "分組循環",
+        "order": 1,
+        "stageId": "group",
+        "seedingMethod": "snake",
+        "groupCount": 2,
+        "type": "roundRobin",
+        "groupSize": 4
+      },
+      {
+        "name": "交叉淘汰賽",
+        "type": "knockout",
+        "slots": [
+          {
+            "matchKey": "QF1",
+            "label": "淘汰賽①",
+            "away": {
+              "groupId": "B",
+              "type": "standing",
+              "stageId": "group",
+              "rank": 3
+            },
+            "home": {
+              "stageId": "group",
+              "type": "standing",
+              "groupId": "A",
+              "rank": 2
+            }
+          },
+          {
+            "label": "淘汰賽②",
+            "matchKey": "QF2",
+            "away": {
+              "stageId": "group",
+              "groupId": "B",
+              "type": "standing",
+              "rank": 2
+            },
+            "home": {
+              "stageId": "group",
+              "type": "standing",
+              "groupId": "A",
+              "rank": 3
+            }
+          }
+        ],
+        "order": 2,
+        "drawRule": "penalty",
+        "stageId": "qualifier"
+      },
+      {
+        "stageId": "placement",
+        "order": 3,
+        "slots": [
+          {
+            "home": {
+              "type": "standing",
+              "groupId": "A",
+              "rank": 1,
+              "stageId": "group"
+            },
+            "away": {
+              "type": "matchWinner",
+              "matchKey": "QF2"
+            },
+            "label": "淘汰賽③",
+            "matchKey": "SF1"
+          },
+          {
+            "label": "淘汰賽④",
+            "matchKey": "SF2",
+            "home": {
+              "groupId": "B",
+              "stageId": "group",
+              "type": "standing",
+              "rank": 1
+            },
+            "away": {
+              "type": "matchWinner",
+              "matchKey": "QF1"
+            }
+          }
+        ],
+        "name": "準決賽",
+        "drawRule": "penalty",
+        "type": "knockout"
+      },
+      {
+        "type": "knockout",
+        "stageId": "final",
+        "order": 4,
+        "slots": [
+          {
+            "label": "季軍賽",
+            "away": {
+              "type": "matchLoser",
+              "matchKey": "SF2"
+            },
+            "matchKey": "F3",
+            "round": 1,
+            "home": {
+              "type": "matchLoser",
+              "matchKey": "SF1"
+            }
+          },
+          {
+            "away": {
+              "rank": 4,
+              "stageId": "group",
+              "groupId": "B",
+              "type": "standing"
+            },
+            "matchKey": "F7",
+            "label": "七八名賽",
+            "round": 1,
+            "home": {
+              "rank": 4,
+              "stageId": "group",
+              "groupId": "A",
+              "type": "standing"
+            }
+          },
+          {
+            "round": 2,
+            "away": {
+              "matchKey": "SF2",
+              "type": "matchWinner"
+            },
+            "label": "冠軍賽",
+            "home": {
+              "type": "matchWinner",
+              "matchKey": "SF1"
+            },
+            "matchKey": "F1"
+          },
+          {
+            "away": {
+              "type": "matchLoser",
+              "matchKey": "QF2"
+            },
+            "label": "五六名賽",
+            "home": {
+              "type": "matchLoser",
+              "matchKey": "QF1"
+            },
+            "round": 2,
+            "matchKey": "F5"
+          }
+        ],
+        "name": "名次決賽",
+        "drawRule": "penalty"
+      }
+    ],
+    "finalRankingMap": [
+      {
+        "rank": 1,
+        "from": {
+          "matchKey": "F1",
+          "type": "matchWinner"
+        }
+      },
+      {
+        "rank": 2,
+        "from": {
+          "type": "matchLoser",
+          "matchKey": "F1"
+        }
+      },
+      {
+        "rank": 3,
+        "from": {
+          "type": "matchWinner",
+          "matchKey": "F3"
+        }
+      },
+      {
+        "rank": 4,
+        "from": {
+          "matchKey": "F3",
+          "type": "matchLoser"
+        }
+      },
+      {
+        "rank": 5,
+        "from": {
+          "matchKey": "F5",
+          "type": "matchWinner"
+        }
+      },
+      {
+        "from": {
+          "matchKey": "F5",
+          "type": "matchLoser"
+        },
+        "rank": 6
+      },
+      {
+        "rank": 7,
+        "from": {
+          "matchKey": "F7",
+          "type": "matchWinner"
+        }
+      },
+      {
+        "from": {
+          "type": "matchLoser",
+          "matchKey": "F7"
+        },
+        "rank": 8
+      }
+    ],
+    "formatId": "F8_GROUP_TOP_SEED_BYE",
+    "teamCount": 8,
+    "description": "共20場。小組第一輪空；第二、三交叉淘汰，第四直接打七八名賽。每隊4至6場。",
+    "name": "8隊 兩組循環＋小組第一輪空淘汰賽",
+    "matchNames": {
+      "SF2": "淘汰賽④",
+      "QF2": "淘汰賽②",
+      "QF1": "淘汰賽①",
+      "SF1": "淘汰賽③"
+    },
+    "groupNames": {
+      "B": "乙組",
+      "A": "甲組"
+    }
+  }
+}
