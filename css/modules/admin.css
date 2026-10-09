@@ -515,5 +515,47 @@
 .adm-match__card .adm__choice{flex:1;min-width:0}
 .adm-match__card .adm__choiceName{overflow-wrap:anywhere}
 .adm-match__card .adm__sectionHead{margin-top:12px}
+
+/* 匯出資料：日期共用、兩種名單分卡、每個下載附用途。 */
+.adm-export h2,.adm-export h3,.adm-export p{margin:0}
+.adm-export h2{font-size:var(--fs-lg);line-height:1.5}
+.adm-export h3{font-size:var(--fs-sm);line-height:1.5}
+.adm-export__card>*,.adm-export__date>*{width:100%;min-width:0}
+.adm-export__date .chal__days{margin:0}
+.adm-export__heading{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);flex-wrap:wrap}
+.adm-export__heading h2{display:flex;align-items:center;gap:var(--sp-2)}
+.adm-export__tag{padding:3px var(--sp-2);border-radius:var(--r-full);font-size:var(--fs-xs);color:var(--text-secondary);background:var(--bg-input)}
+.adm-export__controls{display:flex;align-items:flex-end;gap:var(--sp-2);flex-wrap:wrap}
+.adm-export__field{display:grid;gap:var(--sp-2);flex:1 1 12rem;min-width:0;font-size:var(--fs-sm);font-weight:600}
+.adm-export__field select{width:100%;min-width:0}
+.adm-export__refresh{flex:0 1 auto}
+.adm-export__status{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);flex-wrap:wrap;padding:var(--sp-3);border-radius:var(--r-sm);background:var(--bg-input);font-size:var(--fs-sm)}
+.adm-export__status span,.adm-export__updated{font-size:var(--fs-xs);color:var(--text-secondary)}
+.adm-export__preview{border-top:1px solid var(--border);padding-top:var(--sp-3);display:grid;gap:var(--sp-2)}
+.adm-export__preview>strong{display:flex;align-items:center;gap:var(--sp-2)}
+.adm-export__person{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);padding:var(--sp-2) 0;border-bottom:1px solid var(--border)}
+.adm-export__personMain{display:grid;gap:2px;min-width:0;overflow-wrap:anywhere;font-size:var(--fs-sm)}
+.adm-export__personMain span{font-size:var(--fs-xs);color:var(--text-secondary)}
+.adm-export__progress{flex:none;font-size:var(--fs-xs);color:var(--text-secondary);font-variant-numeric:tabular-nums}
+.adm-export__downloads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-3);border-top:1px solid var(--border);padding-top:var(--sp-3)}
+.adm-export__downloads>div{display:grid;align-content:start;gap:var(--sp-2);min-width:0}
+.adm-export__downloads .btn{width:100%;white-space:normal}
+.adm-export__downloads .adm__note{font-size:var(--fs-xs)}
+.adm-export__actions{display:flex;gap:var(--sp-2);flex-wrap:wrap}
+.adm-export__actions .btn{flex:1;min-width:0}
+.adm-export .adm__tieRow{padding:var(--sp-2) 0;border-bottom:1px solid var(--border);border-radius:0;background:none}
+.adm-export .adm__tieRank{width:auto;min-width:3rem;font-size:var(--fs-sm);color:var(--accent);background:var(--bg-input);border-radius:var(--r-sm);padding:var(--sp-2)}
+.adm-export .adm__teamName{font-size:var(--fs-sm)}
+.adm-export__error{padding:var(--sp-3);border-radius:var(--r-sm);background:var(--danger-bg);color:var(--danger);font-size:var(--fs-sm);overflow-wrap:anywhere}
+.adm-export__help{border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);color:var(--text-secondary)}
+.adm-export__help summary{cursor:pointer;font-size:var(--fs-sm);font-weight:600;min-height:var(--tap);display:flex;align-items:center;gap:var(--sp-2)}
+.adm-export__help summary::before{content:'+';font-size:var(--fs-lg);color:var(--accent)}
+.adm-export__help[open] summary::before{content:'−'}
+.adm-export__help[open] p{margin-top:var(--sp-2)}
+@media(max-width:359px){
+  .adm-export__downloads{grid-template-columns:minmax(0,1fr)}
+  .adm-export__controls{align-items:stretch;flex-direction:column}
+  .adm-export__field{flex:auto}
+}
 @media(min-width:760px){.adm-match__main{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}.adm-match__secondary{grid-template-columns:repeat(2,minmax(0,1fr))}.adm-match__hero{padding:28px 32px}}
 @media(max-width:380px){.adm-match{gap:16px}.adm-match__card{padding:16px}.adm-match__hero{padding:18px 14px;gap:20px}.adm-match__fixture{gap:8px}.adm-match__team strong{font-size:15px}.adm-match__score{font-size:36px}}

@@ -43,3 +43,32 @@ test('攤位人員不能看到完整名單或發送匯出請求',async({page})=>
   await setup(page,'booth');await expect(page.getByRole('button',{name:'下載挑戰名單 CSV',exact:true})).toHaveCount(0);
   expect(await page.evaluate(()=>(window.__FAKE_CALLS??[]).some(c=>c.name==='exportChallengeParticipants'))).toBe(false);
 });
+
+test('EXPORT-CLARITY 預覽用途、範圍與兩種下載說明清楚可見',async({page})=>{
+  await setup(page);const card=page.getByRole('region',{name:'完整挑戰名單'});
+  await expect(card.getByRole('heading',{name:'挑戰參與名單'})).toBeVisible();
+  await expect(card.getByRole('heading',{name:'名單預覽（前 2 人）'})).toBeVisible();
+  await expect(card).toContainText('依卡號排列，並非排名');
+  await expect(card).toContainText('下載的 CSV 包含此範圍的全部資料。');
+  await expect(card).toContainText('每人一筆：暱稱、LINE UID、各攤成績與聯繫方式。');
+  await expect(card).toContainText('每次登錄一筆：逐球資料、參與時間、入庫時間與作廢紀錄。');
+  const draw=page.getByRole('region',{name:'抽獎資格名單'});
+  await expect(draw).toContainText('只包含已有抽獎資格的用戶');
+  await expect(page.getByRole('region',{name:'匯出日期'})).toContainText('以所選日期為準');
+  await expect(page.getByText('未綁定 LINE 或未填聯繫方式時，欄位會留空。',{exact:false})).not.toBeVisible();
+  await page.getByText('下載與資料說明',{exact:true}).click();
+  await expect(page.getByText('未綁定 LINE 或未填聯繫方式時，欄位會留空。',{exact:false})).toBeVisible();
+});
+
+for(const width of [320,390,1024])for(const theme of ['light','dark'])test(`EXPORT-LAYOUT ${width} ${theme} 長暱稱與操作不溢出`,async({page})=>{
+  await page.setViewportSize({width,height:900});await setup(page);
+  await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  await page.evaluate(()=>{window.__FAKE_PARTICIPANTS_RESULT.rows[0].nickname='很長的用戶暱稱ABCDEFGHIJKLMNOPQRSTUVWXYZ';});
+  await page.getByRole('button',{name:'更新完整名單',exact:true}).click();
+  await expect(page.getByRole('region',{name:'完整挑戰名單'})).toContainText('很長的用戶暱稱');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  const buttons=page.getByRole('region',{name:'完整挑戰名單'}).getByRole('button');
+  for(const button of await buttons.all()){const box=await button.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);expect(box.x+box.width).toBeLessThanOrEqual(width);}
+  if(width===320&&theme==='light')await page.screenshot({path:'tools/export-ui-320.png',fullPage:true});
+  if(width===390)await page.screenshot({path:`tools/export-ui-390-${theme}.png`,fullPage:true});
+});
