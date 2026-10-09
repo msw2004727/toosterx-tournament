@@ -83,3 +83,9 @@ test('缺失來源與循環設定停止畫圖，不能遞迴卡死', () => {
   broken.stages.find(s => s.stageId === 'placement').slots[0].home.matchKey = 'missing';
   expect(build(broken).state).toBe('invalid');
 });
+
+test('不完整賽制物件不使公開頁崩潰', () => {
+  expect(buildBracketModel({ stages: {} }, [], division).state).toBe('missing');
+  expect(buildBracketModel({ stages: [{ slots: {} }] }, [], division).state).toBe('invalid');
+  expect(buildBracketModel({ stages: [null] }, [], division).state).toBe('invalid');
+});

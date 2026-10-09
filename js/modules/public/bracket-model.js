@@ -1,12 +1,14 @@
 /** 對戰關係只讀賽制；勝負只讀引擎已產生的 result，不以比分猜晉級。 */
-import { resolveTeamSource } from '../../engine/advancement.js';
 import { groupNameOf } from '../../engine/group-name.js';
+import { isDoneMatch } from './selectors.js';
 
 export function buildBracketModel(format, matches, division) {
-  if (!format?.stages) return { state: 'missing', trees: [], extra: [] };
+  if (!Array.isArray(format?.stages)) return { state: 'missing', trees: [], extra: [] };
   const slots = new Map();
   let invalid = false;
+  if (format.stages.some(s => !s || (s.slots != null && !Array.isArray(s.slots)))) return { state: 'invalid', trees: [], extra: [] };
   for (const stage of format.stages) for (const slot of stage.slots || []) {
+    if (!slot) { invalid = true; continue; }
     if (!slot.matchKey || slots.has(slot.matchKey)) invalid = true;
     slots.set(slot.matchKey, { ...slot, stageId: stage.stageId });
   }
@@ -32,7 +34,6 @@ export function buildBracketModel(format, matches, division) {
   for (const key of slots.keys()) check(key);
   if (invalid) return { state: 'invalid', trees: [], extra: [] };
   const labels = Object.fromEntries([...slots].map(([key, slot]) => [key, slot.label || key]));
-  const context = { divisionId: division.divisionId, matchesByKey: Object.fromEntries([...entries].filter(([, e]) => e.match).map(([k, e]) => [k, e.match])) };
   function sourceLabel(source) {
     if (source.type === 'standing') return `${groupNameOf(source.groupId, { ...format, ...division })}第${source.rank}名`;
     if (source.type === 'fixed') return '指定隊伍';
@@ -44,10 +45,14 @@ export function buildBracketModel(format, matches, division) {
       const team = consumer?.[side];
       return team?.teamId && (source.type !== 'fixed' || team.teamId === source.teamId) ? team : null;
     }
-    const id = resolveTeamSource(source, context);
-    if (!id) return null;
     const upstream = entries.get(source.matchKey);
-    if (!upstream?.match) return null;
+    if (!isDoneMatch(upstream?.match)) return null;
+    const winner = upstream.match.result?.winner;
+    if (winner !== 'home' && winner !== 'away') return null;
+    // 投影後端存好的勝／敗方，不比較比分，也不重新計算 result。
+    const sideKey = source.type === 'matchWinner' ? winner : winner === 'home' ? 'away' : 'home';
+    const id = upstream.match[sideKey]?.teamId;
+    if (!id) return null;
     if (upstream.match.home?.teamId === upstream.match.away?.teamId) return null;
     // 不讓上游未定或被改判時，下游殘留結果繼續產生冠軍。
     for (const s of ['home', 'away']) {
@@ -73,7 +78,7 @@ export function buildBracketModel(format, matches, division) {
   function node(source, consumer, side, depth, title) {
     const team = sourceTeam(source, consumer?.match, side);
     const result = { id: `n${sequence++}`, source, label: title || sourceLabel(source),
-      name: team?.name || team?.displayName || (team?.teamId ? '隊名整理中' : title ? `${title}待定` : sourceLabel(source)),
+      name: team?.displayName || team?.name || (team?.teamId ? '隊名整理中' : title ? `${title}待定` : sourceLabel(source)),
       teamId: team?.teamId || null, depth, match: consumer ? publicMatch(consumer) : null, side, children: [] };
     if (source.type === 'matchWinner') {
       const entry = entries.get(source.matchKey);
@@ -83,7 +88,7 @@ export function buildBracketModel(format, matches, division) {
     }
     return result;
   }
-  const roots = (format.finalRankingMap || []).filter(r => r.from?.type === 'matchWinner' && slots.has(r.from.matchKey));
+  const roots = (Array.isArray(format.finalRankingMap) ? format.finalRankingMap : []).filter(r => r?.from?.type === 'matchWinner' && slots.has(r.from.matchKey));
   const champion = roots.find(r => r.rank === 1);
   const trees = [];
   function addTree(source, title) {

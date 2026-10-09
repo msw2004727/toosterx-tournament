@@ -78,6 +78,8 @@ const MUTANTS = [
     from: '    stopTicker();', to: '    /* timer cleanup removed */' },
   { name: '#ESTANDTEAMWIDTH standings numeric columns pushed out by names', file: 'css/modules/public.css',
     from: 'table-layout:fixed', to: 'table-layout:auto' },
+  { name: '#ESTANDGLYPHWIDTH wide numeric glyphs overflow goal difference', file: 'css/modules/public.css',
+    from: '.ptable th:nth-child(9),.ptable td:nth-child(9){width:36px}', to: '.ptable th:nth-child(9),.ptable td:nth-child(9){width:32px}' },
   { name: '#ESTANDTEAMFADE 積分榜長隊名失去右側淡出', file: 'css/modules/public.css',
     from: '.ptable__nameScroll[data-overflow]:not([data-at-end]){', to: '.ptable__nameScroll[data-missing-overflow]:not([data-at-end]){' },
   { name: '#EHOMEFINISH 完賽快照沒有刷新比賽欄位', file: 'js/modules/public/home.js',

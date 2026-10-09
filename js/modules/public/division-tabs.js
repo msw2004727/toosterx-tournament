@@ -10,7 +10,7 @@ export const DIVISION_TABS = [
 ];
 
 export function divisionTabs(divisionId, selected) {
-  return el('div', { class: 'ptabs ptabs--sub', role: 'tablist', 'aria-label': '組別資訊' },
+  return el('div', { class: 'ptabs ptabs--sub ptabs--division', role: 'tablist', 'aria-label': '組別資訊' },
     DIVISION_TABS.map(t => el('button', {
       class: `ptabs__btn ${selected === t.key ? 'is-active' : ''}`, type: 'button',
       role: 'tab', 'aria-selected': String(selected === t.key),

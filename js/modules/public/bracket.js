@@ -87,7 +87,8 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
           onClick: m ? () => openMatch(m) : null
         }, [
           n.depth === 0 ? icon('trophy') : null,
-          el('span', { class: 'pbracket__source', text: caption }),
+          !n.children.length && n.depth < tree.levels - 1 ? el('span', { class: 'pbracket__source', text: '輪空' }) : null,
+          n.name !== caption ? el('span', { class: 'pbracket__source', text: caption }) : null,
           el('span', { class: 'pbracket__name', text: n.name }),
           points != null ? el('span', { class: 'pbracket__score num', text: points }) : null,
           el('span', { class: 'pbracket__game', text: game }),
