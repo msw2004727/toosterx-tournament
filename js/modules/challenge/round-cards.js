@@ -28,7 +28,10 @@ export function roundCards({ player, playerId = player?.playerId, attempts, chal
           title: challenges.find(c => c.challengeId === id)?.name ?? id,
           'aria-label': `第 ${i + 1} 項${row.done.includes(id) ? '已完成' : '未完成'}`
         }, row.done.includes(id) ? icon('check') : String(i + 1)))),
-      el('small', { class: 'chal__roundCode', text: `本輪碼號：${row.code ?? '尚未領卡'}` }),
+      el('small', { class: 'chal__roundCode' }, [
+        el('span', { text: '本輪碼號：' }),
+        el(row.code ? 'strong' : 'span', { class: row.code ? 'chal__roundCodeValue' : '', text: row.code ?? '尚未領卡' })
+      ]),
       el('div', { class: 'chal__qualification', 'data-qualified': String(qualified) }, [
         el('strong', { text: loading ? '正在載入當日集章紀錄' : awaiting ? '離線資料，等待同步確認'
           : qualified ? '已取得 1 次抽獎機會' : row.entries ? '本輪集章完成，待伺服器確認'

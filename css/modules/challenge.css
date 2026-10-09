@@ -32,7 +32,8 @@
 .chal__card--rules { border-color: var(--accent); background: var(--accent-bg); }
 .chal__rules { margin: 0; padding-left: 1.3em; font-size: var(--fs-sm); line-height: 1.7; }
 .chal__rules li + li { margin-top: var(--sp-2); }
-.chal__roundCode { display: block; margin-top: .6rem; color: var(--text-muted); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.chal__roundCode { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .5rem; margin-top: .6rem; color: var(--text-muted); font-size: var(--fs-xs); }
+.chal__roundCodeValue { font-size: 3em; font-weight: 800; line-height: 1.2; color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .chal__roundActions { display: flex; justify-content: flex-end; margin-top: .8rem; }
 .chal__roundActions .btn { white-space: normal; }
 .chal__stamps { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
