@@ -23,6 +23,33 @@ const update = (page, patch) => page.evaluate(({ path, row }) => window.__fake._
 const score = page => page.locator('.prow[data-match-id="m"] .prow__nums');
 const count = page => page.evaluate(async () => (await import('/js/core/store.js')).count());
 
+test('HOMESTREAM 官方直播在資訊列顯示SVG與文字，無直播不新增元素，來源變更即時更新', async ({ page }) => {
+  await stub(page); await page.goto('/#/');
+  const card = page.locator('.prow[data-match-id="m"]');
+  await expect(score(page)).toHaveText('2-1');
+  await expect(card.locator('.prow__stream')).toHaveCount(0);
+  await expect(card.locator('.prow__metaText')).toHaveCount(0);
+  for (const stream of [{ videoId: 'dQw4w9WgXcQ', status: 'live' }, { provider: 'twitch', channelId: 'twitchdev', status: 'live' }]) {
+    await update(page, { label: '季軍賽', stream });
+    await expect(card.locator('.prow__stream')).toHaveText('直播');
+    await expect(card.locator('.prow__stream svg')).toHaveCount(1);
+    const boxes = await card.evaluate(n => ['.prow__metaText', '.prow__stream', '.pbadge'].map(s => n.querySelector(s).getBoundingClientRect().toJSON()));
+    expect(boxes[0].right).toBeLessThanOrEqual(boxes[1].left);
+    expect(boxes[1].right).toBeLessThanOrEqual(boxes[2].left);
+    expect(boxes[1].bottom).toBeLessThanOrEqual(boxes[2].bottom + 4);
+  }
+  await update(page, { stream: { videoId: 'dQw4w9WgXcQ', status: 'off' } });
+  await expect(card.locator('.prow__stream')).toHaveCount(0);
+  await update(page, { stream: { provider: 'twitch', channelId: 'twitchdev', enabled: false } });
+  await expect(card.locator('.prow__stream')).toHaveCount(0);
+  await update(page, { venueId: 'A' });
+  await page.evaluate(base => window.__fake.__seed({ [base + '/venues/A']: { name: 'A場', order: 1, stream: { provider: 'twitch', channelId: 'twitchdev', status: 'live' } } }), BASE);
+  const seeded = await page.evaluate(() => window.__fake.__dump());
+  await page.addInitScript(seed => { window.__FAKE_SEED = seed; }, seeded);
+  await page.reload(); await expect(card.locator('.prow__stream')).toHaveText('直播');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test('HOMEMATCHLIVE 同日舊看板不能蓋過最新場次，停留首頁收到完賽賽果', async ({ page }) => {
   await stub(page, true); await page.goto('/#/');
   await expect(score(page)).toHaveText('2-1');

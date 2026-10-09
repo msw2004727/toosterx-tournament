@@ -15,6 +15,8 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name:'#EHOMESTREAM 首頁有直播卻未顯示提醒', file:'js/modules/public/bits.js',
+    from:"streamAvailable ? el('span', { class: 'prow__meta prow__meta--stream' }", to:"false ? el('span', { class: 'prow__meta prow__meta--stream' }" },
   { name:'#ETWITCHDRAFT 儲存後快照先到導致 Twitch 欄位清空', file:'js/modules/admin/match.js',
     from:"state.streamInput = source?.provider === 'twitch' ? streamShareUrl(source) : null;", to:'state.streamInput = null;' },
   { name:'#ETWITCHPLAY 播放器仍只取 YouTube 影片 ID', file:'js/modules/public/stream-shares.js',

@@ -51,8 +51,9 @@ export function statusBadge(m, matchDurationMin = 30, periods = 2) {
  * @param {object} o.match
  * @param {Function} o.onOpen  點擊時進 LIVE 頁
  * @param {object} [o.division] 用來取 matchDurationMin 與仁慈規則
+ * @param {boolean} [o.streamAvailable] 首頁已確認有可播放直播來源
  */
-export function matchRow({ match: m, onOpen, division }) {
+export function matchRow({ match: m, onOpen, division, streamAvailable = false }) {
   const dur = division?.matchDurationMin ?? 30;
   const periods = division?.periods ?? 2;
   // ⚠️ 是 display.mercyRule，不是 division.mercyRule。
@@ -67,12 +68,15 @@ export function matchRow({ match: m, onOpen, division }) {
 
   const body = el('button', {
     class: 'prow__btn', type: 'button',
-    'aria-label': `${sideLabel(m, 'home')} 對 ${sideLabel(m, 'away')}，${statusText(m, dur, periods)}`,
+    'aria-label': `${sideLabel(m, 'home')} 對 ${sideLabel(m, 'away')}，${statusText(m, dur, periods)}${streamAvailable ? '，有直播' : ''}`,
     onClick: () => onOpen?.(m)
   }, [
     el('div', { class: 'prow__head' }, [
       el('span', { class: 'prow__time num', text: hhmm(m?.kickoffAt) }),
-      el('span', { class: 'prow__meta', text: [m?.venueName || m?.venueId, m?.label].filter(Boolean).join('　·　') }),
+      streamAvailable ? el('span', { class: 'prow__meta prow__meta--stream' }, [
+        el('span', { class: 'prow__metaText', text: [m?.venueName || m?.venueId, m?.label].filter(Boolean).join('　·　') }),
+        el('span', { class: 'prow__stream' }, iconText('live', '直播'))
+      ]) : el('span', { class: 'prow__meta', text: [m?.venueName || m?.venueId, m?.label].filter(Boolean).join('　·　') }),
       statusBadge(m, dur, periods)
     ]),
     el('div', { class: 'prow__score' }, [

@@ -22,7 +22,7 @@ import { selectedActivityDate } from '../../engine/challenge-days.js';
 import { dateLabelFromYmd, hhmm } from '../../lib/format.js';
 import { EVENT, CACHE_VERSION } from '../../config.js';
 import * as data from './data.js';
-import { splitHomeSections, isLiveMatch, hiddenScorerDivisions, publishedMatches } from './selectors.js';
+import { splitHomeSections, isLiveMatch, hiddenScorerDivisions, publishedMatches, embedUrl } from './selectors.js';
 import { matchRow, sectionCard, empty, statusBadge } from './bits.js';
 
 const MATCH_TABS = [
@@ -45,6 +45,7 @@ export async function publicHome({ scope, view, query }) {
     date: EVENT.dates.includes(query?.get('date')) ? query.get('date') : todayInEvent(),
     matches: [],
     divisions: [],
+    venues: [],
     divisionsStatus: 'loading',
     matchError: null,
     scorers: null,
@@ -59,6 +60,11 @@ export async function publicHome({ scope, view, query }) {
 
   // 組別讀取狀態與比分分開，快捷入口才能說明尚未載入的原因。
   void loadDivisions();
+  void loadVenues();
+  async function loadVenues() {
+    try { state.venues = await data.getVenues(); } catch { return; }
+    if (!disposed) refreshMatches();
+  }
   async function loadDivisions() {
     try {
       state.divisions = await data.getDivisions();
@@ -218,7 +224,8 @@ export async function publicHome({ scope, view, query }) {
   function matchSection(title, glyph, matches, emptyTitle, showSchedule = false) {
     return sectionCard(title, glyph,
       matches.length ? el('ul', { class: `plist${glyph === 'live' ? ' plist--live' : ''}` },
-        matches.map(m => matchRow({ match: m, onOpen: open, division: divisionOf(m.divisionId) })))
+        matches.map(m => matchRow({ match: m, onOpen: open, division: divisionOf(m.divisionId),
+          streamAvailable: Boolean(embedUrl({ match: m, venue: state.venues.find(v => v.venueId === m.venueId), parent: location.hostname })) })))
         : empty(emptyTitle, '換一個日期看看，或看完整賽程。'),
       showSchedule ? el('button', { class: 'btn btn--ghost btn--sm', type: 'button',
         onClick: () => navigate(`/schedule?date=${encodeURIComponent(state.date)}`)
