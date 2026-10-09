@@ -81,15 +81,16 @@ test('TWITCH-PUBLISH 分享頻道直播並拒絕偽裝網域 @streamShares', asy
 test('TWITCH-OFFICIAL 單場直播與場地直播牆都支援 Twitch @streamShares', async ({ page }, info) => {
   await setup(page, { loggedIn: false, officialTwitch: true });
   await page.getByRole('tab', { name: '直播', exact: true }).click();
-  const matchWidth = await page.locator('.video').evaluate(el => el.getBoundingClientRect().width);
+  // The tab can still be hidden during its transition; click waits for the facade to be visible.
   await page.locator('.video__poster').click();
+  const matchWidth = await page.locator('.video').evaluate(el => el.getBoundingClientRect().width);
   if (matchWidth >= 400) {
     await expect(page.locator('.video iframe')).toHaveAttribute('src', /player\.twitch\.tv\/\?channel=twitchdev&parent=127\.0\.0\.1/);
   } else await expect(page.locator('.video__external a')).toHaveAttribute('href', 'https://www.twitch.tv/twitchdev');
   await page.evaluate(() => { location.hash = '/live'; });
   await expect(page.locator('.pwall__cell')).toHaveCount(1);
-  const venueWidth = await page.locator('.pwall .video').evaluate(el => el.getBoundingClientRect().width);
   await page.locator('.pwall .video__poster').click();
+  const venueWidth = await page.locator('.pwall .video').evaluate(el => el.getBoundingClientRect().width);
   if (venueWidth >= 400) {
     await expect(page.locator('.pwall iframe')).toHaveAttribute('src', /player\.twitch\.tv/);
   } else await expect(page.locator('.pwall .video__external a')).toHaveAttribute('href', 'https://www.twitch.tv/twitchdev');

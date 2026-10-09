@@ -36,8 +36,9 @@ describe('Challenge 成績', () => {
     const other = 'other-event';
     await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'events', other, 'challenges', CHALLENGE),
       { minValue: 0, maxValue: 5 }));
-    await assertFails(setDoc(doc(authed(env, 'u-booth'), 'events', other, 'attempts', 'cross-event'), attempt({ eventId: other })));
+    // Keep every other prerequisite valid so only the assignment's event boundary rejects this write.
     await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'events', other, 'players', 'FEDA-0182'), {nickname:'阿哲'}));
+    await assertFails(setDoc(doc(authed(env, 'u-booth'), 'events', other, 'attempts', 'cross-event'), attempt({ eventId: other })));
     await assertSucceeds(setDoc(doc(authed(env, 'u-admin'), 'events', other, 'attempts', 'admin-event'),
       attempt({ eventId: other, staffUid: 'u-admin' })));
   });
