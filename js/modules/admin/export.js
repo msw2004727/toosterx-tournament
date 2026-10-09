@@ -230,7 +230,7 @@ export async function adminExportPage({ scope, view }) {
       el('p',{class:'adm__note',text:'只包含已有抽獎資格的用戶，方便活動現場核對與抽獎。'}),
       el('p', { class: 'adm__note', text:
         `有資格的玩家 ${s.players} 人・抽獎券合計 ${s.entries} 張`
-        + (s.allDone == null ? '' : `・${state.challengeTotal} 關全破 ${s.allDone} 人`) }),
+        + (state.rewards?.rule === DAILY_RULE || s.allDone == null ? '' : `・${state.challengeTotal} 關全破 ${s.allDone} 人`) }),
       el('p', { class: 'adm__permNote', text:
         state.rewards?.rule === DAILY_RULE ? `僅匯出 ${dateLabel(state.date)} 已確認的抽獎資格；其他日期不計入本日，下載前由伺服器重新核對。`
           : state.rewards?.rule === 'allChallengesCompleted'
