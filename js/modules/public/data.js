@@ -13,6 +13,7 @@
 import { db, sdk, evPath } from '../../core/firebase.js';
 import { hold, get as cacheGet, put as cachePut } from '../../core/store.js';
 import { EVENT_ID } from '../../config.js';
+import { disciplineMatches, disciplineDetails } from './selectors.js';
 
 const CACHE_MS = 5 * 60 * 1000;      // 場地、名單這類設定五分鐘內不重讀
 
@@ -207,6 +208,26 @@ export async function getTeamMatches(teamId) {
     where('teamIds', 'array-contains', teamId)
   ));
   return snap.docs.map(d => ({ matchId: d.id, ...d.data() }));
+}
+
+/** 展開一隊時才讀有效完賽場次的全部牌事件；不受直播事件流 50 筆上限影響。 */
+export async function getDisciplineDetails(teamId, divisionId) {
+  const { collection, doc, getDoc, getDocs, query, where } = sdk();
+  const [matches, teamSnap, divisionSnap, roster] = await Promise.all([
+    getDivisionMatches(divisionId),
+    getDocs(query(evPath('teams'), where('divisionId', '==', divisionId))),
+    getDoc(doc(db(), 'events', EVENT_ID, 'divisions', divisionId)),
+    getRoster(teamId)
+  ]);
+  const teams = Object.fromEntries(teamSnap.docs.map(d => [d.id, d.data()]));
+  const played = disciplineMatches({ matches, teams, divisionId, teamId,
+    withdrawalPolicy: divisionSnap.data()?.withdrawalPolicy });
+  const timelines = await Promise.all(played.map(async m => {
+    const snap = await getDocs(query(collection(db(), 'events', EVENT_ID, 'matches', m.matchId, 'timeline'),
+      where('type', '==', 'card')));
+    return snap.docs.map(d => ({ ...d.data(), matchId: m.matchId }));
+  }));
+  return disciplineDetails({ matches: played, events: timelines.flat(), roster, teamId });
 }
 
 /**

@@ -614,6 +614,80 @@ test('⭐ 紅黃牌統計讀自己那份文件，不會退回射手榜的列 @pu
   await expect(page.locator('.pub')).toContainText('-1 分');
 });
 
+function withDisciplineDetails() {
+  const seed = withBoards();
+  seed[`events/${EVENT}/teams/t-102`] = { divisionId: 'adult-open', name: '對手隊' };
+  seed[`events/${EVENT}/matches/${MATCH}`] = liveMatch({ status: 'finished' });
+  seed[`events/${EVENT}/teams/t-101/roster/m-1`].displayName = '王Ｏ明';
+  seed[`events/${EVENT}/teams/t-101/roster/m-1`].name = '不得公開名單真名';
+  seed[`events/${EVENT}/boards/fairplay`].rows[0] = {
+    ...seed[`events/${EVENT}/boards/fairplay`].rows[0], yellow: 2, red: 1, secondYellow: 1, fairPlayPoints: -3
+  };
+  for (const [id, cardType, clockSec, periodId, seq] of [
+    ['yellow', 'yellow', 95, 'h1', 1], ['second', 'second_yellow', 125, 'h2', 2]
+  ]) seed[`events/${EVENT}/matches/${MATCH}/timeline/${id}`] = {
+    type: 'card', teamId: 't-101', playerId: 'm-1', playerName: '不得公開事件真名', cardType, clockSec, periodId, seq
+  };
+  seed[`events/${EVENT}/matches/${MATCH}/timeline/void`] = {
+    type: 'card', teamId: 't-101', playerId: 'm-1', cardType: 'red', voided: true
+  };
+  for (let i = 0; i < 55; i++) seed[`events/${EVENT}/matches/${MATCH}/timeline/goal-${i}`] = {
+    type: 'goal', seq: 100 + i, teamId: 't-101'
+  };
+  return seed;
+}
+
+for (const theme of ['light', 'dark']) test(`DISC-DETAIL 紅黃牌明細可展開收合、公開名單與場次連結 ${theme} @public @privacy`, async ({ page }) => {
+  await stub(page, withDisciplineDetails());
+  await go(page, '/#/stats?tab=fairplay');
+  await page.evaluate(value => document.documentElement.dataset.theme = value, theme);
+  const details = page.locator('.pdiscipline__details');
+  await expect(details).not.toHaveAttribute('open');
+  const before = await page.evaluate(() => window.__fake.__stats.getDocs);
+  await details.locator('summary').click();
+  await expect(details.locator('tbody tr')).toHaveCount(2);
+  await expect(details.locator('th')).toHaveText(['賽程', '時間', '選手']);
+  await expect(details).toContainText('01:35');
+  await expect(details).toContainText('下半場');
+  await expect(details).toContainText('02:05');
+  await expect(details).toContainText('#7 王Ｏ明');
+  await expect(details).toContainText('第二黃／兩黃換紅');
+  await expect(details).toContainText('10/9（五） 09:30');
+  await expect(details).not.toContainText('不得公開');
+  const loaded = await page.evaluate(() => window.__fake.__stats.getDocs);
+  expect(loaded).toBeGreaterThan(before);
+  await noHScroll(page);
+  await details.locator('summary').click();
+  await expect(details.locator('table')).toBeHidden();
+  await details.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(details.locator('table')).toBeVisible();
+  expect(await page.evaluate(() => window.__fake.__stats.getDocs)).toBe(loaded);
+  await details.locator('.pdiscipline__match').first().click();
+  await expect(page).toHaveURL(new RegExp(`/match/${MATCH}$`));
+});
+
+test('DISC-RETRY 明細讀取失敗可重試 @public', async ({ page }) => {
+  await stub(page, withDisciplineDetails());
+  await go(page, '/#/stats?tab=fairplay');
+  await page.evaluate(() => { window.__FAKE_SNAPSHOT_FAIL = { path: 'timeline' }; });
+  const details = page.locator('.pdiscipline__details');
+  await details.locator('summary').click();
+  await expect(details.getByRole('alert')).toHaveText('吃牌明細暫時讀取失敗');
+  await page.evaluate(() => { window.__FAKE_SNAPSHOT_FAIL = null; });
+  await details.getByRole('button', { name: '重新讀取' }).click();
+  await expect(details.locator('tbody tr')).toHaveCount(2);
+});
+
+test('DISC-EMPTY 無牌隊伍有空狀態 @public', async ({ page }) => {
+  const seed = withDisciplineDetails();
+  for (const id of ['yellow', 'second']) seed[`events/${EVENT}/matches/${MATCH}/timeline/${id}`].voided = true;
+  await stub(page, seed);
+  await go(page, '/#/stats?tab=fairplay');
+  await page.locator('.pdiscipline__details summary').click();
+  await expect(page.locator('.pdiscipline__details')).toContainText('有效完賽場次沒有吃牌紀錄。');
+});
+
 test('⭐ 仁慈規則封頂真的生效（欄位在 display.mercyRule 底下）@public', async ({ page }) => {
   // 寫成 division.mercyRule 不會噴任何錯，只會讓兒童組的 12:0 照實印出來。
   const seed = full();

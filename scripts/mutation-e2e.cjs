@@ -15,6 +15,10 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name:'#EDISCEXPAND 無法展開讀取明細', file:'js/modules/public/stats.js',
+    from:"if (entry.open && entry.status === 'idle') loadDetails();", to:"if (false) loadDetails();" },
+  { name:'#EDISCTIMELINE 明細錯用直播的 50 筆上限', file:'js/modules/public/data.js',
+    from:"where('type', '==', 'card')));", to:"sdk().orderBy('seq', 'desc'), sdk().limit(50)));" },
   { name:'#EADDOVERLAP 移除球員按鈕覆蓋輸入標籤',file:'css/modules/admin.css',
     from:'gap:var(--sp-2);margin-top:20px}',to:'gap:var(--sp-2);margin-top:4px}' },
   { name:'#EADDROW 加號沒有新增第二位球員',file:'js/modules/admin/team-player-add.js',
@@ -77,7 +81,8 @@ const MUTANTS = [
   { name: '#ELIVECLOCKDISPOSE old timer survives navigation', file: 'js/modules/staff/live.js',
     from: '    stopTicker();', to: '    /* timer cleanup removed */' },
   { name: '#ESTANDTEAMWIDTH standings numeric columns pushed out by names', file: 'css/modules/public.css',
-    from: 'table-layout:fixed', to: 'table-layout:auto' },
+    from: '.ptable{width:100%;border-collapse:collapse;table-layout:fixed}',
+    to: '.ptable{width:100%;border-collapse:collapse;table-layout:auto}' },
   { name: '#ESTANDTEAMFADE 積分榜長隊名失去右側淡出', file: 'css/modules/public.css',
     from: '.ptable__nameScroll[data-overflow]:not([data-at-end]){', to: '.ptable__nameScroll[data-missing-overflow]:not([data-at-end]){' },
   { name: '#EHOMEFINISH 完賽快照沒有刷新比賽欄位', file: 'js/modules/public/home.js',

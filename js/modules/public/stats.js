@@ -13,6 +13,7 @@ import * as data from './data.js';
 import { embedUrl, isLiveMatch, hiddenScorerDivisions } from './selectors.js';
 import { pageHead, empty, videoFacade, stopAllVideos, sectionCard, statusBadge } from './bits.js';
 import { EVENT } from '../../config.js';
+import { clockText, dateTimeLabel, dateLabelFromYmd, periodLabel } from '../../lib/format.js';
 
 /* ── 統計頁 ─────────────────────────────────────────────── */
 
@@ -40,6 +41,8 @@ export async function publicStats({ view, query }) {
     tab: BOARDS.some(b => b.key === query?.get('tab')) ? query.get('tab') : 'scorers',
     divisionId: query?.get('division') || null
   };
+  const detailsState = new Map();
+  const detailsBodies = new Map();
 
   const [boards, divisions, flags] = await Promise.all([
     readBoards(),
@@ -58,6 +61,7 @@ export async function publicStats({ view, query }) {
   }
 
   function render() {
+    detailsBodies.clear();
     setDivisionTheme(root, state.divisions.find(d => d.divisionId === state.divisionId) || state.divisionId);
     mount(root,
       pageHead('統計', { sub: EVENT.name, onBack: () => navigate('/') }),
@@ -162,13 +166,80 @@ export async function publicStats({ view, query }) {
             el('dl', { class: 'pdiscipline__metrics' }, [
               ['黃牌', `${r.yellow ?? 0} 張`], ['紅牌', `${r.red ?? 0} 張`], ['紀律扣分', `${r.fairPlayPoints ?? 0} 分`]
             ].map(([label, value]) => el('div', {}, [el('dt', { text: label }), el('dd', { class: 'num', text: value })]))),
-            r.secondYellow ? el('p', { class: 'pdiscipline__played', text: `紅牌包含 ${r.secondYellow} 次兩黃換紅` }) : null
+            r.secondYellow ? el('p', { class: 'pdiscipline__played', text: `紅牌包含 ${r.secondYellow} 次兩黃換紅` }) : null,
+            teamDetails(r, division)
           ]))));
         setDivisionTheme(card, division || id);
         return card;
       }),
       !rows.length ? empty('目前沒有可公布的紅黃牌統計', '有有效完賽紀錄後，會顯示球隊的牌數與紀律扣分；尚未出賽的球隊不列入。') : null
     ]);
+  }
+
+  function teamDetails(row, division) {
+    const key = `${row.divisionId}|${row.teamId}`;
+    if (!detailsState.has(key)) detailsState.set(key, { open: false, status: 'idle', rows: [] });
+    const entry = detailsState.get(key);
+    const content = el('div', { class: 'pdiscipline__detail-body' });
+    detailsBodies.set(key, { content, division });
+    const disclosure = el('details', { class: 'pdiscipline__details', open: entry.open,
+      onToggle: () => {
+        if (!disclosure.isConnected) return;
+        entry.open = disclosure.open;
+        if (entry.open && entry.status === 'idle') loadDetails();
+      }
+    }, [el('summary', { text: '查看吃牌明細' }), content]);
+    paintDetails(key);
+    return disclosure;
+
+    async function loadDetails() {
+      if (entry.status === 'loading') return;
+      entry.status = 'loading';
+      paintDetails(key);
+      try {
+        entry.rows = await data.getDisciplineDetails(row.teamId, row.divisionId);
+        entry.status = 'ready';
+      } catch { entry.status = 'error'; }
+      entry.retry = loadDetails;
+      paintDetails(key);
+    }
+  }
+
+  function paintDetails(key) {
+    const entry = detailsState.get(key);
+    const target = detailsBodies.get(key);
+    if (!target) return;
+    const { content, division } = target;
+    if (entry.status === 'idle' || entry.status === 'loading') {
+      mount(content, el('p', { class: 'muted', role: 'status', text: '讀取吃牌明細中…' }));
+    } else if (entry.status === 'error') {
+      mount(content, el('p', { role: 'alert', text: '吃牌明細暫時讀取失敗' }),
+        el('button', { type: 'button', class: 'btn btn--ghost', onClick: () => entry.retry() }, '重新讀取'));
+    } else if (!entry.rows.length) {
+      mount(content, el('p', { class: 'muted', text: '有效完賽場次沒有吃牌紀錄。' }));
+    } else {
+      mount(content, el('table', { class: 'pdiscipline__table', 'aria-label': '吃牌明細' }, [
+        el('thead', {}, el('tr', {}, ['賽程', '時間', '選手'].map(text => el('th', { scope: 'col', text })))),
+        el('tbody', {}, entry.rows.map(r => el('tr', {}, [
+          el('td', {}, [
+            el('button', { type: 'button', class: 'pdiscipline__match',
+              onClick: () => navigate(`/match/${encodeURIComponent(r.matchId)}`) }, [
+              el('strong', { text: r.label }), el('span', { text: `${r.homeName} vs ${r.awayName}` })
+            ]),
+            el('small', { text: dateTimeLabel(r.kickoffAt) || dateLabelFromYmd(r.date) || '開賽時間未定' })
+          ]),
+          el('td', {}, [
+            el('span', { text: r.periodId ? periodLabel(r.periodId, division?.periods ?? 2) : '期別未記錄' }),
+            el('strong', { class: 'num', text: r.clockSec == null ? '時間未記錄' : clockText(r.clockSec) })
+          ]),
+          el('td', {}, [
+            el('span', { text: `${r.jerseyNo == null ? '' : `#${r.jerseyNo} `}${r.playerName}` }),
+            el('span', { class: 'pdiscipline__card-type', dataset: { card: r.cardType },
+              text: { yellow: '黃牌', red: '紅牌', second_yellow: '第二黃／兩黃換紅' }[r.cardType] })
+          ])
+        ])))
+      ]));
+    }
   }
 
   /**

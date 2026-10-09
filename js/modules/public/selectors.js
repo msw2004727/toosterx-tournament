@@ -13,6 +13,41 @@
  */
 
 import { toMillis } from '../../lib/format.js';
+import { countedMatchIdsOf } from '../../engine/awards.js';
+
+/** 與官方紅黃牌榜共用有效場次規則；只挑明細來源，不重算榜單數字。 */
+export function disciplineMatches({ matches = [], teams = {}, divisionId, teamId, withdrawalPolicy }) {
+  const valid = matches.filter(m => m.divisionId === divisionId
+    && teams[m.home?.teamId]?.divisionId === divisionId
+    && teams[m.away?.teamId]?.divisionId === divisionId
+    && m.home?.teamId !== m.away?.teamId);
+  const counted = countedMatchIdsOf(valid, { teams, withdrawalPolicy });
+  return sortByKickoff(valid.filter(m => counted.has(m.matchId)
+    && [m.home?.teamId, m.away?.teamId].includes(teamId)));
+}
+
+/** 公開吃牌明細：姓名只取公開名單，絕不使用事件內的真名或私密欄位。 */
+export function disciplineDetails({ matches = [], events = [], roster = [], teamId }) {
+  const members = new Map(roster.map(p => [p.memberId, publicMember(p)]));
+  const periods = ['pre', 'h1', 'ht', 'h2', 'et1', 'et2', 'pk', 'ft'];
+  return matches.flatMap(m => events
+    .filter(e => e.matchId === m.matchId && e.teamId === teamId && e.type === 'card'
+      && !e.voided && ['yellow', 'red', 'second_yellow'].includes(e.cardType))
+    .sort((a, b) => periods.indexOf(a.periodId) - periods.indexOf(b.periodId)
+      || (a.clockSec ?? Infinity) - (b.clockSec ?? Infinity) || (a.seq ?? 0) - (b.seq ?? 0))
+    .map(e => {
+      const player = members.get(e.playerId);
+      return {
+        matchId: m.matchId, label: m.label || m.matchId,
+        homeName: sideLabel(m, 'home'), awayName: sideLabel(m, 'away'),
+        date: m.date ?? null, kickoffAt: m.kickoffAt ?? null,
+        periodId: e.periodId ?? null,
+        clockSec: typeof e.clockSec === 'number' && Number.isFinite(e.clockSec) ? e.clockSec : null,
+        cardType: e.cardType, playerName: player?.displayName || '未提供姓名',
+        jerseyNo: player?.jerseyNo ?? null
+      };
+    }));
+}
 
 /* ── 場次狀態 ───────────────────────────────────────────── */
 

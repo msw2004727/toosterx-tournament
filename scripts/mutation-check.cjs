@@ -10,6 +10,16 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  { name:'#DISCDETAIL-VALID 明細混入未完賽或無效比分場次', file:'js/modules/public/selectors.js',
+    from:'valid.filter(m => counted.has(m.matchId)', to:'valid.filter(m => true',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/discipline-details.test.js --silent' },
+  { name:'#DISCDETAIL-VOID 明細混入撤銷牌', file:'js/modules/public/selectors.js',
+    from:"&& !e.voided && ['yellow', 'red', 'second_yellow'].includes(e.cardType)",
+    to:"&& ['yellow', 'red', 'second_yellow'].includes(e.cardType)",
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/discipline-details.test.js --silent' },
+  { name:'#DISCDETAIL-PRIVATE 明細退回事件真名', file:'js/modules/public/selectors.js',
+    from:"playerName: player?.displayName || '未提供姓名'", to:"playerName: player?.displayName || e.playerName || '未提供姓名'",
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/discipline-details.test.js --silent' },
   { name:'#ADDNAME 新增球員不再要求姓名', file:'js/engine/team-player-add.js',
     from:'if (name.error) addError(name.error);', to:'if (false) addError(name.error);',
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/team-player-add.test.js --silent' },
