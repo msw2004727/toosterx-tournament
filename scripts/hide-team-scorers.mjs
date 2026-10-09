@@ -4,8 +4,11 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
-import { FieldValue } from 'firebase-admin/firestore';
+import { createRequire } from 'node:module';
 import { EVENT_ID } from '../js/config.js';
+
+// 必須與 functions/admin.js 使用同一份 SDK，避免跨套件實例的 FieldValue 無法序列化。
+const { FieldValue } = createRequire(new URL('../functions/admin.js', import.meta.url))('firebase-admin/firestore');
 
 const option = name => process.argv.find(a => a.startsWith(`--${name}=`))?.slice(name.length + 3);
 const env = option('env'), teamId = option('team'), expectedName = option('expect-name');
