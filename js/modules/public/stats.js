@@ -313,7 +313,7 @@ export async function publicLiveWall({ scope, view }) {
     const m = state.matches.find(x => x.venueId === v.venueId && isLiveMatch(x))
       || state.matches.find(x => x.venueId === v.venueId);
     const div = m ? state.divisions.find(d => d.divisionId === m.divisionId) : null;
-    const url = embedUrl({ match: m, venue: v });
+    const url = embedUrl({ match: m, venue: v, parent: location.hostname });
 
     return el('section', { class: 'pwall__cell division-card', ...divisionThemeAttrs(div || m?.divisionId), dataset: { venueId: v.venueId } }, [
       el('div', { class: 'pwall__head' }, [

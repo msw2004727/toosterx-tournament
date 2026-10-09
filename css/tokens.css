@@ -83,6 +83,7 @@
   --info:#2B6CB0;
   --success:#12704F;
   --youtube-bg:#C5221F; --youtube-hover:#A61916; --youtube-text:#FFFFFF;
+  --twitch-bg:#6D28D9; --twitch-hover:#5B21B6; --twitch-text:#FFFFFF;
 
   /* 提示色塊：底／字／框三件一組，元件不必再寫深色版 */
   --warn-bg:#FDF3E0;   --warn-text:#7A4E06;  --warn-border:#E9C87A;
@@ -153,6 +154,7 @@
   --info:#6AA8E8;
   --success:#4FC291;
   --youtube-bg:#C5221F; --youtube-hover:#A61916; --youtube-text:#FFFFFF;
+  --twitch-bg:#6D28D9; --twitch-hover:#5B21B6; --twitch-text:#FFFFFF;
 
   --warn-bg:#3A2E14;   --warn-text:#F0D9A6;  --warn-border:#6B5520;
   --info-bg:#16283A;   --info-text:#AFD1F0;  --info-border:#2F4E6E;

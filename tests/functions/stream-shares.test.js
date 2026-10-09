@@ -1,5 +1,7 @@
 import { db } from '../../functions/admin.js';
 import { shareMatchStreamFor } from '../../functions/stream-shares.js';
+import { createHash } from 'node:crypto';
+import { manageEventFor, matchBasis } from '../../functions/management.js';
 
 const EVENT = 'stream-share-test', MATCH = 'match-a', UID = 'line-user';
 const base = () => db().doc(`events/${EVENT}/matches/${MATCH}`);
@@ -30,12 +32,64 @@ beforeEach(async () => {
 test('LINE 一般用戶可分享，公開資料不含私人資料或 UID，身份由伺服器取用', async () => {
   const result = await shareMatchStreamFor(req({ displayName: '偽造名字', ownerUid: 'other' }));
   const published = (await base().collection('streamShares').doc(result.shareId).get()).data();
-  expect(Object.keys(published).sort()).toEqual(['createdAt', 'displayName', 'shareId', 'videoId']);
+  expect(Object.keys(published).sort()).toEqual(['createdAt', 'displayName', 'provider', 'shareId', 'videoId']);
   expect(published).toMatchObject({ displayName: 'LINE 球迷', videoId: 'dQw4w9WgXcQ' });
   expect((await base().collection('streamShareOwners').doc(result.shareId).get()).data().ownerUid).toBe(UID);
   const audit = (await audits()).docs[0].data();
   expect(audit).toMatchObject({ action: 'streamShare.created', actor: { uid: UID }, before: null,
     after: { matchId: MATCH, videoId: 'dQw4w9WgXcQ', displayName: 'LINE 球迷' } });
+});
+
+test('TWITCH-SHARE 後端建立公開頻道投影，重試與大小寫重複保護，移除同步留痕', async () => {
+  const command = req({ url: 'https://www.twitch.tv/TwitchDev?parent=attacker.test', provider: 'youtube', channelId: 'forged' });
+  const result = await shareMatchStreamFor(command);
+  expect(await shareMatchStreamFor(command)).toEqual(result);
+  const published = (await base().collection('streamShares').doc(result.shareId).get()).data();
+  expect(Object.keys(published).sort()).toEqual(['channelId', 'createdAt', 'displayName', 'provider', 'shareId']);
+  expect(published).toMatchObject({ provider: 'twitch', channelId: 'twitchdev', displayName: 'LINE 球迷' });
+  await expect(shareMatchStreamFor(req({ operationId: 'op-2', url: 'https://twitch.tv/twitchdev' }))).rejects.toMatchObject({ code: 'already-exists' });
+  await expect(shareMatchStreamFor(req({ action: 'remove', shareId: result.shareId, operationId: 'remove-other' }, 'other'))).rejects.toMatchObject({ code: 'permission-denied' });
+  await shareMatchStreamFor(req({ action: 'remove', shareId: result.shareId, operationId: 'remove-self' }));
+  expect((await base().collection('streamShares').get()).size).toBe(0);
+  expect((await base().collection('streamShareOwners').get()).size).toBe(0);
+  const history = (await audits()).docs.map(d => d.data());
+  expect(history.find(a => a.action === 'streamShare.created').after).toMatchObject({ provider: 'twitch', channelId: 'twitchdev' });
+  expect(history.find(a => a.action === 'streamShare.removed').before).toMatchObject({ provider: 'twitch', channelId: 'twitchdev' });
+});
+
+test('TWITCH-LEGACY 舊 YouTube 分享的 ID 保持不變，不能在升級後重複新增', async () => {
+  const shareId = createHash('sha256').update(JSON.stringify([EVENT, MATCH, UID, 'dQw4w9WgXcQ'])).digest('hex');
+  await base().collection('streamShares').doc(shareId).set({ shareId, displayName: '舊分享', videoId: 'dQw4w9WgXcQ' });
+  await base().collection('streamShareOwners').doc(shareId).set({ ownerUid: UID });
+  await expect(share()).rejects.toMatchObject({ code: 'already-exists' });
+  expect((await base().collection('streamShares').get()).size).toBe(1);
+});
+
+test.each(['https://twitch.tv.evil.test/twitchdev', 'https://twitch.tv/videos/123', 'https://clips.twitch.tv/abc'])(
+  'TWITCH-REJECT 無效 Twitch 分享不寫入：%s', async url => {
+    await expect(shareMatchStreamFor(req({ url }))).rejects.toMatchObject({ code: 'invalid-argument' });
+    expect((await base().collection('streamShares').get()).size).toBe(0);
+    expect((await audits()).size).toBe(0);
+  });
+
+test('TWITCH-NAME 含 emoji 的 LINE 名稱截斷不造成 Firestore UTF-8 寫入失敗', async () => {
+  await db().doc(`users/${UID}`).update({ displayName: 'a'.repeat(79) + '😀' });
+  const result = await shareMatchStreamFor(req({ url: 'https://twitch.tv/twitchdev' }));
+  expect((await base().collection('streamShares').doc(result.shareId).get()).data().displayName).toBe('a'.repeat(79));
+});
+
+test('TWITCH-MANAGE 單場設定由後端驗證平台與頻道，保留收據、稽核和權限', async () => {
+  const saved = (await base().get()).data();
+  const command = { auth: { uid: 'admin' }, data: { eventId: EVENT, matchId: MATCH, action: 'stream.update',
+    operationId: 'stream-twitch', expected: matchBasis(saved), patch: { stream: { provider: 'twitch', channelId: 'TwitchDev', status: 'live', url: 'evil' } } } };
+  await manageEventFor(command);
+  const current = (await base().get()).data();
+  expect(current.stream).toEqual({ provider: 'twitch', channelId: 'twitchdev', status: 'live' });
+  expect((await audits()).docs.some(d => d.data().action === 'stream.update')).toBe(true);
+  const other = { ...command, data: { ...command.data, operationId: 'bad', expected: matchBasis(current),
+    patch: { stream: { provider: 'twitch', channelId: 'bad?parent=evil', status: 'live' } } } };
+  await expect(manageEventFor(other)).rejects.toMatchObject({ code: 'invalid-argument' });
+  await expect(manageEventFor({ ...other, auth: { uid: 'scorer' } })).rejects.toMatchObject({ code: 'permission-denied' });
 });
 
 test.each(['anonymous', 'password', 'google.com'])('非 LINE 登入不能分享：%s', async provider => {

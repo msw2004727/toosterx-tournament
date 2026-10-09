@@ -1,5 +1,9 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  ETWITCHDRAFT: {spec:'tests/e2e/admin-match.spec.js',grep:'TWITCH-MATCH',minTests:1,failure:'toHaveValue',
+    assertions:["await expect(page.locator('#st-video')).toHaveValue('https://www.twitch.tv/twitchdev');"]},
+  ETWITCHPLAY: {spec:'tests/e2e/stream-shares.spec.js',grep:'TWITCH-PLAY',minTests:2,failure:'toBeVisible',
+    assertions:["await expect(page.locator('.pshares__player')).toBeVisible();"]},
   EDISCEXPAND: { spec:'tests/e2e/public-site.spec.js', grep:'DISC-DETAIL', minTests:2, failure:'toHaveCount',
     assertions:["await expect(details.locator('tbody tr')).toHaveCount(2);"] },
   EDISCTIMELINE: { spec:'tests/e2e/public-site.spec.js', grep:'DISC-DETAIL', minTests:2, failure:'toHaveCount',

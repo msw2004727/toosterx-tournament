@@ -7,6 +7,7 @@ import { buildConfirmPatch, buildReopenPatch, buildOverridePatch, buildWalkoverP
 import { buildAppealDoc, buildAppealDecision, matchAppealFlag } from './engine/appeal.js';
 import { checkSchedule, assignMatchNos } from './engine/schedule.js';
 import { manualMatchLocked } from './engine/manual-schedule.js';
+import { twitchChannelId } from './engine/stream-share.js';
 
 const fail=(code,message)=>{throw Object.assign(new Error(message),{code});};
 const idOK=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,200}$/.test(v);
@@ -98,8 +99,14 @@ export async function manageEventFor(request) {
         before={match:m,appeal:aSnap.data()??null};after={match:{...m,...resultPatch},appeal:doc};
       }
       if(action==='stream.update'){
-        if(patch.stream?.provider!=='youtube'||(patch.stream.videoId!=null&&!/^[\w-]{11}$/.test(patch.stream.videoId)))fail('invalid-argument','直播設定不正確');
-        resultPatch={stream:patch.stream};
+        if(patch.stream?.provider==='twitch'){
+          const channelId=twitchChannelId(patch.stream.channelId);
+          if(!channelId||!['live','off'].includes(patch.stream.status))fail('invalid-argument','Twitch 直播設定不正確');
+          resultPatch={stream:{provider:'twitch',channelId,status:patch.stream.status}};
+        }else{
+          if(patch.stream?.provider!=='youtube'||(patch.stream.videoId!=null&&!/^[\w-]{11}$/.test(patch.stream.videoId)))fail('invalid-argument','直播設定不正確');
+          resultPatch={stream:patch.stream};
+        }
       }
       if(resultPatch?.lock?.locked===true)resultPatch.lock={...resultPatch.lock,lockedAt:stamp,lockedBy:uid};
       resultPatch={...resultPatch,managementRevision:(m.managementRevision??0)+1,updatedAt:stamp,updatedBy:uid};

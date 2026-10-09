@@ -12,6 +12,12 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name:'FN#TWITCH-SOURCE 後端把 Twitch 分享寫成 YouTube', file:'functions/stream-shares.js',
+    from:"...source, createdAt: FieldValue.serverTimestamp()", to:"...source, provider: 'youtube', createdAt: FieldValue.serverTimestamp()",
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/stream-shares.test.js --silent' },
+  { name:'FN#TWITCH-NAME LINE 名稱截斷切斷 emoji', file:'functions/stream-shares.js',
+    from:"name.trim().slice(0, 80).replace(/[\\uD800-\\uDBFF]$/, '')", to:'name.trim().slice(0, 80)',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/stream-shares.test.js --silent' },
   { name: 'FN#SCORER-TEAM 球隊隱藏設定未套用新榜列', file: 'functions/pipeline.js',
     from: 'events.filter(e => teams[e.teamId]?.display?.scorerBoard !== false)', to: 'events',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/scorer-policy.test.js --testNamePattern=SCORER-TEAM --silent' },

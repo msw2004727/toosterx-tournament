@@ -396,6 +396,8 @@ button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-colo
   background:var(--bg-elevated);border-radius:var(--r-md);overflow:hidden;
 }
 .video iframe{width:100%;height:100%;border:0;display:block}
+.video[data-provider="twitch"]{min-height:300px}
+.video__external{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-3);padding:var(--sp-3);text-align:center;overflow-wrap:anywhere}
 .video__poster{
   position:absolute;inset:0;width:100%;height:100%;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
@@ -530,6 +532,7 @@ button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-colo
 .pshares__remove:hover{background:var(--control-hover);color:var(--text-primary)}
 .pshares__yt{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;width:100%;padding:8px;border-radius:8px;background:var(--youtube-bg);color:var(--youtube-text);font-size:16px;font-weight:700}
 .pshares__yt:hover{background:var(--youtube-hover)}
+.pshares__yt[data-provider="twitch"]{--youtube-bg:var(--twitch-bg);--youtube-hover:var(--twitch-hover);--youtube-text:var(--twitch-text)}
 .pshares__ytLogo{display:grid;place-items:center;width:28px;height:22px;border-radius:6px;background:var(--youtube-text);color:var(--youtube-bg)}
 .pshares__ytLogo .icon{width:18px;height:18px;fill:currentColor;stroke-width:0}
 .pshares__grid[data-density="solo"]{grid-template-columns:minmax(0,1fr)}

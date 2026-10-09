@@ -3,7 +3,7 @@ import { hold } from '../../core/store.js';
 import { el, mount, toast, confirmDialog } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
 import { navigate } from '../../core/router.js';
-import { sharedYoutubeId, streamShareDensity, streamShareEmbed } from '../../engine/stream-share.js';
+import { sharedStreamSource, streamShareDensity, streamShareEmbed, streamShareUrl } from '../../engine/stream-share.js';
 import { videoFacade, stopAllVideos } from './bits.js';
 import { watchStreamShares, getOwnedStreamShares, submitStreamShare } from './data.js';
 
@@ -60,12 +60,13 @@ export function matchStreamShares({ matchId, scope }) {
   }
 
   function closePlayer() {
+    playback?.querySelector('.video')?.__stop?.();
     mount(playerSlot);
     playback = null; selectedId = null;
   }
 
   function play(row, trigger) {
-    const url = streamShareEmbed(row.videoId);
+    const url = streamShareEmbed(row, { parent: location.hostname });
     if (!url) { toast('這個直播連結無法播放，請聯絡分享者。', 'warn'); return; }
     closePlayer(); stopAllVideos();
     const facade = videoFacade(url, { title: `${row.displayName} 分享的賽事直播` });
@@ -77,8 +78,8 @@ export function matchStreamShares({ matchId, scope }) {
           [...root.querySelectorAll('.pshares__item')].find(item => item.dataset.shareId === row.shareId)?.querySelector('.pshares__yt')?.focus();
         } }, icon('close'))
       ]), facade,
-      el('a', { class: 'btn btn--ghost', href: `https://www.youtube.com/watch?v=${row.videoId}`,
-        target: '_blank', rel: 'noopener noreferrer', text: '在 YouTube 開啟' })
+      el('a', { class: 'btn btn--ghost', href: streamShareUrl(row),
+        target: '_blank', rel: 'noopener noreferrer', text: `在 ${row.provider === 'twitch' ? 'Twitch' : 'YouTube'} 開啟` })
     ]);
     selectedId = row.shareId;
     mount(playerSlot, playback); facade.__play(); playback.focus();
@@ -102,13 +103,14 @@ export function matchStreamShares({ matchId, scope }) {
       state.error ? el('div', { role: 'alert', class: 'pshares__note' }, [
         el('span', { text: state.error }), el('button', { class: 'btn btn--ghost', type: 'button', onClick: watch, text: '重試' })
       ]) : !state.loaded ? el('p', { class: 'pshares__note', text: '載入直播分享…' })
-        : !state.rows.length ? el('p', { class: 'pshares__note', text: '分享這場賽事的 YouTube 直播，讓大家一起觀賽。' }) : null,
+        : !state.rows.length ? el('p', { class: 'pshares__note', text: '分享這場賽事的 YouTube 或 Twitch 直播，讓大家一起觀賽。' }) : null,
       el('ul', { class: 'pshares__grid', dataset: { density: streamShareDensity(state.rows.length) } }, state.rows.map(row => {
         const mayRemove = state.own.has(row.shareId) || allowModeration;
         const button = el('button', { class: 'pshares__yt', type: 'button',
+          dataset: { provider: row.provider === 'twitch' ? 'twitch' : 'youtube' },
           'aria-label': `觀看 ${row.displayName} 分享的直播` }, [
           el('span', { class: 'pshares__ytLogo', 'aria-hidden': 'true' }, icon('play')),
-          el('span', { text: '直播' })
+          el('span', { text: `${row.provider === 'twitch' ? 'Twitch' : 'YouTube'} 直播` })
         ]);
         button.addEventListener('click', () => play(row, button));
         return el('li', { class: 'pshares__item', dataset: { shareId: row.shareId } }, [
@@ -132,7 +134,8 @@ export function matchStreamShares({ matchId, scope }) {
       placeholder: 'https://www.youtube.com/live/…', value: state.draft, maxlength: '2048', disabled: state.busy,
       onInput: event => { state.draft = event.target.value; } });
     return el('form', { class: 'pshares__form', onSubmit: event => { event.preventDefault(); void publish(); } }, [
-      el('label', { for: 'match-stream-url', text: 'YouTube 直播連結' }), input,
+      el('label', { for: 'match-stream-url', text: 'YouTube 或 Twitch 直播連結' }), input,
+      el('p', { class: 'pshares__note', text: 'YouTube：影片或直播網址；Twitch：https://www.twitch.tv/頻道名稱' }),
       el('p', { class: 'pshares__note', text: '分享後會公開你的 LINE 名稱與直播按鈕。' }),
       el('button', { class: 'btn btn--primary', type: 'submit', disabled: !online || state.busy,
         text: state.busy ? '正在送出…' : '分享這場直播' })
@@ -150,7 +153,7 @@ export function matchStreamShares({ matchId, scope }) {
 
   async function publish() {
     if (state.busy || !state.line || navigator.onLine === false) return;
-    if (!sharedYoutubeId(state.draft)) { state.message = '請貼上有效的 YouTube 影片或直播網址。'; render(); return; }
+    if (!sharedStreamSource(state.draft)) { state.message = '請貼上有效的 YouTube 影片或 Twitch 頻道直播網址。'; render(); return; }
     const gen = generation;
     state.busy = true; state.message = '正在送出直播分享…'; render();
     try {

@@ -15,6 +15,10 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name:'#ETWITCHDRAFT 儲存後快照先到導致 Twitch 欄位清空', file:'js/modules/admin/match.js',
+    from:"state.streamInput = source?.provider === 'twitch' ? streamShareUrl(source) : null;", to:'state.streamInput = null;' },
+  { name:'#ETWITCHPLAY 播放器仍只取 YouTube 影片 ID', file:'js/modules/public/stream-shares.js',
+    from:'streamShareEmbed(row, { parent: location.hostname })', to:'streamShareEmbed(row.videoId)' },
   { name:'#EDISCEXPAND 無法展開讀取明細', file:'js/modules/public/stats.js',
     from:"if (entry.open && entry.status === 'idle') loadDetails();", to:"if (false) loadDetails();" },
   { name:'#EDISCTIMELINE 明細錯用直播的 50 筆上限', file:'js/modules/public/data.js',

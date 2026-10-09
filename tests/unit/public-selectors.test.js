@@ -293,6 +293,16 @@ describe('T32-6 名單與隱私投影', () => {
 });
 
 describe('T32-7 直播來源', () => {
+  test('TWITCH-OFFICIAL 單場 Twitch 優先，關閉後退回場地，直播牆也使用 Twitch', () => {
+    const twitch = { provider: 'twitch', channelId: 'twitchdev', status: 'live' };
+    const venue = { stream: { videoId: 'AAA' } };
+    const url = embedUrl({ match: { stream: twitch }, venue, parent: 'cup.toosterx.com' });
+    expect(url).toBe('https://player.twitch.tv/?channel=twitchdev&parent=cup.toosterx.com&autoplay=false');
+    expect(embedUrl({ match: { stream: { ...twitch, status: 'off' } }, venue, parent: 'cup-demo.toosterx.com' })).toContain('/embed/AAA');
+    expect(embedUrl({ venue: { stream: twitch }, parent: 'cup-demo.toosterx.com' })).toContain('parent=cup-demo.toosterx.com');
+    expect(embedUrl({ venue: { stream: { ...twitch, enabled: false } }, parent: 'cup.toosterx.com' })).toBeNull();
+    expect(embedUrl({ venue: { stream: twitch } })).toBeNull();
+  });
   test('每場獨立影片優先於場地機位', () => {
     const u = embedUrl({ match: { stream: { videoId: 'AAA' } }, venue: { stream: { channelId: 'UC1' } } });
     expect(u).toContain('/embed/AAA');

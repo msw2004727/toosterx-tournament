@@ -137,7 +137,17 @@ export function sectionCard(title, iconName, children, footer) {
 const openFrames = new Set();
 
 export function videoFacade(url, { title = 'FEDA CUP 直播', poster } = {}) {
-  const wrap = el('div', { class: 'video' });
+  const twitch = url?.startsWith('https://player.twitch.tv/');
+  const wrap = el('div', { class: 'video', dataset: { provider: twitch ? 'twitch' : 'youtube' } });
+  const narrowTwitch = () => {
+    wrap.__resizeObserver?.disconnect();
+    openFrames.delete(wrap);
+    mount(wrap, el('div', { class: 'video__external' }, [
+      el('p', { text: '此螢幕較窄，請在 Twitch 開啟直播。' }),
+      el('a', { class: 'btn btn--primary', target: '_blank', rel: 'noopener noreferrer',
+        href: `https://www.twitch.tv/${encodeURIComponent(new URL(url).searchParams.get('channel'))}`, text: '在 Twitch 開啟' })
+    ]));
+  };
 
   if (!url) {
     mount(wrap, el('div', { class: 'video__off' }, [
@@ -150,6 +160,8 @@ export function videoFacade(url, { title = 'FEDA CUP 直播', poster } = {}) {
   const play = () => {
     // 行動裝置同時播兩個以上會卡到不能操作，所以先收掉其他人的
     for (const other of [...openFrames]) { if (other !== wrap) closeFrame(other); }
+    // Twitch requires a 400 × 300 player; never shrink or clip it on a narrow phone.
+    if (twitch && wrap.getBoundingClientRect().width < 400) { narrowTwitch(); return; }
     const frame = document.createElement('iframe');
     frame.src = url;
     frame.title = title;
@@ -159,6 +171,13 @@ export function videoFacade(url, { title = 'FEDA CUP 直播', poster } = {}) {
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
     mount(wrap, frame);
     openFrames.add(wrap);
+    if (twitch) {
+      wrap.__resizeObserver?.disconnect();
+      wrap.__resizeObserver = new ResizeObserver(entries => {
+        if (entries[0].contentRect.width < 400) narrowTwitch();
+      });
+      wrap.__resizeObserver.observe(wrap);
+    }
   };
 
   mount(wrap, el('button', {
@@ -170,10 +189,12 @@ export function videoFacade(url, { title = 'FEDA CUP 直播', poster } = {}) {
   ].filter(Boolean)));
 
   wrap.__play = play;
+  wrap.__stop = () => closeFrame(wrap);
   return wrap;
 }
 
 function closeFrame(wrap) {
+  wrap.__resizeObserver?.disconnect();
   openFrames.delete(wrap);
   const btn = el('button', {
     class: 'video__poster', type: 'button', 'aria-label': '播放', onClick: () => wrap.__play?.()

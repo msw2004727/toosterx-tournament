@@ -14,6 +14,7 @@
 
 import { toMillis } from '../../lib/format.js';
 import { countedMatchIdsOf } from '../../engine/awards.js';
+import { streamShareEmbed } from '../../engine/stream-share.js';
 
 /** 與官方紅黃牌榜共用有效場次規則；只挑明細來源，不重算榜單數字。 */
 export function disciplineMatches({ matches = [], teams = {}, divisionId, teamId, withdrawalPolicy }) {
@@ -389,11 +390,15 @@ export function sortRoster(members) {
  * 三種來源 → 嵌入網址。拿不到就回 null（畫面顯示佔位圖，不要破圖）。
  * 一律用 youtube-nocookie，減少第三方 Cookie。
  */
-export function embedUrl({ match, venue } = {}) {
+export function embedUrl({ match, venue, parent } = {}) {
   const off = s => !s || s.status === 'off' || s.enabled === false;
 
   const ms = match?.stream;
-  if (!off(ms) && ms?.videoId) {
+  if (!off(ms) && ms?.provider === 'twitch') {
+    const url = streamShareEmbed(ms, { parent, autoplay: false });
+    if (url) return url;
+  }
+  if (!off(ms) && ms?.provider !== 'twitch' && ms?.videoId) {
     const start = Number.isFinite(ms.startOffsetSec) && ms.startOffsetSec > 0
       ? `&start=${Math.trunc(ms.startOffsetSec)}` : '';
     return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(ms.videoId)}`
@@ -401,6 +406,7 @@ export function embedUrl({ match, venue } = {}) {
   }
 
   const vs = venue?.stream;
+  if (!off(vs) && vs?.provider === 'twitch') return streamShareEmbed(vs, { parent, autoplay: false });
   if (!off(vs) && vs?.videoId) {
     return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(vs.videoId)}`
       + '?rel=0&modestbranding=1&playsinline=1';

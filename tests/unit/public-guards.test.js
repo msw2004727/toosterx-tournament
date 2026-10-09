@@ -84,9 +84,10 @@ describe('T33-2 ⭐ 不重算：積分與榜單只讀不算', () => {
     const hits = Object.entries(code)
       .filter(([file, s]) => {
         // 明細只共用官方場次納入規則；榜單數字仍只讀 boards，不准 import 計分／排名函式。
-        if (file === 'selectors.js') s = s.replace("import { countedMatchIdsOf } from '../../engine/awards.js';", '');
+        if (file === 'selectors.js') s = s.replace("import { countedMatchIdsOf } from '../../engine/awards.js';", '')
+          .replace("import { streamShareEmbed } from '../../engine/stream-share.js';", '');
         return /from '.*\/engine\//.test((file === 'stream-shares.js'
-        ? s.replace("import { sharedYoutubeId, streamShareDensity, streamShareEmbed } from '../../engine/stream-share.js';", '') : s)
+        ? s.replace("import { sharedStreamSource, streamShareDensity, streamShareEmbed, streamShareUrl } from '../../engine/stream-share.js';", '') : s)
         .replace("import { groupNameOf } from '../../engine/group-name.js';", '')
         // 日期選擇只決定頁籤，並不重算積分或榜單。
         .replace("import { selectedActivityDate } from '../../engine/challenge-days.js';", '')

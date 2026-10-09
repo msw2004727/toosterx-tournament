@@ -21,6 +21,7 @@ import { iconText } from '../../core/icons.js';
 import { can, onAuth } from '../../core/firebase.js';
 import { hold } from '../../core/store.js';
 import { parseYoutubeId, parseYoutubeChannelId } from '../../lib/youtube.js';
+import { sharedStreamSource, twitchChannelId, streamShareEmbed } from '../../engine/stream-share.js';
 import * as data from './data.js';
 import { adminHead, denied } from './bits.js';
 
@@ -52,19 +53,24 @@ export async function adminStreamPage({ scope, view }) {
   function draftFrom(v) {
     const s = v.stream ?? {};
     return {
+      provider: s.provider === 'twitch' ? 'twitch' : 'youtube',
       status: s.status === 'live' ? 'live' : 'off',
       videoId: s.videoId ?? '',
-      channelId: s.channelId ?? '',
+      channelId: s.provider === 'twitch' ? '' : s.channelId ?? '',
       videoInput: s.videoId ?? '',
-      channelInput: s.channelId ?? '',
-      videoError: null, channelError: null
+      channelInput: s.provider === 'twitch' ? '' : s.channelId ?? '',
+      twitchInput: s.provider === 'twitch' ? s.channelId ?? '' : '',
+      twitchChannelId: s.provider === 'twitch' ? s.channelId ?? '' : '',
+      videoError: null, channelError: null, twitchError: null
     };
   }
 
   function dirty(v) {
     const d = state.drafts[v.venueId];
     const base = draftFrom(v);
-    return d.status !== base.status || d.videoId !== base.videoId || d.channelId !== base.channelId;
+    return d.provider !== base.provider || d.status !== base.status
+      || (d.provider === 'twitch' ? d.twitchChannelId !== base.twitchChannelId
+        : d.videoId !== base.videoId || d.channelId !== base.channelId);
   }
 
   /** 貼進來的東西先抽成 ID；抽不出來就留在畫面上說清楚，不存 */
@@ -87,6 +93,8 @@ export async function adminStreamPage({ scope, view }) {
 
   function embedUrlOf(d) {
     if (d.status !== 'live') return null;
+    if (d.provider === 'twitch') return streamShareEmbed({ provider: 'twitch', channelId: d.twitchChannelId },
+      { parent: location.hostname, autoplay: false });
     if (d.videoId) return `https://www.youtube-nocookie.com/embed/${d.videoId}`;
     if (d.channelId) return `https://www.youtube-nocookie.com/embed/live_stream?channel=${d.channelId}`;
     return null;
@@ -94,15 +102,18 @@ export async function adminStreamPage({ scope, view }) {
 
   async function save(v) {
     const d = state.drafts[v.venueId];
-    if (d.videoError || d.channelError) { toast('先修正紅字的欄位', 'warn'); return; }
-    if (d.status === 'live' && !d.videoId && !d.channelId) {
+    if (hasError(d)) { toast('先修正紅字的欄位', 'warn'); return; }
+    if (d.provider === 'twitch' && d.status === 'live' && !d.twitchChannelId) {
+      toast('請填入 Twitch 頻道名稱或直播網址', 'warn'); return;
+    }
+    if (d.provider === 'youtube' && d.status === 'live' && !d.videoId && !d.channelId) {
       toast('開了直播卻沒有影片 ID 或頻道 ID，公開端會是一片空白', 'warn'); return;
     }
     const stream = {
       enabled: d.status === 'live',
-      provider: 'youtube',
-      channelId: d.channelId || null,
-      videoId: d.videoId || null,
+      provider: d.provider,
+      channelId: (d.provider === 'twitch' ? d.twitchChannelId : d.channelId) || null,
+      videoId: d.provider === 'twitch' ? null : d.videoId || null,
       status: d.status
     };
     state.busy = v.venueId; render();
@@ -124,6 +135,18 @@ export async function adminStreamPage({ scope, view }) {
 
   // ── 畫面 ─────────────────────────────────────────────────
 
+  function hasError(d) {
+    return d.provider === 'twitch' ? !!d.twitchError : !!(d.videoError || d.channelError);
+  }
+
+  function setTwitch(d, raw) {
+    d.twitchInput = raw;
+    const text = raw.trim();
+    const source = sharedStreamSource(text);
+    d.twitchChannelId = !text ? '' : source?.provider === 'twitch' ? source.channelId : twitchChannelId(text) || '';
+    d.twitchError = text && !d.twitchChannelId ? '請貼 Twitch 頻道直播網址或頻道名稱（不支援剪輯與影片回放）' : null;
+  }
+
   function venueCard(v) {
     const d = state.drafts[v.venueId];
     const busy = state.busy === v.venueId;
@@ -143,6 +166,21 @@ export async function adminStreamPage({ scope, view }) {
       ]),
 
       el('div', { class: 'adm__field' }, [
+        el('label', { class: 'adm__fieldLabel', for: `st-provider-${v.venueId}`, text: '直播平台' }),
+        el('select', { class: 'adm__search', id: `st-provider-${v.venueId}`, disabled: busy,
+          onChange: e => { d.provider = e.target.value; render(); } }, [
+          el('option', { value: 'youtube', selected: d.provider === 'youtube', text: 'YouTube' }),
+          el('option', { value: 'twitch', selected: d.provider === 'twitch', text: 'Twitch' })
+        ])
+      ]),
+      d.provider === 'twitch' ? el('div', { class: 'adm__field' }, [
+        el('label', { class: 'adm__fieldLabel', for: `st-twitch-${v.venueId}`, text: 'Twitch 頻道直播網址或頻道名稱' }),
+        el('input', { class: 'adm__search', id: `st-twitch-${v.venueId}`, type: 'text', value: d.twitchInput,
+          placeholder: 'https://www.twitch.tv/頻道名稱', disabled: busy,
+          onInput: e => setTwitch(d, e.target.value), onChange: () => render() }),
+        d.twitchError ? el('p', { class: 'adm__permNote adm__permNote--err', text: d.twitchError }) : null
+      ]) : null,
+      d.provider === 'youtube' ? el('div', { class: 'adm__field' }, [
         el('label', { class: 'adm__fieldLabel', for: `st-video-${v.venueId}`, text: '影片 ID（單支影片或這一場的直播）' }),
         el('input', {
           class: 'adm__search', id: `st-video-${v.venueId}`, type: 'text',
@@ -151,9 +189,9 @@ export async function adminStreamPage({ scope, view }) {
         }),
         d.videoError ? el('p', { class: 'adm__permNote adm__permNote--err', text: d.videoError })
                      : d.videoId ? el('p', { class: 'adm__permNote', text: `＝ 影片 ID ${d.videoId}` }) : null
-      ].filter(Boolean)),
+      ].filter(Boolean)) : null,
 
-      el('div', { class: 'adm__field' }, [
+      d.provider === 'youtube' ? el('div', { class: 'adm__field' }, [
         el('label', { class: 'adm__fieldLabel', for: `st-ch-${v.venueId}`, text: '頻道 ID（固定機位整日直播，沒有單支影片時用）' }),
         el('input', {
           class: 'adm__search', id: `st-ch-${v.venueId}`, type: 'text',
@@ -162,14 +200,14 @@ export async function adminStreamPage({ scope, view }) {
         }),
         d.channelError ? el('p', { class: 'adm__permNote adm__permNote--err', text: d.channelError })
                        : d.channelId ? el('p', { class: 'adm__permNote', text: `＝ 頻道 ID ${d.channelId}` }) : null
-      ].filter(Boolean)),
+      ].filter(Boolean)) : null,
 
       el('p', { class: 'adm__permNote', text: url ? `公開端會嵌入：${url}` : '目前公開端不會嵌入播放器。' }),
 
       el('div', { class: 'adm__actions' }, [
         el('button', {
           class: 'btn btn--primary btn--lg', type: 'button',
-          disabled: busy || !dirty(v) || !!d.videoError || !!d.channelError,
+          disabled: busy || !dirty(v) || hasError(d),
           onClick: () => save(v)
         }, iconText('check', busy ? '儲存中…' : '儲存')),
         dirty(v)
@@ -193,7 +231,7 @@ export async function adminStreamPage({ scope, view }) {
           ])
         : null,
       el('p', { class: 'adm__note', text:
-        '每個場地一組設定，公開端的場次頁與直播牆會照這裡嵌入 YouTube（youtube-nocookie）。' +
+        '每個場地可選 YouTube 或 Twitch，公開端的場次頁與直播牆會使用這裡的設定。' +
         '單一場次要用不同影片，到「賽程管理 → 該場次 → 場次改判」頁的直播欄位設定。' }),
       state.venues.length
         ? state.venues.map(venueCard)

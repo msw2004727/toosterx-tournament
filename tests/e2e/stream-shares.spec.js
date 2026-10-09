@@ -3,7 +3,7 @@ import fs from 'node:fs';
 const fake = fs.readFileSync('tests/e2e/fake-firebase.js', 'utf8');
 const EVENT = 'feda-cup-2026', MATCH = 'stream-match', UID = 'line-viewer';
 const base = `events/${EVENT}/matches/${MATCH}`;
-async function setup(page, { loggedIn = true, count = 0, role = null, provider = 'custom', own = false, theme = 'light' } = {}) {
+async function setup(page, { loggedIn = true, count = 0, role = null, provider = 'custom', own = false, theme = 'light', twitch = false, officialTwitch = false } = {}) {
   const seed = {
     'config/env': { env: 'demo' }, [`users/${UID}`]: { uid: UID, displayName: 'LINE 球迷' },
     [`events/${EVENT}`]: { name: 'FEDA CUP' },
@@ -12,13 +12,21 @@ async function setup(page, { loggedIn = true, count = 0, role = null, provider =
       kickoffAt: '2026-10-09T09:00:00+08:00', status: 'scheduled', home: { name: '藍隊' }, away: { name: '紅隊' } }
   };
   if (role) seed[`staff/${UID}`] = { uid: UID, active: true, roles: [role], assignment: { eventId: EVENT } };
+  if (officialTwitch) {
+    seed[base].stream = { provider: 'twitch', channelId: 'twitchdev', status: 'live' };
+    seed[`events/${EVENT}/venues/A`] = { name: 'A 場', order: 1, stream: { provider: 'twitch', channelId: 'twitchdev', status: 'live' } };
+  }
   for (let i = 0; i < count; i++) {
     seed[`${base}/streamShares/share-${i}`] = { shareId: `share-${i}`, displayName: i ? `球迷 ${i + 1}` : '小麥', videoId: 'dQw4w9WgXcQ', createdAt: i + 1 };
     seed[`${base}/streamShareOwners/share-${i}`] = { ownerUid: own && i === 0 ? UID : `other-${i}` };
+    if (twitch && i === 0) seed[`${base}/streamShares/share-${i}`] = {
+      shareId: `share-${i}`, displayName: '小麥', provider: 'twitch', channelId: 'twitchdev', createdAt: i + 1
+    };
   }
   await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ contentType: 'text/javascript', body: fake }));
   await page.route('https://firestore.googleapis.com/**', route => route.fulfill({ headers: { date: new Date().toUTCString() }, body: '{}' }));
   await page.route('https://www.youtube-nocookie.com/**', route => route.fulfill({ contentType: 'text/html', body: '<html>測試播放器</html>' }));
+  await page.route('https://player.twitch.tv/**', route => route.fulfill({ contentType: 'text/html', body: '<html>Twitch 測試播放器</html>' }));
   await page.addInitScript(({ seed, uid, loggedIn, provider, theme }) => {
     window.__FAKE_SEED = seed;
     window.__FAKE_USER = loggedIn ? { uid, displayName: 'LINE 球迷', provider, isAnonymous: provider === 'anonymous' } : null;
@@ -30,6 +38,62 @@ async function setup(page, { loggedIn = true, count = 0, role = null, provider =
 }
 const calls = page => page.evaluate(() => (window.__FAKE_CALLS || []).filter(call => call.name === 'shareMatchStream'));
 const shares = page => page.evaluate(base => Object.entries(window.__fake.__dump()).filter(([path]) => path.startsWith(base + '/streamShares/')), base);
+
+for (const theme of ['light', 'dark']) test(`TWITCH-PLAY 分享按鈕、網域、手機外開與切換 YouTube ${theme} @streamShares`, async ({ page }, info) => {
+  await setup(page, { twitch: true, count: 2, loggedIn: false, theme });
+  await expect(page.locator('.pshares__yt').first()).toContainText('Twitch');
+  await expect(page.locator('.pshares iframe')).toHaveCount(0);
+  await page.getByRole('button', { name: '觀看 小麥 分享的直播', exact: true }).click();
+  await expect(page.locator('.pshares__player')).toBeVisible();
+  const external = page.locator('.pshares__player a').filter({ hasText: '在 Twitch 開啟' });
+  await expect(external.first()).toHaveAttribute('href', 'https://www.twitch.tv/twitchdev');
+  if (info.project.name === 'chromium-desktop') {
+    const frame = page.locator('.pshares iframe');
+    await expect(frame).toHaveAttribute('src', 'https://player.twitch.tv/?channel=twitchdev&parent=127.0.0.1&autoplay=true');
+    const bounds = await frame.boundingBox();
+    expect(bounds.width).toBeGreaterThanOrEqual(400);
+    expect(bounds.height).toBeGreaterThanOrEqual(300);
+    await page.setViewportSize({ width: 320, height: 700 });
+  }
+  await expect(page.locator('.pshares iframe')).toHaveCount(0);
+  await expect(page.locator('.video__external')).toContainText('此螢幕較窄');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+  await page.getByRole('button', { name: '觀看 球迷 2 分享的直播', exact: true }).click();
+  await expect(page.locator('.pshares iframe')).toHaveCount(1);
+  await expect(page.locator('.pshares iframe')).toHaveAttribute('src', /youtube-nocookie/);
+  await page.getByRole('button', { name: '關閉直播播放器' }).click();
+  await expect(page.locator('.pshares iframe')).toHaveCount(0);
+});
+
+test('TWITCH-PUBLISH 分享頻道直播並拒絕偽裝網域 @streamShares', async ({ page }) => {
+  await setup(page);
+  await page.getByRole('button', { name: '分享直播', exact: true }).click();
+  await page.getByLabel('YouTube 或 Twitch 直播連結', { exact: true }).fill('https://twitch.tv.evil.test/twitchdev');
+  await page.getByRole('button', { name: '分享這場直播', exact: true }).click();
+  expect(await calls(page)).toHaveLength(0);
+  await page.getByLabel('YouTube 或 Twitch 直播連結', { exact: true }).fill('https://www.twitch.tv/TwitchDev?parent=evil.test');
+  await page.getByRole('button', { name: '分享這場直播', exact: true }).click();
+  await expect(page.locator('.pshares__message')).toHaveText('直播分享已儲存。');
+  expect((await shares(page))[0][1]).toMatchObject({ provider: 'twitch', channelId: 'twitchdev' });
+  await expect(page.locator('.pshares__yt')).toContainText('Twitch');
+});
+
+test('TWITCH-OFFICIAL 單場直播與場地直播牆都支援 Twitch @streamShares', async ({ page }, info) => {
+  await setup(page, { loggedIn: false, officialTwitch: true });
+  await page.getByRole('tab', { name: '直播', exact: true }).click();
+  const matchWidth = await page.locator('.video').evaluate(el => el.getBoundingClientRect().width);
+  await page.locator('.video__poster').click();
+  if (matchWidth >= 400) {
+    await expect(page.locator('.video iframe')).toHaveAttribute('src', /player\.twitch\.tv\/\?channel=twitchdev&parent=127\.0\.0\.1/);
+  } else await expect(page.locator('.video__external a')).toHaveAttribute('href', 'https://www.twitch.tv/twitchdev');
+  await page.evaluate(() => { location.hash = '/live'; });
+  await expect(page.locator('.pwall__cell')).toHaveCount(1);
+  const venueWidth = await page.locator('.pwall .video').evaluate(el => el.getBoundingClientRect().width);
+  await page.locator('.pwall .video__poster').click();
+  if (venueWidth >= 400) {
+    await expect(page.locator('.pwall iframe')).toHaveAttribute('src', /player\.twitch\.tv/);
+  } else await expect(page.locator('.pwall .video__external a')).toHaveAttribute('href', 'https://www.twitch.tv/twitchdev');
+});
 
 test('訪客看到名稱及最大 YT 按鈕，點擊才載入，比分更新不打斷播放器 @streamShares', async ({ page }) => {
   await setup(page, { loggedIn: false, count: 1 });
@@ -56,11 +120,11 @@ test('訪客看到名稱及最大 YT 按鈕，點擊才載入，比分更新不�
 test('LINE 一般用戶貼上有效連結後新增分享，無效網址不送出 @streamShares', async ({ page }) => {
   await setup(page, { count: 4 });
   await page.getByRole('button', { name: '分享直播', exact: true }).click();
-  await page.getByLabel('YouTube 直播連結', { exact: true }).fill('https://youtube.com.evil.test/live/dQw4w9WgXcQ');
+  await page.getByLabel('YouTube 或 Twitch 直播連結', { exact: true }).fill('https://youtube.com.evil.test/live/dQw4w9WgXcQ');
   await page.getByRole('button', { name: '分享這場直播', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: '請貼上有效' })).toBeVisible();
   expect(await calls(page)).toHaveLength(0);
-  await page.getByLabel('YouTube 直播連結', { exact: true }).fill('https://youtube.com/live/M7lc1UVf-VE');
+  await page.getByLabel('YouTube 或 Twitch 直播連結', { exact: true }).fill('https://youtube.com/live/M7lc1UVf-VE');
   await page.getByRole('button', { name: '分享這場直播', exact: true }).click();
   await expect(page.locator('.pshares__message')).toHaveText('直播分享已儲存。');
   expect(await shares(page)).toHaveLength(5);
@@ -124,7 +188,7 @@ test('分享越多按鈕越密集，仍可點擊，支援深色、分頁與不�
 test('失敗不宣告成功、重試沿用操作代碼，離線禁止送出 @streamShares', async ({ page }) => {
   await setup(page);
   await page.getByRole('button', { name: '分享直播', exact: true }).click();
-  await page.getByLabel('YouTube 直播連結', { exact: true }).fill('https://youtu.be/M7lc1UVf-VE');
+  await page.getByLabel('YouTube 或 Twitch 直播連結', { exact: true }).fill('https://youtu.be/M7lc1UVf-VE');
   await page.evaluate(() => { window.__FAKE_CALL_ERROR = '網路送出失敗'; });
   await page.getByRole('button', { name: '分享這場直播', exact: true }).click();
   await expect(page.locator('.pshares__message')).toHaveText('網路送出失敗');

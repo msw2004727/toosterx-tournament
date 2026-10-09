@@ -411,6 +411,18 @@ test('裁決意見沒填就不給送 @adminmatch @appeal', async ({ page }) => {
 });
 
 // ── 單場直播覆蓋（docs/03 §5）──────────────────────────────
+test('TWITCH-MATCH 單場 Twitch 設定可存取與清除 @adminmatch @stream', async ({ page }) => {
+  await stub(page);
+  await go(page);
+  await ready(page);
+  await page.locator('#st-video').fill('https://twitch.tv/TwitchDev');
+  await page.locator('#st-save').click();
+  await expect.poll(async () => (await matchOf(page)).stream).toEqual({ provider: 'twitch', channelId: 'twitchdev', status: 'live' });
+  await expect(page.locator('#st-video')).toHaveValue('https://www.twitch.tv/twitchdev');
+  await page.locator('#st-video').fill('');
+  await page.locator('#st-save').click();
+  await expect.poll(async () => (await matchOf(page)).stream).toMatchObject({ provider: 'youtube', status: 'off' });
+});
 test('⭐ 貼網址存成影片 ID；認不出來的不存 @adminmatch @stream', async ({ page }) => {
   await stub(page);
   await go(page);
@@ -422,7 +434,7 @@ test('⭐ 貼網址存成影片 ID；認不出來的不存 @adminmatch @stream',
 
   await page.locator('#st-video').fill('https://vimeo.com/1234');
   await page.locator('#st-save').click();
-  await expect(page.locator('.adm__permNote--err')).toContainText('看不出這是 YouTube');
+  await expect(page.locator('.adm__permNote--err')).toContainText('請貼 YouTube');
   expect((await matchOf(page)).stream.videoId).toBe('dQw4w9WgXcQ');
 });
 

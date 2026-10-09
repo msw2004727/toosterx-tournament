@@ -10,6 +10,12 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  { name:'#TWITCH-HOST 放行偽裝 Twitch 網域', file:'js/engine/stream-share.js',
+    from:"if (!['twitch.tv', 'www.twitch.tv', 'm.twitch.tv'].includes(url.hostname.toLowerCase())) return null;", to:'if (false) return null;',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/stream-share.test.js --silent' },
+  { name:'#TWITCH-PARENT 播放器遺漏目前網站 parent', file:'js/engine/stream-share.js',
+    from:'channel: source.channelId, parent, autoplay: String(autoplay)', to:'channel: source.channelId, autoplay: String(autoplay)',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/stream-share.test.js --silent' },
   { name:'#DISCDETAIL-VALID 明細混入未完賽或無效比分場次', file:'js/modules/public/selectors.js',
     from:'valid.filter(m => counted.has(m.matchId)', to:'valid.filter(m => true',
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/discipline-details.test.js --silent' },

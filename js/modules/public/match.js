@@ -191,7 +191,7 @@ export async function publicMatch({ params, scope, view, query }) {
   }
 
   function streamTab() {
-    const url = embedUrl({ match: state.match, venue: state.venue });
+    const url = embedUrl({ match: state.match, venue: state.venue, parent: location.hostname });
     if (!url) {
       return empty('目前沒有直播',
         isDoneMatch(state.match) ? '這場比賽沒有留下錄影。' : '直播通常在開賽前 10 分鐘開始。');

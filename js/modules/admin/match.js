@@ -32,6 +32,7 @@ import {
 import { APPEAL_RULES } from '../../engine/formats.js';
 import { toMillis, APPEAL_STATUS_LABEL } from '../../lib/format.js';
 import { parseYoutubeId } from '../../lib/youtube.js';
+import { sharedStreamSource, streamShareUrl } from '../../engine/stream-share.js';
 import {
   canConfirm, canReopen, canReset, canCancelStart, canOverride, canWalkover,
   buildConfirmPatch, buildReopenPatch, buildOverridePatch,
@@ -82,7 +83,8 @@ export async function adminMatchPage({ scope, view, params }) {
     if (m && !state.division) void loadEventDivision(m.divisionId);
     // 伺服器的比分變了就重建草稿——但只在自己沒有在編輯時
     if (!state.draft) state.draft = draftFrom(m);
-    if (state.streamInput === null) state.streamInput = m?.stream?.videoId ?? '';
+    if (state.streamInput === null) state.streamInput = m?.stream?.provider === 'twitch'
+      ? streamShareUrl(m.stream) || '' : m?.stream?.videoId ?? '';
     render();
   }, err => { state.error = err; state.match = null; render(); });
 
@@ -313,14 +315,15 @@ export async function adminMatchPage({ scope, view, params }) {
   async function doSaveStream() {
     const raw = String(state.streamInput ?? '').trim();
     const videoId = raw ? parseYoutubeId(raw) : null;
-    if (raw && !videoId) { state.streamError = '看不出這是 YouTube 影片：請貼影片網址或 11 碼的影片 ID'; render(); return; }
+    const source = raw ? sharedStreamSource(raw) || (videoId ? { provider: 'youtube', videoId } : null) : null;
+    if (raw && !source) { state.streamError = '請貼 YouTube 影片網址、11 碼影片 ID，或 Twitch 頻道直播網址'; render(); return; }
     state.streamError = null;
-    const stream = videoId ? { provider: 'youtube', videoId, status: 'live' } : { provider: 'youtube', videoId: null, status: 'off' };
+    const stream = source ? { ...source, status: 'live' } : { provider: 'youtube', videoId: null, status: 'off' };
     state.busy = 'stream'; render();
     try {
       await data.manageMatch(matchId, { action: 'stream.update', match: state.match, patch: { stream } });
-      state.streamInput = null;    // 下一筆快照重建
-      toast(videoId ? `這一場改用影片 ${videoId}` : '已清掉單場直播，改用場地設定');
+      state.streamInput = source?.provider === 'twitch' ? streamShareUrl(source) : null;
+      toast(source ? `已設定這一場的 ${source.provider === 'twitch' ? 'Twitch' : 'YouTube'} 直播` : '已清掉單場直播，改用場地設定');
     } catch (err) {
       toast(data.explain(err, '沒有儲存成功。'), 'error');
     } finally { state.busy = ''; render(); }
@@ -618,15 +621,15 @@ export async function adminMatchPage({ scope, view, params }) {
   function streamBox() {
     if (!can('stream.manage')) return null;
     const m = state.match;
-    const cur = m?.stream?.videoId ?? null;
+    const cur = m?.stream?.provider === 'twitch' ? streamShareUrl(m.stream) : m?.stream?.videoId ?? null;
     return el('section', { class: 'adm-match__card' }, [
       el('h3', { class: 'adm__sectionHead', text: '這一場的直播' }),
       el('div', { class: 'adm__box' }, [
         el('p', { class: 'adm__note', text: cur
-          ? `目前這一場用影片 ${cur}（覆蓋場地設定）。`
-          : '目前跟著場地的直播設定（#/admin/stream）。要讓這一場用不同的影片，貼網址或影片 ID。' }),
+          ? `目前這一場用直播 ${cur}（覆蓋場地設定）。`
+          : '目前跟著場地的直播設定（#/admin/stream）。可貼 YouTube 或 Twitch 直播網址。' }),
         el('div', { class: 'adm__field' }, [
-          el('label', { class: 'adm__fieldLabel', for: 'st-video', text: '影片網址或 ID（留空＝跟著場地）' }),
+          el('label', { class: 'adm__fieldLabel', for: 'st-video', text: 'YouTube／Twitch 直播網址或影片 ID（留空＝跟著場地）' }),
           el('input', {
             class: 'adm__search', id: 'st-video', type: 'text', value: state.streamInput ?? '',
             placeholder: 'https://youtu.be/…',

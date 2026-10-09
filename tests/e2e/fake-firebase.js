@@ -440,17 +440,20 @@ export const httpsCallable = (_fns, name) => async (payload) => {
   }
   if (name === 'shareMatchStream') {
     // UI 接線替身；實際身份、交易、稽核與所有權由 Functions Emulator 測試驗證。
-    const { sharedYoutubeId } = await import(location.origin + '/js/engine/stream-share.js');
+    const { sharedStreamSource } = await import(location.origin + '/js/engine/stream-share.js');
     const base = `events/${payload.eventId}/matches/${payload.matchId}`;
     const uid = S.currentUser?.uid;
     if (!uid) throw Error('請先用 LINE 登入');
     let shareId = payload.shareId;
     if (payload.action === 'share') {
-      const videoId = sharedYoutubeId(payload.url);
-      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([payload.eventId, payload.matchId, uid, videoId])));
+      const source = sharedStreamSource(payload.url);
+      if (!source) throw Error('請貼上有效的 YouTube 影片或 Twitch 頻道直播網址');
+      const key = source.provider === 'twitch' ? [payload.eventId, payload.matchId, uid, 'twitch', source.channelId]
+        : [payload.eventId, payload.matchId, uid, source.videoId];
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(key)));
       shareId = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
       const displayName = store.get(`users/${uid}`)?.displayName || S.currentUser.displayName;
-      await setDoc(doc(null, `${base}/streamShares/${shareId}`), { shareId, videoId, displayName, createdAt: new Date().toISOString() });
+      await setDoc(doc(null, `${base}/streamShares/${shareId}`), { shareId, ...source, displayName, createdAt: new Date().toISOString() });
       await setDoc(doc(null, `${base}/streamShareOwners/${shareId}`), { ownerUid: uid });
     } else {
       await deleteDoc(doc(null, `${base}/streamShares/${shareId}`));

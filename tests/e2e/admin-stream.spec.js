@@ -52,6 +52,28 @@ const dump = page => page.evaluate(() => window.__fake.__dump());
 const venueOf = async (page, id) => (await dump(page))[`events/${EVENT}/venues/${id}`];
 const card = (page, id) => page.locator(`.adm__stream[data-venue="${id}"]`);
 
+test('TWITCH-VENUE 場地平台選擇、正規化、關閉保留頻道及稽核 @admin @stream', async ({ page }) => {
+  await stub(page);
+  await go(page);
+  const c = card(page, 'venue-b');
+  await c.getByLabel('直播平台', { exact: true }).selectOption('twitch');
+  await c.getByLabel('Twitch 頻道直播網址或頻道名稱').fill('https://www.twitch.tv/TwitchDev');
+  await c.locator('input').dispatchEvent('change');
+  await c.getByRole('button', { name: /^儲存$/ }).click();
+  await expect.poll(async () => (await venueOf(page, 'venue-b')).stream).toEqual({
+    enabled: true, provider: 'twitch', channelId: 'twitchdev', videoId: null, status: 'live'
+  });
+  await expect(c.getByLabel('直播平台', { exact: true })).toHaveValue('twitch');
+  await c.getByRole('switch').click();
+  await c.getByRole('button', { name: /^儲存$/ }).click();
+  await expect.poll(async () => (await venueOf(page, 'venue-b')).stream).toMatchObject({ enabled: false, channelId: 'twitchdev', status: 'off' });
+  const audits = Object.entries(await dump(page)).filter(([k]) => k.includes('/audits/')).map(([, v]) => v);
+  expect(audits.some(a => a.after?.provider === 'twitch' && a.after?.channelId === 'twitchdev')).toBe(true);
+  await c.getByLabel('Twitch 頻道直播網址或頻道名稱').fill('https://twitch.tv.evil.test/twitchdev');
+  await c.locator('input').dispatchEvent('change');
+  await expect(c.getByRole('button', { name: /^儲存$/ })).toBeDisabled();
+});
+
 test('⭐ 沒有 stream.manage 權限的人看得到原因 @admin @stream', async ({ page }) => {
   await stub(page, { roles: ['scorer'] });
   await go(page);
