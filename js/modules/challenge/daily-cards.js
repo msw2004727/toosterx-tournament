@@ -1,5 +1,6 @@
 import { el } from '../../core/ui.js';
 import { icon, iconText } from '../../core/icons.js';
+import { challengeStamp } from './stamp.js';
 import { dailyProgress, isChallengeOpen, selectedActivityDate } from '../../engine/challenge-days.js';
 import { activityTime as now } from '../../core/activity-clock.js';
 import { formatScore } from '../../engine/challenge.js';
@@ -23,10 +24,7 @@ export function dailyCards(state) {
         el('span', { class: 'chal__count', text: loading ? '載入中' : awaiting ? '待確認' : `${settled.entries} 張` })
       ]),
       el('div', { class: 'chal__stamps', role: 'group', 'aria-label': `已完成 ${p.done.length} / ${p.total} 項` },
-        p.required.map((id, i) => el('span', { class: 'chal__stamp', 'data-done': String(p.done.includes(id)),
-          title: challenges.find(c => c.challengeId === id)?.name ?? id,
-          'aria-label': `第 ${i + 1} 項${p.done.includes(id) ? '已完成' : '未完成'}`
-        }, p.done.includes(id) ? icon('check') : String(i + 1)))),
+        p.required.map((id, i) => challengeStamp(challenges.find(c => c.challengeId === id), i + 1, p.done.includes(id)))),
       el('div', { class: 'chal__qualification', 'data-qualified': String(!loading && !awaiting && settled.entries > 0) }, [
         el('strong', { text: loading ? '正在載入當日集章紀錄' : awaiting ? '離線資料，等待同步確認' : !p.total ? '本日沒有開放活動'
           : settled.allComplete ? '已取得 1 次抽獎機會' : p.allComplete ? '今日集章完成，待同步確認'

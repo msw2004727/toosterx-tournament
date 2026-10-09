@@ -5,6 +5,7 @@ import { activityDate } from '../../engine/challenge-days.js';
 import { activityTime as now } from '../../core/activity-clock.js';
 import { formatScore } from '../../engine/challenge.js';
 import { dateLabel } from './days.js';
+import { challengeStamp } from './stamp.js';
 
 export function roundCards({ player, playerId = player?.playerId, attempts, challenges, rewards, date,
   challengesLoaded, attemptsConfirmed, owner = false, nextCardBusy = false, onNextCard }) {
@@ -24,11 +25,11 @@ export function roundCards({ player, playerId = player?.playerId, attempts, chal
         el('span', { class: 'chal__count', text: loading ? '載入中' : awaiting ? '待確認' : `${qualified ? 1 : 0} 張` })
       ]),
       el('div', { class: 'chal__stamps', role: 'group', 'aria-label': `第 ${row.number} 輪已完成 ${row.done.length} / ${row.total} 項` },
-        row.required.map((id, i) => el('span', { class: 'chal__stamp', 'data-done': String(row.done.includes(id)),
-          title: challenges.find(c => c.challengeId === id)?.name ?? id,
-          'aria-label': `第 ${i + 1} 項${row.done.includes(id) ? '已完成' : '未完成'}`
-        }, row.done.includes(id) ? icon('check') : String(i + 1)))),
-      el('small', { class: 'chal__roundCode', text: `本輪碼號：${row.code ?? '尚未領卡'}` }),
+        row.required.map((id, i) => challengeStamp(challenges.find(c => c.challengeId === id), i + 1, row.done.includes(id)))),
+      el('small', { class: 'chal__roundCode' }, [
+        el('span', { text: '本輪碼號：' }),
+        el(row.code ? 'strong' : 'span', { class: row.code ? 'chal__roundCodeValue' : '', text: row.code ?? '尚未領卡' })
+      ]),
       el('div', { class: 'chal__qualification', 'data-qualified': String(qualified) }, [
         el('strong', { text: loading ? '正在載入當日集章紀錄' : awaiting ? '離線資料，等待同步確認'
           : qualified ? '已取得 1 次抽獎機會' : row.entries ? '本輪集章完成，待伺服器確認'

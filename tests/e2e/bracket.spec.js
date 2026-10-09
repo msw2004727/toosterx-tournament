@@ -36,19 +36,47 @@ test('四強三層實際版面、長隊名、深淺色、點擊場次 @bracket',
   await expect(page.locator('.pbracket__links path')).toHaveCount(6);
   await expect(page.locator('.pbracket__node--root')).toContainText('很長的球隊名稱測試足球俱樂部');
   await expect(page.locator('.pbracket img')).toHaveCount(0);
+  await expect(page.locator('.pbracket__node.is-winner')).toHaveCount(4);
+  await expect(page.locator('.pbracket__winnerMark svg')).toHaveCount(4);
   for (const theme of ['light', 'dark']) {
     await page.evaluate(t => { document.documentElement.dataset.theme = t; }, theme);
+    await page.waitForTimeout(350);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const boxes = await page.locator('.pbracket__node').evaluateAll(nodes => nodes.map(n => ({ width: n.clientWidth, scroll: n.scrollWidth, height: n.clientHeight })));
     expect(boxes.every(b => b.scroll <= b.width + 1 && b.height >= 44)).toBe(true);
+    const marks = await page.locator('.pbracket__winnerMark').evaluateAll(nodes => nodes.map(n => {
+      const mark = n.getBoundingClientRect(), card = n.closest('.pbracket__node').getBoundingClientRect(), scroll = n.closest('.pbracket__scroll').getBoundingClientRect(), tree = n.closest('.pbracket__tree').getBoundingClientRect();
+      return { protrudes: mark.top < card.top, visible: mark.top >= scroll.top, within: mark.left >= tree.left && mark.right <= tree.right };
+    }));
+    expect(marks.every(m => m.protrudes && m.visible && m.within)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`bracket-${theme}.png`), fullPage: true });
   }
   await page.locator('.pbracket__node--root').click();
   await expect(page).toHaveURL(/#\/match\/F1$/);
 });
+
+test('所有卡片等寬，左右 SVG 提示可操作且端點停用 @bracket', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await open(page, seed('F6_GROUP_TOP_SEED_BYE'));
+  const widths = await page.locator('.pbracket__node').evaluateAll(nodes => nodes.map(n => n.getBoundingClientRect().width));
+  expect(widths.every(w => Math.abs(w - 160) < 1)).toBe(true);
+  const scroll = page.locator('.pbracket__scroll').first();
+  const initial = await scroll.evaluate(n => n.scrollLeft);
+  const left = page.getByRole('button', { name: '冠軍晉級圖向左查看' });
+  const right = page.getByRole('button', { name: '冠軍晉級圖向右查看' });
+  await expect(left.locator('svg')).toBeVisible(); await expect(right.locator('svg')).toBeVisible();
+  await right.click(); expect(await scroll.evaluate(n => n.scrollLeft)).toBeGreaterThan(initial);
+  await left.click(); expect(await scroll.evaluate(n => n.scrollLeft)).toBeLessThanOrEqual(initial + 1);
+  await scroll.evaluate(n => { n.scrollLeft = n.scrollWidth; n.dispatchEvent(new Event('scroll')); });
+  await expect(right).toBeDisabled();
+  await scroll.evaluate(n => { n.scrollLeft = 0; n.dispatchEvent(new Event('scroll')); });
+  await expect(left).toBeDisabled();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
 test('直接連結、待定不填零分，切分頁回收監聽 @bracket', async ({ page }) => {
   await open(page, seed(), '/#/division/women/bracket');
   await expect(page.locator('.pbracket__node--root')).toContainText('冠軍待定');
+  await expect(page.locator('.pbracket__node--root')).not.toHaveClass(/is-winner/);
   await expect(page.locator('.pbracket__score')).toHaveCount(0);
   await expect(page.locator('.pbracket__name').filter({ hasText: '女子第2名' })).toHaveCount(1);
   const count = () => page.evaluate(() => window.__FAKE_STATE.watchers.size);

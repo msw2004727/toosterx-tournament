@@ -594,8 +594,8 @@ MUTANTS.push(...[
   {
     "name": "#EROUNDCODE 各輪碼號錯誤沿用原碼",
     "file": "js/modules/challenge/round-cards.js",
-    "from": "text: `本輪碼號：${row.code ?? '尚未領卡'}`",
-    "to": "text: `本輪碼號：${playerId ?? '尚未領卡'}`"
+    "from": "text: row.code ?? '尚未領卡'",
+    "to": "text: playerId ?? '尚未領卡'"
   }
 ]);
 module.exports = { MUTANTS };

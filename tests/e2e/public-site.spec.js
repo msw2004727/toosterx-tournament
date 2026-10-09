@@ -241,7 +241,7 @@ test('組別與球隊頁讀取設定的甲乙小組名稱 @public', async ({ pag
   s[`events/${EVENT}/divisions/adult-open`].groupNames = { A: '甲組', B: '乙組' };
   await stub(page, s);
   await go(page, '/#/division/adult-open');
-  await expect(page.locator('.pcard')).toContainText('甲組');
+  await expect(page.locator('.pcard').filter({ has: page.locator('.ptable') })).toContainText('甲組');
   await go(page, '/#/team/t-101');
   await expect(page.locator('.phead')).toContainText('甲組');
 });

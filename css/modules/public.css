@@ -14,16 +14,28 @@
 /* 晉級圖：隊伍由下往上合流。四隊在 320px 可讀；多輪保留節點寬度供橫向捲動。 */
 .pbracket{padding:0 var(--sp-3)}
 .pbracket__hint{font-size:var(--fs-xs);color:var(--text-secondary);margin:var(--sp-3) 0}
+.pbracket__hint:has(.icon){display:flex;align-items:center;gap:6px}
+.pbracket__hint .icon{flex:none}
+.pbracket__viewport{position:relative;min-width:0}
+.pbracket__scrollGuide{position:sticky;top:8px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 0;background:var(--bg-root);font-size:var(--fs-xs);color:var(--text-secondary)}
+.pbracket__scrollGuide[hidden]{display:none}
+.pbracket__scrollArrow{display:flex;align-items:center;justify-content:center;width:var(--tap);height:var(--tap);border:1px solid var(--control-border);border-radius:var(--r-md);background:var(--bg-card);color:var(--accent)}
+.pbracket__scrollArrow .icon{width:24px;height:24px}
+.pbracket__scrollArrow:disabled{opacity:.4}
 .pbracket__section{margin:var(--sp-4) 0 var(--sp-5)}
 .pbracket__heading{display:flex;align-items:center;gap:6px;font-size:var(--fs-md);margin:0 0 var(--sp-3)}
-.pbracket__scroll{overflow-x:auto;padding:4px 0 12px;overscroll-behavior-x:contain}
+.pbracket__scroll{overflow-x:auto;padding:18px 0 12px;overscroll-behavior-x:contain}
 .pbracket__tree{position:relative;isolation:isolate}
-.pbracket__tier{display:grid;grid-template-columns:repeat(var(--bracket-leaves),minmax(0,1fr));gap:8px;position:relative}
+.pbracket__tier{display:grid;grid-template-columns:repeat(var(--bracket-leaves),minmax(0,1fr));gap:16px;position:relative}
 .pbracket__tier+.pbracket__tier{margin-top:48px}
 .pbracket__cell{display:flex;justify-content:center;align-items:stretch;min-width:0}
-.pbracket__node{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;width:100%;max-width:160px;min-height:92px;padding:10px 5px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-card);color:var(--text-primary);box-shadow:var(--shadow-1);text-align:center;overflow-wrap:anywhere}
+.pbracket__node{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:160px;width:160px;max-width:160px;min-height:92px;padding:10px 5px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-card);color:var(--text-primary);box-shadow:var(--shadow-1);text-align:center;overflow-wrap:anywhere}
 button.pbracket__node:hover{background:var(--control-hover);border-color:var(--control-selected-border)}
 .pbracket__node--root{border-top:3px solid var(--accent);background:var(--accent-bg)}
+.pbracket__node.is-winner{position:relative;padding-top:22px;border-color:var(--ok-border);background:linear-gradient(color-mix(in srgb,var(--success) 10%,transparent),color-mix(in srgb,var(--success) 10%,transparent)),var(--bg-card)}
+button.pbracket__node.is-winner:hover{background:linear-gradient(color-mix(in srgb,var(--success) 16%,transparent),color-mix(in srgb,var(--success) 16%,transparent)),var(--bg-card)}
+.pbracket__winnerMark{position:absolute;top:-15px;right:7px;z-index:1;color:var(--success);transform:rotate(-10deg);pointer-events:none}
+.pbracket__winnerMark .icon{width:34px;height:34px;stroke-width:3;filter:drop-shadow(0 1px 1px var(--bg-card))}
 .pbracket__node.is-pending .pbracket__name{color:var(--text-secondary)}
 .pbracket__name{font-size:var(--fs-sm);font-weight:600}
 .pbracket__source,.pbracket__game,.pbracket__status,.pbracket__time,.pbracket__pk{font-size:var(--fs-xs);color:var(--text-secondary)}
@@ -360,6 +372,31 @@ button.ptable__team{
 }
 button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-color:var(--accent)}
 .ptable__pts{font-weight:700}
+/* 階段分層：每列底部保留獨立標籤帶，320px 仍不折行、不遮住固定成績。 */
+.ptable tr:is(.pstand__row--advance,.pstand__row--bye) td{vertical-align:top;padding-bottom:calc(var(--tap) + 4px)}
+.ptable tr:is(.pstand__row--advance,.pstand__row--bye) td.num{padding-top:26px}
+.ptable tr:is(.pstand__row--advance,.pstand__row--bye) td.is-left{position:relative}
+.ptable tr:is(.pstand__row--advance,.pstand__row--bye) .ptable__team{align-items:flex-end}
+.pstand__advance{position:absolute;left:3px;bottom:0;display:inline-flex;align-items:flex-start;width:max-content;min-height:var(--tap);padding:0;border:0;background:transparent;font:inherit;font-size:var(--fs-xs);font-weight:600;white-space:nowrap;text-align:left;cursor:pointer}
+.pstand__advance-pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border:1px solid var(--ok-border);border-radius:999px;background:var(--ok-bg);color:var(--ok-text);line-height:1.4}
+.pstand__advance span{white-space:nowrap}
+.pstand__advance .icon{flex:none}
+.pstand__advance--bye .pstand__advance-pill{background:var(--accent-bg);color:var(--accent);border-color:var(--control-selected-border)}
+.pstand__advance:hover .pstand__advance-pill{filter:brightness(.97)}
+.pstand__row--advance td:first-child{box-shadow:inset 3px 0 0 var(--success)}
+.pstand__row--bye td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.pstand-final__podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:8px;margin:var(--sp-2) 0 var(--sp-3)}
+.pstand-final__place{min-width:0;text-align:center}
+.pstand-final__team{display:block;max-width:100%;min-height:var(--tap);margin:auto;padding:6px 3px;border:0;background:none;color:var(--accent);font:inherit;font-size:var(--fs-sm);font-weight:700;overflow-wrap:anywhere;white-space:normal;text-align:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.pstand-final__base{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:84px;padding:10px 4px;border-radius:var(--r-md) var(--r-md) 0 0;background:var(--accent-bg);color:var(--accent);font-size:var(--fs-xs);font-weight:600}
+.pstand-final__base .icon{width:24px;height:24px}
+.pstand-final__place--2 .pstand-final__base{min-height:66px;background:var(--bg-elevated);color:var(--text-secondary)}
+.pstand-final__place--3 .pstand-final__base{min-height:52px;background:var(--warn-bg);color:var(--warn-text)}
+.pstand-final__list{list-style:none;padding:0;margin:0}
+.pstand-final__row{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--border)}
+.pstand-final__row .pstand-final__team{margin:0;text-align:left;min-width:0}
+.pstand-final__rank{flex:none;padding:5px 8px;border-radius:var(--r-sm);background:var(--bg-elevated);color:var(--text-secondary);font-size:var(--fs-xs)}
+.pstand-final__pending{font-size:var(--fs-sm);color:var(--text-secondary);margin:var(--sp-3) 0}
 @media(max-width:479px){
   .ptable th,.ptable td{font-size:12px}
   .ptable thead th{font-size:11px}
