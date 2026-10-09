@@ -43,6 +43,7 @@ import { updateTeamNameFor } from './team-name.js';
 import { addTeamPlayersFor } from './team-player-add.js';
 import { publishManualScheduleFor } from './manual-schedule.js';
 import { updateChallengeDayFor, dailyDrawExportFor } from './challenge-days.js';
+import { reportHomeMetricsFor } from './home-metrics.js';
 
 ensureApp();
 setGlobalOptions({ region: 'asia-east1', maxInstances: 10 });
@@ -120,6 +121,8 @@ export const exportDailyDraw = onCall({ timeoutSeconds: 120 }, async request => 
   await requireStaff(request, ADMIN);
   return ok(await dailyDrawExportFor({ ...request.data, actorUid: request.auth.uid }));
 });
+
+export const reportHomeMetrics = onCall(async request => ok(await reportHomeMetricsFor(request)));
 
 /** 結果性欄位有沒有真的變。用 JSON 比對就夠——這些都是小物件。 */
 const changedAny = (before, after, keys) =>

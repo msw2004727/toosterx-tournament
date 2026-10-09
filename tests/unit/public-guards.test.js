@@ -86,7 +86,9 @@ describe('T33-2 ⭐ 不重算：積分與榜單只讀不算', () => {
         ? s.replace("import { sharedYoutubeId, streamShareDensity, streamShareEmbed } from '../../engine/stream-share.js';", '') : s)
         .replace("import { groupNameOf } from '../../engine/group-name.js';", '')
         // 日期選擇只決定頁籤，並不重算積分或榜單。
-        .replace("import { selectedActivityDate } from '../../engine/challenge-days.js';", '')))
+        .replace("import { selectedActivityDate } from '../../engine/challenge-days.js';", '')
+        // Display-only campaign time and disclosed offsets; no tournament scoring or ranking logic.
+        .replace("import { HOME_METRICS, campaignShares, displayedTraffic } from '../../engine/home-metrics.js';", '')))
       .map(([f]) => f);
     expect(hits).toEqual([]);
   });

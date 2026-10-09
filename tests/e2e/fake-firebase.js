@@ -399,6 +399,13 @@ export const getFunctions = () => ({ __fake: true });
  * spec 可以用 window.__FAKE_CALL_ERROR 讓呼叫失敗，測失敗的顯示。
  */
 export const httpsCallable = (_fns, name) => async (payload) => {
+  if (name === 'reportHomeMetrics') {
+    (window.__FAKE_METRICS_CALLS ||= []).push(payload);
+    if (window.__FAKE_METRICS_ERROR) throw new Error('Metrics unavailable');
+    const result = window.__FAKE_METRICS_RESULT ?? { realOnline: 0, realViews: 0,
+      serverNowMs: Date.now(), shareStartedAtMs: Date.now(), shareEndsAtMs: Date.parse('2026-10-12T00:00:00+08:00'), shares: 33 };
+    return { data: { ok: true, data: result } };
+  }
   // 呼叫紀錄留給 spec 檢查送出去的參數。替身沒辦法真的執行 Function，
   // 所以「裁定之後積分榜長什麼樣」只能靠 test:fn 守——這裡守的是
   // 「畫面有沒有把正確的東西送出去」。

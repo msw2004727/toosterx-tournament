@@ -11,6 +11,7 @@
  */
 
 import { venueMapPopup } from './venue-map.js';
+import { homeMetrics } from './home-metrics.js';
 import { divisionThemeAttrs } from '../../core/division-theme.js';
 import { el, mount, skeleton, toast } from '../../core/ui.js';
 import { navigate } from '../../core/router.js';
@@ -35,6 +36,7 @@ const SCORER_TABS = [
 
 export async function publicHome({ scope, view, query }) {
   const root = el('div', { class: 'pub p-home' });
+  const metrics = homeMetrics();
   mount(view, root);
   const venueMap = venueMapPopup();
   venueMap.open({ automatic: true });
@@ -335,7 +337,7 @@ export async function publicHome({ scope, view, query }) {
         el('p', { class: 'p-homeHero__meta' }, [
           el('span', { text: range }), el('span', { text: EVENT.venueName })
         ])
-      ])
+      ]), metrics.element
     ]);
   }
 
@@ -420,7 +422,7 @@ export async function publicHome({ scope, view, query }) {
     }
   }
 
-  return () => { venueMap.close(); disposed = true; closeRankingsToast?.(); stopTicker?.(); stopMatches?.(); dropBoard(); };
+  return () => { metrics.dispose(); venueMap.close(); disposed = true; closeRankingsToast?.(); stopTicker?.(); stopMatches?.(); dropBoard(); };
 }
 
 /** 與攤位共用活動時區及測試時間，賽前保留首日、賽後保留末日。 */
