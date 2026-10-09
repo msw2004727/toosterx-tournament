@@ -115,6 +115,7 @@ const OFFLINE_MODULES = [
   "/js/modules/challenge/round-cards.js",
   "/js/modules/challenge/stamp.js",
   "/js/modules/public/bits.js",
+  "/js/modules/public/bracket-gestures.js",
   "/js/modules/public/bracket-link.js",
   "/js/modules/public/bracket-model.js",
   "/js/modules/public/bracket.js",
