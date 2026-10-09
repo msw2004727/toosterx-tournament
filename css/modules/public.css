@@ -219,6 +219,17 @@ button.pbracket__node:hover{background:var(--control-hover);border-color:var(--c
 .pdiscipline__metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-2);margin:0;padding:var(--sp-3);background:var(--division-soft,var(--bg));border-radius:12px}
 .pdiscipline__metrics dt{font-size:var(--fs-xs);color:var(--text-muted)}
 .pdiscipline__metrics dd{margin:var(--sp-1) 0 0;font-size:var(--fs-md);font-weight:700;white-space:nowrap}
+.pdiscipline__details{margin-top:var(--sp-2)}
+.pdiscipline__details summary{cursor:pointer;min-height:var(--tap);align-content:center;font-size:var(--fs-sm);font-weight:600;color:var(--division-ink,var(--text))}
+.pdiscipline__table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:var(--fs-xs);text-align:left}
+.pdiscipline__table th,.pdiscipline__table td{padding:var(--sp-2) 4px;border-bottom:1px solid var(--border);vertical-align:top;overflow-wrap:anywhere}
+.pdiscipline__table th:first-child{width:46%}
+.pdiscipline__table th:nth-child(2){width:23%}
+.pdiscipline__table td span,.pdiscipline__table td strong,.pdiscipline__table td small{display:block}
+.pdiscipline__table small{margin-top:4px;color:var(--text-muted)}
+.pdiscipline__match{display:block;width:100%;min-height:var(--tap);text-align:left;white-space:normal;color:var(--division-ink,var(--text));font-size:inherit;line-height:1.6}
+.pdiscipline__card-type{margin-top:4px;border-radius:4px;padding:2px 4px;background:var(--warn-bg);color:var(--warn-text);font-weight:600}
+.pdiscipline__card-type[data-card="red"],.pdiscipline__card-type[data-card="second_yellow"]{background:var(--danger-bg);color:var(--danger-text)}
 
 .psponsor{
   margin:var(--sp-4) var(--sp-3) 0;padding:var(--sp-3);
