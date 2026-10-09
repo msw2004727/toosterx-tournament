@@ -22,8 +22,8 @@ import { selectedActivityDate } from '../../engine/challenge-days.js';
 import { dateLabelFromYmd, hhmm } from '../../lib/format.js';
 import { EVENT, CACHE_VERSION } from '../../config.js';
 import * as data from './data.js';
-import { splitHomeSections, isLiveMatch, hiddenScorerDivisions, publishedMatches, hasBoardContent } from './selectors.js';
-import { matchRow, sectionCard, empty, pageHead, statusBadge } from './bits.js';
+import { splitHomeSections, isLiveMatch, hiddenScorerDivisions, publishedMatches } from './selectors.js';
+import { matchRow, sectionCard, empty, statusBadge } from './bits.js';
 
 const MATCH_TABS = [
   { key: 'all', label: '全部' }, { key: 'live', label: '進行中' },
@@ -46,8 +46,7 @@ export async function publicHome({ scope, view, query }) {
     matches: [],
     divisions: [],
     divisionsStatus: 'loading',
-    board: null,
-    boardMissing: false,
+    matchError: null,
     scorers: null,
     featureFlags: {},
     loading: true,
@@ -72,76 +71,46 @@ export async function publicHome({ scope, view, query }) {
 
   Promise.all([data.getBoards(), data.getFeatureFlags()])
     .then(([boards, flags]) => {
+      if (disposed) return;
       state.scorers = boards.scorers;
       state.featureFlags = flags;
       render();
     })
     .catch(() => {});
 
-  // docs/03 §2.2：首頁只監聽 1 份文件。
-  // 但 boards/live 是 Function 扇出的，還沒上線；不存在就退回直接監聽今日場次。
-  //
-  // ⚠️ stopBoard 一定要先宣告成 let。onSnapshot 的第一筆快照可能在
-  //    watchLiveBoard() 還沒回傳時就送到（本機快取命中、或替身 SDK 同步呼叫），
-  //    這時回呼裡碰 const stopBoard 會直接 ReferenceError，整頁空白。
-  //    這條路徑現在**一定會走到**（看板文件還不存在），所以不是理論問題。
+  // 直接監聽所選日期的權威場次，維持一個監聽。
+  // boards/live 未持續重建，不能讓它阻擋完賽與比分更正的即時更新。
   let stopMatches = null;
-  let stopBoard = null;
+  let matchGeneration = 0;
 
-  const dropBoard = () => { const f = stopBoard; stopBoard = null; f?.(); };
-
-  stopBoard = data.watchLiveBoard(scope, board => {
-    if (disposed || state.boardMissing) return;
-    // ⚠️ **空的看板不算看板**（2026-09-05 在真站上看到）。
-    //    種子會建一份三個陣列都是空的 `boards/live` 空殼，而 Function
-    //    只在有比賽結果時才重建它——結果首頁整天顯示「這個日期沒有待進行
-    //    的場次」，而那一天明明排了 35 場。
-    //
-    //    退回去監聽當日場次**永遠不會比較差**：真的沒有場次時，
-    //    splitHomeSections 算出來也是空的；看板還沒建好時，它算出來才是對的。
-    //    看板是效能最佳化，不是功能的前提（這一段的原始註解就是這樣寫的）。
-    const boardRows = ['liveMatches', 'nextMatches', 'justFinished'].flatMap(key => board?.[key] ?? []);
-    if (hasBoardContent(board) && boardRows.every(row => row.date === state.date)) {
-      state.board = board;
-      state.boardMissing = false;
-      state.loading = false;
-      render();
-      return;
-    }
-    // 看板不存在或是空的 → 換成監聽當日場次（同樣只有 1 個監聽，先收掉看板那個）
-    if (!state.boardMissing) {
-      state.boardMissing = true;
-      // 排到下一個 tick：此刻 watchLiveBoard() 可能還沒回傳，stopBoard 還是 null
-      queueMicrotask(() => { dropBoard(); startMatchFallback(); });
-    }
-  }, () => {
-    if (state.boardMissing) return;
-    state.boardMissing = true;
-    queueMicrotask(() => { dropBoard(); startMatchFallback(); });
-  });
-
-  function startMatchFallback() {
+  function startMatches(preserve = false) {
     if (disposed) return;
     stopMatches?.();
     const date = state.date;
-    state.matches = []; state.loading = true;
+    const generation = ++matchGeneration;
+    if (!preserve) { state.matches = []; state.loading = true; state.matchError = null; }
     stopMatches = data.watchMatchesByDate(scope, date, rows => {
-      if (disposed || date !== state.date) return;
+      if (disposed || generation !== matchGeneration || date !== state.date) return;
       state.matches = rows;
-      state.loading = false;
-      render();
+      state.loading = false; state.matchError = null;
+      refreshMatches();
     }, err => {
-      if (disposed || date !== state.date) return;
-      state.loading = false;
-      mount(root, pageHead(EVENT.name, { sub: EVENT.slogan }), empty(
-        '載入失敗',
-        err?.code === 'permission-denied'
-          ? '公開資料暫時讀不到，請稍後再試。'
-          : (err?.message || '請稍後再試。'),
-        { label: '重新載入', onClick: () => location.reload() }
-      ));
+      if (disposed || generation !== matchGeneration || date !== state.date) return;
+      state.loading = false; state.matchError = err;
+      refreshMatches();
     });
   }
+  startMatches();
+
+  const resumeMatches = () => {
+    if (!disposed && document.visibilityState !== 'hidden') startMatches(true);
+  };
+  const matchVisibility = () => {
+    if (document.visibilityState === 'hidden') { stopMatches?.(); stopMatches = null; ++matchGeneration; }
+    else resumeMatches();
+  };
+  document.addEventListener('visibilitychange', matchVisibility);
+  window.addEventListener('online', resumeMatches);
 
   // 進行中的分鐘數要自己跑，不靠伺服器推播（§2.3）
   let autoDate = todayInEvent();
@@ -153,27 +122,16 @@ export async function publicHome({ scope, view, query }) {
 
   function selectDate(date) {
     if (disposed || date === state.date) return;
-    state.date = date; state.board = null; state.boardMissing = true;
-    dropBoard(); startMatchFallback(); render();
+    state.date = date;
+    startMatches(); render();
   }
 
   render();
 
   function sections() {
-    // 還沒發布賽程的組別一律不出現在首頁（主辦可能正在排到一半）。
-    // ⚠️ 看板（boards/live）是 Cloud Function 產的，裡面**沒有**過濾，
-    //    所以這裡兩條路都要過一次——只濾其中一條，首頁會在看板還沒
-    //    產生時正確、產生之後又漏出來。
-    const gate = list => publishedMatches(list, state.divisions);
-    if (state.board) {
-      return {
-        live: gate(state.board.liveMatches || []),
-        next: gate(state.board.nextMatches || []),
-        done: gate(state.board.justFinished || [])
-      };
-    }
+    // 未發布賽程一律不出現在首頁。
     return splitHomeSections({
-      matches: gate(state.matches),
+      matches: publishedMatches(state.matches, state.divisions),
       nowMs: now()
     });
   }
@@ -184,8 +142,6 @@ export async function publicHome({ scope, view, query }) {
 
   function render() {
     if (state.loading) { mount(root, homeHero(), skeleton(4)); return; }
-    const { live, next, done } = sections();
-
     mount(root,
       homeHero(),
       homeShortcuts(),
@@ -212,14 +168,7 @@ export async function publicHome({ scope, view, query }) {
 
       matchTabs(),
       el('div', { class: 'p-homeMatches', id: 'home-matches', role: 'tabpanel',
-        'aria-labelledby': `home-match-tab-${state.matchTab}` }, [
-        (state.matchTab === 'all' && live.length) || state.matchTab === 'live'
-          ? matchSection('現在進行中', 'live', live, '目前沒有正在進行的場次') : null,
-        ['all', 'next'].includes(state.matchTab)
-          ? matchSection('接下來', 'clock', next, '這個日期沒有待進行的場次', true) : null,
-        (state.matchTab === 'all' && done.length) || state.matchTab === 'done'
-          ? matchSection('剛結束', 'check', done, '目前沒有剛結束的場次') : null
-      ].filter(Boolean)),
+        'aria-labelledby': `home-match-tab-${state.matchTab}` }, matchContent()),
 
       state.divisions.length ? sectionCard('各組即時排名', 'table',
         el('div', { class: 'pchips' }, state.divisions.map(d =>
@@ -237,6 +186,32 @@ export async function publicHome({ scope, view, query }) {
       // 版號印在最底下：回報問題時第一句就是「你看到的版號是多少」（驗收 P-1）
       el('p', { class: 'pver', text: `系統版本 ${CACHE_VERSION}` })
     );
+    paintMinutes();
+  }
+
+  function matchContent() {
+    if (state.matchError) return empty('載入失敗',
+      state.matchError.code === 'permission-denied'
+        ? '公開資料暫時讀不到，請稍後再試。'
+        : (state.matchError.message || '請稍後再試。'),
+      { label: '重新載入', onClick: () => { startMatches(); refreshMatches(); } });
+    if (state.loading) return skeleton(4);
+    const { live, next, done } = sections();
+    return [
+      (state.matchTab === 'all' && live.length) || state.matchTab === 'live'
+        ? matchSection('現在進行中', 'live', live, '目前沒有正在進行的場次') : null,
+      ['all', 'next'].includes(state.matchTab)
+        ? matchSection('接下來', 'clock', next, '這個日期沒有待進行的場次', true) : null,
+      (state.matchTab === 'all' && done.length) || state.matchTab === 'done'
+        ? matchSection('剛結束', 'check', done, '目前沒有剛結束的場次') : null
+    ].filter(Boolean);
+  }
+
+  /** 比賽快照只更新比賽欄位，保留頁首、其他分頁、焦點與其他區塊。 */
+  function refreshMatches() {
+    const matchesRoot = root.querySelector('#home-matches');
+    if (!matchesRoot) { render(); return; }
+    mount(matchesRoot, matchContent());
     paintMinutes();
   }
 
@@ -422,7 +397,12 @@ export async function publicHome({ scope, view, query }) {
     }
   }
 
-  return () => { metrics.dispose(); venueMap.close(); disposed = true; closeRankingsToast?.(); stopTicker?.(); stopMatches?.(); dropBoard(); };
+  return () => {
+    disposed = true;
+    document.removeEventListener('visibilitychange', matchVisibility);
+    window.removeEventListener('online', resumeMatches);
+    metrics.dispose(); venueMap.close(); closeRankingsToast?.(); stopTicker?.(); stopMatches?.();
+  };
 }
 
 /** 與攤位共用活動時區及測試時間，賽前保留首日、賽後保留末日。 */
