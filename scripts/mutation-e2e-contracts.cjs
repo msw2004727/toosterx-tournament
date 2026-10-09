@@ -1,5 +1,7 @@
 // Exact test selection and expected assertion contracts.
 module.exports = {
+  EHOMESTREAM: {spec:'tests/e2e/home-match-refresh.spec.js',grep:'HOMESTREAM',minTests:1,failure:'toHaveText',
+    assertions:["await expect(card.locator('.prow__stream')).toHaveText('直播');"]},
   ETWITCHDRAFT: {spec:'tests/e2e/admin-match.spec.js',grep:'TWITCH-MATCH',minTests:1,failure:'toHaveValue',
     assertions:["await expect(page.locator('#st-video')).toHaveValue('https://www.twitch.tv/twitchdev');"]},
   ETWITCHPLAY: {spec:'tests/e2e/stream-shares.spec.js',grep:'TWITCH-PLAY',minTests:2,failure:'toBeVisible',

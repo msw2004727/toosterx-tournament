@@ -190,6 +190,9 @@ button.pbracket__node.is-winner:hover{background:linear-gradient(color-mix(in sr
   flex:1;min-width:0;font-size:var(--fs-xs);color:var(--text-muted);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
+.prow__meta--stream{display:flex;align-items:center;gap:var(--sp-2)}
+.prow__metaText{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow__stream{display:inline-flex;align-items:center;gap:4px;flex:none;color:var(--accent);font-weight:700}
 .prow__score{display:flex;align-items:center;gap:var(--sp-2);min-width:0}
 .prow__team{
   flex:1;min-width:0;font-size:var(--fs-sm);font-weight:700;
