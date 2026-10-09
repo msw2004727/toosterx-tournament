@@ -372,7 +372,7 @@ input[type="file"]::file-selector-button{
 .apphead .theme-switch__opt{width:100%}
 .apphead__link .icon,.apphead__install .icon,.apphead .theme-switch__opt .icon{width:21px;height:21px;flex:none}
 .apphead__link:hover,.apphead__install:hover,.apphead .theme-switch__opt:hover{background:var(--control-hover);color:var(--text-primary)}
-.apphead__venue,.apphead__venue:hover{color:var(--control-selected-text);background:var(--control-selected-bg)}
+.apphead__venue:hover{background:transparent}
 .apphead__link.is-current{color:var(--text-primary)}
 .apphead__link:focus-visible,.apphead__install:focus-visible,.apphead .theme-switch__opt:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .apphead__install[hidden]{display:none}

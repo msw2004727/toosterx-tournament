@@ -72,7 +72,7 @@ test('上方查看場地圖在安裝左側，同日隱藏及其他頁仍可重�
  await setup(page);const d=dialog(page);
  await d.getByRole('checkbox',{name:'今日不再顯示'}).check();
  await d.getByRole('button',{name:'關閉場地配置'}).click();
- const button=page.getByRole('button',{name:'查看場地圖',exact:true});
+ const button=page.getByRole('button',{name:'查看場號',exact:true});
  await expect(button).toBeVisible();
  const venueBounds=await button.boundingBox(),installBounds=await page.locator('[data-install]').boundingBox();
  expect(venueBounds.x+venueBounds.width).toBeLessThanOrEqual(installBounds.x+1);
