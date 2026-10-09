@@ -44,8 +44,7 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
     for (const tree of root.querySelectorAll('.pbracket__tree')) {
       const viewport = tree.closest('.pbracket__viewport');
       if (viewport.classList.contains('pbracket__viewport--gestures')) {
-        const gesture = attachBracketGestures(viewport.querySelector('.pbracket__scroll'), tree, tree.parentElement,
-          viewport.__controls, positions[crownIndex++]);
+        const gesture = attachBracketGestures(viewport.querySelector('.pbracket__scroll'), tree, positions[crownIndex++]);
         gestures.push(gesture); observers.push(gesture);
       }
       const draw = () => { drawLinks(tree); viewport.__updateHints(); };
@@ -68,7 +67,7 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
     if (model.state !== 'ready') return empty('對戰圖整理中', '賽制資料尚未完整，請先查看賽程。');
     return el('div', { class: 'pbracket' }, [
       state.cached ? el('p', { class: 'notice notice--info', role: 'status', text: '目前顯示快取資料，連線恢復後會自動更新。' }) : null,
-      el('p', { class: 'pbracket__hint' }, [icon('move-vertical'), el('span', { text: '冠軍之路可自由拖曳、雙指縮放；預設完整顯示，點選隊伍可查看比賽。' })]),
+      el('p', { class: 'pbracket__hint' }, [icon('move-vertical'), el('span', { text: '單指上下滑動頁面；雙指移動畫布或縮放，點選隊伍可查看比賽。' })]),
       ...model.trees.map(tree => treeView(tree)),
       model.extra.length ? sectionCard('其他名次賽', 'trophy',
         el('ul', { class: 'plist' }, model.extra.map(entry => entry.match
@@ -122,15 +121,7 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
     const left = el('button', { class: 'pbracket__scrollArrow', type: 'button', 'aria-label': `${tree.title}晉級圖向左查看`, onClick: () => move(-1) }, icon('chevrons-left'));
     const right = el('button', { class: 'pbracket__scrollArrow', type: 'button', 'aria-label': `${tree.title}晉級圖向右查看`, onClick: () => move(1) }, icon('chevrons-right'));
     const guide = el('div', { class: 'pbracket__scrollGuide' }, [left, el('span', { text: crown ? '拖曳移動 · 雙指縮放' : '左右滑動看更多' }), right]);
-    const controls = crown ? {
-      out: el('button', { type: 'button', class: 'pbracket__zoomButton', 'aria-label': '縮小冠軍之路', text: '−' }),
-      in: el('button', { type: 'button', class: 'pbracket__zoomButton', 'aria-label': '放大冠軍之路', text: '+' }),
-      reset: el('button', { type: 'button', class: 'pbracket__zoomButton', text: '滿版', 'aria-label': '恢復冠軍之路滿版' }),
-      label: el('span', { class: 'pbracket__zoomLabel', 'aria-label': '畫布縮放比例' })
-    } : null;
-    const toolbar = controls ? el('div', { class: 'pbracket__zoomTools', role: 'group', 'aria-label': '冠軍之路縮放控制' }, [controls.out, controls.label, controls.in, controls.reset]) : null;
-    const viewport = el('div', { class: `pbracket__viewport${crown ? ' pbracket__viewport--gestures' : ''}` }, [toolbar, guide, scroll]);
-    viewport.__controls = controls;
+    const viewport = el('div', { class: `pbracket__viewport${crown ? ' pbracket__viewport--gestures' : ''}` }, [crown ? null : guide, scroll]);
     viewport.__updateHints = () => {
       guide.hidden = !crown && scroll.scrollWidth <= scroll.clientWidth + 1;
       left.disabled = scroll.scrollLeft <= 1;
