@@ -35,6 +35,9 @@ import { savedPass, savePass } from './pass.js';
 import { DAILY_RULE } from '../../engine/challenge-days.js';
 import { dayTabs, watchActivityDay } from './days.js';
 import { dailyCards } from './daily-cards.js';
+import { activityDate } from '../../engine/challenge-days.js';
+import { activityTime } from '../../core/activity-clock.js';
+import { roundsEnabled } from '../../engine/challenge-rounds.js';
 
 /**
  * QR 的內容是攤位頁的網址，不是裸代號：攤位用手機相機掃就直接開攤位頁並帶入代號，
@@ -60,7 +63,7 @@ export async function challengeMePage({ scope, view }) {
     challengesLoaded: false,
     bests: [],
     rewards: null,
-    attempts: null, attemptsConfirmed: false, date: null,
+    attempts: null, attemptsConfirmed: false, date: null, nextCardBusy: false, cardOwnerReady: false,
     contact: { phone: '', masked: cached?.contactMasked ?? null, editing: false, busy: false, error: null },
     error: null
   };
@@ -68,13 +71,17 @@ export async function challengeMePage({ scope, view }) {
   let issued = false;
   let offWatch = null;
   let offAttempts = null;
+  let disposed = false;
+  const connectionChanged = () => render();
+  window.addEventListener('online', connectionChanged);
+  window.addEventListener('offline', connectionChanged);
 
   // 有快取先畫（離線也看得到 QR）；登入到位後再向伺服器要權威的那一張
   if (state.playerId) startWatch();
 
   hold(scope, onAuth(u => {
     state.authKnown = true;
-    if (!data.isLineUser(u)) { state.owner = false; render(); return; }
+    if (!data.isLineUser(u)) { state.owner = false; state.cardOwnerReady = false; render(); return; }
     state.owner = true;
     if (!issued) { issued = true; ensurePass(); }
     render();
@@ -90,6 +97,7 @@ export async function challengeMePage({ scope, view }) {
   async function ensurePass() {
     try {
       const r = await data.issuePass();
+      if (disposed) return;
       if (!r?.playerId) throw new Error('沒有拿到代號');
       if (r.playerId !== state.playerId) {
         state.playerId = r.playerId;
@@ -97,6 +105,7 @@ export async function challengeMePage({ scope, view }) {
         state.error = null;
       }
       savePass({ playerId: r.playerId, nickname: r.nickname ?? null, contactMasked: state.contact.masked });
+      state.cardOwnerReady = true;
       startWatch();
     } catch (err) {
       issued = false;
@@ -141,11 +150,27 @@ export async function challengeMePage({ scope, view }) {
 
   async function copyId() {
     try {
-      await navigator.clipboard.writeText(state.playerId);
+      await navigator.clipboard.writeText(activeCardCode());
       toast('代號已複製');
     } catch {
       toast('複製不了，請照著畫面上的代號念給工作人員', 'warn');
     }
+  }
+
+  function activeCardCode() {
+    const today = activityDate(activityTime(), state.rewards?.timeZone);
+    return state.player?.challengeRounds?.[today]?.at(-1)?.code ?? state.playerId;
+  }
+
+  async function nextCard(date, fromCode) {
+    if (state.nextCardBusy || !state.owner || !state.cardOwnerReady) return;
+    state.nextCardBusy = true; render();
+    try {
+      const result = await data.issueNextCard({ date, fromCode });
+      if (!disposed) toast(`新碼 ${result.cardCode} 已配發，開始下一輪集點`);
+    } catch (error) {
+      if (!disposed) toast(data.explain(error), 'error');
+    } finally { state.nextCardBusy = false; if (!disposed) render(); }
   }
 
   // ── 畫面 ─────────────────────────────────────────────────
@@ -163,8 +188,8 @@ export async function challengeMePage({ scope, view }) {
     return el('div', { class: 'chal__card chal__qrCard' }, [
       // ⚠️ QR 是 SVG 字串，這裡用 innerHTML 塞進去。內容是 qrSvg() 自己產生的
       //    （攤位頁網址＋代號），不含任何使用者輸入，所以不是 R-CODE-002 的情形。
-      el('div', { class: 'chal__qr', html: qrSvg(boothLink(state.playerId), { label: `我的代號 ${state.playerId}` }) }),
-      el('strong', { class: 'chal__pid', text: state.playerId }),
+      el('div', { class: 'chal__qr', html: qrSvg(boothLink(activeCardCode()), { label: `我的代號 ${activeCardCode()}` }) }),
+      el('strong', { class: 'chal__pid', text: activeCardCode() }),
       el('span', { class: 'chal__nick', text: state.player?.nickname ?? '' }),
       el('p', { class: 'chal__hint', text: '把這一頁拿給攤位工作人員，用手機相機掃就會帶入你的代號。掃不到的話，念代號給他們也可以。' }),
       el('div', { class: 'chal__row' }, [
@@ -337,7 +362,7 @@ export async function challengeMePage({ scope, view }) {
       qrCard(),
       state.rewards?.rule === DAILY_RULE
         ? dayTabs(state.rewards.dates, state.date, date => { state.date = date; render(); }) : null,
-      ...(state.rewards?.rule === DAILY_RULE ? dailyCards(state) : [progressCard(), drawCard()]),
+      ...(state.rewards?.rule === DAILY_RULE ? dailyCards({ ...state, owner: state.owner && state.cardOwnerReady, onNextCard: nextCard }) : [progressCard(), drawCard()]),
       contactCard(),
       backButton()
     );
@@ -348,4 +373,5 @@ export async function challengeMePage({ scope, view }) {
       class: 'btn chal__back', type: 'button', onClick: () => navigate('/')
     }, iconText('back', '回賽事首頁'));
   }
+  return () => { disposed = true; window.removeEventListener('online', connectionChanged); window.removeEventListener('offline', connectionChanged); };
 }

@@ -43,6 +43,7 @@ import { updateTeamNameFor } from './team-name.js';
 import { addTeamPlayersFor } from './team-player-add.js';
 import { publishManualScheduleFor } from './manual-schedule.js';
 import { updateChallengeDayFor, dailyDrawExportFor, refreshChallengeDayJob } from './challenge-days.js';
+import { issueNextChallengeCardFor } from './challenge-rounds.js';
 import { syncPublicAttempt, exportChallengeParticipantsFor } from './challenge-integrity.js';
 import { reportHomeMetricsFor } from './home-metrics.js';
 
@@ -481,6 +482,12 @@ export const issuePlayerQr = onCall(async (req) => {
   } catch (err) {
     fail('failed-precondition', err.message);
   }
+});
+export const issueNextChallengeCard = onCall(async request => {
+  if (!request.auth) fail('unauthenticated', '請先用 LINE 登入');
+  if (request.auth.token?.firebase?.sign_in_provider === 'anonymous') fail('permission-denied', '請用 LINE 登入領取新卡');
+  return ok(await issueNextChallengeCardFor({ eventId: request.data?.eventId, date: request.data?.date,
+    fromCode: request.data?.fromCode, uid: request.auth.uid }));
 });
 export const revokePlayerQr   = onCall(unimplemented('revokePlayerQr', 'M6'));
 export const verifyCheckin    = onCall(unimplemented('verifyCheckin', 'M6'));

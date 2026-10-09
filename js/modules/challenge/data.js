@@ -122,6 +122,10 @@ export async function issuePass() {
   return callFunction('issuePlayerQr', { eventId: EVENT_ID });
 }
 
+export async function issueNextCard({ date, fromCode }) {
+  return callFunction('issueNextChallengeCard', { eventId: EVENT_ID, date, fromCode });
+}
+
 /** 用 LINE 登入的人（demo 的「切換身分」是匿名登入，不算） */
 export function isLineUser(u = user()) {
   return !!u && u.isAnonymous !== true;

@@ -211,6 +211,17 @@ service cloud.firestore {
                    && v == shots[0] + shots[1] + shots[2] + shots[3] + shots[4]));
       }
 
+      function validRoundCode() {
+        let rewardsPath = /databases/$(db)/documents/config/challengeRewards;
+        let rewards = exists(rewardsPath) ? get(rewardsPath).data : {};
+        let a = request.resource.data;
+        let p = get(/databases/$(db)/documents/events/$(eventId)/players/$(a.playerId)).data;
+        let rounds = p.get('challengeRounds', {}).get(a.get('activityDate', ''), []);
+        let code = rounds.size() > 0 ? rounds[rounds.size() - 1].code : a.playerId;
+        return !p.keys().hasAny(['roundAliasOf']) && (rewards.get('roundsEnabled', false) != true
+          || a.get('roundCode', a.playerId) == code);
+      }
+
       // 同一場比賽的子紀錄沿用場地限制，不能從子集合繞過主文件守衛。
       function assignedMatch(mid) {
         let p = /databases/$(db)/documents/events/$(eventId)/matches/$(mid);
@@ -672,12 +683,13 @@ service cloud.firestore {
                       && request.resource.data.createdAt == request.time
                       && request.resource.data.keys().hasOnly(['attemptId', 'eventId', 'challengeId', 'playerId',
                         'playerNickname', 'attemptNo', 'rawValue', 'displayValue', 'detail', 'isBest', 'source',
-                        'staffUid', 'boothDeviceId', 'voided', 'voidReason', 'createdAt', 'recordedAtMs', 'activityDate', 'demoTestTime'])
+                        'staffUid', 'boothDeviceId', 'voided', 'voidReason', 'createdAt', 'recordedAtMs', 'activityDate', 'demoTestTime', 'roundCode'])
                       && request.resource.data.attemptId == attemptId
                       && request.resource.data.eventId == eventId
                       && exists(/databases/$(db)/documents/events/$(eventId)/players/$(request.resource.data.playerId))
                       && request.resource.data.isBest == false && request.resource.data.voided == false
                       && validActivityDay()
+                      && validRoundCode()
                       && validChallengeScore(request.resource.data.challengeId,
                                              request.resource.data.rawValue);
         // 攤位只能作廢自己 10 分鐘內送出的紀錄

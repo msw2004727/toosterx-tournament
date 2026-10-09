@@ -5,6 +5,8 @@ import { DAILY_RULE, dailyProgress, dailyQualification, validCompletion } from '
 import { luckyDrawRows } from './engine/csv.js';
 import { writeAudit } from './store.js';
 import { randomUUID } from 'node:crypto';
+import { roundsEnabled, roundProgress } from './engine/challenge-rounds.js';
+import { refreshRoundPlayer, loadRoundHistory } from './challenge-rounds.js';
 
 const fail = (code, message) => { throw new HttpsError(code, message); };
 const docs = snap => snap.docs.map(d => ({ ...d.data(), playerId: d.id }));
@@ -26,6 +28,12 @@ export async function updateChallengeDayFor({ eventId, challengeId, date, open, 
     const before = c.dailyOpen?.[date] === true;
     if (before !== expectedOpen) fail('aborted', '開放設定已被其他人更新，請確認最新狀態後再操作');
     if (before === open) return { date, open, changed: false };
+    if (roundsEnabled(rewards)) {
+      const cs = await tx.get(db().collection(`events/${eventId}/challenges`));
+      tx.create(db().doc(`events/${eventId}/challengeRoundHistory/${jobId}`), {
+        date, required: cs.docs.filter(d => d.data().dailyOpen?.[date] === true).map(d => d.id), changedAt: FieldValue.serverTimestamp()
+      });
+    }
     tx.update(ref, { [`dailyOpen.${date}`]: open, updatedAt: FieldValue.serverTimestamp(),
       qualificationRefresh: { status:'queued', jobId } });
     tx.create(db().doc(`events/${eventId}/challengeRefreshJobs/${jobId}`),
@@ -86,8 +94,11 @@ export async function dailyDrawExportFor({ eventId, date, actorUid }) {
     const attempts = as.docs.map(d => ({ ...d.data(), attemptId: d.id }));
     const byPlayer = new Map();
     for (const a of attempts) { if (!byPlayer.has(a.playerId)) byPlayer.set(a.playerId, []); byPlayer.get(a.playerId).push(a); }
-    const players = docs(ps).map(p => {
-      const progress = dailyProgress({ attempts: byPlayer.get(p.playerId) ?? [], challenges, date, timeZone: rewards.timeZone });
+    const history = roundsEnabled(rewards) ? await loadRoundHistory(tx, eventId) : [];
+    const players = docs(ps).filter(p => !p.roundAliasOf).map(p => {
+      const progress = roundsEnabled(rewards)
+        ? roundProgress({ player: p, playerId: p.playerId, attempts: byPlayer.get(p.playerId) ?? [], challenges, date, timeZone: rewards.timeZone, history })
+        : dailyProgress({ attempts: byPlayer.get(p.playerId) ?? [], challenges, date, timeZone: rewards.timeZone });
       return { ...p, completedChallengeIds: progress.done, luckyDrawEntries: progress.entries };
     });
     const requiredCount = challenges.filter(c => c.dailyOpen?.[date] === true).length;
@@ -98,6 +109,11 @@ export async function dailyDrawExportFor({ eventId, date, actorUid }) {
 }
 
 export async function refreshDailyPlayer(eventId, playerId, tx, challenges, rewards) {
+  if (roundsEnabled(rewards)) {
+    const player = await tx.get(db().doc(`events/${eventId}/players/${playerId}`));
+    if (!player.exists) return { completedChanged: false, entries: 0, completedCount: 0 };
+    return refreshRoundPlayer(tx, eventId, playerId, player.data(), challenges, rewards);
+  }
   const snap = await tx.get(db().collection(`events/${eventId}/attempts`).where('playerId', '==', playerId));
   const attempts = snap.docs.map(d => ({...d.data(),attemptId:d.id}));
   const qualification = dailyQualification(attempts, challenges, rewards);

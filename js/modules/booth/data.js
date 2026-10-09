@@ -49,7 +49,12 @@ export async function getChallenge(challengeId) {
 export async function getPlayer(playerId) {
   const { doc, getDoc } = sdk();
   const snap = await getDoc(doc(db(), 'events', EVENT_ID, 'players', playerId));
-  return snap.exists() ? { playerId: snap.id, ...snap.data() } : null;
+  if (!snap.exists()) return null;
+  if (snap.data().roundAliasOf) {
+    const root = await getDoc(doc(db(), 'events', EVENT_ID, 'players', snap.data().roundAliasOf));
+    return root.exists() ? { ...root.data(), playerId: root.id, scannedCode: snap.id, codeDate: snap.data().roundDate } : null;
+  }
+  return { ...snap.data(), playerId: snap.id, scannedCode: snap.id };
 }
 
 /**

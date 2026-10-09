@@ -19,6 +19,8 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { DAILY_RULE, dailyStats } from './engine/challenge-days.js';
 import { refreshDailyPlayer } from './challenge-days.js';
+import { roundsEnabled } from './engine/challenge-rounds.js';
+import { refreshRoundPlayer } from './challenge-rounds.js';
 
 import { buildStanding, standingIdOf, isStaleWrite, diffRanking } from './engine/standing.js';
 import { resolveStage, canResolve, isSlotWritable, describeTeamSource, computeFinalRanking as computeFinalRankingPure } from './engine/advancement.js';
@@ -1016,7 +1018,14 @@ export async function issueGamePassFor({ eventId, uid, displayName = null }) {
     const existing = userSnap.exists ? userSnap.data().gamePassId : null;
     if (existing) {
       const p = await tx.get(playerRef(eventId, existing));
-      if (p.exists) return { playerId: existing, nickname: p.data().nickname ?? null, created: false };
+      if (p.exists) {
+        const rewards = await loadChallengeRewards(tx);
+        if (roundsEnabled(rewards)) {
+          const challenges = await loadChallenges(eventId, tx);
+          await refreshRoundPlayer(tx, eventId, existing, p.data(), challenges, rewards);
+        }
+        return { playerId: existing, nickname: p.data().nickname ?? null, created: false };
+      }
     }
     // 交易裡的讀要全部在寫之前：先把候選代號查完再寫
     let playerId = null;

@@ -42,6 +42,7 @@ import * as data from './data.js';
 import { syncIndicator } from '../staff/sync-indicator.js';
 import { scanSupported, scanOnce } from './scan.js';
 import { DAILY_RULE, activityDate, attemptDate, isChallengeOpen } from '../../engine/challenge-days.js';
+import { roundsEnabled, recordCode } from '../../engine/challenge-rounds.js';
 import { dateLabel } from '../challenge/days.js';
 
 export async function boothPage({ scope, view, params, query }) {
@@ -55,7 +56,7 @@ export async function boothPage({ scope, view, params, query }) {
     challenges: [], challenge: null,
     rewards: null, savingDay: null,
     // 掃到／輸入的玩家
-    playerId: null, player: null, attempts: [],
+    playerId: null, player: null, attempts: [], cardCode: null,
     // 輸入中的成績
     value: null, detail: null,
     // 送出後的回饋
@@ -95,7 +96,10 @@ export async function boothPage({ scope, view, params, query }) {
 
   function dailyMode() { return state.rewards?.rule === DAILY_RULE; }
   function today() { return activityDate(activityTime(), state.rewards?.timeZone); }
-  function dayAttempts() { return dailyMode() ? state.attempts.filter(a => attemptDate(a, state.rewards.timeZone) === today()) : state.attempts; }
+  function dayAttempts() {
+    const rows = dailyMode() ? state.attempts.filter(a => attemptDate(a, state.rewards.timeZone) === today()) : state.attempts;
+    return roundsEnabled(state.rewards) ? rows.filter(a => recordCode(a, state.playerId) === (state.cardCode ?? state.playerId)) : rows;
+  }
   function canRegisterToday() {
     return !dailyMode() || (state.rewards.dates.includes(today()) && isChallengeOpen(state.challenge, today()));
   }
@@ -176,10 +180,8 @@ export async function boothPage({ scope, view, params, query }) {
       contactInput: '', contactNote: null });
     state.busy = true; render();
     try {
-      const [player, attempts] = await Promise.all([
-        data.getPlayer(pid),
-        data.getPlayerAttempts(pid, state.challenge.challengeId)
-      ]);
+      const player = await data.getPlayer(pid);
+      const attempts = player ? await data.getPlayerAttempts(player.playerId, state.challenge.challengeId) : [];
       if (!player) {
         state.busy = false;
         const make = await confirmDialog({
@@ -191,7 +193,12 @@ export async function boothPage({ scope, view, params, query }) {
         render();
         return;
       }
-      state.playerId = pid;
+      if (roundsEnabled(state.rewards)) {
+        const active = player.challengeRounds?.[today()]?.at(-1)?.code ?? player.playerId;
+        if (pid !== active || (player.codeDate && player.codeDate !== today())) throw new Error('這是舊輪或其他日期的碼，請出示今天最新一輪的碼號。');
+      }
+      state.playerId = player.playerId;
+      state.cardCode = pid;
       state.player = player;
       state.attempts = attempts;
       resetInput();
@@ -284,6 +291,7 @@ export async function boothPage({ scope, view, params, query }) {
         attemptNo: q.nextAttemptNo,
         staffUid: user()?.uid,
         source: q.source,
+        roundCode: roundsEnabled(state.rewards) ? (state.cardCode ?? state.playerId) : null,
         atMs: activityTime()
       });
       if (isActivityTimeSimulated()) payload.doc.demoTestTime = true;
