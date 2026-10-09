@@ -176,7 +176,7 @@ export async function boothPage({ scope, view, params, query }) {
     if (state.busy || !state.challenge || !can('challenge.attempt.write')) return;
     const pid = parseScannedId(raw);
     if (!pid) { toast('ID 格式不對，應該像 FEDA-0182', 'warn'); return; }
-    Object.assign(state, { playerId: null, player: null, attempts: [], value: null, detail: null, result: null,
+    Object.assign(state, { playerId: null, cardCode: null, player: null, attempts: [], value: null, detail: null, result: null,
       contactInput: '', contactNote: null });
     state.busy = true; render();
     try {
@@ -228,6 +228,7 @@ export async function boothPage({ scope, view, params, query }) {
     const nickname = pid;                       // 現場代建先用 ID 當暱稱，玩家之後可自己改
     data.createPlayer({ playerId: pid, nickname, ageBand: null }, `代建 ${pid}`);
     state.playerId = pid;
+    state.cardCode = pid;
     state.player = { playerId: pid, nickname, completedChallengeIds: [], luckyDrawEntries: 0 };
     state.attempts = [];
     resetInput();
@@ -470,7 +471,7 @@ export async function boothPage({ scope, view, params, query }) {
     return el('div', { class: 'booth__box booth__box--player' }, [
       el('div', { class: 'booth__playerTop' }, [
         el('strong', { class: 'booth__nick', text: state.player?.nickname ?? state.playerId }),
-        el('span', { class: 'booth__pid', text: state.playerId })
+        el('span', { class: 'booth__pid', text: state.cardCode ?? state.playerId })
       ]),
       el('p', { class: 'booth__note', text:
         `${q.text}${best.value != null ? `・最佳 ${formatScore(best.value, state.challenge)}` : ''}` }),

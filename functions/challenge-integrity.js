@@ -59,7 +59,7 @@ export async function exportChallengeParticipantsFor({eventId,date,scope='all',m
       for(const c of challenges)columns.push({key:`score_${c.challengeId}`,label:`${c.name} 成績`},{key:`status_${c.challengeId}`,label:`${c.name} 狀態`});
       columns.push({key:'completedCount',label:'當日完成數'},{key:'requiredCount',label:'當日必要攤位數'},{key:'entries',label:'當日抽獎資格'});
     }else columns.push(...['attemptId','challengeName','rawValue','displayValue','detail','recordedAt','createdAt','voided','voidReason','valid'].map(key=>({key,label:({attemptId:'紀錄編號',challengeName:'攤位',rawValue:'原始成績',displayValue:'顯示成績',detail:'逐球細項',recordedAt:'參與時間',createdAt:'入庫時間',voided:'已作廢',voidReason:'作廢原因',valid:'成績檢核'})[key]})));
-    if(roundsEnabled(rewards))columns.push({key:'roundCodes',label:'當日輪次碼號'});
+    if(roundsEnabled(rewards)){ columns.push({key:'roundCodes',label:'當日輪次碼號'}); if(mode==='detail')columns.push({key:'roundCode',label:'本筆集點碼號'}); }
     const rows=[];
     for(const p of players){
       const mine=attempts.filter(a=>a.playerId===p.playerId);
@@ -75,7 +75,7 @@ export async function exportChallengeParticipantsFor({eventId,date,scope='all',m
           row[`status_${c.challengeId}`]=c.dailyOpen?.[date]!==true?'當日未開放':live.length?'已參與':records.length?'無有效成績':'未參與';}
         rows.push(row);
       }else for(const a of mine){const c=challenges.find(c=>c.challengeId===a.challengeId);
-        rows.push({...shared,attemptId:a.attemptId,challengeName:c?.name??a.challengeId,rawValue:a.rawValue??'',displayValue:c?formatScore(a.rawValue,c):'',detail:JSON.stringify(a.detail??null),
+        rows.push({...shared,...(round?{roundCode:a.roundCode??p.playerId}:{}),attemptId:a.attemptId,challengeName:c?.name??a.challengeId,rawValue:a.rawValue??'',displayValue:c?formatScore(a.rawValue,c):'',detail:JSON.stringify(a.detail??null),
           recordedAt:a.recordedAtMs?new Date(a.recordedAtMs).toISOString():'',createdAt:attemptMs({...a,recordedAtMs:undefined})?new Date(attemptMs({...a,recordedAtMs:undefined})).toISOString():'',
           voided:a.voided===true?'是':'否',voidReason:a.voidReason??'',valid:validAttemptValue(a,c)?'通過':'待核對'});
       }

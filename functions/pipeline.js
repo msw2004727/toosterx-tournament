@@ -19,7 +19,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { DAILY_RULE, dailyStats } from './engine/challenge-days.js';
 import { refreshDailyPlayer } from './challenge-days.js';
-import { roundsEnabled } from './engine/challenge-rounds.js';
+import { allRoundDays, roundsEnabled } from './engine/challenge-rounds.js';
 import { refreshRoundPlayer } from './challenge-rounds.js';
 
 import { buildStanding, standingIdOf, isStaleWrite, diffRanking } from './engine/standing.js';
@@ -1037,6 +1037,12 @@ export async function issueGamePassFor({ eventId, uid, displayName = null }) {
     if (!playerId) throw new Error('配號失敗，請再試一次');
     const name = String(userSnap.data()?.displayName ?? displayName ?? '').trim() || '玩家';
     const player = newPlayerDoc({ playerId, eventId, nickname: name, ageBand: null, createdVia: 'line' });
+    const rewards = await loadChallengeRewards(tx);
+    if (roundsEnabled(rewards)) {
+      const challenges = await loadChallenges(eventId, tx);
+      Object.assign(player, allRoundDays({ player, playerId, attempts: [], challenges, rewards, nowMs: Date.now() }),
+        { luckyDrawRuleVersion: rewards.version });
+    }
     tx.set(playerRef(eventId, playerId), {
       ...player,
       createdAt: FieldValue.serverTimestamp(),

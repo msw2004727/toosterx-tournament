@@ -472,6 +472,15 @@ const MUTANTS = [
   }
 ];
 
+MUTANTS.push(...[
+  {
+    "name": "#RROUNDCODE 舊碼錯誤仍可登錄",
+    "file": "firestore.rules",
+    "from": "&& validRoundCode()",
+    "to": "&& true",
+    "testCmd": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/challenge-rounds.test.js --silent"
+  }
+]);
 module.exports = { MUTANTS };
 if (require.main === module) process.exit(runMutants({
   mutants: MUTANTS,

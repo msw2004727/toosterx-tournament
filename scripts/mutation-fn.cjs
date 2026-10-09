@@ -384,6 +384,22 @@ const MUTANTS = [
 // 所以那個守衛不是承重牆，變異也就抓不到——留一條永遠漏掉的變異
 // 只會讓整份報告失去意義，不如寫清楚為什麼沒有它。
 
+MUTANTS.push(...[
+  {
+    "name": "#FNROUNDGATE 未集滿也可領新碼",
+    "file": "functions/challenge-rounds.js",
+    "from": "if (rounds.at(-1).entries !== 1) fail",
+    "to": "if (false) fail",
+    "testCmd": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/challenge-rounds.test.js --silent"
+  },
+  {
+    "name": "#FNROUNDID 再次領卡建立額外輪次",
+    "file": "functions/challenge-rounds.js",
+    "from": "if (rounds[index + 1]) return",
+    "to": "if (false) return",
+    "testCmd": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/challenge-rounds.test.js --silent"
+  }
+]);
 module.exports = { MUTANTS };
 if (require.main === module) process.exit(runMutants({
   mutants: MUTANTS,

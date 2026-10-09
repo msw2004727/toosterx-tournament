@@ -324,6 +324,7 @@ export const onAttemptWritten = onDocumentWritten(
     // isBest 是這條管線自己寫回去的，不能拿它當重算的理由
     if (before && after
         && before.rawValue === after.rawValue
+        && before.roundCode === after.roundCode
         && before.voided === after.voided) return;
 
     const r = await onAttemptSubmitted({

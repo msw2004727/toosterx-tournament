@@ -28,6 +28,7 @@ import { savedPass } from './pass.js';
 import { DAILY_RULE } from '../../engine/challenge-days.js';
 import { dayTabs, watchActivityDay } from './days.js';
 import { dailyCards } from './daily-cards.js';
+import { roundsEnabled } from '../../engine/challenge-rounds.js';
 
 export async function challengeHomePage({ scope, view }) {
   const root = el('div', { class: 'chal' });
@@ -35,6 +36,7 @@ export async function challengeHomePage({ scope, view }) {
   mount(root, skeleton(3));
 
   const pass = savedPass();
+  let disposed = false;
 
   const state = {
     challenges: undefined,       // undefined = 還沒載入
@@ -50,9 +52,12 @@ export async function challengeHomePage({ scope, view }) {
     if (pass && data.isLineUser(u)) {
       try { const r = await data.issuePass(); state.owner = r.playerId === pass.playerId; } catch { /* 保留唯讀卡片 */ }
     }
-    render();
+    if (!disposed) render();
   }), 'auth:challenge-home');
-  const connectionChanged = () => render();
+  const connectionChanged = () => { if (navigator.onLine && pass && data.isLineUser(user()) && !state.owner) verifyOwner(); render(); };
+  async function verifyOwner() {
+    try { const r = await data.issuePass(); if (!disposed) { state.owner = r.playerId === pass.playerId; render(); } } catch { /* 重連後可再驗證 */ }
+  }
   window.addEventListener('online', connectionChanged); window.addEventListener('offline', connectionChanged);
 
   async function nextCard(date, fromCode) {
@@ -60,7 +65,7 @@ export async function challengeHomePage({ scope, view }) {
     state.nextCardBusy = true; render();
     try { await data.issueNextCard({ date, fromCode }); }
     catch (error) { state.error = error; }
-    finally { state.nextCardBusy = false; render(); }
+    finally { state.nextCardBusy = false; if (!disposed) render(); }
   }
 
   data.watchChallenges(scope, (c, metadata) => { state.challenges = c; state.challengesLoaded = c.length > 0 || !metadata.fromCache; render(); }, err => { state.error = err; state.challenges ??= []; render(); });
@@ -159,7 +164,7 @@ export async function challengeHomePage({ scope, view }) {
         el('li', { text: '用 LINE 領取挑戰卡，到各項目出示同一張 QR。' }),
         el('li', { text: '完成項目後，由現場工作人員登錄集章。中醫運動恢復站由工作人員點選「已踩點」即可完成。' }),
         el('li', { text: state.rewards?.rule === DAILY_RULE
-          ? '每天分開集章：每輪完成當日開放攤位，即取得 1 次抽獎機會。集滿後可領新碼開始下一輪；新輪需重新集點，已完成輪次資格保留。'
+          ? roundsEnabled(state.rewards) ? '每天分開集章：每輪完成當日開放攤位，即取得 1 次抽獎機會。集滿後可領新碼開始下一輪；新輪需重新集點，已完成輪次資格保留。' : '每天分開集章，完成當日開放攤位即可取得 1 次抽獎機會。'
           : '七項全部完成，才取得 1 次抽獎機會；重複挑戰不增加抽獎次數。' })
       ]),
       el('p', { class: 'chal__hint', text: '資格由伺服器確認。離線登錄會在恢復連線後更新；作廢紀錄不計入集章。' })
@@ -173,7 +178,7 @@ export async function challengeHomePage({ scope, view }) {
       el('div', { class: 'chal__hero' }, [
         el('strong', { class: 'chal__heroTitle', text: 'FEDA CUP 挑戰區' }),
         el('p', { class: 'chal__heroSub', text: state.rewards?.rule === DAILY_RULE
-          ? '完成當日開放攤位，集滿後領新碼開始下一輪' : '七項集章，全數完成才有抽獎機會' })
+          ? roundsEnabled(state.rewards) ? '完成當日開放攤位，集滿後領新碼開始下一輪' : '完成當日開放攤位，取得抽獎機會' : '七項集章，全數完成才有抽獎機會' })
       ]),
 
       meCard(),
@@ -208,5 +213,5 @@ export async function challengeHomePage({ scope, view }) {
       }, iconText('back', '回賽事首頁'))
     );
   }
-  return () => { window.removeEventListener('online', connectionChanged); window.removeEventListener('offline', connectionChanged); };
+  return () => { disposed = true; window.removeEventListener('online', connectionChanged); window.removeEventListener('offline', connectionChanged); };
 }

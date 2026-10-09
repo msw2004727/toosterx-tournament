@@ -39,6 +39,7 @@ export async function issueNextChallengeCardFor({ eventId, uid, date, fromCode, 
       tx.get(db().collection(`events/${eventId}/challenges`))]);
     const rewards = r.data();
     if (!roundsEnabled(rewards)) fail('failed-precondition', '尚未開放多輪集點');
+    if (rewards.nextCardEnabled === false) fail('failed-precondition', '新卡配發暫停，既有集點仍會保留');
     if (!rewards.dates.includes(date) || activityDate(nowMs, rewards.timeZone) !== date) fail('failed-precondition', '只能領取今天的新卡');
     const playerId = u.data()?.gamePassId;
     if (!playerId) fail('failed-precondition', '請先領取你的挑戰卡');

@@ -56,7 +56,7 @@ mirrorPublicAttempts();
 function mirrorPublicAttempts() {
   for (const [path, a] of [...store]) if (path.includes('/attempts/') && a.createdAt != null) {
     const safe = Object.fromEntries(['attemptId','eventId','playerId','challengeId','playerNickname','rawValue','displayValue',
-      'detail','isBest','voided','createdAt','recordedAtMs','activityDate','attemptNo'].filter(k=>Object.hasOwn(a,k)).map(k=>[k,a[k]]));
+      'detail','isBest','voided','createdAt','recordedAtMs','roundCode','activityDate','attemptNo'].filter(k=>Object.hasOwn(a,k)).map(k=>[k,a[k]]));
     store.set(path.replace('/attempts/','/attemptPublic/'),safe);
   }
 }
@@ -638,6 +638,19 @@ export const httpsCallable = (_fns, name) => async (payload) => {
     const divisions = [...store.entries()].filter(([p]) => p.startsWith(`events/${payload.eventId}/divisions/`)).map(([, d]) => d);
     const plan = validateTeamImport(rows, { divisions, asOf: '2026-10-09' });
     return { data: { ok: true, data: { importId: 'fake-import', teamCount: plan.teams.length, playerCount: plan.teams.reduce((n, team) => n + team.members.length, 0) } } };
+  }
+  if (name === 'issueNextChallengeCard') {
+    const u=S.currentUser, {eventId,date,fromCode}=payload;
+    if (!u || u.isAnonymous) throw new Error('請先用 LINE 登入');
+    const playerId=store.get('users/'+u.uid)?.gamePassId, path='events/'+eventId+'/players/'+playerId;
+    const p=store.get(path), rounds=structuredClone(p?.challengeRounds?.[date]??[]), index=rounds.findIndex(r=>r.code===fromCode);
+    if(index<0 || rounds[index].entries!==1)throw new Error('本輪尚未集滿');
+    if(rounds[index+1])return {data:{ok:true,data:{playerId,cardCode:rounds[index+1].code,number:rounds[index+1].number,created:false}}};
+    const number=rounds.length+1, cardCode='FEDA-'+String(9000+number).padStart(4,'0');
+    rounds.push({number,code:cardCode,entries:0,done:[],required:rounds[index].required});
+    await setDoc({path:'events/'+eventId+'/players/'+cardCode,__doc:true},{playerId:cardCode,roundAliasOf:playerId,roundDate:date});
+    await updateDoc({path,__doc:true},{challengeRounds:{...p.challengeRounds,[date]:rounds}});
+    return {data:{ok:true,data:{playerId,cardCode,number,created:true}}};
   }
   if (name === 'issuePlayerQr') {
     // 綁 LINE 帳號配發：沒登入就拒絕；有登入就配（固定 FEDA-0182，spec 可用 __FAKE_PASS_ID 換）

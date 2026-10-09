@@ -581,6 +581,20 @@ const MUTANTS = [
 
 MUTANTS.push({name:'#E60 ⭐ 管理請求回應不明卻顯示一般失敗，無法區分未確認的結果',file:'js/modules/admin/data.js',
   from:"if (['unavailable', 'deadline-exceeded', 'internal', 'unknown'].includes(code) || !err?.code)",to:'if (false)'});
+MUTANTS.push(...[
+  {
+    "name": "#EROUNDGATE 未滿輪按鈕錯誤可按",
+    "file": "js/modules/challenge/round-cards.js",
+    "from": "owner && qualified && active",
+    "to": "owner && active"
+  },
+  {
+    "name": "#EROUNDCODE 各輪碼號錯誤沿用原碼",
+    "file": "js/modules/challenge/round-cards.js",
+    "from": "text: `本輪碼號：${row.code ?? '尚未領卡'}`",
+    "to": "text: `本輪碼號：${playerId ?? '尚未領卡'}`"
+  }
+]);
 module.exports = { MUTANTS };
 if (require.main === module) {
   const contracts = require('./mutation-e2e-contracts.cjs');

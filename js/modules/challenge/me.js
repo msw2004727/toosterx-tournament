@@ -69,10 +69,14 @@ export async function challengeMePage({ scope, view }) {
   };
   let watching = null;
   let issued = false;
+  let ownerUid = null;
   let offWatch = null;
   let offAttempts = null;
   let disposed = false;
-  const connectionChanged = () => render();
+  const connectionChanged = () => {
+    if (navigator.onLine && state.owner && !state.cardOwnerReady && !issued) { issued = true; ensurePass(); }
+    render();
+  };
   window.addEventListener('online', connectionChanged);
   window.addEventListener('offline', connectionChanged);
 
@@ -81,7 +85,8 @@ export async function challengeMePage({ scope, view }) {
 
   hold(scope, onAuth(u => {
     state.authKnown = true;
-    if (!data.isLineUser(u)) { state.owner = false; state.cardOwnerReady = false; render(); return; }
+    if (!data.isLineUser(u)) { state.owner = false; state.cardOwnerReady = false; issued = false; ownerUid = null; render(); return; }
+    if (ownerUid !== u.uid) { ownerUid = u.uid; state.cardOwnerReady = false; issued = false; }
     state.owner = true;
     if (!issued) { issued = true; ensurePass(); }
     render();
@@ -158,6 +163,7 @@ export async function challengeMePage({ scope, view }) {
   }
 
   function activeCardCode() {
+    if (!roundsEnabled(state.rewards)) return state.playerId;
     const today = activityDate(activityTime(), state.rewards?.timeZone);
     return state.player?.challengeRounds?.[today]?.at(-1)?.code ?? state.playerId;
   }

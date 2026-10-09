@@ -17,7 +17,7 @@ export function roundCards({ player, playerId = player?.playerId, attempts, chal
     const qualified = !loading && !awaiting && saved?.entries === 1 && row.entries === 1;
     const active = row.code === latest.code;
     const enabled = owner && qualified && active && date === activityDate(now(), rewards.timeZone)
-      && navigator.onLine && !nextCardBusy && typeof onNextCard === 'function';
+      && rewards.nextCardEnabled !== false && navigator.onLine && !nextCardBusy && typeof onNextCard === 'function';
     return el('div', { class: 'chal__card chal__card--draw', 'data-round': row.number, 'data-code': row.code ?? '' }, [
       el('div', { class: 'chal__cardHead' }, [
         el('strong', {}, iconText('ticket', `${dateLabel(date)} 我的抽獎資格${row.number === 1 ? '' : row.number}`)),

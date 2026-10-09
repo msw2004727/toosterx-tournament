@@ -4,6 +4,8 @@ module.exports = {
     assertions:["await expect(page.locator('#st-video')).toHaveValue('https://www.twitch.tv/twitchdev');"]},
   ETWITCHPLAY: {spec:'tests/e2e/stream-shares.spec.js',grep:'TWITCH-PLAY',minTests:2,failure:'toBeVisible',
     assertions:["await expect(page.locator('.pshares__player')).toBeVisible();"]},
+ EROUNDGATE:{spec:'tests/e2e/challenge-rounds.spec.js',grep:'ROUND-UI',minTests:1,failure:'toBeDisabled',assertions:['await expect(button(page)).toBeDisabled();']},
+ EROUNDCODE:{spec:'tests/e2e/challenge-rounds.spec.js',grep:'ROUND-UI',minTests:1,failure:'toHaveText',assertions:["await expect(card(page,2).locator('.chal__roundCode')).toHaveText(`本輪碼號：${NEXT}`);"]},
   EDISCEXPAND: { spec:'tests/e2e/public-site.spec.js', grep:'DISC-DETAIL', minTests:2, failure:'toHaveCount',
     assertions:["await expect(details.locator('tbody tr')).toHaveCount(2);"] },
   EDISCTIMELINE: { spec:'tests/e2e/public-site.spec.js', grep:'DISC-DETAIL', minTests:2, failure:'toHaveCount',
