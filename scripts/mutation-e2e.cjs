@@ -93,7 +93,7 @@ const MUTANTS = [
   { name: '#ECHECKPENDING 待補球員仍無法勾選', file: 'js/modules/staff/checkin.js',
     from: 'disabled: state.busy || failed,', to: 'disabled: state.busy || failed || pending,' },
   { name: '#EDAILYCACHE 本機快取未確認就誤報當日未完成', file: 'js/modules/challenge/daily-cards.js',
-    from: '(!attemptsConfirmed && !p.allComplete)', to: 'false' },
+    from: 'const awaiting = player && !attemptsConfirmed;', to: 'const awaiting = false;' },
   { name: '#EMEMBERNAME 伺服器漏回姓名仍顯示成功', file: 'js/modules/admin/member-identity.js',
     from: 'Object.entries(fields).some(([key, value]) => result[key] !== value)', to: 'false' },
   { name: '#EMANUALFORMAT 既有賽程因核准隊數而換成另一份賽制', file: 'js/modules/admin/schedule.js',

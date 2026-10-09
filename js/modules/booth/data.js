@@ -62,7 +62,7 @@ export async function getPlayerAttempts(playerId, challengeId) {
   const { getDocs, query, where } = sdk();
   const snap = await getDocs(query(evCol('attempts'), where('playerId', '==', playerId)));
   return snap.docs
-    .map(d => ({ attemptId: d.id, ...d.data() }))
+    .map(d => ({ ...d.data(), attemptId: d.id }))
     .filter(a => a.challengeId === challengeId);
 }
 
@@ -80,7 +80,7 @@ export function watchMyRecent(scope, cb, onError, max = 20) {
   const q = query(evCol('attempts'),
     where('staffUid', '==', me), orderBy('createdAt', 'desc'), limit(max));
   const unsub = onSnapshot(q,
-    snap => cb(snap.docs.map(d => ({ attemptId: d.id, ...d.data() }))),
+    snap => cb(snap.docs.map(d => ({ ...d.data(), attemptId: d.id }))),
     err => onError?.(err));
   return hold(scope, unsub, 'booth:recent');
 }
@@ -105,15 +105,29 @@ export function watchLeaderboard(scope, challengeId, cb, onError) {
  *    Firestore 的 setDoc 永遠 pending，畫面會卡住）。
  */
 export function submitAttempt({ attemptId, doc: data }, label) {
-  const { doc, setDoc, serverTimestamp } = sdk();
+  const { doc, setDoc, getDocFromServer, serverTimestamp } = sdk();
   const ref = doc(db(), 'events', EVENT_ID, 'attempts', attemptId);
-  return track(label, () => setDoc(ref, {
+  let tries = 0;
+  const immutable = { ...data, eventId: EVENT_ID };
+  const save = () => setDoc(ref, {
     ...data,
     eventId: EVENT_ID,
     // ⚠️ 一定要 serverTimestamp：rules 的 10 分鐘作廢窗是拿這個欄位
     //    跟 request.time 比的，填本機時間會讓那道窗失效
     createdAt: serverTimestamp()
-  }), { kind: 'attempt', challengeId: data.challengeId, playerId: data.playerId });
+  });
+  return track(label, () => {
+    if (++tries === 1) return save();
+    return getDocFromServer(ref).then(snap => {
+      if (!snap.exists()) return save();
+      const existing = snap.data();
+      const derived = ['isBest', 'voided', 'voidReason', 'createdAt'];
+      if (Object.keys(immutable).some(k => !derived.includes(k) && JSON.stringify(existing[k]) !== JSON.stringify(immutable[k]))) {
+        throw Object.assign(Error('同一紀錄編號的資料不一致，請聯絡管理員核對。'), { code:'failed-precondition' });
+      }
+      return { alreadySaved:true, voided:existing.voided===true };
+    });
+  }, { kind: 'attempt', challengeId: data.challengeId, playerId: data.playerId });
 }
 
 /** 作廢一筆（只動 voided / voidReason——rules 的白名單就這兩個） */

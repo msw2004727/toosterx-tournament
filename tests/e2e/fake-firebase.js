@@ -50,6 +50,16 @@ if (typeof window !== 'undefined' && window.__FAKE_SEED && !S.seeded) {
   S.seeded = true;
   for (const [p, d] of Object.entries(window.__FAKE_SEED)) store.set(p, structuredClone(d));
 }
+mirrorPublicAttempts();
+
+// Simulates only the trigger's public whitelist. Real shape/privacy checks run against the emulator.
+function mirrorPublicAttempts() {
+  for (const [path, a] of [...store]) if (path.includes('/attempts/') && a.createdAt != null) {
+    const safe = Object.fromEntries(['attemptId','eventId','playerId','challengeId','playerNickname','rawValue','displayValue',
+      'detail','isBest','voided','createdAt','recordedAtMs','activityDate','attemptNo'].filter(k=>Object.hasOwn(a,k)).map(k=>[k,a[k]]));
+    store.set(path.replace('/attempts/','/attemptPublic/'),safe);
+  }
+}
 
 export function __seed(docs) {
   for (const [path, data] of Object.entries(docs)) store.set(path, structuredClone(data));
@@ -82,6 +92,7 @@ if (typeof window !== 'undefined') {
 }
 
 function notify() {
+  mirrorPublicAttempts();
   for (const w of [...watchers]) {
     try {
       if (w.path) w.cb(snapOf(w.path));
@@ -302,6 +313,12 @@ export function setDoc(ref, data, opts) {
   return write(ref.path, offline => {
     const next = resolveSentinels(data, offline);
     store.set(ref.path, opts?.merge ? deepMerge(store.get(ref.path) || {}, next) : next);
+  }).then(value => {
+    if (window.__FAKE_LOST_ATTEMPT_ACK && ref.path.includes('/attempts/')) {
+      window.__FAKE_LOST_ATTEMPT_ACK = false;
+      throw Object.assign(Error('Lost acknowledgement'), {code:'unavailable'});
+    }
+    return value;
   });
 }
 export function updateDoc(ref, data) {
@@ -422,6 +439,11 @@ export const httpsCallable = (_fns, name) => async (payload) => {
     store.set(path, { ...c, dailyOpen: { ...c.dailyOpen, [payload.date]: payload.open } });
     notify();
     return { data: { ok: true, data: { changed: true, date: payload.date, open: payload.open } } };
+  }
+  if (name === 'exportChallengeParticipants') {
+    const result = window.__FAKE_PARTICIPANTS_RESULT ?? { columns:[{key:'playerId',label:'卡號'}],rows:[] };
+    if (window.__FAKE_PARTICIPANTS_ERROR) throw new Error('完整名單伺服器錯誤');
+    return {data:{ok:true,data:{...result,date:payload.date}}};
   }
   if (name === 'exportDailyDraw') {
     const { dailyProgress } = await import(location.origin + '/js/engine/challenge-days.js');

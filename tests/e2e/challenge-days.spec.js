@@ -108,7 +108,8 @@ test('離線登錄完成先顯示待同步，恢復連線自動取得資格 @dai
       challengeId: 'c', playerId: pid, rawValue: 0, recordedAtMs: time, createdAt: serverTimestamp()
     });
   }, { event: EVENT, pid: PID, time: ms(dates[1]) });
-  await expect(page.locator('.chal__card--draw')).toContainText('今日集章完成，待同步確認');
+  await expect(page.locator('.chal__card--draw')).toContainText('離線資料，等待同步確認');
+  await expect(page.locator('.chal__qualification')).toHaveAttribute('data-qualified', 'false');
   await expect(page.locator('.chal__card--draw')).not.toContainText('尚未取得');
   await page.evaluate(() => window.__fake.__goOnline());
   await expect(page.locator('.chal__card--draw')).toContainText('已取得 1 次抽獎機會');
@@ -142,7 +143,7 @@ for (const route of ['/challenge', '/challenge/me']) {
     await setup(page, { complete: false });
     await page.addInitScript(() => { window.__FAKE_OFFLINE = true; });
     await page.goto(`/#${route}`);
-    await expect(page.locator('.chal__card--draw')).toContainText('正在載入當日集章紀錄');
+    await expect(page.locator('.chal__card--draw')).toContainText('離線資料，等待同步確認');
     await expect(page.locator('.chal__card--draw')).not.toContainText('尚未取得');
     await expect(page.locator('.chal__card--draw')).not.toContainText('還差');
     await page.evaluate(() => window.__fake.__goOnline());
@@ -152,11 +153,11 @@ for (const route of ['/challenge', '/challenge/me']) {
     }), { event: EVENT, pid: PID, time: ms(dates[1]) });
     await expect(page.locator('.chal__card--draw')).toContainText('已取得 1 次抽獎機會');
   });
-  test(`本機完整有效紀錄離線仍保留已完成資格：${route} @dailycache`, async ({ page }) => {
+  test(`本機完整有效紀錄離線仍保留集章並等待資格確認：${route} @dailycache`, async ({ page }) => {
     await setup(page);
     await page.addInitScript(() => { window.__FAKE_OFFLINE = true; });
     await page.goto(`/#${route}`);
-    await expect(page.locator('.chal__card--draw')).toContainText('已取得 1 次抽獎機會');
+    await expect(page.locator('.chal__card--draw')).toContainText('離線資料，等待同步確認');
     await expect(page.locator('.chal__card--draw')).not.toContainText('尚未取得');
   });
 }
