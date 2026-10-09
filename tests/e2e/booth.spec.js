@@ -236,13 +236,15 @@ test('⭐ C06 離線也送得出去，顯示待同步；恢復連線自動補送
   await page.getByRole('button', { name: '加一' }).click();
   await page.getByRole('button', { name: /送出成績/ }).click();
 
-  // 畫面立刻認帳（不 await Firestore 的 Promise，R-UI-002）
-  await expect(page.locator('.booth__box--ok')).toContainText('成績已記錄');
+  // 離線只承認排入佇列；伺服器確認以前不能顯示成功。
+  await expect(page.locator('.booth')).toContainText('已排入待同步，尚未入庫');
+  await expect(page.locator('.booth__box--ok')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => window.__fake.__pendingCount()), { timeout: 10_000 })
     .toBeGreaterThan(0);
 
   await page.evaluate(() => window.__fake.__goOnline());
   await expect.poll(() => page.evaluate(() => window.__fake.__pendingCount()), { timeout: 15_000 }).toBe(0);
+  await expect(page.locator('.booth__box--ok')).toContainText('成績已記錄');
   expect(await attemptsOf(page)).toHaveLength(1);
 });
 
@@ -259,6 +261,19 @@ test('⭐ 還在待同步時不畫作廢鈕（伺服器時間還不存在）@boo
   await expect(page.locator('.booth__recentRow')).toHaveCount(1, { timeout: 15_000 });
   await expect(page.locator('.booth__voidBtn')).toHaveCount(0);
   await expect(page.locator('.booth__voidNote')).toContainText('伺服器');
+});
+
+test('入庫確認遺失後重試核對同一紀錄，不重寫原始成績', async ({ page }) => {
+  await stub(page); await go(page); await ready(page); await lookup(page);
+  await page.evaluate(() => { window.__FAKE_LOST_ATTEMPT_ACK = true; });
+  await page.getByRole('button', { name:'加一', exact:true }).click();
+  await page.getByRole('button', { name:/送出成績/ }).click();
+  await expect(page.locator('.booth')).toContainText('儲存失敗');
+  const original = (await attemptsOf(page))[0];
+  await page.evaluate(async () => { const sync = await import('/js/core/sync.js'); await sync.retryAll(); });
+  await expect(page.locator('.booth__box--ok')).toContainText('成績已記錄');
+  const after = await attemptsOf(page); expect(after).toHaveLength(1);
+  expect(after[0]).toEqual(original);
 });
 
 test('⭐ C07 十分鐘內可以作廢自己送的那一筆 @booth', async ({ page }) => {

@@ -96,7 +96,7 @@ export function validateScore(rawValue, challenge) {
   if (n < min || n > max) {
     return { ok: false, reason: `成績要在 ${min}–${max} ${challenge.unit ?? ''}之間。` };
   }
-  if (challenge.integerOnly === true && !Number.isInteger(n)) return { ok: false, reason: '成績必須是整數。' };
+  if ((challenge.integerOnly === true || challenge.scoreType === 'count' || challenge.inputMode === 'stepper') && !Number.isInteger(n)) return { ok: false, reason: '成績必須是整數。' };
   return { ok: true, reason: '' };
 }
 
@@ -106,6 +106,18 @@ export function completesChallenge(attempt, challenge) {
   const threshold = numOf(challenge.completionMinValue);
   const value = numOf(attempt.rawValue);
   return threshold != null && value != null && value >= threshold;
+}
+
+/** Shared authoritative shape check for raw attempts, summaries and exports. */
+export function validAttemptValue(attempt, challenge) {
+  if (!validateScore(attempt?.rawValue, challenge).ok) return false;
+  if (challenge.inputMode === 'shots' || challenge.requireShotDetails === true) {
+    const shots = sumShots(attempt.detail, challenge);
+    return shots.ok && shots.total === attempt.rawValue;
+  }
+  if (challenge.inputMode === 'ladder') return validateLadder(attempt.rawValue, challenge).ok;
+  if (challenge.inputMode === 'checkin') return attempt.rawValue === 1;
+  return true;
 }
 
 /**

@@ -4,7 +4,8 @@
  * 規格：docs/06 §5、§8
  *
  * 這一端**完全免登入**。`challenges` / `players` / `leaderboards` /
- * `attempts` 的讀取在 rules 都是 `allow read: if true`，前端不假裝擋任何
+ * 玩家端只讀 `attemptPublic` 公開投影，原始 `attempts` 限啟用的工作人員讀取。
+ * 公開投影不包含工作人員 UID、裝置識別或私密聯繫方式，前端不假裝擋任何
  * 東西——邊界在規則那邊。
  *
  * ⚠️ 寫入只有一個：建立自己的 Game Pass。**不經 `sync.track()`**——
@@ -41,7 +42,7 @@ export function watchRewards(scope, cb, onError) {
 
 export function watchAttempts(scope, playerId, cb, onError) {
   const { collection, query, where, onSnapshot } = sdk();
-  return hold(scope, onSnapshot(query(collection(db(), 'events', EVENT_ID, 'attempts'), where('playerId', '==', playerId)),
+  return hold(scope, onSnapshot(query(collection(db(), 'events', EVENT_ID, 'attemptPublic'), where('playerId', '==', playerId)),
     { includeMetadataChanges: true },
     s => cb(s.docs.map(d => ({ ...d.data(), attemptId: d.id, pending: d.metadata?.hasPendingWrites === true })), { fromCache: s.metadata?.fromCache === true }),
     err => onError?.(err)), `challenge:attempts:${playerId}`);
@@ -86,7 +87,7 @@ export function watchLeaderboard(scope, challengeId, cb, onError) {
 export async function getMyBests(playerId) {
   const { collection, getDocs, query, where } = sdk();
   const snap = await getDocs(query(
-    collection(db(), 'events', EVENT_ID, 'attempts'),
+    collection(db(), 'events', EVENT_ID, 'attemptPublic'),
     where('playerId', '==', playerId),
     where('isBest', '==', true)
   ));

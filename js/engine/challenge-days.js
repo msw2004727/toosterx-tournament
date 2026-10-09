@@ -1,4 +1,4 @@
-import { attemptMs, completesChallenge, pickBest, validateScore } from './challenge.js';
+import { attemptMs, completesChallenge, pickBest, validAttemptValue } from './challenge.js';
 
 export const DAILY_RULE = 'dailyChallengesCompleted';
 
@@ -39,7 +39,7 @@ export function attemptDate(attempt, timeZone = 'Asia/Taipei') {
 }
 
 export function validCompletion(attempt, challenge) {
-  return completesChallenge(attempt, challenge) && validateScore(attempt?.rawValue, challenge).ok;
+  return completesChallenge(attempt, challenge) && validAttemptValue(attempt, challenge);
 }
 
 export function dailyProgress({ attempts = [], challenges = [], date, timeZone = 'Asia/Taipei' } = {}) {
@@ -48,7 +48,7 @@ export function dailyProgress({ attempts = [], challenges = [], date, timeZone =
   const byDay = attempts.filter(a => attemptDate(a, timeZone) === date);
   const done = open.filter(c => byDay.some(a => a.challengeId === c.challengeId && validCompletion(a, c))).map(c => c.challengeId);
   const allComplete = required.length > 0 && done.length === required.length;
-  const bests = Object.fromEntries(open.map(c => [c.challengeId, pickBest(byDay.filter(a => a.challengeId === c.challengeId), c).attempt]));
+  const bests = Object.fromEntries(open.map(c => [c.challengeId, pickBest(byDay.filter(a => a.challengeId === c.challengeId && validAttemptValue(a, c)), c).attempt]));
   return { date, required, done, missing: required.filter(id => !done.includes(id)), total: required.length, allComplete, entries: allComplete ? 1 : 0, bests };
 }
 

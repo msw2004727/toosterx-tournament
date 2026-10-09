@@ -155,7 +155,7 @@ const CHALLENGES = [
     rulesText: '從 100 cm 開始，依序挑戰各高度，完成後可挑戰下一級，紀錄成功完成的最高高度。',
     scoreType: 'height', unit: 'cm', rankingRule: 'higher', decimals: 0,
     minValue: 100, maxValue: 260, inputMode: 'ladder',
-    ladderSteps: [100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 205, 210, 215, 220] },
+    ladderSteps: [100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 205, 210, 215, 220, 225, 230, 235, 240, 245, 250, 255, 260] },
 
   { challengeId: 'g03-crossbar', order: 3, icon: 'crossbar',
     name: 'Ronaldinho 橫樑挑戰', shortName: '橫樑', boothLocation: '攤位 3',

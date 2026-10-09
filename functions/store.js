@@ -188,7 +188,7 @@ export const loadChallenge = (eventId, challengeId) =>
 export async function loadChallenges(eventId, tx = null) {
   const ref = evRef(eventId).collection('challenges');
   const snap = await (tx ? tx.get(ref) : ref.get());
-  return snap.docs.map(d => ({ challengeId: d.id, ...d.data() }));
+  return snap.docs.map(d => ({ ...d.data(), challengeId: d.id }));
 }
 
 /**
@@ -202,14 +202,14 @@ export async function loadPlayerAttempts(eventId, challengeId, playerId, tx = nu
     .where('challengeId', '==', challengeId)
     .where('playerId', '==', playerId);
   const snap = await (tx ? tx.get(query) : query.get());
-  return snap.docs.map(d => ({ attemptId: d.id, ...d.data() }));
+  return snap.docs.map(d => ({ ...d.data(), attemptId: d.id }));
 }
 
 /** 一關的全部成績（排行榜用） */
 export async function loadChallengeAttempts(eventId, challengeId, tx = null) {
   const query = evRef(eventId).collection('attempts').where('challengeId', '==', challengeId);
   const snap = await (tx ? tx.get(query) : query.get());
-  return snap.docs.map(d => ({ attemptId: d.id, ...d.data() }));
+  return snap.docs.map(d => ({ ...d.data(), attemptId: d.id }));
 }
 
 export const playerRef = (eventId, playerId) =>

@@ -57,7 +57,8 @@ test('檢錄限制場地與對戰球隊，不能替不存在的場次留紀錄',
 
 test('挑戰成績建立時間必須由伺服器決定，不能延長十分鐘作廢窗', async () => {
   const target = ref(authed(env, 'u-booth'), 'attempts', 'new');
-  const data = { challengeId: CHALLENGE, playerId: 'FEDA-0001', staffUid: 'u-booth', rawValue: 2 };
+  await asAdminSdk(env, db => setDoc(doc(db,'events',EVENT,'players','FEDA-0001'), {nickname:'測試卡'}));
+  const data = { attemptId:'new',eventId:EVENT,challengeId: CHALLENGE, playerId: 'FEDA-0001', staffUid: 'u-booth', rawValue: 2,isBest:false,voided:false };
   await assertFails(setDoc(target, { ...data, createdAt: Timestamp.fromMillis(Date.now() + 86400000) }));
   await assertFails(setDoc(target, data));
   await assertSucceeds(setDoc(target, { ...data, createdAt: serverTimestamp() }));

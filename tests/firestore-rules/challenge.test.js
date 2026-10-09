@@ -3,7 +3,7 @@
  * 對應 docs/07 §2.4 的 R13–R17、R19
  */
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc as firebaseSetDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { makeEnv, seedBaseline, authed, guest, EVENT, CHALLENGE } from './helpers.js';
 
 let env;
@@ -14,9 +14,11 @@ beforeEach(async () => { await env.clearFirestore(); await seedBaseline(env); })
 const attempt = (over = {}) => ({
   attemptId: 'a-new', eventId: EVENT, challengeId: CHALLENGE, playerId: 'FEDA-0182',
   playerNickname: '阿哲', attemptNo: 1, rawValue: 3, displayValue: '3 次',
-  isBest: true, source: 'free', staffUid: 'u-booth', boothDeviceId: 'booth-03',
+  isBest: false, source: 'free', staffUid: 'u-booth', boothDeviceId: 'booth-03',
   voided: false, voidReason: null, createdAt: serverTimestamp(), ...over
 });
+const setDoc = (ref, data, ...args) => firebaseSetDoc(ref,
+  ref.path.includes('/attempts/') ? { ...data, attemptId:ref.id } : data, ...args);
 
 const gamePass = (over = {}) => ({
   playerId: 'FEDA-0182', eventId: EVENT, nickname: '阿哲', avatarSeed: 'a7f3',
@@ -27,11 +29,15 @@ const gamePass = (over = {}) => ({
 });
 
 describe('Challenge 成績', () => {
+  // Existing normal-operation fixtures use the actual path identity.
+  beforeEach(async () => env.withSecurityRulesDisabled(ctx => firebaseSetDoc(
+    doc(ctx.firestore(), 'events', EVENT, 'players', 'FEDA-0182'), { nickname:'阿哲' })));
   test('SOP 指派同名關卡仍不可跨活動寫入', async () => {
     const other = 'other-event';
     await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'events', other, 'challenges', CHALLENGE),
       { minValue: 0, maxValue: 5 }));
     await assertFails(setDoc(doc(authed(env, 'u-booth'), 'events', other, 'attempts', 'cross-event'), attempt({ eventId: other })));
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'events', other, 'players', 'FEDA-0182'), {nickname:'阿哲'}));
     await assertSucceeds(setDoc(doc(authed(env, 'u-admin'), 'events', other, 'attempts', 'admin-event'),
       attempt({ eventId: other, staffUid: 'u-admin' })));
   });
@@ -237,6 +243,8 @@ describe('Game Pass（綁 LINE 帳號、由 Function 配發；主辦 2026-09-06 
 });
 
 describe('R126–R128 攤位端的文件形狀', () => {
+  beforeEach(async () => env.withSecurityRulesDisabled(ctx => setDoc(
+    doc(ctx.firestore(), 'events', EVENT, 'players', 'FEDA-0182'), { nickname:'阿哲' })));
   /** 跟 js/modules/booth/actions.js 的 buildAttempt() 一模一樣的欄位 */
   const boothAttempt = (over = {}) => ({
     attemptId: 'FEDA-0182__' + CHALLENGE + '__1760000000000',

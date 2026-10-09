@@ -181,7 +181,7 @@ const MUTANTS = [
     to: '&& false) return null;',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-seven.test.js --silent' },
   { name: '#S7-04 允許全倒成績為小數', file: 'js/engine/challenge.js',
-    from: 'if (challenge.integerOnly === true && !Number.isInteger(n))', to: 'if (false)',
+    from: "if ((challenge.integerOnly === true || challenge.scoreType === 'count' || challenge.inputMode === 'stepper') && !Number.isInteger(n))", to: 'if (false)',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-seven.test.js --silent' },
   { name: '#PRE1 路由重進共用監聽範圍', file: 'js/core/router.js',
     from: '|${gen}`;', to: '`;',
