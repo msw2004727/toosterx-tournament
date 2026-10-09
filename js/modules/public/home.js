@@ -354,7 +354,7 @@ export async function publicHome({ scope, view, query }) {
       const m = byId.get(node.dataset.matchId);
       if (!m || !isLiveMatch(m)) continue;
       node.querySelector('.pbadge')?.replaceWith(
-        statusBadge(m, divisionOf(m.divisionId)?.matchDurationMin ?? 30));
+        statusBadge(m, divisionOf(m.divisionId)?.matchDurationMin ?? 30, divisionOf(m.divisionId)?.periods ?? 2));
     }
   }
 

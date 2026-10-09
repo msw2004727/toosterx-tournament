@@ -130,7 +130,7 @@ export async function publicSchedule({ scope, view, query }) {
       const m = byId.get(node.dataset.matchId);
       if (!m || m.status !== 'live') continue;
       node.querySelector('.pbadge')?.replaceWith(
-        statusBadge(m, divisionOf(m.divisionId)?.matchDurationMin ?? 30));
+        statusBadge(m, divisionOf(m.divisionId)?.matchDurationMin ?? 30, divisionOf(m.divisionId)?.periods ?? 2));
     }
   }
 

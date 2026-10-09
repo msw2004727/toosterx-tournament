@@ -142,7 +142,7 @@ export async function publicMatch({ params, scope, view, query }) {
     return el('div', { class: 'psb', dataset: { status: m.status || 'scheduled' } }, [
       el('div', { class: 'psb__status' }, [
         el('span', { class: 'dot', dataset: { status: m.status || 'scheduled' }, 'aria-hidden': 'true' }),
-        el('span', { class: 'psb__statusText', id: 'pmatch-status', text: statusText(m, dur()) })
+        el('span', { class: 'psb__statusText', id: 'pmatch-status', text: statusText(m, dur(), state.division?.periods ?? 2) })
       ]),
       el('div', { class: 'psb__row' }, [
         el('span', { class: 'psb__team', text: sideLabel(m, 'home') }),

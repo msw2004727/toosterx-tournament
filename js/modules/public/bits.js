@@ -23,10 +23,10 @@ import { isLiveMatch, isPlaceholder, sideLabel } from './selectors.js';
  * 一場比賽現在該顯示什麼字。
  * 進行中顯示分鐘數（前端推算，不靠伺服器推播，docs/03 §2.3）。
  */
-export function statusText(m, matchDurationMin = 30) {
+export function statusText(m, matchDurationMin = 30, periods = 2) {
   if (m?.status === 'live') {
     const sec = elapsedSec(m.clock, now());
-    return displayMinute(sec, m.period, matchDurationMin) || STATUS_LABEL.live;
+    return displayMinute(sec, m.period, matchDurationMin, periods) || STATUS_LABEL.live;
   }
   if (m?.status === 'halftime') return '中場';
   // docs/03 §3.2 寫的是「scheduled 顯示時間」，但那份表格假設徽章是唯一
@@ -36,10 +36,10 @@ export function statusText(m, matchDurationMin = 30) {
 }
 
 /** 狀態徽章：**顏色一定伴隨文字**（docs/03 §12.5，色盲可及性） */
-export function statusBadge(m, matchDurationMin = 30) {
+export function statusBadge(m, matchDurationMin = 30, periods = 2) {
   return el('span', { class: 'pbadge', dataset: { status: m?.status || 'scheduled' } }, [
     el('span', { class: 'dot', dataset: { status: m?.status || 'scheduled' }, 'aria-hidden': 'true' }),
-    el('span', { class: 'pbadge__text', text: statusText(m, matchDurationMin) })
+    el('span', { class: 'pbadge__text', text: statusText(m, matchDurationMin, periods) })
   ]);
 }
 
@@ -53,6 +53,7 @@ export function statusBadge(m, matchDurationMin = 30) {
  */
 export function matchRow({ match: m, onOpen, division }) {
   const dur = division?.matchDurationMin ?? 30;
+  const periods = division?.periods ?? 2;
   // ⚠️ 是 display.mercyRule，不是 division.mercyRule。
   // 寫錯路徑不會噴錯，只會讓仁慈規則永遠不生效——兒童組的 12:0 就這樣照實印出來。
   const sc = scoreText(m?.score, division?.display?.mercyRule);
@@ -65,13 +66,13 @@ export function matchRow({ match: m, onOpen, division }) {
 
   const body = el('button', {
     class: 'prow__btn', type: 'button',
-    'aria-label': `${sideLabel(m, 'home')} 對 ${sideLabel(m, 'away')}，${statusText(m, dur)}`,
+    'aria-label': `${sideLabel(m, 'home')} 對 ${sideLabel(m, 'away')}，${statusText(m, dur, periods)}`,
     onClick: () => onOpen?.(m)
   }, [
     el('div', { class: 'prow__head' }, [
       el('span', { class: 'prow__time num', text: hhmm(m?.kickoffAt) }),
       el('span', { class: 'prow__meta', text: [m?.venueName || m?.venueId, m?.label].filter(Boolean).join('　·　') }),
-      statusBadge(m, dur)
+      statusBadge(m, dur, periods)
     ]),
     el('div', { class: 'prow__score' }, [
       side('home', 'home'),

@@ -247,7 +247,7 @@ export async function publicLiveWall({ scope, view }) {
     return el('section', { class: 'pwall__cell division-card', ...divisionThemeAttrs(div || m?.divisionId), dataset: { venueId: v.venueId } }, [
       el('div', { class: 'pwall__head' }, [
         el('strong', { text: v.name || v.venueId }),
-        m ? statusBadge(m, div?.matchDurationMin ?? 30) : el('span', { class: 'muted', text: '今日無場次' })
+        m ? statusBadge(m, div?.matchDurationMin ?? 30, div?.periods ?? 2) : el('span', { class: 'muted', text: '今日無場次' })
       ]),
       m ? el('button', {
         class: 'pwall__score', type: 'button',
@@ -267,7 +267,7 @@ export async function publicLiveWall({ scope, view }) {
       const m = state.matches.find(x => x.venueId === v && isLiveMatch(x));
       if (!m) continue;
       const div = state.divisions.find(d => d.divisionId === m.divisionId);
-      node.querySelector('.pbadge')?.replaceWith(statusBadge(m, div?.matchDurationMin ?? 30));
+      node.querySelector('.pbadge')?.replaceWith(statusBadge(m, div?.matchDurationMin ?? 30, div?.periods ?? 2));
     }
   }
 
