@@ -46,12 +46,14 @@ test('階段標籤是可操作按鈕，兩種標籤進入同組晉級圖，監�
       };
       const a = luminance(s.color), b = luminance(s.backgroundColor);
       const row = n.closest('tr');
+      const name = row.querySelector('.ptable__teamName').getBoundingClientRect();
+      const gap = pill.getBoundingClientRect().top - name.bottom;
       const numeric = [...row.querySelectorAll('td.num')].map(td => {
         const range = document.createRange(); range.selectNodeContents(td); return range.getBoundingClientRect().bottom;
       });
-      return { nowrap: s.whiteSpace, compact: pill.getBoundingClientRect().height <= 26, filled: s.backgroundColor !== 'rgba(0, 0, 0, 0)', contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05), within: rect.right <= innerWidth, clear: numeric.every(bottom => bottom <= rect.top) };
+      return { gap, nowrap: s.whiteSpace, compact: pill.getBoundingClientRect().height <= 26, filled: s.backgroundColor !== 'rgba(0, 0, 0, 0)', contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05), within: rect.right <= innerWidth, clear: numeric.every(bottom => bottom <= rect.top) };
     }));
-    expect(badgeChecks.every(b => b.nowrap === 'nowrap' && b.compact && b.filled && b.contrast >= 4.5 && b.within && b.clear), JSON.stringify({ theme, badgeChecks })).toBe(true);
+    expect(badgeChecks.every(b => b.gap >= 0 && b.gap <= 6 && b.nowrap === 'nowrap' && b.compact && b.filled && b.contrast >= 4.5 && b.within && b.clear), JSON.stringify({ theme, badgeChecks })).toBe(true);
     const numeric = await page.locator('.ptable td.num').evaluateAll(nodes => nodes.map(n => n.getBoundingClientRect().right));
     expect(numeric.every(right => right <= (test.info().project.name === 'chromium-desktop' ? 1280 : test.info().project.name === 'chromium-320' ? 320 : 393))).toBe(true);
   }
