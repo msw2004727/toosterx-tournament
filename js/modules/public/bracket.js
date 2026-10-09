@@ -7,6 +7,7 @@ import { dateTimeLabel, scoreText, pkText, STATUS_LABEL } from '../../lib/format
 import { pageHead, empty, matchRow, sectionCard } from './bits.js';
 import { divisionTabs } from './division-tabs.js';
 import { buildBracketModel, isWinningBracketNode } from './bracket-model.js';
+import { attachBracketGestures } from './bracket-gestures.js';
 import { watchBracketDivision, watchBracketFormats, watchBracketMatches } from './data.js';
 
 /** 三個公開監聽；不讀私人名冊、不寫比賽、不自行解算小組排名。 */
@@ -16,6 +17,7 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
   const state = { division: null, formats: null, matches: null, error: null, cached: false };
   let disposed = false;
   const observers = [];
+  let gestures = [];
   hold(scope, () => { disposed = true; observers.splice(0).forEach(o => o.disconnect()); });
   const failed = err => { state.error = err; render(); };
   watchBracketDivision(scope, divisionId, d => { state.division = d; render(); }, failed);
@@ -28,6 +30,8 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
   function render() {
     if (disposed) return;
     const scrolls = [...root.querySelectorAll('.pbracket__scroll')].map(n => n.scrollLeft);
+    const positions = gestures.map(g => g.state());
+    gestures = [];
     const focused = root.contains(document.activeElement) ? document.activeElement?.dataset?.nodeId : null;
     observers.splice(0).forEach(o => o.disconnect());
     setDivisionTheme(root, state.division || divisionId);
@@ -36,8 +40,14 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
       onBack: () => navigate('/')
     }), divisionTabs(divisionId, 'bracket'), body());
     [...root.querySelectorAll('.pbracket__scroll')].forEach((n, i) => { n.scrollLeft = scrolls[i] ?? Math.max(0, (n.scrollWidth - n.clientWidth) / 2); });
+    let crownIndex = 0;
     for (const tree of root.querySelectorAll('.pbracket__tree')) {
       const viewport = tree.closest('.pbracket__viewport');
+      if (viewport.classList.contains('pbracket__viewport--gestures')) {
+        const gesture = attachBracketGestures(viewport.querySelector('.pbracket__scroll'), tree, tree.parentElement,
+          viewport.__controls, positions[crownIndex++]);
+        gestures.push(gesture); observers.push(gesture);
+      }
       const draw = () => { drawLinks(tree); viewport.__updateHints(); };
       const observer = new ResizeObserver(draw);
       observers.push(observer); observer.observe(tree);
@@ -58,7 +68,7 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
     if (model.state !== 'ready') return empty('對戰圖整理中', '賽制資料尚未完整，請先查看賽程。');
     return el('div', { class: 'pbracket' }, [
       state.cached ? el('p', { class: 'notice notice--info', role: 'status', text: '目前顯示快取資料，連線恢復後會自動更新。' }) : null,
-      el('p', { class: 'pbracket__hint' }, [icon('move-vertical'), el('span', { text: '上下滑動查看輪次，由下往上看晉級；點選隊伍方框可查看比賽。' })]),
+      el('p', { class: 'pbracket__hint' }, [icon('move-vertical'), el('span', { text: '冠軍之路可自由拖曳、雙指縮放；預設完整顯示，點選隊伍可查看比賽。' })]),
       ...model.trees.map(tree => treeView(tree)),
       model.extra.length ? sectionCard('其他名次賽', 'trophy',
         el('ul', { class: 'plist' }, model.extra.map(entry => entry.match
@@ -104,13 +114,23 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
       })));
     }
     canvas.__edges = tree.nodes.flatMap(n => n.children.map(c => [n.id, c.id]));
-    const scroll = el('div', { class: 'pbracket__scroll', tabindex: '0', role: 'region', 'aria-label': `${tree.title}對戰圖，可左右捲動`, onScroll: () => viewport.__updateHints() }, canvas);
+    const crown = tree.title === '冠軍';
+    const shell = crown ? el('div', { class: 'pbracket__scaleSpace' }, canvas) : canvas;
+    const scroll = el('div', { class: `pbracket__scroll${crown ? ' pbracket__scroll--gestures' : ''}`, tabindex: '0', role: 'region', 'aria-label': crown ? '冠軍之路畫布，可自由拖曳與雙指縮放' : `${tree.title}對戰圖，可左右捲動`, onScroll: () => viewport.__updateHints() }, shell);
     const move = direction => scroll.scrollBy({ left: direction * scroll.clientWidth * .75,
       behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     const left = el('button', { class: 'pbracket__scrollArrow', type: 'button', 'aria-label': `${tree.title}晉級圖向左查看`, onClick: () => move(-1) }, icon('chevrons-left'));
     const right = el('button', { class: 'pbracket__scrollArrow', type: 'button', 'aria-label': `${tree.title}晉級圖向右查看`, onClick: () => move(1) }, icon('chevrons-right'));
     const guide = el('div', { class: 'pbracket__scrollGuide' }, [left, el('span', { text: '左右滑動看更多' }), right]);
-    const viewport = el('div', { class: 'pbracket__viewport' }, [guide, scroll]);
+    const controls = crown ? {
+      out: el('button', { type: 'button', class: 'pbracket__zoomButton', 'aria-label': '縮小冠軍之路', text: '−' }),
+      in: el('button', { type: 'button', class: 'pbracket__zoomButton', 'aria-label': '放大冠軍之路', text: '+' }),
+      reset: el('button', { type: 'button', class: 'pbracket__zoomButton', text: '滿版', 'aria-label': '恢復冠軍之路滿版' }),
+      label: el('span', { class: 'pbracket__zoomLabel', 'aria-label': '畫布縮放比例' })
+    } : null;
+    const toolbar = controls ? el('div', { class: 'pbracket__zoomTools', role: 'group', 'aria-label': '冠軍之路縮放控制' }, [controls.out, controls.label, controls.in, controls.reset]) : null;
+    const viewport = el('div', { class: `pbracket__viewport${crown ? ' pbracket__viewport--gestures' : ''}` }, [toolbar, guide, scroll]);
+    viewport.__controls = controls;
     viewport.__updateHints = () => {
       guide.hidden = scroll.scrollWidth <= scroll.clientWidth + 1;
       left.disabled = scroll.scrollLeft <= 1;
@@ -127,12 +147,13 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
 function drawLinks(tree) {
   if (!tree.isConnected) return;
   const rect = tree.getBoundingClientRect(), svg = tree.querySelector('.pbracket__links');
-  svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+  const scale = rect.width / tree.offsetWidth || 1;
+  svg.setAttribute('viewBox', `0 0 ${tree.offsetWidth} ${tree.offsetHeight}`);
   const nodes = new Map([...tree.querySelectorAll('[data-node-id]')].map(n => [n.dataset.nodeId, n.getBoundingClientRect()]));
   mount(svg, (tree.__edges || []).map(([parent, child]) => {
     const p = nodes.get(parent), c = nodes.get(child);
-    const px = p.left - rect.left + p.width / 2, py = p.bottom - rect.top;
-    const cx = c.left - rect.left + c.width / 2, cy = c.top - rect.top;
+    const px = (p.left - rect.left + p.width / 2) / scale, py = (p.bottom - rect.top) / scale;
+    const cx = (c.left - rect.left + c.width / 2) / scale, cy = (c.top - rect.top) / scale;
     const mid = (py + cy) / 2;
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', `M${px},${py} V${mid} H${cx} V${cy}`);

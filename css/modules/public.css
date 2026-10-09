@@ -25,6 +25,15 @@
 .pbracket__section{margin:var(--sp-4) 0 var(--sp-5)}
 .pbracket__heading{display:flex;align-items:center;gap:6px;font-size:var(--fs-md);margin:0 0 var(--sp-3)}
 .pbracket__scroll{overflow-x:auto;padding:18px 0 12px;overscroll-behavior-x:contain}
+.pbracket__zoomTools{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-bottom:6px}
+.pbracket__zoomButton{min-width:var(--tap);height:var(--tap);padding:0 10px;border:1px solid var(--control-border);border-radius:var(--r-md);background:var(--bg-card);color:var(--accent);font-weight:600}
+.pbracket__zoomButton:disabled{opacity:.4}
+.pbracket__zoomLabel{min-width:44px;text-align:center;font-size:var(--fs-xs);color:var(--text-secondary);font-variant-numeric:tabular-nums}
+.pbracket__scroll--gestures{height:min(70svh,640px);min-height:240px;padding:0;overflow:auto;touch-action:none;overscroll-behavior:contain;cursor:grab;border:1px solid var(--border);border-radius:var(--r-md)}
+.pbracket__scroll--gestures.is-dragging{cursor:grabbing}
+.pbracket__scaleSpace{position:relative;margin:0 auto}
+.pbracket__scaleSpace>.pbracket__tree{position:absolute;top:18px;left:0;transform-origin:0 0}
+.pbracket__scroll--gestures .pbracket__node{user-select:none;-webkit-user-select:none}
 .pbracket__tree{position:relative;isolation:isolate}
 .pbracket__tier{display:grid;grid-template-columns:repeat(var(--bracket-leaves),minmax(0,1fr));gap:16px;position:relative}
 .pbracket__tier+.pbracket__tier{margin-top:48px}

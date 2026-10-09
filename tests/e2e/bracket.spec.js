@@ -58,9 +58,10 @@ test('四強三層實際版面、長隊名、深淺色、點擊場次 @bracket',
 test('所有卡片等寬，左右 SVG 提示可操作且端點停用 @bracket', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await open(page, seed('F6_GROUP_TOP_SEED_BYE'));
-  const widths = await page.locator('.pbracket__node').evaluateAll(nodes => nodes.map(n => n.getBoundingClientRect().width));
+  const widths = await page.locator('.pbracket__node').evaluateAll(nodes => nodes.map(n => n.offsetWidth));
   expect(widths.every(w => Math.abs(w - 160) < 1)).toBe(true);
   const scroll = page.locator('.pbracket__scroll').first();
+  for (let i = 0; i < 5; i++) await page.getByRole('button', { name: '放大冠軍之路' }).click();
   const initial = await scroll.evaluate(n => n.scrollLeft);
   const left = page.getByRole('button', { name: '冠軍晉級圖向左查看' });
   const right = page.getByRole('button', { name: '冠軍晉級圖向右查看' });
@@ -72,6 +73,50 @@ test('所有卡片等寬，左右 SVG 提示可操作且端點停用 @bracket', 
   await scroll.evaluate(n => { n.scrollLeft = 0; n.dispatchEvent(new Event('scroll')); });
   await expect(left).toBeDisabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+test('冠軍畫布預設滿版、斜向拖曳與雙指縮放，拖曳不誤開場次 @bracketgesture', async ({ page }) => {
+  await open(page, finish(seed('F4_RR_SEMIFINAL')));
+  const scroll = page.locator('.pbracket__scroll--gestures');
+  const fit = await scroll.evaluate(n => ({ scale: Number(n.dataset.scale), width:n.clientWidth,height:n.clientHeight,sw:n.scrollWidth,sh:n.scrollHeight,touch:getComputedStyle(n).touchAction }));
+  expect(fit.sw).toBeLessThanOrEqual(fit.width+1);expect(fit.sh).toBeLessThanOrEqual(fit.height+1);expect(fit.touch).toBe('none');
+  for(let i=0;i<5;i++)await page.getByRole('button',{name:'放大冠軍之路'}).click();
+  await scroll.evaluate(n=>n.scrollIntoView({block:'center'}));
+  const box=await scroll.boundingBox();
+  const start=await scroll.evaluate(n=>({x:n.scrollLeft,y:n.scrollTop}));
+  await page.mouse.move(box.x+box.width*.6,box.y+box.height*.6);await page.mouse.down();
+  await page.mouse.move(box.x+box.width*.6-70,box.y+box.height*.6-80,{steps:8});await page.mouse.up();
+  const moved=await scroll.evaluate(n=>({x:n.scrollLeft,y:n.scrollTop}));
+  expect(moved.x).toBeGreaterThan(start.x+40);expect(moved.y).toBeGreaterThan(start.y+40);
+  await expect(page).toHaveURL(/tab=bracket$/);
+  await page.getByRole('button',{name:'恢復冠軍之路滿版'}).click();
+  await scroll.evaluate(n=>n.scrollIntoView({block:'center'}));
+  const session=await page.context().newCDPSession(page);
+  const pinchBox=await scroll.boundingBox();
+  const x=pinchBox.x+pinchBox.width/2,y=pinchBox.y+pinchBox.height/2;
+  await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:x-25,y,id:1},{x:x+25,y,id:2}]});
+  await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x-70,y:y-10,id:1},{x:x+70,y:y+10,id:2}]});
+  await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  expect(await scroll.evaluate(n=>Number(n.dataset.scale))).toBeGreaterThan(fit.scale*2);
+  await expect(page).toHaveURL(/tab=bracket$/);
+  const touchStart=await scroll.evaluate(n=>{n.scrollLeft=(n.scrollWidth-n.clientWidth)/2;n.scrollTop=(n.scrollHeight-n.clientHeight)/2;return {x:n.scrollLeft,y:n.scrollTop};});
+  await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});
+  await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x-45,y:y-50,id:1}]});
+  await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  const touchEnd=await scroll.evaluate(n=>({x:n.scrollLeft,y:n.scrollTop}));
+  expect(touchEnd.x).toBeGreaterThan(touchStart.x+20);expect(touchEnd.y).toBeGreaterThan(touchStart.y+20);
+  const wheel=await scroll.evaluate(n=>{
+    const inside=new WheelEvent('wheel',{deltaY:-20,ctrlKey:true,bubbles:true,cancelable:true});n.dispatchEvent(inside);
+    const outside=new WheelEvent('wheel',{deltaY:-20,ctrlKey:true,bubbles:true,cancelable:true});document.querySelector('.pbracket__heading').dispatchEvent(outside);
+    return {inside:inside.defaultPrevented,outside:outside.defaultPrevented};
+  });
+  expect(wheel).toEqual({inside:true,outside:false});
+  const zoom=await scroll.evaluate(n=>Number(n.dataset.scale));
+  await page.evaluate(({E,m})=>window.__fake.__seed({[`${E}/matches/F1`]:m}),{E,m:{...finish(seed())[`${E}/matches/F1`],score:{home:3,away:1}}});
+  expect(await scroll.evaluate(n=>Number(n.dataset.scale))).toBeCloseTo(zoom,6);
+  await page.getByRole('button',{name:'恢復冠軍之路滿版'}).click();
+  const restored=await scroll.evaluate(n=>({scale:Number(n.dataset.scale),left:n.scrollLeft,top:n.scrollTop}));
+  expect(restored.scale).toBeCloseTo(fit.scale,2);expect(restored.left).toBe(0);expect(restored.top).toBe(0);
+  await page.locator('.pbracket__node--root').click();await expect(page).toHaveURL(/#\/match\/F1$/);
 });
 test('直接連結、待定不填零分，切分頁回收監聽 @bracket', async ({ page }) => {
   await open(page, seed(), '/#/division/women/bracket');
