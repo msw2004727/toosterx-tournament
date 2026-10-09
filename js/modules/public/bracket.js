@@ -8,6 +8,8 @@ import { pageHead, empty, matchRow, sectionCard } from './bits.js';
 import { divisionTabs } from './division-tabs.js';
 import { buildBracketModel, isWinningBracketNode } from './bracket-model.js';
 import { attachBracketGestures } from './bracket-gestures.js';
+import { finalRankingCard } from './final-ranking.js';
+import { publishedFinalRanking } from './division-progress.js';
 import { watchBracketDivision, watchBracketFormats, watchBracketMatches } from './data.js';
 
 /** 三個公開監聽；不讀私人名冊、不寫比賽、不自行解算小組排名。 */
@@ -38,7 +40,10 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
     mount(root, pageHead(state.division?.name || divisionId, {
       sub: state.division ? `${state.division.playersOnField ?? ''}人制　·　每場 ${state.division.matchDurationMin ?? ''} 分鐘` : '',
       onBack: () => navigate('/')
-    }), divisionTabs(divisionId, 'bracket'), body());
+    }), divisionTabs(divisionId, 'bracket'),
+    publishedFinalRanking(state.division).length
+      ? el('div', { class: 'pstand' }, finalRankingCard(state.division)) : null,
+    body());
     [...root.querySelectorAll('.pbracket__scroll')].forEach((n, i) => { n.scrollLeft = scrolls[i] ?? Math.max(0, (n.scrollWidth - n.clientWidth) / 2); });
     let crownIndex = 0;
     for (const tree of root.querySelectorAll('.pbracket__tree')) {

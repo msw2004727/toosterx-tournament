@@ -29,6 +29,35 @@ async function open(page, s, route = '/#/division/women?tab=bracket') {
   await page.addInitScript(data => { window.__FAKE_SEED = data; window.__FAKE_USER = null; }, s);
   await page.goto(route); await expect(page.getByRole('tab', { name: '晉級／名次圖' })).toBeVisible();
 }
+
+test('公布最終名次後在冠軍之路上方顯示相同頒獎臺，撤回立即隱藏 @bracket', async ({page},info)=>{
+ const s=finish(seed()),path=`${E}/divisions/women`;
+ await open(page,s);
+ await expect(page.locator('.pstand-final__podium')).toHaveCount(0);
+ const ranking=[{rank:1,teamId:'t0',name:'很長的球隊名稱測試足球俱樂部'},{rank:2,teamId:'t2',name:'<img src=x onerror=alert(1)>'},{rank:3,teamId:'t1',name:'中城FC'},{rank:4,teamId:'t3',name:'山海'}];
+ const published={...s[path],finalRankingPublished:true,finalRankingStale:false,finalRanking:ranking};
+ await page.evaluate(({path,published})=>window.__fake.__seed({[path]:published}),{path,published});
+ await expect(page.locator('.pstand-final__place')).toHaveCount(3);
+ await expect(page.locator('.pstand-final__row')).toHaveCount(1);
+ await expect(page.locator('.pstand-final__team')).toHaveText([ranking[1].name,ranking[0].name,ranking[2].name,ranking[3].name]);
+ const tableMarkup=await page.locator('.pstand > .pcard').innerHTML();
+ expect(await page.locator('.pstand').evaluate(n=>n.getBoundingClientRect().bottom<=document.querySelector('.pbracket__section').getBoundingClientRect().top)).toBe(true);
+ await expect(page.locator('.pstand img')).toHaveCount(0);
+ for(const theme of ['light','dark']){
+  await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:info.outputPath(`bracket-final-${theme}.png`),fullPage:true});
+ }
+ await page.getByRole('tab',{name:'積分榜',exact:true}).click();
+ await expect(page.locator('.pstand-final__podium')).toBeVisible();
+ expect(await page.locator('.pstand > .pcard').first().innerHTML()).toBe(tableMarkup);
+ await page.getByRole('tab',{name:'晉級／名次圖'}).click();
+ await page.evaluate(({path,published})=>window.__fake.__seed({[path]:{...published,finalRankingStale:true}}),{path,published});
+ await expect(page.locator('.pstand-final__podium')).toHaveCount(0);
+ await page.evaluate(({path,published})=>window.__fake.__seed({[path]:{...published,finalRankingPublished:false}}),{path,published});
+ await expect(page.locator('.pstand-final__podium')).toHaveCount(0);
+ await expect(page.locator('.pbracket__section')).not.toHaveCount(0);
+});
 test('四強三層實際版面、長隊名、深淺色、點擊場次 @bracket', async ({ page }, testInfo) => {
   await open(page, finish(seed()));
   await expect(page.locator('.pbracket__node')).toHaveCount(7);
