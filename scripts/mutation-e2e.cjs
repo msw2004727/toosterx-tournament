@@ -19,6 +19,9 @@ const MUTANTS = [
     from:"state.streamInput = source?.provider === 'twitch' ? streamShareUrl(source) : null;", to:'state.streamInput = null;' },
   { name:'#ETWITCHPLAY 播放器仍只取 YouTube 影片 ID', file:'js/modules/public/stream-shares.js',
     from:'streamShareEmbed(row, { parent: location.hostname })', to:'streamShareEmbed(row.videoId)' },
+  {name:'#EEXPORTPREVIEW 名單預覽缺少用途與完整下載說明',file:'js/modules/admin/export.js',
+    from:'以下僅供核對用戶與完成關數，依卡號排列，並非排名；下載的 CSV 包含此範圍的全部資料。',
+    to:'用戶列表。'},
   { name:'#EDISCEXPAND 無法展開讀取明細', file:'js/modules/public/stats.js',
     from:"if (entry.open && entry.status === 'idle') loadDetails();", to:"if (false) loadDetails();" },
   { name:'#EDISCTIMELINE 明細錯用直播的 50 筆上限', file:'js/modules/public/data.js',
@@ -581,6 +584,20 @@ const MUTANTS = [
 
 MUTANTS.push({name:'#E60 ⭐ 管理請求回應不明卻顯示一般失敗，無法區分未確認的結果',file:'js/modules/admin/data.js',
   from:"if (['unavailable', 'deadline-exceeded', 'internal', 'unknown'].includes(code) || !err?.code)",to:'if (false)'});
+MUTANTS.push(...[
+  {
+    "name": "#EROUNDGATE 未滿輪按鈕錯誤可按",
+    "file": "js/modules/challenge/round-cards.js",
+    "from": "owner && qualified && active",
+    "to": "owner && active"
+  },
+  {
+    "name": "#EROUNDCODE 各輪碼號錯誤沿用原碼",
+    "file": "js/modules/challenge/round-cards.js",
+    "from": "text: `本輪碼號：${row.code ?? '尚未領卡'}`",
+    "to": "text: `本輪碼號：${playerId ?? '尚未領卡'}`"
+  }
+]);
 module.exports = { MUTANTS };
 if (require.main === module) {
   const contracts = require('./mutation-e2e-contracts.cjs');

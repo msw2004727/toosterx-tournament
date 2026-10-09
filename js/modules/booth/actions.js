@@ -114,7 +114,7 @@ export function isDuplicate(recent, next, nowMs) {
  */
 export function buildAttempt({
   challenge, playerId, playerNickname = null, rawValue, detail = null,
-  attemptNo = null, staffUid, source = 'free', boothDeviceId = null, atMs
+  attemptNo = null, staffUid, source = 'free', boothDeviceId = null, atMs, roundCode = null
 }) {
   if (!challenge?.challengeId) throw new Error('buildAttempt：缺少關卡設定');
   if (!playerId) throw new Error('buildAttempt：缺少 playerId');
@@ -138,6 +138,7 @@ export function buildAttempt({
       detail,
       isBest: false,            // 由 Function 判定（onAttemptWritten）
       source,
+      ...(roundCode ? { roundCode } : {}),
       staffUid,
       boothDeviceId,
       voided: false,

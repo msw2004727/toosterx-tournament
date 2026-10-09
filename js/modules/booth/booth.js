@@ -42,6 +42,7 @@ import * as data from './data.js';
 import { syncIndicator } from '../staff/sync-indicator.js';
 import { scanSupported, scanOnce } from './scan.js';
 import { DAILY_RULE, activityDate, attemptDate, isChallengeOpen } from '../../engine/challenge-days.js';
+import { roundsEnabled, recordCode } from '../../engine/challenge-rounds.js';
 import { dateLabel } from '../challenge/days.js';
 
 export async function boothPage({ scope, view, params, query }) {
@@ -55,7 +56,7 @@ export async function boothPage({ scope, view, params, query }) {
     challenges: [], challenge: null,
     rewards: null, savingDay: null,
     // 掃到／輸入的玩家
-    playerId: null, player: null, attempts: [],
+    playerId: null, player: null, attempts: [], cardCode: null,
     // 輸入中的成績
     value: null, detail: null,
     // 送出後的回饋
@@ -95,7 +96,10 @@ export async function boothPage({ scope, view, params, query }) {
 
   function dailyMode() { return state.rewards?.rule === DAILY_RULE; }
   function today() { return activityDate(activityTime(), state.rewards?.timeZone); }
-  function dayAttempts() { return dailyMode() ? state.attempts.filter(a => attemptDate(a, state.rewards.timeZone) === today()) : state.attempts; }
+  function dayAttempts() {
+    const rows = dailyMode() ? state.attempts.filter(a => attemptDate(a, state.rewards.timeZone) === today()) : state.attempts;
+    return roundsEnabled(state.rewards) ? rows.filter(a => recordCode(a, state.playerId) === (state.cardCode ?? state.playerId)) : rows;
+  }
   function canRegisterToday() {
     return !dailyMode() || (state.rewards.dates.includes(today()) && isChallengeOpen(state.challenge, today()));
   }
@@ -172,14 +176,12 @@ export async function boothPage({ scope, view, params, query }) {
     if (state.busy || !state.challenge || !can('challenge.attempt.write')) return;
     const pid = parseScannedId(raw);
     if (!pid) { toast('ID 格式不對，應該像 FEDA-0182', 'warn'); return; }
-    Object.assign(state, { playerId: null, player: null, attempts: [], value: null, detail: null, result: null,
+    Object.assign(state, { playerId: null, cardCode: null, player: null, attempts: [], value: null, detail: null, result: null,
       contactInput: '', contactNote: null });
     state.busy = true; render();
     try {
-      const [player, attempts] = await Promise.all([
-        data.getPlayer(pid),
-        data.getPlayerAttempts(pid, state.challenge.challengeId)
-      ]);
+      const player = await data.getPlayer(pid);
+      const attempts = player ? await data.getPlayerAttempts(player.playerId, state.challenge.challengeId) : [];
       if (!player) {
         state.busy = false;
         const make = await confirmDialog({
@@ -191,7 +193,12 @@ export async function boothPage({ scope, view, params, query }) {
         render();
         return;
       }
-      state.playerId = pid;
+      if (roundsEnabled(state.rewards)) {
+        const active = player.challengeRounds?.[today()]?.at(-1)?.code ?? player.playerId;
+        if (pid !== active || (player.codeDate && player.codeDate !== today())) throw new Error('這是舊輪或其他日期的碼，請出示今天最新一輪的碼號。');
+      }
+      state.playerId = player.playerId;
+      state.cardCode = pid;
       state.player = player;
       state.attempts = attempts;
       resetInput();
@@ -221,6 +228,7 @@ export async function boothPage({ scope, view, params, query }) {
     const nickname = pid;                       // 現場代建先用 ID 當暱稱，玩家之後可自己改
     data.createPlayer({ playerId: pid, nickname, ageBand: null }, `代建 ${pid}`);
     state.playerId = pid;
+    state.cardCode = pid;
     state.player = { playerId: pid, nickname, completedChallengeIds: [], luckyDrawEntries: 0 };
     state.attempts = [];
     resetInput();
@@ -284,6 +292,7 @@ export async function boothPage({ scope, view, params, query }) {
         attemptNo: q.nextAttemptNo,
         staffUid: user()?.uid,
         source: q.source,
+        roundCode: roundsEnabled(state.rewards) ? (state.cardCode ?? state.playerId) : null,
         atMs: activityTime()
       });
       if (isActivityTimeSimulated()) payload.doc.demoTestTime = true;
@@ -462,7 +471,7 @@ export async function boothPage({ scope, view, params, query }) {
     return el('div', { class: 'booth__box booth__box--player' }, [
       el('div', { class: 'booth__playerTop' }, [
         el('strong', { class: 'booth__nick', text: state.player?.nickname ?? state.playerId }),
-        el('span', { class: 'booth__pid', text: state.playerId })
+        el('span', { class: 'booth__pid', text: state.cardCode ?? state.playerId })
       ]),
       el('p', { class: 'booth__note', text:
         `${q.text}${best.value != null ? `・最佳 ${formatScore(best.value, state.challenge)}` : ''}` }),

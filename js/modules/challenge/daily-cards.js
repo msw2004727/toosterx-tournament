@@ -4,9 +4,14 @@ import { dailyProgress, isChallengeOpen, selectedActivityDate } from '../../engi
 import { activityTime as now } from '../../core/activity-clock.js';
 import { formatScore } from '../../engine/challenge.js';
 import { dateLabel } from './days.js';
+import { roundsEnabled } from '../../engine/challenge-rounds.js';
+import { roundCards } from './round-cards.js';
 
-export function dailyCards({ attempts, challenges, rewards, date, player = null, challengesLoaded = true, attemptsConfirmed = true }) {
+export function dailyCards(state) {
+  const { attempts, challenges, rewards, player = null, challengesLoaded = true, attemptsConfirmed = true } = state;
+  let { date } = state;
   date ??= selectedActivityDate(now(), rewards.dates, rewards.timeZone);
+  if (roundsEnabled(rewards)) return roundCards({ ...state, date });
   const p = dailyProgress({ attempts: attempts ?? [], challenges, date, timeZone: rewards.timeZone });
   const settled = dailyProgress({ attempts: (attempts ?? []).filter(a => !a.pending), challenges, date, timeZone: rewards.timeZone });
   const loading = !challengesLoaded || (player && attempts == null);

@@ -2235,6 +2235,29 @@ const MUTANTS = [
   }
 ];
 
+MUTANTS.push(...[
+  {
+    "name": "#ROUNDKEEP 重開攤位抹掉已滿輪快照",
+    "file": "js/engine/challenge-rounds.js",
+    "from": "let lockedRequired = row.lockedRequired;",
+    "to": "let lockedRequired = null;",
+    "testCmd": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-rounds.test.js --silent"
+  },
+  {
+    "name": "#ROUNDOWN 新輪錯誤沿用所有舊輪集點",
+    "file": "js/engine/challenge-rounds.js",
+    "from": "const records = mine.filter(a => recordCode(a, playerId) === row.code);",
+    "to": "const records = mine;",
+    "testCmd": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-rounds.test.js --silent"
+  },
+  {
+    "name": "#ROUNDHISTORY 延遲trigger遺失開攤前完成資格",
+    "file": "js/engine/challenge-rounds.js",
+    "from": "if (calculate(period.required, before).allComplete)",
+    "to": "if (false)",
+    "testCmd": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge-rounds.test.js --silent"
+  }
+]);
 module.exports = { MUTANTS };
 if (require.main === module) process.exit(runMutants({
   mutants: MUTANTS,
