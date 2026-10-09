@@ -38,7 +38,11 @@
 .chal__roundActions .btn { white-space: normal; }
 .chal__stamps { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .chal__stamp { display: flex; align-items: center; justify-content: center; aspect-ratio: 1;
+  position: relative; overflow: hidden; isolation: isolate;
   border: 1px dashed var(--border); border-radius: 50%; color: var(--text-secondary); font-weight: 700; }
+.chal__stampNumber { position: absolute; right: .08em; bottom: -.15em; font-size: 2em; line-height: 1; font-weight: 800; opacity: .16; pointer-events: none; }
+.chal__stampIcon { display: flex; position: relative; font-size: 1.3em; transform: translateY(-.1em); }
+.chal__stampCheck { display: flex; align-items: center; justify-content: center; position: absolute; top: 15%; right: 15%; font-size: .65em; width: 1.15em; height: 1.15em; border-radius: 50%; background: var(--success); color: var(--bg-card); }
 .chal__stamp[data-done="true"] { background: var(--ok-bg); border: 1px solid var(--success); color: var(--success); }
 .chal__qualification { display: flex; flex-direction: column; gap: var(--sp-2); }
 .chal__qualification[data-qualified="true"] { color: var(--success); }
