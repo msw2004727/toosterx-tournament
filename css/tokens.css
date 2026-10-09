@@ -34,6 +34,10 @@
   /* 首頁統計在兩種主題都採淺底深字。 */
   --home-metrics-bg:#EAF4EE;
   --home-metrics-text:#105B3B;
+  --home-hero-bg:#E7EFF7;
+  --home-hero-text:#19374A;
+  --home-hero-art-opacity:.64;
+  --home-hero-fog:rgba(231,239,247,.26);
 }
 
 /* ── 淺色（預設）─────────────────────────────────────
@@ -111,6 +115,10 @@
 /* ── 深色 ───────────────────────────────────────────── */
 :root[data-theme="dark"]{
   color-scheme:dark;
+  --home-hero-bg:#142A3C;
+  --home-hero-text:#ECF5FF;
+  --home-hero-art-opacity:.32;
+  --home-hero-fog:rgba(20,42,60,.25);
 
   --bg-root:#0C1210;
   --bg-card:#151D1A;

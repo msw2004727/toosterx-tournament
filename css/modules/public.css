@@ -50,9 +50,11 @@ button.pbracket__node.is-winner:hover{background:linear-gradient(color-mix(in sr
 .pbracket>.pcard{margin:var(--sp-3) 0}
 .pbracket__missing{padding:var(--sp-3);font-size:var(--fs-sm);color:var(--text-secondary)}
 
-/* 首頁 A：墨綠品牌主視覺、快捷入口、分層比分卡。資料仍由原公開查詢提供。 */
+/* 首頁：冰藍薄霧吉祥物主視覺、快捷入口、分層比分卡。 */
 .p-home{padding:var(--sp-4) var(--sp-3) var(--sp-6)}
-.p-homeHero{position:relative;overflow:hidden;padding:10px 18px;border-radius:18px;background:var(--primary);color:var(--text-on-accent);margin-bottom:var(--sp-3);text-align:center}
+.p-homeHero{position:relative;isolation:isolate;overflow:hidden;min-height:225px;padding:10px 18px;border-radius:18px;background:var(--home-hero-bg);color:var(--home-hero-text);margin-bottom:var(--sp-3);text-align:center}
+.p-homeHero::before{content:"";position:absolute;z-index:-2;inset:18px 0 auto;width:100%;aspect-ratio:1874/839;background:url('/img/home/feda-mascots-soft-blue.webp') center/contain no-repeat;opacity:var(--home-hero-art-opacity);mask-image:linear-gradient(to bottom,transparent,#000 16%,#000 72%,transparent);pointer-events:none}
+.p-homeHero::after{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(90deg,transparent 15%,var(--home-hero-fog) 38%,var(--home-hero-fog) 62%,transparent 85%),linear-gradient(0deg,var(--home-hero-bg),transparent 56%);pointer-events:none}
 .p-homeHero__brand{display:inline-grid;grid-template-columns:minmax(0,max-content);max-width:100%}
 .p-homeHero__eyebrow{font-size:var(--fs-xs);letter-spacing:.12em;font-weight:600;margin:4px 0 0;opacity:.85}
 .p-homeHero__title{font-size:38px;line-height:1.2;letter-spacing:.12em;padding-inline-start:.12em;margin:4px 0}
