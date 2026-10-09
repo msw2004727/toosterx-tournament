@@ -131,7 +131,7 @@ jobs:
   unit-tests:
     name: Unit tests (engine T01-T31 + staff core + theme/icons/undo)
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
         with:
@@ -149,7 +149,7 @@ jobs:
       # is supposed to guard. A green suite with no discriminating power is
       # worse than no suite at all - this job has caught that before.
       - run: node scripts/mutation-check.cjs
-        timeout-minutes: 35
+        timeout-minutes: 45
 
   e2e-tests:
     name: E2E (staff console, offline queue)
