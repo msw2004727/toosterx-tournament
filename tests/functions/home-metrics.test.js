@@ -8,7 +8,7 @@ const base = () => db().doc(`events/${EVENT}`);
 const request = over => ({ data: { eventId: EVENT, visitorId: a, visitId: b, visible: true, sequence: 1, ...over } });
 let clock;
 beforeEach(async () => {
-  if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8189') throw Error('Isolated emulator required');
+  if (!/^(127\.0\.0\.1|localhost):\d+$/.test(process.env.FIRESTORE_EMULATOR_HOST ?? '')) throw Error('Local emulator required');
   await db().recursiveDelete(base());
   await base().collection('homeMetrics').doc('settings').set({ shareStartedAtMs: START });
   clock = jest.spyOn(Date, 'now').mockReturnValue(START);
