@@ -1,10 +1,19 @@
 import fs from 'node:fs';
-import { buildBracketModel } from '../../js/modules/public/bracket-model.js';
+import { buildBracketModel, isBracketMatch } from '../../js/modules/public/bracket-model.js';
 import { FORMATS } from '../../js/engine/formats.js';
 
 const formats = JSON.parse(fs.readFileSync(new URL('../fixtures/bracket-formats.json', import.meta.url), 'utf8'));
 const division = { divisionId: 'test', groupNames: { A: '甲組', B: '乙組' } };
 const format = formats.F4_RR_SEMIFINAL;
+test('卡片入口只依賽制淘汰槽位，不依名稱或固定 stageId', () => {
+  const f = { stages: [{ type: 'knockout', stageId: 'custom', slots: [{ matchKey: 'X' }] },
+    { type: 'roundRobin', stageId: 'group', slots: [{ matchKey: 'G' }] }] };
+  expect(isBracketMatch(f, { stageId: 'custom', matchKey: 'X', label: '場次一' })).toBe(true);
+  expect(isBracketMatch(f, { stageId: 'group', matchKey: 'G', label: '淘汰賽' })).toBe(false);
+  expect(isBracketMatch(f, { stageId: 'custom', matchKey: 'missing' })).toBe(false);
+  expect(isBracketMatch(f, { stageId: 'other', matchKey: 'X' })).toBe(false);
+  expect(isBracketMatch(null, { stageId: 'custom', matchKey: 'X' })).toBe(false);
+});
 const matchesFor = f => f.stages.flatMap(s => (s.slots || []).map(slot => ({
   matchId: slot.matchKey, matchKey: slot.matchKey, divisionId: 'test', stageId: s.stageId,
   label: slot.label, status: 'scheduled', home: {}, away: {}, score: { home: 0, away: 0 }

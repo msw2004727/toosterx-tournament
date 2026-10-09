@@ -10,6 +10,9 @@ const { runMutants } = require('./lib/mutate.cjs');
 
 // PWA installation placement: EPWAPOSITION in mutation-e2e.cjs validates the rendered header.
 const MUTANTS = [
+  { name:'#BRACKET-LINK 循環賽被誤判為淘汰入口', file:'js/modules/public/bracket-model.js',
+    from:"stage?.type === 'knockout'", to:"stage?.type !== 'knockout'",
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/bracket.test.js --silent' },
   { name:'#BRACKET-DUP 重複場次任選一場', file:'js/modules/public/bracket-model.js',
     from:'if (found.length > 1) invalid = true;', to:'if (false) invalid = true;',
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/bracket.test.js --silent' },

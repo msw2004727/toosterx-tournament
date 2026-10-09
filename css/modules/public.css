@@ -147,6 +147,12 @@ button.pbracket__node:hover{background:var(--control-hover);border-color:var(--c
 /* 積分榜的進度說明（尚未開賽／進行中） */
 .pstand__phase{margin:0 0 var(--sp-2)}
 .prow{display:flex;align-items:stretch;gap:var(--sp-2);border-top:1px solid var(--border)}
+.prow.prow--bracket{flex-direction:column;gap:0}
+.prow.division-card.prow--bracket{padding-inline:var(--sp-2)}
+.prow__bracketActions{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:4px;padding-bottom:8px}
+.prow__bracketActions>.division-badge{align-self:center;min-width:0;white-space:normal;overflow-wrap:anywhere;margin-top:0}
+.prow__bracketLink{grid-column:2;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:var(--tap);padding:6px 10px;border:1px solid var(--control-border);border-radius:var(--control-radius);background:var(--control-bg);color:var(--division-color,var(--text-primary));font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
+.prow__bracketLink:hover{background:var(--control-hover);border-color:var(--control-selected-border)}
 .prow:first-child{border-top:0}
 /* 未定隊伍（排名階段還沒解算）：虛線框 ＋ 斜體，一眼看得出「還不確定」 */
 .prow.is-placeholder .prow__team{font-style:italic;color:var(--text-muted)}

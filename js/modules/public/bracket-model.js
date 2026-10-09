@@ -2,6 +2,13 @@
 import { groupNameOf } from '../../engine/group-name.js';
 import { isDoneMatch } from './selectors.js';
 
+/** 卡片入口只認設定中的淘汰槽位，不依中文名稱或 stageId 慣例猜測。 */
+export function isBracketMatch(format, match) {
+  return !!match?.matchKey && Array.isArray(format?.stages) && format.stages.some(stage =>
+    stage?.type === 'knockout' && stage.stageId === match.stageId && Array.isArray(stage.slots)
+    && stage.slots.some(slot => slot?.matchKey === match.matchKey));
+}
+
 export function buildBracketModel(format, matches, division) {
   if (!Array.isArray(format?.stages)) return { state: 'missing', trees: [], extra: [] };
   const slots = new Map();

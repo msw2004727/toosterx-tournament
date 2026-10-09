@@ -170,6 +170,19 @@ async function cached(key, loader, ms = CACHE_MS) {
   return cachePut(key, await loader());
 }
 
+let bracketFormatsPending = null;
+/** 一頁多張卡共用同一次請求；讀不到設定不影響原本比賽資訊。 */
+export async function getBracketFormats() {
+  if (bracketFormatsPending) return bracketFormatsPending;
+  bracketFormatsPending = cached('pub:bracket-formats', async () => {
+    const { doc, getDoc } = sdk();
+    const snap = await getDoc(doc(db(), 'config', 'formats'));
+    return snap.exists() ? snap.data().formats || {} : {};
+  }, DIVISION_CACHE_MS);
+  try { return await bracketFormatsPending; }
+  finally { bracketFormatsPending = null; }
+}
+
 export function getDivisions() {
   return cached('pub:divisions', async () => {
     const { getDocs, query, orderBy } = sdk();
