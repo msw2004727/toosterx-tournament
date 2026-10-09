@@ -25,6 +25,7 @@ import { viewStanding, sortStandings, sortByKickoff, stageLabel } from './select
 import { pageHead, empty, matchRow, sectionCard } from './bits.js';
 import { DIVISION_TABS, divisionTabs } from './division-tabs.js';
 import { publicBracket } from './bracket.js';
+import { advancementLabels, publishedFinalRanking, finalRankLabel } from './division-progress.js';
 
 const TABS = DIVISION_TABS;
 
@@ -46,14 +47,15 @@ export async function publicDivision({ params, scope, view, query }) {
   hold(scope, () => { disposed = true; nameObserver?.disconnect(); });
 
   const state = {
-    division: null, standings: [], matches: [], teams: [], teamsLoaded: false, teamsError: null,
+    division: null, formats: {}, standings: [], matches: [], teams: [], teamsLoaded: false, teamsError: null,
     tab: TABS.some(t => t.key === query?.get('tab')) ? query.get('tab') : 'table',
     loaded: false, error: null
   };
 
-  data.getDivision(divisionId)
-    .then(d => { state.division = d; render(); })
-    .catch(() => {});
+  // 與積分榜／球隊合計三個監聽；發布或撤回名次時即時更新，離頁由 scope 回收。
+  data.watchBracketDivision(scope, divisionId, d => { state.division = d; render(); },
+    () => { state.division = null; render(); });
+  data.getBracketFormats().then(formats => { state.formats = formats; render(); }).catch(() => {});
 
   data.watchStandings(scope, divisionId, docs => {
     state.standings = sortStandings(docs);
@@ -106,10 +108,13 @@ export async function publicDivision({ params, scope, view, query }) {
 
   function tableTab() {
     if (!state.standings.length) {
-      return empty('積分榜整理中', '每一場完賽送出後會自動更新，通常在幾秒內。');
+      return el('div', { class: 'pstand' }, [empty('積分榜整理中', '每一場完賽送出後會自動更新，通常在幾秒內。'), finalRankingBlock()]);
     }
-    return el('div', { class: 'pstand' },
-      state.standings.map(doc => standingBlock(viewStanding(doc, { qualifyCount: qualifyCount() }))));
+    const progress = advancementLabels(state.formats[state.division?.formatId], state.division, state.standings);
+    return el('div', { class: 'pstand' }, [
+      ...state.standings.map(doc => standingBlock(viewStanding(doc, { qualifyCount: qualifyCount() }), progress)),
+      finalRankingBlock()
+    ]);
   }
 
   /** 前幾名晉級。standingBlock 也要用，所以拉成函式而不是 tableTab 的區域變數。 */
@@ -123,7 +128,7 @@ export async function publicDivision({ params, scope, view, query }) {
     return el('th', { class: align === 'left' ? 'is-left' : '', scope: 'col', text: label });
   }
 
-  function standingBlock(v) {
+  function standingBlock(v, progress) {
     const title = [stageLabel(v.stageId), v.groupId ? groupNameOf(v.groupId, state.division, ' ') : null].filter(Boolean).join('　');
     return sectionCard(title || '積分榜', 'table', [
       // 進度說明：一場都沒打就寫「尚未開賽」、打到一半寫「暫時排名」，
@@ -151,18 +156,23 @@ export async function publicDivision({ params, scope, view, query }) {
               th('名次'), th('球隊', 'left'), th('賽'), th('勝'), th('和'), th('負'),
               th('進'), th('失'), th('差'), th('積分')
             ])),
-            el('tbody', {}, v.rows.map(r => el('tr', {
-              class: `${r.qualified ? 'is-qualified' : ''} ${r.unresolved ? 'is-unresolved' : ''}`
+            el('tbody', {}, v.rows.map(r => { const advancement = progress.get(`${v.stageId}:${v.groupId}:${r.teamId}`); return el('tr', {
+              class: `${r.qualified ? 'is-qualified' : ''} ${r.unresolved ? 'is-unresolved' : ''} ${advancement ? advancement.bye ? 'pstand__row--bye' : 'pstand__row--advance' : ''}`
             }, [
               el('td', { class: 'num', text: r.unresolved ? '—' : String(r.rank ?? '') }),
-              el('td', { class: 'is-left' }, el('div', {
+              el('td', { class: 'is-left' }, [el('div', {
                 class: 'ptable__nameScroll', role: 'region',
                 'aria-label': `球隊名稱：${r.name || r.teamId || ''}，可左右滑動`,
                 onScroll: e => updateNameFade(e.currentTarget)
               }, el('button', {
                 class: 'ptable__team', type: 'button', title: r.name || r.teamId || '',
                 onClick: () => r.teamId && navigate(`/team/${encodeURIComponent(r.teamId)}`)
-              }, el('span', { class: 'ptable__teamName', text: r.name || r.teamId || '' })))),
+              }, el('span', { class: 'ptable__teamName', text: r.name || r.teamId || '' }))),
+              advancement ? el('button', {
+                class: `pstand__advance${advancement.bye ? ' pstand__advance--bye' : ''}`, type: 'button',
+                'aria-label': `${r.name || r.teamId}，${advancement.label}，查看晉級／名次圖`,
+                onClick: () => navigate(`/division/${encodeURIComponent(divisionId)}?tab=bracket`)
+              }, [icon(advancement.bye ? 'up' : 'check'), el('span', { text: advancement.label })]) : null]),
               el('td', { class: 'num', text: String(r.played) }),
               el('td', { class: 'num', text: String(r.win) }),
               el('td', { class: 'num', text: String(r.draw) }),
@@ -171,7 +181,7 @@ export async function publicDivision({ params, scope, view, query }) {
               el('td', { class: 'num', text: String(r.goalsAgainst) }),
               el('td', { class: 'num', text: r.goalDiff > 0 ? `+${r.goalDiff}` : String(r.goalDiff) }),
               el('td', { class: 'num ptable__pts', text: String(r.points) })
-            ])))
+            ]); }))
           ])),
       // 只有隊名欄捲動；所有成績欄始終留在畫面內。
       !v.isEmpty
@@ -187,6 +197,32 @@ export async function publicDivision({ params, scope, view, query }) {
           ].filter(Boolean))
         : null
     ].filter(Boolean));
+  }
+
+  function finalRankingBlock() {
+    const ranking = publishedFinalRanking(state.division);
+    const nameOf = row => {
+      const team = state.teams.find(t => t.teamId === row.teamId);
+      return team?.shortName || team?.name || row.name || row.teamId;
+    };
+    const teamButton = row => el('button', {
+      class: 'pstand-final__team', type: 'button', text: nameOf(row),
+      onClick: () => navigate(`/team/${encodeURIComponent(row.teamId)}`)
+    });
+    return sectionCard('最終名次', 'trophy', ranking.length ? [
+      el('div', { class: 'pstand-final__podium', 'aria-label': '前三名' }, [2, 1, 3].map(rank => {
+        const row = ranking.find(r => r.rank === rank);
+        if (!row) return null;
+        return el('div', { class: `pstand-final__place pstand-final__place--${rank}` }, [
+          teamButton(row),
+          el('div', { class: 'pstand-final__base' }, [icon(rank === 1 ? 'trophy' : 'medal'),
+            el('span', { text: finalRankLabel(rank) })])
+        ]);
+      })),
+      ranking.some(r => r.rank > 3) ? el('ol', { class: 'pstand-final__list', start: 4 }, ranking.filter(r => r.rank > 3).map(row =>
+        el('li', { class: 'pstand-final__row' }, [el('span', { class: 'pstand-final__rank', text: finalRankLabel(row.rank) }), teamButton(row)]))) : null,
+      el('p', { class: 'pstand__legend', text: '主辦已發布正式最終名次' })
+    ] : el('p', { class: 'pstand-final__pending', text: '最終名次尚未公布，主辦發布後會顯示於此。' }));
   }
 
 

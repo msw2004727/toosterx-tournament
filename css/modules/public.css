@@ -360,6 +360,26 @@ button.ptable__team{
 }
 button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-color:var(--accent)}
 .ptable__pts{font-weight:700}
+/* 階段分層：只有隊名捲動；標籤在窄螢幕換行，所有成績欄保持固定。 */
+.pstand__advance{display:flex;align-items:center;gap:4px;width:max-content;max-width:100%;min-height:var(--tap);padding:3px;border:0;background:transparent;color:var(--success);font:inherit;font-size:var(--fs-xs);white-space:normal;text-align:left;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.pstand__advance span{min-width:0;overflow-wrap:anywhere}
+.pstand__advance .icon{flex:none}
+.pstand__advance--bye{color:var(--accent)}
+.pstand__advance:hover{background:var(--control-hover)}
+.pstand__row--advance td:first-child{box-shadow:inset 3px 0 0 var(--success)}
+.pstand__row--bye td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.pstand-final__podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:8px;margin:var(--sp-2) 0 var(--sp-3)}
+.pstand-final__place{min-width:0;text-align:center}
+.pstand-final__team{display:block;max-width:100%;min-height:var(--tap);margin:auto;padding:6px 3px;border:0;background:none;color:var(--accent);font:inherit;font-size:var(--fs-sm);font-weight:700;overflow-wrap:anywhere;white-space:normal;text-align:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.pstand-final__base{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:84px;padding:10px 4px;border-radius:var(--r-md) var(--r-md) 0 0;background:var(--accent-bg);color:var(--accent);font-size:var(--fs-xs);font-weight:600}
+.pstand-final__base .icon{width:24px;height:24px}
+.pstand-final__place--2 .pstand-final__base{min-height:66px;background:var(--bg-elevated);color:var(--text-secondary)}
+.pstand-final__place--3 .pstand-final__base{min-height:52px;background:var(--warn-bg);color:var(--warn-text)}
+.pstand-final__list{list-style:none;padding:0;margin:0}
+.pstand-final__row{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--border)}
+.pstand-final__row .pstand-final__team{margin:0;text-align:left;min-width:0}
+.pstand-final__rank{flex:none;padding:5px 8px;border-radius:var(--r-sm);background:var(--bg-elevated);color:var(--text-secondary);font-size:var(--fs-xs)}
+.pstand-final__pending{font-size:var(--fs-sm);color:var(--text-secondary);margin:var(--sp-3) 0}
 @media(max-width:479px){
   .ptable th,.ptable td{font-size:12px}
   .ptable thead th{font-size:11px}
