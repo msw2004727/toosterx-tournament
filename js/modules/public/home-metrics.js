@@ -21,9 +21,7 @@ export function homeMetrics() {
     el('dl', { class: 'p-homeMetrics__stats' }, [['online', '即時在線'], ['views', '累計瀏覽'], ['shares', '分享數']].map(([name, label]) => {
       values[name] = el('dd', { text: '—', 'data-metric': name });
       return el('div', { class: 'p-homeMetrics__stat' }, [el('dt', { text: label }), values[name]]);
-    })),
-    el('small', { class: 'p-homeMetrics__note', text: '含活動加成',
-      title: '在線與瀏覽為實際統計 +33；分享為活動展示數，33 起每 10 分鐘 +6，至台灣時間 10/12 00:00 停止。' })
+    }))
   ]);
 
   function paint() {

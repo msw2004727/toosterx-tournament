@@ -16,11 +16,11 @@ async function setup(page, { theme = 'light', error = false, time = start } = {}
   await page.goto('/');
 }
 const metrics = page => page.locator('.p-homeMetrics');
-test('right-bottom actual online and cumulative views +33, with campaign shares disclosed', async ({ page }) => {
+test('centered actual online and cumulative views +33, with details available in tooltips', async ({ page }) => {
   await setup(page);
   await expect(metrics(page).locator('dt')).toHaveText(['即時在線','累計瀏覽','分享數']);
   await expect(metrics(page).locator('dd')).toHaveText(['45','378','33']);
-  await expect(metrics(page)).toContainText('含活動加成');
+  await expect(metrics(page)).not.toContainText('含活動加成');
   await expect(metrics(page).locator('[data-metric="shares"]')).toHaveAttribute('title', /非實際社群分享次數/);
   const calls = await page.evaluate(() => window.__FAKE_METRICS_CALLS);
   expect(calls[0]).toMatchObject({ eventId: 'feda-cup-2026', visible: true, sequence: 1 });
@@ -67,20 +67,26 @@ test('route cleanup stops heartbeats and reports departure, leaving other routes
   await page.clock.runFor(60001); expect(await page.evaluate(() => window.__FAKE_METRICS_CALLS.length)).toBe(count);
 });
 for (const theme of ['light', 'dark']) for (const width of [320, 480, 739, 1280]) {
-  test(`hero counters fit lower right without covering titles at ${width}px ${theme}`, async ({ page }, info) => {
+  test(`hero counters centered below venue with light background at ${width}px ${theme}`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 }); await setup(page, { theme });
     await expect(metrics(page)).toHaveAttribute('data-state', 'ready');
     const boxes = await page.evaluate(() => {
       const hero = document.querySelector('.p-homeHero').getBoundingClientRect();
       const metric = document.querySelector('.p-homeMetrics').getBoundingClientRect();
+      const venue = document.querySelector('.p-homeHero__meta').getBoundingClientRect();
+      const style = getComputedStyle(document.querySelector('.p-homeMetrics'));
       const textBoxes = [...document.querySelectorAll('.p-homeHero__copy p,.p-homeHero__copy h1')].map(node => {
         const range = document.createRange(); range.selectNodeContents(node); return range.getBoundingClientRect();
       });
       return { contained: metric.left >= hero.left && metric.right <= hero.right && metric.bottom <= hero.bottom,
+        centered: Math.abs((metric.left + metric.right - hero.left - hero.right) / 2) < 1,
+        belowVenue: metric.top >= venue.bottom + 9,
+        background: style.backgroundColor, color: style.color,
         overlap: textBoxes.some(copy => metric.left < copy.right && metric.right > copy.left && metric.top < copy.bottom && metric.bottom > copy.top),
         overflow: document.documentElement.scrollWidth > innerWidth };
     });
-    expect(boxes).toEqual({ contained: true, overlap: false, overflow: false });
+    expect(boxes).toEqual({ contained: true, centered: true, belowVenue: true,
+      background: 'rgb(234, 244, 238)', color: 'rgb(16, 91, 59)', overlap: false, overflow: false });
     await page.locator('.p-homeHero').screenshot({ path: info.outputPath(`metrics-${width}-${theme}.png`) });
   });
 }
