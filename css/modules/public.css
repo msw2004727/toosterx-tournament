@@ -360,12 +360,15 @@ button.ptable__team{
 }
 button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-color:var(--accent)}
 .ptable__pts{font-weight:700}
-/* 階段分層：只有隊名捲動；標籤在窄螢幕換行，所有成績欄保持固定。 */
-.pstand__advance{display:flex;align-items:center;gap:4px;width:max-content;max-width:100%;min-height:var(--tap);padding:3px;border:0;background:transparent;color:var(--success);font:inherit;font-size:var(--fs-xs);white-space:normal;text-align:left;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
-.pstand__advance span{min-width:0;overflow-wrap:anywhere}
+/* 階段分層：每列底部保留獨立標籤帶，320px 仍不折行、不遮住固定成績。 */
+.ptable tr:is(.pstand__row--advance,.pstand__row--bye) td{vertical-align:top;padding-bottom:calc(var(--tap) + 8px)}
+.ptable tr:is(.pstand__row--advance,.pstand__row--bye) td.num{padding-top:18px}
+.ptable tr:is(.pstand__row--advance,.pstand__row--bye) td.is-left{position:relative}
+.pstand__advance{position:absolute;left:3px;bottom:6px;display:inline-flex;align-items:center;gap:5px;width:max-content;min-height:var(--tap);padding:5px 10px;border:1px solid var(--ok-border);border-radius:999px;background:var(--ok-bg);color:var(--ok-text);font:inherit;font-size:var(--fs-xs);font-weight:600;white-space:nowrap;text-align:left;cursor:pointer}
+.pstand__advance span{white-space:nowrap}
 .pstand__advance .icon{flex:none}
-.pstand__advance--bye{color:var(--accent)}
-.pstand__advance:hover{background:var(--control-hover)}
+.pstand__advance--bye{background:var(--accent-bg);color:var(--accent);border-color:var(--control-selected-border)}
+.pstand__advance:hover{filter:brightness(.97)}
 .pstand__row--advance td:first-child{box-shadow:inset 3px 0 0 var(--success)}
 .pstand__row--bye td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .pstand-final__podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:8px;margin:var(--sp-2) 0 var(--sp-3)}

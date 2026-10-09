@@ -33,8 +33,24 @@ test('階段標籤是可操作按鈕，兩種標籤進入同組晉級圖，監�
   for (const theme of ['light', 'dark']) {
     await page.evaluate(t => document.documentElement.dataset.theme = t, theme);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    expect(await page.locator('.pstand__advance').evaluateAll(nodes => nodes.every(n => n.clientHeight >= 44))).toBe(true);
+    expect(await page.locator('.pstand__advance').evaluateAll(nodes => nodes.every(n => n.getBoundingClientRect().height >= 44))).toBe(true);
     expect(await page.locator('.pstand__advance').evaluateAll(nodes => nodes.every(n => n.scrollWidth <= n.clientWidth + 1))).toBe(true);
+    const badgeChecks = await page.locator('.pstand__advance').evaluateAll(nodes => nodes.map(n => {
+      const s = getComputedStyle(n), rect = n.getBoundingClientRect();
+      const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
+      const luminance = color => {
+        ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1);
+        const rgb = [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3).map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+        return rgb.reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0);
+      };
+      const a = luminance(s.color), b = luminance(s.backgroundColor);
+      const row = n.closest('tr');
+      const numeric = [...row.querySelectorAll('td.num')].map(td => {
+        const range = document.createRange(); range.selectNodeContents(td); return range.getBoundingClientRect().bottom;
+      });
+      return { nowrap: s.whiteSpace, filled: s.backgroundColor !== 'rgba(0, 0, 0, 0)', contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05), within: rect.right <= innerWidth, clear: numeric.every(bottom => bottom <= rect.top) };
+    }));
+    expect(badgeChecks.every(b => b.nowrap === 'nowrap' && b.filled && b.contrast >= 4.5 && b.within && b.clear), JSON.stringify({ theme, badgeChecks })).toBe(true);
     const numeric = await page.locator('.ptable td.num').evaluateAll(nodes => nodes.map(n => n.getBoundingClientRect().right));
     expect(numeric.every(right => right <= (test.info().project.name === 'chromium-desktop' ? 1280 : test.info().project.name === 'chromium-320' ? 320 : 393))).toBe(true);
   }
