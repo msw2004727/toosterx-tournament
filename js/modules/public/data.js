@@ -32,7 +32,7 @@ const DIVISION_CACHE_MS = 30 * 1000;
 /* ── 監聽（即時）─────────────────────────────────────────── */
 
 /**
- * 首頁看板。docs/03 §2.2：首頁**只監聽 1 份文件**。
+ * 看板文件監聽。首頁已改用所選日期的權威場次（docs/03 §2.2）。
  *
  * ⚠️ boards/live 由 Cloud Function 扇出寫入，而那個 Function 目前還沒上線。
  *    文件不存在時 cb 會收到 null，呼叫端要退回「直接監聽今日場次」——
@@ -48,7 +48,7 @@ export function watchLiveBoard(scope, cb, onError) {
   return hold(scope, unsub, 'boards:live');
 }
 
-/** 某一天的所有場次（賽程頁；也是首頁看板不存在時的退路） */
+/** 某一天的所有權威場次（首頁與賽程頁共用單一查詢監聽） */
 export function watchMatchesByDate(scope, date, cb, onError) {
   const { collection, onSnapshot, query, where, orderBy } = sdk();
   const q = query(
