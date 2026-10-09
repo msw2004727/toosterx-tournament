@@ -9,7 +9,7 @@
  *
  * 主辦 2026-09-03 指定的版型，**不管什麼身分、在哪一頁都一樣**：
  *
- *   [首頁] [地圖] [安裝] [登入／我的] [主題]
+ *   [首頁] [場號] [安裝] [登入／我的] [主題]
  *
  * ・「首頁」永遠是**公開首頁**（賽程、比分、積分榜）。
  *   總管也看得到家長看到的畫面——現場有人回報問題時核對得起來。
@@ -167,8 +167,8 @@ export function mountAppBar({
     const links = defs.map(d => navLink({ ...d, current: d.isCurrent ? d.isCurrent() : false }));
     const venue = el('button', {
       class: 'apphead__link apphead__venue', type: 'button',
-      'aria-label': '查看場地圖', title: '查看場地圖', onClick: onViewVenueMap
-    }, [icon('map'), el('span', { class: 'apphead__linkText', text: '地圖' })]);
+      'aria-label': '查看場號', title: '查看場號', onClick: onViewVenueMap
+    }, [icon('map'), el('span', { class: 'apphead__linkText', text: '場號' })]);
     const install = PWA_INSTALL ? installButton() : null;
     const theme = themeSwitch({ caption: '主題' });
 

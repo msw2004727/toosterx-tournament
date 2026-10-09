@@ -338,7 +338,7 @@ test('圖示導覽：五個等寬項目、文字在圖示下方、深淺主題 @
  const nav=page.locator('.apphead');await expect(nav).toHaveCSS('align-items','stretch');
  const actions=nav.locator('a,button');await expect(actions).toHaveCount(5);
  const widths=[];
- for(const label of ['首頁','地圖','安裝','我的','主題']){
+ for(const label of ['首頁','場號','安裝','我的','主題']){
    const text=nav.getByText(label,{exact:true});await expect(text).toBeVisible();
    const parent=text.locator('..'),svg=parent.locator('svg');await expect(svg).toBeVisible();
    const {bounds,iconBounds}=await text.evaluate(e=>({bounds:e.getBoundingClientRect().toJSON(),iconBounds:e.parentElement.querySelector('svg').getBoundingClientRect().toJSON()}));
@@ -347,12 +347,12 @@ test('圖示導覽：五個等寬項目、文字在圖示下方、深淺主題 @
  }
  expect(Math.max(...widths)-Math.min(...widths)).toBeLessThan(1);
  expect(await nav.evaluate(e=>e.scrollWidth)).toBeLessThanOrEqual(page.viewportSize().width);
- const map=nav.getByRole('button',{name:'查看場地圖',exact:true});
- const light=await map.evaluate(e=>getComputedStyle(e).backgroundColor);
+ const map=nav.getByRole('button',{name:'查看場號',exact:true});
+ await expect(map).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
  await nav.locator('.theme-switch__opt').click();
  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
  await expect(nav.locator('.theme-switch__caption')).toHaveText('主題');
- expect(await map.evaluate(e=>getComputedStyle(e).backgroundColor)).not.toBe(light);
+ await expect(map).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
  await page.mouse.move(0,0);await page.waitForTimeout(350);
  await page.screenshot({path:'tmp/icon-nav-dark-'+test.info().project.name+'.png'});
  await nav.locator('.theme-switch__opt').click();await expect(nav.locator('.theme-switch__caption')).toHaveText('主題');
