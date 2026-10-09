@@ -361,10 +361,11 @@ button.ptable__team{
 button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-color:var(--accent)}
 .ptable__pts{font-weight:700}
 /* 階段分層：每列底部保留獨立標籤帶，320px 仍不折行、不遮住固定成績。 */
-.ptable tr:is(.pstand__row--advance,.pstand__row--bye) td{vertical-align:top;padding-bottom:calc(var(--tap) + 8px)}
-.ptable tr:is(.pstand__row--advance,.pstand__row--bye) td.num{padding-top:18px}
+.ptable tr:is(.pstand__row--advance,.pstand__row--bye) td{vertical-align:top;padding-bottom:calc(var(--tap) + 4px)}
+.ptable tr:is(.pstand__row--advance,.pstand__row--bye) td.num{padding-top:26px}
 .ptable tr:is(.pstand__row--advance,.pstand__row--bye) td.is-left{position:relative}
-.pstand__advance{position:absolute;left:3px;bottom:6px;display:inline-flex;align-items:center;width:max-content;min-height:var(--tap);padding:0;border:0;background:transparent;font:inherit;font-size:var(--fs-xs);font-weight:600;white-space:nowrap;text-align:left;cursor:pointer}
+.ptable tr:is(.pstand__row--advance,.pstand__row--bye) .ptable__team{align-items:flex-end}
+.pstand__advance{position:absolute;left:3px;bottom:0;display:inline-flex;align-items:flex-start;width:max-content;min-height:var(--tap);padding:0;border:0;background:transparent;font:inherit;font-size:var(--fs-xs);font-weight:600;white-space:nowrap;text-align:left;cursor:pointer}
 .pstand__advance-pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border:1px solid var(--ok-border);border-radius:999px;background:var(--ok-bg);color:var(--ok-text);line-height:1.4}
 .pstand__advance span{white-space:nowrap}
 .pstand__advance .icon{flex:none}
