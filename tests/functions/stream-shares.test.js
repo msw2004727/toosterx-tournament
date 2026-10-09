@@ -117,6 +117,7 @@ test('同場可有多人及同一人多個影片，場次之間互相獨立', as
   await db().doc(`events/${EVENT}/matches/match-b`).set({ status: 'finished' });
   await shareMatchStreamFor(req({ operationId: 'op-4', matchId: 'match-b' }));
   expect((await base().collection('streamShares').get()).size).toBe(3);
+  expect((await base().get()).data().sharedStreamCount).toBe(3);
   expect((await db().collection(`events/${EVENT}/matches/match-b/streamShares`).get()).size).toBe(1);
 });
 
@@ -131,6 +132,7 @@ test.each([UID, 'admin', 'super'])('本人、管理員與總管可以移除，�
   const command = req({ action: 'remove', shareId, operationId: 'remove-1' }, uid, uid === UID ? 'custom' : 'anonymous');
   expect(await shareMatchStreamFor(command)).toEqual(await shareMatchStreamFor(command));
   expect((await base().collection('streamShares').doc(shareId).get()).exists).toBe(false);
+  expect((await base().get()).data().sharedStreamCount).toBe(0);
   expect((await base().collection('streamShareOwners').doc(shareId).get()).exists).toBe(false);
   const removed = (await audits()).docs.map(doc => doc.data()).find(a => a.action === 'streamShare.removed');
   expect(removed).toMatchObject({ actor: { uid }, before: { matchId: MATCH, videoId: 'dQw4w9WgXcQ' }, after: null });
@@ -143,5 +145,6 @@ test('收據不能重用於另一個連結，並行同片分享只成立一次',
     shareMatchStreamFor(req({ operationId: 'op-b' }, 'other'))]);
   expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
   expect((await base().collection('streamShares').get()).size).toBe(2);
+  expect((await base().get()).data().sharedStreamCount).toBe(2);
   expect((await audits()).size).toBe(2);
 }, 20_000);

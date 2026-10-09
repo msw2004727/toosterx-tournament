@@ -43,6 +43,8 @@ export async function shareMatchStreamFor(request) {
       fail('permission-denied', '只有分享者本人與管理員可以移除直播');
     }
     if (!match.exists) fail('not-found', '找不到這場賽事');
+    const shares = await tx.get(matchRef.collection('streamShares'));
+    const validShares = shares.docs.filter(doc => streamShareSource(doc.data())).length;
     const actor = { uid, name: profile.data()?.displayName || '使用者', role: isAdmin ? 'admin' : 'user' };
     let result;
     if (action === 'share') {
@@ -66,6 +68,8 @@ export async function shareMatchStreamFor(request) {
         reason: owner.data().ownerUid === uid ? '分享者自行移除' : '管理員移除直播分享' }, tx);
       result = { shareId, action, changed: true };
     }
+    const sharedStreamCount = validShares + (action === 'share' ? 1 : streamShareSource(share.data()) ? -1 : 0);
+    tx.update(matchRef, { sharedStreamCount });
     tx.create(receiptRef, { requestHash, result, createdAt: FieldValue.serverTimestamp() });
     return result;
   });

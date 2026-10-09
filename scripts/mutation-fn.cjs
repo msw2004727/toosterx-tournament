@@ -12,6 +12,9 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name:'FN#SHARED-COUNT 分享數錯誤停留為零',file:'functions/stream-shares.js',
+    from:'tx.update(matchRef, { sharedStreamCount });',to:'tx.update(matchRef, { sharedStreamCount: 0 });',
+    testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/stream-shares.test.js --silent' },
   { name:'FN#TWITCH-SOURCE 後端把 Twitch 分享寫成 YouTube', file:'functions/stream-shares.js',
     from:"...source, createdAt: FieldValue.serverTimestamp()", to:"...source, provider: 'youtube', createdAt: FieldValue.serverTimestamp()",
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/stream-shares.test.js --silent' },

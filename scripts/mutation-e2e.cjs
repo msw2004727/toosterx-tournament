@@ -15,6 +15,8 @@
 const { runE2EMutants } = require('./lib/e2e-mutation.cjs');
 
 const MUTANTS = [
+  { name:'#EHOMESHARED 首頁忽略球迷分享直播',file:'js/modules/public/home.js',
+    from:'(Number.isInteger(m.sharedStreamCount) && m.sharedStreamCount > 0)',to:'false' },
   { name:'#EHOMESTREAM 首頁有直播卻未顯示提醒', file:'js/modules/public/bits.js',
     from:"streamAvailable ? el('span', { class: 'prow__meta prow__meta--stream' }", to:"false ? el('span', { class: 'prow__meta prow__meta--stream' }" },
   { name:'#ETWITCHDRAFT 儲存後快照先到導致 Twitch 欄位清空', file:'js/modules/admin/match.js',

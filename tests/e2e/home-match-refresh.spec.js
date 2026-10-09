@@ -29,6 +29,10 @@ test('HOMESTREAM 官方直播在資訊列顯示SVG與文字，無直播不新增
   await expect(score(page)).toHaveText('2-1');
   await expect(card.locator('.prow__stream')).toHaveCount(0);
   await expect(card.locator('.prow__metaText')).toHaveCount(0);
+  await update(page, { sharedStreamCount: 1 });
+  await expect(card.locator('.prow__stream')).toHaveText('直播');
+  await update(page, { sharedStreamCount: 0 });
+  await expect(card.locator('.prow__stream')).toHaveCount(0);
   for (const stream of [{ videoId: 'dQw4w9WgXcQ', status: 'live' }, { provider: 'twitch', channelId: 'twitchdev', status: 'live' }]) {
     await update(page, { label: '季軍賽', stream });
     await expect(card.locator('.prow__stream')).toHaveText('直播');

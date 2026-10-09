@@ -225,7 +225,8 @@ export async function publicHome({ scope, view, query }) {
     return sectionCard(title, glyph,
       matches.length ? el('ul', { class: `plist${glyph === 'live' ? ' plist--live' : ''}` },
         matches.map(m => matchRow({ match: m, onOpen: open, division: divisionOf(m.divisionId),
-          streamAvailable: Boolean(embedUrl({ match: m, venue: state.venues.find(v => v.venueId === m.venueId), parent: location.hostname })) })))
+          streamAvailable: (Number.isInteger(m.sharedStreamCount) && m.sharedStreamCount > 0)
+            || Boolean(embedUrl({ match: m, venue: state.venues.find(v => v.venueId === m.venueId), parent: location.hostname })) })))
         : empty(emptyTitle, '換一個日期看看，或看完整賽程。'),
       showSchedule ? el('button', { class: 'btn btn--ghost btn--sm', type: 'button',
         onClick: () => navigate(`/schedule?date=${encodeURIComponent(state.date)}`)

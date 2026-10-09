@@ -4,6 +4,14 @@ import { makeEnv, seedBaseline, asAdminSdk, authed, guest, EVENT, MATCH } from '
 let env;
 const publicRef = db => doc(db, 'events', EVENT, 'matches', MATCH, 'streamShares', 'share-1');
 const ownerRef = db => doc(db, 'events', EVENT, 'matches', MATCH, 'streamShareOwners', 'share-1');
+test('分享直播數由伺服器維護，管理員不能偽造；其他場次修改仍可進行', async () => {
+  const admin = authed(env, 'u-admin'), ref = doc(admin, 'events', EVENT, 'matches', MATCH);
+  await assertFails(updateDoc(ref, { sharedStreamCount: 8 }));
+  await assertFails(setDoc(doc(admin, 'events', EVENT, 'matches', 'forged-shares'), { sharedStreamCount: 8 }));
+  await asAdminSdk(env, db => updateDoc(doc(db, 'events', EVENT, 'matches', MATCH), { sharedStreamCount: 1 }));
+  await assertSucceeds(updateDoc(ref, { label: '季軍賽' }));
+  await assertSucceeds(getDoc(doc(guest(env), 'events', EVENT, 'matches', MATCH)));
+});
 beforeAll(async () => { env = await makeEnv(); });
 afterAll(async () => { await env.cleanup(); });
 beforeEach(async () => {

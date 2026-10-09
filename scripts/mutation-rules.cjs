@@ -25,7 +25,7 @@ const MUTANTS = [
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/prelaunch.test.js --silent' },
 
   { name: 'RU#RESET-WRITE 歸零後放行舊裝置比分', file: F,
-    from: 'allow update: if currentResetWrite() && (', to: 'allow update: if (',
+    from: 'allow update: if currentResetWrite() && ', to: 'allow update: if ',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/firestore-rules/match-reset.test.js --silent' },
   { name: 'RU#RESET-CHILD 舊紀錄可補傳回歸零場次', file: F,
     from: "return exists(parent) && request.resource.data.get('resetRevision', 0) == get(parent).data.get('resetRevision', 0);", to: 'return exists(parent);',
