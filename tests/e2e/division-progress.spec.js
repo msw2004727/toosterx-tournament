@@ -36,7 +36,8 @@ test('階段標籤是可操作按鈕，兩種標籤進入同組晉級圖，監�
     expect(await page.locator('.pstand__advance').evaluateAll(nodes => nodes.every(n => n.getBoundingClientRect().height >= 44))).toBe(true);
     expect(await page.locator('.pstand__advance').evaluateAll(nodes => nodes.every(n => n.scrollWidth <= n.clientWidth + 1))).toBe(true);
     const badgeChecks = await page.locator('.pstand__advance').evaluateAll(nodes => nodes.map(n => {
-      const s = getComputedStyle(n), rect = n.getBoundingClientRect();
+      const pill = n.querySelector('.pstand__advance-pill');
+      const s = getComputedStyle(pill), rect = n.getBoundingClientRect();
       const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
       const luminance = color => {
         ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1);
@@ -48,9 +49,9 @@ test('階段標籤是可操作按鈕，兩種標籤進入同組晉級圖，監�
       const numeric = [...row.querySelectorAll('td.num')].map(td => {
         const range = document.createRange(); range.selectNodeContents(td); return range.getBoundingClientRect().bottom;
       });
-      return { nowrap: s.whiteSpace, filled: s.backgroundColor !== 'rgba(0, 0, 0, 0)', contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05), within: rect.right <= innerWidth, clear: numeric.every(bottom => bottom <= rect.top) };
+      return { nowrap: s.whiteSpace, compact: pill.getBoundingClientRect().height <= 26, filled: s.backgroundColor !== 'rgba(0, 0, 0, 0)', contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05), within: rect.right <= innerWidth, clear: numeric.every(bottom => bottom <= rect.top) };
     }));
-    expect(badgeChecks.every(b => b.nowrap === 'nowrap' && b.filled && b.contrast >= 4.5 && b.within && b.clear), JSON.stringify({ theme, badgeChecks })).toBe(true);
+    expect(badgeChecks.every(b => b.nowrap === 'nowrap' && b.compact && b.filled && b.contrast >= 4.5 && b.within && b.clear), JSON.stringify({ theme, badgeChecks })).toBe(true);
     const numeric = await page.locator('.ptable td.num').evaluateAll(nodes => nodes.map(n => n.getBoundingClientRect().right));
     expect(numeric.every(right => right <= (test.info().project.name === 'chromium-desktop' ? 1280 : test.info().project.name === 'chromium-320' ? 320 : 393))).toBe(true);
   }
