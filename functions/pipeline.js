@@ -1025,14 +1025,15 @@ export async function issueGamePassFor({ eventId, uid, displayName = null }) {
       if (!s.exists) playerId = cand;
     }
     if (!playerId) throw new Error('配號失敗，請再試一次');
-    const name = String(userSnap.data()?.displayName ?? displayName ?? '').trim().slice(0, 12) || '玩家';
+    const name = String(userSnap.data()?.displayName ?? displayName ?? '').trim() || '玩家';
+    const player = newPlayerDoc({ playerId, eventId, nickname: name, ageBand: null, createdVia: 'line' });
     tx.set(playerRef(eventId, playerId), {
-      ...newPlayerDoc({ playerId, eventId, nickname: name, ageBand: null, createdVia: 'line' }),
+      ...player,
       createdAt: FieldValue.serverTimestamp(),
       lastActiveAt: FieldValue.serverTimestamp()
     });
     tx.set(userRef, { uid, gamePassId: playerId, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-    return { playerId, nickname: name, created: true };
+    return { playerId, nickname: player.nickname, created: true };
   });
 }
 

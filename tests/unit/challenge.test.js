@@ -491,6 +491,18 @@ describe('T46-9 ⭐ 新的 Game Pass（newPlayerDoc）', () => {
       .toHaveLength(12);
   });
 
+  test.each([
+    ['abcdefghijk😀', 'abcdefghijk'],
+    ['abcdefghij😀尾巴', 'abcdefghij😀'],
+    ['😀'.repeat(13), '😀'.repeat(6)],
+    ['  阿哲😀  ', '阿哲😀']
+  ])('emoji 暱稱 %s 保留長度上限，不留下半個代理字元', (nickname, expected) => {
+    const nick = newPlayerDoc({ ...base, nickname }).nickname;
+    expect(nick).toBe(expected);
+    expect(nick.length).toBeLessThanOrEqual(12);
+    expect(Buffer.from(nick, 'utf8').toString('utf8')).toBe(nick);
+  });
+
   /**
    * ⭐ 欄位清單只能有這一份。
    *
