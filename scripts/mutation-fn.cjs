@@ -218,8 +218,8 @@ const MUTANTS = [
   {
     name: 'FN#4 最終排名沒算完也照樣發布（公開端掛出錯的名次）',
     file: 'functions/pipeline.js',
-    from: '  if (!complete) return { published: false, missing, ranking };',
-    to: '  if (false) return { published: false, missing, ranking };'
+    from: '  if (!complete) {',
+    to: '  if (false) {'
   },
   {
     name: 'FN#5 積分榜不帶隊名（公開端每一列都要自己再查一次 teams）',

@@ -35,7 +35,7 @@ const MUTANTS=[
   m('C23',pipeline,'if (manualChange?.expectedVersion != null && prev.version !== manualChange.expectedVersion)','if (false)','MC22',["expect(out.filter(r=>r.status==='fulfilled')).toHaveLength(1)"]),
   m('C24','functions/management.js','if((div.scheduleRevision??0)!==expected)','if(false)','MC23',["await expect(manageEventFor({...req,data:{...req.data,operationId:'stale-move'}})).rejects.toMatchObject({code:'aborted'})"]),
   m('C25',pipeline,'sourceHash: conflictSourceHash }, actor);','sourceHash: ctx.sourceHash }, actor);','MC9',["expect((await audit('advancement.conflict')).size).toBe(1)"]),
-  m('C26',pipeline,'if (!complete) return { published: false, missing, ranking };','if (false) return { published: false, missing, ranking };','MC12',["expect((await publishFinalRankingFor({eventId:E,divisionId:D,actorUid:'admin'})).published).toBe(false)"]),
+  m('C26',pipeline,'if (!complete) {','if (false) {','MC12',["expect((await publishFinalRankingFor({eventId:E,divisionId:D,actorUid:'admin'})).published).toBe(false)"]),
   m('C27',pipeline,'if (!gate.ready && (!force || division.manualHold === true))','if (!gate.ready && !force)','MC27',["expect(held.ready).toBe(false)"]),
   m('C28',schedule,'if (Buffer.byteLength(JSON.stringify(audit)) > 900 * 1024)','if (false)','MC28',["await expect(generateScheduleFor(generation())).rejects.toMatchObject({code:'resource-exhausted'})"]),
   m('C29',pipeline,'if (!team) {','if (false) {','MC29',["expect((await roster('member').get()).exists).toBe(false)"]),

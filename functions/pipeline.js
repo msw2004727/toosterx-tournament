@@ -411,14 +411,19 @@ function finalRankingSnapshot(format, ctx) {
  * 發布最終排名到公開端。
  * **算不完整就不發布**——公開端上少一個名次，遠比掛一個錯的名次好收拾。
  */
-export async function publishFinalRankingFor({ eventId, divisionId, actorUid = null }) {
+export async function publishFinalRankingFor({ eventId, divisionId, actorUid = null, automatic = false }) {
   return db().runTransaction(async tx => {
   const actor = await adminActor(tx, actorUid);
   const division = await loadDivision(eventId, divisionId, tx);
   const format = await loadFormat(division.formatId, tx);
   const ctx = await advancementCtx(eventId, divisionId, format, tx, division);
   const { ranking, complete, missing, sourceHash } = finalRankingSnapshot(format, ctx);
-  if (!complete) return { published: false, missing, ranking };
+  if (!complete) {
+    if (automatic && division.finalRankingPublished === true && division.finalRankingSourceHash !== sourceHash) {
+      invalidateRankingTx(tx, eventId, divisionId, division, actor, '賽事未完成或名次來源待處理，暫停公布');
+    }
+    return { published: false, missing, ranking };
+  }
 
   const ref = evRef(eventId).collection('divisions').doc(divisionId);
   const before = division.finalRanking ?? null;
@@ -430,16 +435,20 @@ export async function publishFinalRankingFor({ eventId, divisionId, actorUid = n
     finalRankingStale: false, finalRankingSourceHash: sourceHash,
     finalRankingPublishedAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: actorUid ?? 'fn:publishFinalRanking'
+    updatedBy: actorUid ?? (automatic ? 'fn:syncFinalRanking' : 'fn:publishFinalRanking')
   });
   writeAudit(eventId, {
     entity: 'division', entityId: divisionId, action: 'finalRanking.publish',
-    before, after: ranking, actor, reason: '最終排名發布'
+    before, after: ranking, actor, reason: automatic ? '全部完賽且排名來源一致，自動公布最終名次' : '最終排名發布'
   }, tx);
 
   return { published: true, missing: [], ranking };
   });
 }
+
+/** 從同一交易的權威來源判斷：完整則公布，重開或有待裁定則撤回。 */
+export const syncFinalRankingFor = ({ eventId, divisionId }) =>
+  publishFinalRankingFor({ eventId, divisionId, automatic: true });
 
 export async function invalidateFinalRankingFor({ eventId, divisionId }) {
   return db().runTransaction(async tx => {
@@ -460,7 +469,7 @@ export async function refreshDivisionFor({ eventId, divisionId }) {
     await recalcStandingsForStage({ eventId, divisionId, stageId: st.stageId });
     if (st.slots?.length) await resolveAdvancementForStage({ eventId, divisionId, stageId: st.stageId });
   }
-  await invalidateFinalRankingFor({ eventId, divisionId });
+  await syncFinalRankingFor({ eventId, divisionId });
   await rebuildBoardsFor({ eventId, divisionId });
 }
 
@@ -919,6 +928,7 @@ export async function setManualRankingFor({
   const result = await recalcStandingForGroup({ eventId, divisionId, stageId, groupId, manualPins: pins, actorUid,
     manualChange: { enabled: true, reason: String(reason).trim().slice(0, 500), drawSeed, expectedVersion, expectedScheduleRevision } });
   const downstream = await resolveDownstreamOf({ eventId, divisionId, stageId, actorUid });
+  await syncFinalRankingFor({ eventId, divisionId });
   return { ...result, downstream };
 }
 
@@ -927,6 +937,7 @@ export async function clearManualRankingFor({ eventId, divisionId, stageId, grou
   const result = await recalcStandingForGroup({ eventId, divisionId, stageId, groupId, manualPins: [], actorUid,
     manualChange: { enabled: false, reason: String(reason).trim().slice(0, 500), expectedVersion, expectedScheduleRevision } });
   const downstream = await resolveDownstreamOf({ eventId, divisionId, stageId, actorUid });
+  await syncFinalRankingFor({ eventId, divisionId });
   return { ...result, downstream };
 }
 

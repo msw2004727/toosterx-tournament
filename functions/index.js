@@ -26,7 +26,7 @@ import {
   rebuildBoardsFor, reconcileMatchScore,
   syncRosterFor, recountTeamMembers, recountUserTeams, rejectDuplicateApplication,
   enforceRosterCap,
-  onAttemptSubmitted, setManualRankingFor, clearManualRankingFor, refreshDivisionFor, invalidateFinalRankingFor
+  onAttemptSubmitted, setManualRankingFor, clearManualRankingFor, refreshDivisionFor, syncFinalRankingFor
 } from './pipeline.js';
 import { setPlayerContactFor, issueGamePassFor } from './pipeline.js';
 import { writeAudit } from './store.js';
@@ -170,7 +170,7 @@ export const onMatchWritten = onDocumentWritten(
       }
       if (before?.divisionId && before.stageId) {
         await resolveDownstreamOf({ eventId, divisionId: before.divisionId, stageId: before.stageId });
-        await invalidateFinalRankingFor({ eventId, divisionId: before.divisionId });
+        await syncFinalRankingFor({ eventId, divisionId: before.divisionId });
       }
       return;
     }
@@ -202,7 +202,7 @@ export const onMatchWritten = onDocumentWritten(
           else if (!d.ready) logger.debug('[onMatchWritten] 晉級尚未就緒', { stageId: d.stageId, reason: d.reason });
         }
       }
-      await invalidateFinalRankingFor({ eventId, divisionId });
+      await syncFinalRankingFor({ eventId, divisionId });
     } catch (err) {
       // 這裡**不吞例外**：吞掉的話積分榜會安靜地停在舊版，
       // 現場只會看到「怎麼沒更新」而沒有任何線索。讓它重試並留 log。
@@ -227,7 +227,7 @@ export const onTimelineWritten = onDocumentWritten(
     if (match?.divisionId && DECIDED.includes(match.status)) {
       await recalcStandingForMatch({ eventId, match: { ...match, matchId } });
       if (match.stageId) await resolveDownstreamOf({ eventId, divisionId: match.divisionId, stageId: match.stageId });
-      await invalidateFinalRankingFor({ eventId, divisionId: match.divisionId });
+      await syncFinalRankingFor({ eventId, divisionId: match.divisionId });
       await rebuildBoardsFor({ eventId, divisionId: match.divisionId });
     }
   });

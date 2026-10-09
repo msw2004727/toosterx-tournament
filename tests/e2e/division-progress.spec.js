@@ -28,7 +28,8 @@ test('階段標籤是可操作按鈕，兩種標籤進入同組晉級圖，監�
     await expect(page.getByRole('tab', { name: '晉級／名次圖' })).toHaveAttribute('aria-selected', 'true');
     await page.getByRole('tab', { name: '積分榜', exact: true }).click();
     await expect(page.locator('.pstand__advance')).toHaveCount(6);
-    expect(await count()).toBe(baseline);
+    // 預設入口多一個場次監聽；明確的積分榜分頁不需要預設切換監聽。
+    expect(await count()).toBe(baseline - 1);
   }
   for (const theme of ['light', 'dark']) {
     await page.evaluate(t => document.documentElement.dataset.theme = t, theme);
@@ -57,6 +58,32 @@ test('階段標籤是可操作按鈕，兩種標籤進入同組晉級圖，監�
     const numeric = await page.locator('.ptable td.num').evaluateAll(nodes => nodes.map(n => n.getBoundingClientRect().right));
     expect(numeric.every(right => right <= (test.info().project.name === 'chromium-desktop' ? 1280 : test.info().project.name === 'chromium-320' ? 320 : 393))).toBe(true);
   }
+});
+
+test('分組最後一場完成自動預設晉級圖，明確切回積分榜不被強制跳走 @division-progress', async ({ page }) => {
+  const data=seed();
+  for(const groupId of ['A','B'])for(let i=1;i<=3;i++)data[`${E}/matches/${groupId}${i}`]={matchId:`${groupId}${i}`,divisionId:'u8',stageId:'group',groupId,status:groupId==='B'&&i===3?'live':'finished',home:{teamId:`${groupId}1`,name:'一隊'},away:{teamId:`${groupId}2`,name:'二隊'},score:{home:1,away:0}};
+  await open(page,data);
+  await expect(page).toHaveURL(/#\/division\/u8$/);
+  const last={...data[`${E}/matches/B3`],status:'finished'};
+  await page.evaluate(({E,last})=>window.__fake.__seed({[`${E}/matches/B3`]:last}),{E,last});
+  await expect(page).toHaveURL(/#\/division\/u8\?tab=bracket$/);
+  await expect(page.getByRole('tab',{name:'晉級／名次圖'})).toHaveAttribute('aria-selected','true');
+  await page.getByRole('tab',{name:'積分榜',exact:true}).click();
+  await expect(page).toHaveURL(/tab=table$/);
+  await expect(page.locator('.ptable')).toHaveCount(2);
+  await page.reload();
+  await expect(page).toHaveURL(/tab=table$/);
+});
+
+test('已結束分組的一般入口預設晉級圖 @division-progress', async ({page})=>{
+  const data=seed();
+  for(const groupId of ['A','B'])for(let i=1;i<=3;i++)data[`${E}/matches/${groupId}${i}`]={matchId:`${groupId}${i}`,divisionId:'u8',stageId:'group',groupId,status:'finished',home:{teamId:`${groupId}1`},away:{teamId:`${groupId}2`},score:{home:1,away:0}};
+  await page.route('https://www.gstatic.com/firebasejs/**',r=>r.fulfill({contentType:'text/javascript',body:FAKE}));
+  await page.route('https://firestore.googleapis.com/**',r=>r.fulfill({body:'{}'}));
+  await page.addInitScript(s=>{window.__FAKE_SEED=s;window.__FAKE_USER=null;},data);
+  await page.goto('/#/division/u8');
+  await expect(page).toHaveURL(/tab=bracket$/);
 });
 test('官方名次發布後呈現 SVG 頒獎臺，撤回立即隱藏，暫時排名不提前晉級 @division-progress', async ({ page }, info) => {
   const data = seed(); await open(page, data);

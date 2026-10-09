@@ -25,7 +25,7 @@ import { viewStanding, sortStandings, sortByKickoff, stageLabel } from './select
 import { pageHead, empty, matchRow, sectionCard } from './bits.js';
 import { DIVISION_TABS, divisionTabs } from './division-tabs.js';
 import { publicBracket } from './bracket.js';
-import { advancementLabels, publishedFinalRanking, finalRankLabel } from './division-progress.js';
+import { advancementLabels, publishedFinalRanking, finalRankLabel, knockoutDefaultReady } from './division-progress.js';
 
 const TABS = DIVISION_TABS;
 
@@ -68,14 +68,23 @@ export async function publicDivision({ params, scope, view, query }) {
   }, err => { state.teamsError = err; state.teamsLoaded = true; render(); });
 
   // 賽程分頁是次要資訊，用一次性讀取，不佔監聽預算
-  data.getDivisionMatches(divisionId)
-    .then(rows => { state.matches = rows; render(); })
-    .catch(() => { /* 賽程讀不到就少一個分頁，積分榜仍然可看 */ });
+  if (!query?.has('tab')) {
+    data.watchBracketMatches(scope, divisionId, rows => { state.matches = rows; render(); });
+  } else {
+    data.getDivisionMatches(divisionId)
+      .then(rows => { state.matches = rows; render(); })
+      .catch(() => { /* 賽程讀不到就少一個分頁，積分榜仍然可看 */ });
+  }
 
   render();
 
   function render() {
     if (disposed) return;
+    if (!query?.has('tab') && knockoutDefaultReady(state.formats[state.division?.formatId], state.division, state.matches)) {
+      disposed = true;
+      navigate(`/division/${encodeURIComponent(divisionId)}?tab=bracket`);
+      return;
+    }
     nameObserver?.disconnect();
     setDivisionTheme(root, state.division || divisionId);
     if (state.tab === 'table' && !state.loaded) { mount(root, skeleton(4)); return; }

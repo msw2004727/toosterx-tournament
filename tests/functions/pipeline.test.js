@@ -316,6 +316,7 @@ describe('F07–F09 晉級解算', () => {
 });
 
 describe('F10–F11 最終排名', () => {
+  const eventOf = (before, after, matchId) => ({ params: { eventId: E, matchId }, data: { before: { data: () => before }, after: { data: () => after } } });
   async function playThrough() {
     await playGroupStage();
     await resolveDownstreamOf({ eventId: E, divisionId: DIV, stageId: 'group' });
@@ -353,6 +354,36 @@ describe('F10–F11 最終排名', () => {
     const audits = await db.collection(`events/${E}/audits`)
       .where('action', '==', 'finalRanking.publish').get();
     expect(audits.size).toBe(1);
+  });
+
+  test('F11AUTO 最後一場完賽觸發公布，事件重送不重複稽核，比分更正更新名次，重開撤回', async () => {
+    const before = (await matchRef('F3').get()).data();
+    await playThrough();
+    const after = (await matchRef('F3').get()).data();
+    await onMatchWritten.run(eventOf(before, after, 'F3'));
+    await onMatchWritten.run(eventOf(before, after, 'F3'));
+    const ref = db.doc(`events/${E}/divisions/${DIV}`);
+    expect((await ref.get()).data()).toMatchObject({ finalRankingPublished: true, finalRankingStale: false, updatedBy: 'fn:syncFinalRanking' });
+    expect((await ref.get()).data().finalRanking.map(r => r.teamId)).toEqual(['t1','t2','t3','t4']);
+    expect((await db.collection(`events/${E}/audits`).where('action','==','finalRanking.publish').get()).size).toBe(1);
+    const championBefore = (await matchRef('F1').get()).data();
+    await play('F1', 0, 1, { recalc: false });
+    const championAfter = (await matchRef('F1').get()).data();
+    await onMatchWritten.run(eventOf(championBefore, championAfter, 'F1'));
+    expect((await ref.get()).data().finalRanking.map(r => r.teamId)).toEqual(['t2','t1','t3','t4']);
+    await matchRef('F1').update({status:'live',result:null});
+    await onMatchWritten.run(eventOf(championAfter, (await matchRef('F1').get()).data(), 'F1'));
+    expect((await ref.get()).data()).toMatchObject({finalRankingPublished:false,finalRankingStale:true});
+  });
+
+  test('F11AUTOWAIT 冠軍賽完成但季軍賽未完，不自動公布部分名次', async () => {
+    await playGroupStage();
+    await resolveDownstreamOf({eventId:E,divisionId:DIV,stageId:'group'});
+    const before=(await matchRef('F1').get()).data();
+    await play('F1',1,0,{recalc:false});
+    await onMatchWritten.run(eventOf(before,(await matchRef('F1').get()).data(),'F1'));
+    expect((await db.doc(`events/${E}/divisions/${DIV}`).get()).data().finalRankingPublished).toBe(false);
+    expect((await db.collection(`events/${E}/audits`).where('action','==','finalRanking.publish').get()).size).toBe(0);
   });
 });
 

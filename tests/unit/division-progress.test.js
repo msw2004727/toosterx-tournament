@@ -1,9 +1,20 @@
 import fs from 'node:fs';
-import { advancementLabels, publishedFinalRanking } from '../../js/modules/public/division-progress.js';
+import { advancementLabels, publishedFinalRanking, knockoutDefaultReady } from '../../js/modules/public/division-progress.js';
 const formats = JSON.parse(fs.readFileSync(new URL('../fixtures/bracket-formats.json', import.meta.url)));
 const division = { divisionId: 'u8', schedulePublished: true };
 const standings = () => ['A', 'B'].map(groupId => ({ stageId: 'group', groupId, rows: [1, 2, 3].map(rank => ({ rank, teamId: `${groupId}${rank}`, played: 2 })) }));
 const format = formats.F6_GROUP_TOP_SEED_BYE;
+
+test('預設晉級圖要完整的小組完賽來源，雙循環、未發布或缺場次不可提早切換',()=>{
+ const matches=['A','B'].flatMap(groupId=>[1,2,3].map(i=>({stageId:'group',groupId,status:'finished'})));
+ expect(knockoutDefaultReady(format,division,matches)).toBe(true);
+ expect(knockoutDefaultReady(format,division,matches.slice(1))).toBe(false);
+ expect(knockoutDefaultReady(format,division,matches.map((m,i)=>i?m:{...m,status:'live'}))).toBe(false);
+ expect(knockoutDefaultReady(format,{schedulePublished:false},matches)).toBe(false);
+ const twice={...format,stages:format.stages.map(s=>s.type==='roundRobin'?{...s,legs:2}:s)};
+ expect(knockoutDefaultReady(twice,division,matches)).toBe(false);
+ expect(knockoutDefaultReady(twice,division,[...matches,...matches])).toBe(true);
+});
 test('六隊依冠軍路線顯示兩隊直晉四強與四隊晉級，不把積分榜第三名當淘汰', () => {
   const labels = advancementLabels(format, division, standings());
   expect(labels.size).toBe(6);
