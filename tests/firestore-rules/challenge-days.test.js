@@ -11,6 +11,7 @@ afterAll(async () => { await env.cleanup(); });
 beforeEach(async () => {
   await env.clearFirestore(); await seedBaseline(env);
   await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'events', EVENT, 'players', 'FEDA-0182'), {nickname:'阿哲'});
     await setDoc(doc(ctx.firestore(), 'config', 'challengeRewards'), { rule: 'dailyChallengesCompleted', dates: [older, yesterday, today],
       dayWindows: { [older]: windowOf(older), [yesterday]: windowOf(yesterday), [today]: windowOf(today) } });
     await updateDoc(doc(ctx.firestore(), 'events', EVENT, 'challenges', CHALLENGE), { dailyOpen: { [today]: true, [yesterday]: true, [older]: true } });
@@ -18,7 +19,7 @@ beforeEach(async () => {
 });
 const attempt = (over = {}) => ({ eventId: EVENT, challengeId: CHALLENGE, playerId: 'FEDA-0182', rawValue: 0,
   staffUid: 'u-booth', createdAt: serverTimestamp(), recordedAtMs: now, activityDate: today, ...over });
-const submit = (id, over) => setDoc(doc(authed(env, 'u-booth'), 'events', EVENT, 'attempts', id), attempt(over));
+const submit = (id, over) => setDoc(doc(authed(env, 'u-booth'), 'events', EVENT, 'attempts', id), {...attempt(over), attemptId:id,isBest:false,voided:false});
 test('已開放日可登錄；離線跨日補送保留原日且有效', async () => {
   await assertSucceeds(submit('today'));
   await assertSucceeds(submit('offline-yesterday', { recordedAtMs: now - 86400000, activityDate: yesterday }));

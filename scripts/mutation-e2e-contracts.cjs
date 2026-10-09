@@ -93,7 +93,7 @@ module.exports = {
   ECHECKPENDING: { spec: 'tests/e2e/checkin.spec.js', grep: 'CSV 待補資料可勾', minTests: 1,
     failure: 'toBeEnabled', assertions: ["await expect(page.getByLabel('小豆子 出賽', { exact: true })).toBeEnabled();"] },
   EDAILYCACHE: { spec: 'tests/e2e/challenge-days.spec.js', grep: '本機快取不完整', minTests: 2,
-    failure: 'toContainText', assertions: ["await expect(page.locator('.chal__card--draw')).toContainText('正在載入當日集章紀錄');"] },
+    failure: 'toContainText', assertions: ["await expect(page.locator('.chal__card--draw')).toContainText('離線資料，等待同步確認');"] },
   EMEMBERNAME: { spec: 'tests/e2e/admin-teams.spec.js', grep: '隊員更名 不完整回覆', minTests: 1,
     failure: 'toContainText', assertions: ["await expect(page.getByRole('alert')).toContainText('尚未確認');"] },
   EMANUALFORMAT: { spec: 'tests/e2e/admin-manual-schedule.spec.js', grep: '既有六隊', minTests: 1,

@@ -42,7 +42,8 @@ import { shareMatchStreamFor } from './stream-shares.js';
 import { updateTeamNameFor } from './team-name.js';
 import { addTeamPlayersFor } from './team-player-add.js';
 import { publishManualScheduleFor } from './manual-schedule.js';
-import { updateChallengeDayFor, dailyDrawExportFor } from './challenge-days.js';
+import { updateChallengeDayFor, dailyDrawExportFor, refreshChallengeDayJob } from './challenge-days.js';
+import { syncPublicAttempt, exportChallengeParticipantsFor } from './challenge-integrity.js';
 import { reportHomeMetricsFor } from './home-metrics.js';
 
 ensureApp();
@@ -121,6 +122,14 @@ export const exportDailyDraw = onCall({ timeoutSeconds: 120 }, async request => 
   await requireStaff(request, ADMIN);
   return ok(await dailyDrawExportFor({ ...request.data, actorUid: request.auth.uid }));
 });
+
+export const exportChallengeParticipants = onCall({ timeoutSeconds: 120 }, async request => {
+  await requireStaff(request, ADMIN);
+  return ok(await exportChallengeParticipantsFor({ ...request.data, actorUid: request.auth.uid }));
+});
+
+export const onChallengeRefreshRequested = onDocumentCreated({ document:'events/{eventId}/challengeRefreshJobs/{jobId}', retry:true, timeoutSeconds:540 },
+  async event => refreshChallengeDayJob(event.params.eventId, event.params.jobId));
 
 export const reportHomeMetrics = onCall(async request => ok(await reportHomeMetricsFor(request)));
 
@@ -304,7 +313,8 @@ export const onTeamWritten = onDocumentWritten(
  */
 export const onAttemptWritten = onDocumentWritten(
   { document: 'events/{eventId}/attempts/{attemptId}', retry: true }, async (event) => {
-    const { eventId } = event.params;
+    const { eventId, attemptId } = event.params;
+    await syncPublicAttempt(eventId, attemptId);
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
     const doc = after ?? before;

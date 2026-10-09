@@ -117,7 +117,7 @@ const MUTANTS = [
     from: 'luckyDrawRuleVersion: ruleVersion,', to: 'luckyDrawRuleVersion: null,',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/challenge.test.js --testNamePattern=七項 --silent' },
   { name: 'FN#S7-02 作廢紀錄仍集章', file: 'functions/pipeline.js',
-    from: 'const hasLiveScore = attempts.some(a => completesChallenge(a, challenge));',
+    from: 'const hasLiveScore = attempts.some(a => validAttemptValue(a, challenge) && completesChallenge(a, challenge));',
     to: 'const hasLiveScore = attempts.length > 0;',
     testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/challenge.test.js --testNamePattern=七項 --silent' },
   { name: 'FN#PRE1 刪除比賽不重算積分榜', file: 'functions/index.js',
@@ -315,7 +315,7 @@ const MUTANTS = [
   {
     name: 'FN#20 ⭐ 關卡統計把作廢的也算進去（活動成效報告虛胖）',
     file: 'functions/pipeline.js',
-    from: `    const live = attempts.filter(a => a?.voided !== true);
+    from: `    const live = attempts.filter(a => a?.voided !== true && validAttemptValue(a, challenge.data()));
     const stats = {`,
     to: `    const live = attempts;
     const stats = {`

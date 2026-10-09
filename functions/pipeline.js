@@ -38,7 +38,7 @@ import {
   loadPlayers, loadChallengeRewards, playerRef, leaderboardRef
 } from './store.js';
 import {
-  diffBestFlags, buildLeaderboard, drawEntries, nextCompleted, completesChallenge
+  diffBestFlags, buildLeaderboard, drawEntries, nextCompleted, completesChallenge, validAttemptValue
 } from './engine/challenge.js';
 
 /** 已產生勝負、會被計入統計的狀態 */
@@ -715,7 +715,7 @@ export async function onAttemptSubmitted({ eventId, challengeId, playerId }) {
   // ① ② 這位玩家在這一關的最佳成績
   const flagCount = await db().runTransaction(async tx => {
     const mine = await loadPlayerAttempts(eventId, challengeId, playerId, tx);
-    const flags = diffBestFlags(mine, challenge);
+    const flags = diffBestFlags(mine.map(a => validAttemptValue(a, challenge) ? a : { ...a, voided: true }), challenge);
     for (const f of flags) {
       tx.update(evRef(eventId).collection('attempts').doc(f.attemptId), { isBest: f.isBest });
     }
@@ -764,7 +764,7 @@ async function syncPlayerCompletion({ eventId, challengeId, playerId, challenge 
     if (rewards?.rule === DAILY_RULE) {
       return refreshDailyPlayer(eventId, playerId, tx, all, rewards);
     }
-    const hasLiveScore = attempts.some(a => completesChallenge(a, challenge));
+    const hasLiveScore = attempts.some(a => validAttemptValue(a, challenge) && completesChallenge(a, challenge));
     const cur = Array.isArray(player.completedChallengeIds) ? player.completedChallengeIds : [];
 
     let completed = cur;
@@ -809,7 +809,7 @@ async function rebuildLeaderboard({ eventId, challengeId, challenge }) {
     const attempts = await loadChallengeAttempts(eventId, challengeId, tx);
     const players = await loadPlayers(eventId, attempts.map(a => a.playerId), tx);
     const { rows, totalPlayers, ladder } = buildLeaderboard({
-      attempts, challenge, players, topN: LEADERBOARD_TOP_N
+      attempts: attempts.filter(a => players[a.playerId] && validAttemptValue(a, challenge)), challenge, players, topN: LEADERBOARD_TOP_N
     });
 
     const prev = (await tx.get(ref)).data();
@@ -844,11 +844,12 @@ async function recountChallengeStats({ eventId, challengeId }) {
       tx.get(evRef(eventId).collection('challenges').doc(challengeId)), loadChallengeRewards(tx)
     ]);
     const attempts = await loadChallengeAttempts(eventId, challengeId, tx);
-    const live = attempts.filter(a => a?.voided !== true);
+    const live = attempts.filter(a => a?.voided !== true && validAttemptValue(a, challenge.data()));
     const stats = {
       attempts: live.length,
       players: new Set(live.map(a => a.playerId).filter(Boolean)).size,
-      voided: attempts.length - live.length
+      voided: attempts.filter(a => a.voided === true).length,
+      invalid: attempts.filter(a => !validAttemptValue(a, challenge.data())).length
     };
     if (rewards?.rule === DAILY_RULE) stats.dailyPlayers = dailyStats(attempts, challenge.data(), rewards.dates, rewards.timeZone);
     tx.set(evRef(eventId).collection('challenges').doc(challengeId),

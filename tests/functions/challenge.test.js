@@ -113,9 +113,12 @@ async function seed({ rewards = REWARDS, challenges = [CROSSBAR, ...FILLER] } = 
 /** 攤位送出一筆成績（模擬 booth 端寫入），再跑一次 trigger 會做的事 */
 async function submit(attemptId, { challengeId = CROSSBAR.challengeId, playerId = 'FEDA-0001',
   rawValue, at = '10:00', voided = false } = {}) {
+  const c = (await db.doc(`events/${E}/challenges/${challengeId}`).get()).data();
+  const detail = c?.inputMode === 'shots' ? Array(c.shotCount).fill(Math.min(...c.shotOptions)) : null;
+  if (detail && rawValue !== detail.reduce((n, v) => n + v, 0)) detail[0] += rawValue - detail.reduce((n, v) => n + v, 0);
   await db.doc(`events/${E}/attempts/${attemptId}`).set({
     attemptId, eventId: E, challengeId, playerId,
-    rawValue, isBest: false, source: 'free', staffUid: 'u-booth',
+    rawValue, detail, isBest: false, source: 'free', staffUid: 'u-booth',
     voided, voidReason: null, attemptAt: T(at), createdAt: T(at)
   });
   return onAttemptSubmitted({ eventId: E, challengeId, playerId });
@@ -168,6 +171,7 @@ test('七項才發一次：重放、同時最後兩項與作廢會保持正確�
   }
   await Promise.all(ids.slice(5).map((id, i) => db.doc(`events/${E}/attempts/seven-${i + 5}`).set({
     attemptId: `seven-${i + 5}`, challengeId: id, playerId: 'FEDA-0001', rawValue: CHALLENGES[i + 5].minValue,
+    detail: CHALLENGES[i + 5].inputMode === 'shots' ? Array(CHALLENGES[i + 5].shotCount).fill(0) : null,
     voided: false, createdAt: T('10:00'), attemptAt: T('10:00')
   })));
   await Promise.all(ids.slice(5).map(challengeId => onAttemptSubmitted({ eventId: E, challengeId, playerId: 'FEDA-0001' })));
@@ -354,7 +358,7 @@ describe('FC10–FC13 缺資料時的行為', () => {
     // 成績本身已經寫進去了，排行榜也該照樣重建；查不到的是抽獎張數
     const r = await submit('a1', { rawValue: 3, playerId: 'FEDA-9999' });
     expect(r.completedChanged).toBe(false);
-    expect((await board(CROSSBAR.challengeId)).rows).toHaveLength(1);
+    expect((await board(CROSSBAR.challengeId)).rows).toHaveLength(0);
 
     const audits = await db.collection(`events/${E}/audits`).get();
     const hit = audits.docs.map(d => d.data()).find(a => a.action === 'challenge.playerMissing');

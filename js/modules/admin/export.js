@@ -46,6 +46,7 @@ export async function adminExportPage({ scope, view }) {
     error: null,
     busy: false
   };
+  state.participantScope = 'all'; state.participantRows = null;
 
   if (!can('export')) { mount(root, denied('匯出資料', '管理員')); return; }
 
@@ -85,8 +86,53 @@ export async function adminExportPage({ scope, view }) {
       state.error = err;
       state.players = [];
     }
+    if (!state.error) await loadParticipants();
     render();
     return !state.error;
+  }
+
+  async function loadParticipants() {
+    state.participantError = null;
+    try {
+      state.date ??= selectedActivityDate(activityTime(), state.rewards?.dates, state.rewards?.timeZone);
+      const result = await callFunction('exportChallengeParticipants', {
+        eventId: EVENT_ID, date: state.date, scope: state.participantScope, mode: 'summary'
+      });
+      if (result?.date !== state.date || !Array.isArray(result.rows)) throw Error('完整名單尚未確認，請重新更新');
+      state.participantRows = result.rows;
+    } catch (err) { state.participantError = err; state.participantRows = null; }
+  }
+
+  async function exportParticipants(mode) {
+    if (state.busy || !can('export')) return;
+    state.busy = true; render();
+    try {
+      const result = await callFunction('exportChallengeParticipants', {
+        eventId: EVENT_ID, date: state.date, scope: state.participantScope, mode
+      });
+      if (result?.date !== state.date || !Array.isArray(result.rows) || !Array.isArray(result.columns)) throw Error('名單資料不完整');
+      if (!result.rows.length) { toast('此範圍目前沒有資料', 'warn'); return; }
+      download(csvFilename(mode === 'summary' ? '挑戰參與名單' : '挑戰成績明細', state.date), toCsv(result.columns, result.rows));
+      toast(`已匯出 ${result.rows.length} 筆`);
+    } catch (err) { toast(data.explain(err, '匯出失敗'), 'error'); }
+    finally { state.busy = false; render(); }
+  }
+
+  function participantCard() {
+    return el('section', { class:'adm__box', 'aria-label':'完整挑戰名單' }, [
+      el('strong', { text:'完整挑戰名單' }),
+      el('p', { class:'adm__note', text:'含暱稱、LINE UID、七攤成績及聯繫方式；未綁定 LINE、未填聯繫方式留空，未全破者也可匯出。' }),
+      el('label', {}, [el('span', { text:'匯出範圍' }), el('select', { class:'input', 'aria-label':'挑戰名單範圍', disabled:state.busy,
+        onChange:async event=>{state.participantScope=event.target.value;state.busy=true;render();await loadParticipants();state.busy=false;render();}
+      }, [['all','全部已領卡用戶'],['participated','所選日有登錄紀錄']].map(([value,text])=>el('option',{value,text,selected:state.participantScope===value}))) ]),
+      state.participantError ? el('p',{class:'adm__note',role:'alert',text:data.explain(state.participantError,'完整名單讀取失敗，請更新重試。')})
+        : el('p',{class:'adm__note',text:`${dateLabel(state.date)}・${state.participantRows?.length ?? 0} 人`}),
+      el('ul',{class:'adm__list'},(state.participantRows??[]).slice(0,5).map(r=>el('li',{text:`${r.nickname || r.playerId}・${r.playerId}・完成 ${r.completedCount} 關` }))),
+      el('button',{class:'btn btn--lg',type:'button',disabled:state.busy,onClick:async()=>{state.busy=true;render();await loadParticipants();state.busy=false;render();}},'更新完整名單'),
+      el('button',{class:'btn btn--lg btn--primary',type:'button',disabled:state.busy||state.participantRows==null,onClick:()=>exportParticipants('summary')},'下載挑戰名單 CSV'),
+      el('button',{class:'btn btn--lg',type:'button',disabled:state.busy||state.participantRows==null,onClick:()=>exportParticipants('attempts')},'下載成績明細 CSV'),
+      el('p',{class:'adm__permNote',text:'成績明細含每次登錄、逐球資料及作廢紀錄；完整名單與抽獎資格名單分開。請先確認待同步成績已入庫。'})
+    ]);
   }
 
   function rows() {
@@ -213,6 +259,7 @@ export async function adminExportPage({ scope, view }) {
       state.rewards?.rule === DAILY_RULE ? dayTabs(state.rewards.dates, state.date, date => {
         if (!state.busy) selectDate(date);
       }) : null,
+      participantCard(),
       summaryCard(),
       previewCard(),
 

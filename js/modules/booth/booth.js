@@ -29,6 +29,7 @@ import { EVENT_ID } from '../../config.js';
 import { now as serverNow, startTicker } from '../../core/clock.js';
 import { activityTime, isActivityTimeSimulated } from '../../core/activity-clock.js';
 import { hold } from '../../core/store.js';
+import { subscribe as onSync, list as syncWrites } from '../../core/sync.js';
 import { hhmm } from '../../lib/format.js';
 import {
   formatScore, normalizePlayerId, parseScannedId, pickBest, attemptQuota, myRank, normalizePhone, maskPhone
@@ -70,6 +71,7 @@ export async function boothPage({ scope, view, params, query }) {
   hold(scope, () => cameraAbort.abort(), 'booth:camera');
 
   hold(scope, onAuth(() => render()), 'auth:booth');
+  hold(scope, onSync(() => { if (state.result) render(); }), 'sync:booth-result');
 
   if (!can('challenge.attempt.write')) {
     state.ready = true;
@@ -103,8 +105,8 @@ export async function boothPage({ scope, view, params, query }) {
     const before = isChallengeOpen(c, date);
     state.savingDay = `${c.challengeId}:${date}`; render();
     try {
-      await data.updateDay(c.challengeId, date, !before, before);
-      toast(`${dateLabel(date)} ${c.shortName || c.name}已${before ? '關閉' : '開放'}`);
+      const result = await data.updateDay(c.challengeId, date, !before, before);
+      toast(`${dateLabel(date)} ${c.shortName || c.name}已${before ? '關閉' : '開放'}${result?.refreshStatus === 'queued' ? '，資格摘要更新中' : ''}`);
     } catch (err) { toast(data.explain(err, '開放設定沒有儲存成功'), 'error'); }
     finally { state.savingDay = null; render(); }
   }
@@ -293,11 +295,23 @@ export async function boothPage({ scope, view, params, query }) {
     // ⚠️ 也**不要**在這裡接 catch：`sync.track()` 回傳 `{id, promise}` 而且
     //    永遠不 reject——失敗會變成右上角的紅燈與重試清單。再補一個 toast
     //    等於開了第二條互相競爭的錯誤通道，而三態才是不可協商的那一個。
-    data.submitAttempt(payload, `${state.player?.nickname ?? state.playerId}　${payload.doc.displayValue}`);
+    const write = data.submitAttempt(payload, `${state.player?.nickname ?? state.playerId}　${payload.doc.displayValue}`);
 
     state.result = submitFeedback({
       challenge: c, attempts: dayAttempts(), rawValue: r.rawValue,
       nickname: state.player?.nickname ?? state.playerId
+    });
+    const feedback = state.result;
+    feedback.writeId = write.id;
+    feedback.syncState = 'queued';
+    void write.promise.then(result => {
+      feedback.syncState = result.state;
+      feedback.voided = result.value?.voided === true;
+      if (result.state === 'failed') {
+        state.attempts = state.attempts.filter(a => a.attemptId !== payload.attemptId);
+        state.sent = state.sent.filter(a => a.atMs !== nowMs);
+      }
+      if (state.result === feedback) render();
     });
     // 本機先把這一筆加進去，次數與「最佳」立刻正確（Function 稍後會回寫 isBest）
     state.attempts = [...state.attempts, { ...payload.doc, createdAt: null }];
@@ -601,8 +615,13 @@ export async function boothPage({ scope, view, params, query }) {
 
   function resultBox() {
     const rank = state.board ? myRank(state.board.rows ?? [], state.playerId) : null;
-    return el('div', { class: 'booth__box booth__box--ok' }, [
-      el('strong', {}, iconText('check', inputModeOf(state.challenge) === 'checkin' ? '踩點已登錄' : '成績已記錄')),
+    const writeState = syncWrites().find(w => w.id === state.result.writeId)?.state;
+    if (writeState) state.result.syncState = writeState;
+    return el('div', { class: `booth__box${state.result.syncState === 'saved' ? ' booth__box--ok' : ''}` }, [
+      el('strong', {}, iconText(state.result.syncState === 'saved' ? 'check' : 'info',
+        state.result.syncState === 'failed' ? '儲存失敗，請查看同步清單'
+          : state.result.syncState === 'queued' ? '已排入待同步，尚未入庫'
+          : inputModeOf(state.challenge) === 'checkin' ? '踩點已登錄' : '成績已記錄')),
       el('p', { class: 'booth__resultLine', text: state.result.headline }),
       inputModeOf(state.challenge) === 'checkin' ? null : el('p', { class: 'booth__note', text: `${state.result.sub}・${state.result.best}` }),
       rank && state.challenge?.leaderboardEnabled !== false ? el('p', { class: 'booth__note', text: `目前排名 第 ${rank.rank} 名` }) : null,
