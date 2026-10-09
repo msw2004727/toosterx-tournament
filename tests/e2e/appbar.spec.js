@@ -190,7 +190,7 @@ test('SVG 安裝到桌面位於右側我的／登入左側、窄版不溢出 @ap
   await stub(page); await go(page, '/#/');
   const btn = page.locator('.apphead__install');
   await expect(btn).toBeVisible();
-  await expect(btn).toHaveText('安裝到桌面');
+  await expect(btn).toHaveText('安裝');
   await expect(page.locator('.apphead__spacer + .apphead__venue + .apphead__install + a[data-nav]')).toHaveCount(1);
   await expect(btn.locator('svg')).toHaveCount(1);
   expect(await btn.locator('span').evaluate(e => e.getBoundingClientRect().width)).toBeGreaterThan(20);
@@ -213,6 +213,88 @@ test('原生安裝失敗仍有手動教學 @appbar @pwainstall', async ({ page }
 test('已安裝的獨立視窗隱藏入口 @appbar', async ({ page }) => {
   await stub(page, { install: 'installed' }); await go(page, '/#/');
   await expect(page.locator('.apphead__install')).toBeHidden();
+});
+
+test('安裝後重新開啟仍隱藏、四個入口等寬且短分隔線連續 @appbar @pwainstall', async ({ page }) => {
+  await stub(page); await go(page, '/#/');
+  const geometry = () => page.locator('.apphead').evaluate(nav =>
+    [...nav.children].filter(n => n.matches('a,button,.theme-switch') && !n.hidden).map(n => {
+      const b = n.getBoundingClientRect(), line = getComputedStyle(n, '::before');
+      return { width: b.width, height: b.height, separator: line.content, lineHeight: parseFloat(line.height) };
+    }));
+  const five = await geometry();
+  expect(five).toHaveLength(5);
+  expect(Math.max(...five.map(n => n.width)) - Math.min(...five.map(n => n.width))).toBeLessThan(1);
+  await page.evaluate(() => dispatchEvent(new Event('appinstalled')));
+  await expect(page.locator('[data-install]')).toBeHidden();
+  await page.reload();
+  await expect(page.locator('[data-install]')).toBeHidden();
+  const four = await geometry();
+  expect(four).toHaveLength(4);
+  expect(Math.max(...four.map(n => n.width)) - Math.min(...four.map(n => n.width))).toBeLessThan(1);
+  expect(four[0].separator).toBe('none');
+  for (const item of four.slice(1)) {
+    expect(item.separator).toBe('""');
+    expect(item.lineHeight).toBe(24);
+    expect(item.lineHeight).toBeLessThan(item.height - 20);
+  }
+  // 解除安裝後再次可安裝的瀏覽器事件，讓入口恢復。
+  await page.evaluate(() => dispatchEvent(new Event('beforeinstallprompt')));
+  await expect(page.locator('[data-install]')).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('feda_pwa_installed'))).toBeNull();
+});
+
+test('一般瀏覽器偵測本站已安裝 PWA、跨分頁同步 @appbar @pwainstall', async ({ page, context }) => {
+  await stub(page);
+  await page.addInitScript(() => Object.defineProperty(navigator, 'getInstalledRelatedApps', {
+    configurable: true, value: async () => [{ platform: 'webapp', url: location.origin + '/manifest.json', id: location.origin + '/?src=pwa' }]
+  }));
+  await go(page, '/#/');
+  await expect(page.locator('[data-install]')).toBeHidden();
+  const other = await context.newPage();
+  await stub(other); await go(other, '/#/');
+  await expect(other.locator('[data-install]')).toBeHidden();
+  await other.evaluate(() => dispatchEvent(new Event('beforeinstallprompt')));
+  await expect(other.locator('[data-install]')).toBeVisible();
+  await expect(page.locator('[data-install]')).toBeVisible();
+  await other.close();
+});
+
+test('其他 App 與偵測失敗不會隱藏本站安裝入口 @appbar @pwainstall', async ({ page }) => {
+  await stub(page);
+  await page.addInitScript(() => Object.defineProperty(navigator, 'getInstalledRelatedApps', {
+    configurable: true, value: async () => [
+      { platform: 'webapp', url: 'https://unrelated.example/manifest.json' },
+      { platform: 'webapp', url: location.origin + '/different.json' },
+      { platform: 'webapp', url: location.origin + '/manifest.json', id: location.origin + '/different-app' }
+    ]
+  }));
+  await go(page, '/#/');
+  await expect(page.locator('[data-install]')).toBeVisible();
+  await page.locator('[data-install]').click();
+  await expect(page.getByRole('dialog')).toContainText('安裝到裝置');
+});
+
+test('已安裝偵測被拒仍可用、過期回覆不覆蓋新的可安裝事件 @appbar @pwainstall', async ({ page }) => {
+  await stub(page);
+  await page.addInitScript(() => Object.defineProperty(navigator, 'getInstalledRelatedApps', {
+    configurable:true, value:() => new Promise(resolve => { window.__resolveInstalled = resolve; })
+  }));
+  await go(page, '/#/');
+  await page.waitForFunction(() => typeof window.__resolveInstalled === 'function');
+  await page.evaluate(() => {
+    dispatchEvent(new Event('beforeinstallprompt'));
+    window.__resolveInstalled([{ platform:'webapp', url:location.origin + '/manifest.json', id:location.origin + '/?src=pwa' }]);
+  });
+  await expect(page.locator('[data-install]')).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('feda_pwa_installed'))).toBeNull();
+  await page.addInitScript(() => Object.defineProperty(navigator, 'getInstalledRelatedApps', {
+    configurable:true, value:() => Promise.reject(new Error('API denied'))
+  }));
+  await page.reload();
+  await expect(page.locator('[data-install]')).toBeVisible();
+  await page.locator('[data-install]').click();
+  await expect(page.getByRole('dialog')).toContainText('安裝到裝置');
 });
 test('iOS 三步 SVG 教學 @appbar @pwainstall', async ({ page }) => {
   await stub(page, { install: 'ios' }); await go(page, '/#/');
@@ -256,7 +338,7 @@ test('圖示導覽：五個等寬項目、文字在圖示下方、深淺主題 @
  const nav=page.locator('.apphead');await expect(nav).toHaveCSS('align-items','stretch');
  const actions=nav.locator('a,button');await expect(actions).toHaveCount(5);
  const widths=[];
- for(const label of ['首頁','查看場地圖','安裝到桌面','我的','主題']){
+ for(const label of ['首頁','地圖','安裝','我的','主題']){
    const text=nav.getByText(label,{exact:true});await expect(text).toBeVisible();
    const parent=text.locator('..'),svg=parent.locator('svg');await expect(svg).toBeVisible();
    const {bounds,iconBounds}=await text.evaluate(e=>({bounds:e.getBoundingClientRect().toJSON(),iconBounds:e.parentElement.querySelector('svg').getBoundingClientRect().toJSON()}));

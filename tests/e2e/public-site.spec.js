@@ -297,11 +297,12 @@ test('⭐ 完全沒有資料時每一頁都有話說，不留白畫面 @public @
   }
 });
 
-test('積分榜長隊名單行右側淡出且仍可點選 @public @teamfade', async ({ page }) => {
+test('積分榜數據完整固定、只有長隊名捲動且仍可點選 @public @teamfade', async ({ page }) => {
   const seed = full();
   const standing = seed[`events/${EVENT}/standings/adult-open__group__A`];
   const names = ['ORIGINAL漂亮媽媽說的都隊', '圖斯特足球俱樂部 (黃)', 'Taichung Ronin FC', 'InternationalFootballClubWithoutSpaces'.repeat(4)];
-  standing.rows = names.map((name, i) => ({ ...standing.rows[0], rank: i + 1, teamId: `t-${101 + i}`, name }));
+  standing.rows = names.map((name, i) => ({ ...standing.rows[0], rank: i + 1, teamId: `t-${101 + i}`, name,
+    goalsFor: 123, goalsAgainst: 234, goalDiff: i ? -111 : 111, points: 123 }));
   await stub(page, seed);
   await go(page, '/#/division/adult-open');
   for (const name of names) {
@@ -310,10 +311,10 @@ test('積分榜長隊名單行右側淡出且仍可點選 @public @teamfade', as
     const bounds = await button.evaluate(node => {
       const range = document.createRange();
       range.selectNodeContents(node);
-      const label = node.querySelector('.ptable__teamName');
+      const label = node.querySelector('.ptable__teamName'), scroller = node.parentElement;
       range.selectNodeContents(label);
       return { lines: range.getClientRects().length, tapHeight: node.getBoundingClientRect().height,
-        mask: getComputedStyle(label).maskImage, clipped: label.scrollWidth > label.clientWidth };
+        mask: getComputedStyle(scroller).maskImage, clipped: scroller.scrollWidth > scroller.clientWidth };
     });
     expect(bounds.lines).toBe(1);
     if (bounds.clipped) expect(bounds.mask).toContain('linear-gradient');
@@ -321,21 +322,55 @@ test('積分榜長隊名單行右側淡出且仍可點選 @public @teamfade', as
     expect(bounds.tapHeight).toBeGreaterThanOrEqual(44);
   }
   const table = page.locator('.ptable').first();
-  const label = page.getByRole('button', { name: names[3], exact: true }).locator('.ptable__teamName');
-  await expect(label).toHaveAttribute('data-overflow', '');
-  await expect(label).toHaveCSS('mask-image', /linear-gradient/);
-  const roomy = await label.evaluate(node => node.clientWidth);
-  expect(roomy).toBeGreaterThan(150);
-  await table.locator('tbody tr').evaluateAll(rows => {
-    for (const row of rows) for (const cell of [...row.cells].slice(2)) cell.textContent = '12345';
+  const scroller = table.locator('.ptable__nameScroll').last();
+  await expect(scroller).toHaveAttribute('data-overflow', '');
+  await expect(scroller).toHaveCSS('mask-image', /linear-gradient/);
+  const measure = () => table.evaluate(table => {
+    const wrap = table.parentElement.getBoundingClientRect();
+    const cells = [...table.querySelectorAll('th,td')].filter(n => n.cellIndex !== 1);
+    return {
+      statsInside: cells.every(n => {
+        const box = n.getBoundingClientRect(), range = document.createRange(); range.selectNodeContents(n);
+        const text = range.getBoundingClientRect();
+        return box.left >= wrap.left - 1 && box.right <= wrap.right + 1
+          && text.left >= box.left - 1 && text.right <= box.right + 1;
+      }),
+      positions: cells.map(n => n.getBoundingClientRect().x),
+      tableFits: table.scrollWidth <= table.clientWidth + 1
+    };
   });
-  await expect.poll(() => label.evaluate(node => node.clientWidth)).toBeLessThan(roomy - 40);
-  await table.locator('tbody tr').evaluateAll(rows => {
-    for (const row of rows) for (const cell of [...row.cells].slice(2)) cell.textContent = '0';
-  });
-  await expect.poll(() => label.evaluate(node => node.clientWidth)).toBeGreaterThanOrEqual(roomy);
+  const before = await measure();
+  expect(before.statsInside).toBe(true);
+  expect(before.tableFits).toBe(true);
+  const box = await scroller.boundingBox();
+  if (test.info().project.name !== 'chromium-desktop') {
+    const session = await page.context().newCDPSession(page);
+    await session.send('Input.dispatchTouchEvent', { type:'touchStart', touchPoints:[{ x:box.x + box.width - 4, y:box.y + 20 }] });
+    for (let step = 1; step <= 5; step++) {
+      await session.send('Input.dispatchTouchEvent', { type:'touchMove', touchPoints:[{ x:box.x + box.width - 4 - step * 10, y:box.y + 20 }] });
+      await page.waitForTimeout(35);
+    }
+    await session.send('Input.dispatchTouchEvent', { type:'touchEnd', touchPoints:[] });
+    await session.detach();
+  } else {
+    await page.mouse.move(box.x + box.width / 2, box.y + 20);
+    await page.mouse.wheel(120, 0);
+  }
+  await expect.poll(() => scroller.evaluate(n => n.scrollLeft)).toBeGreaterThan(0);
+  await expect(page).toHaveURL(/#\/division\/adult-open$/);
+  await scroller.evaluate(n => { n.scrollLeft = n.scrollWidth; });
+  await expect.poll(() => scroller.evaluate(n => n.scrollLeft)).toBeGreaterThan(0);
+  await expect(scroller).toHaveAttribute('data-at-end', '');
+  await expect(scroller).toHaveCSS('mask-image', 'none');
+  expect((await measure()).positions).toEqual(before.positions);
+  await expect(table.locator('tbody tr').first().locator('td').nth(8)).toHaveText('+111');
+  await expect(table.locator('tbody tr').last().locator('td').nth(8)).toHaveText('-111');
+  await expect(table.locator('tbody tr').first().locator('td').last()).toHaveText('123');
+  await scroller.focus();
+  await scroller.press('Home');
+  await page.screenshot({ path: 'tmp/standings-fixed-' + test.info().project.name + '.png' });
   await noHScroll(page);
-  await page.getByRole('button', { name: names[0], exact: true }).click();
+  await page.getByRole('button', { name: names[0], exact: true }).click({ position: { x: 8, y: 20 } });
   await expect(page).toHaveURL(/#\/team\/t-101$/);
 });
 
@@ -349,6 +384,35 @@ test('⭐ 積分榜 rows 是空陣列時顯示「整理中」，不是壞掉 @pu
   await go(page, '/#/division/adult-open');
   await expect(page.getByText('這一組還沒有成績')).toBeVisible();
   await expect(page.locator('.ptable')).toHaveCount(0);
+});
+
+test('六組積分榜在窄機與桌機、深淺主題均完整顯示數據 @public @fixedstanding', async ({ page }) => {
+  test.setTimeout(60000);
+  const seed = full();
+  const template = seed[`events/${EVENT}/standings/adult-open__group__A`];
+  for (const divisionId of ['u6', 'u8', 'u10', 'women', 'adult-fun', 'adult-open']) {
+    seed[`events/${EVENT}/divisions/${divisionId}`] = { ...seed[`events/${EVENT}/divisions/adult-open`], divisionId, name: divisionId };
+    seed[`events/${EVENT}/standings/${divisionId}__group__A`] = { ...template, divisionId,
+      standingId: `${divisionId}__group__A`, rows: template.rows.map(r => ({ ...r, name: '很長的完整球隊名稱 '.repeat(8) })) };
+  }
+  await stub(page, seed);
+  for (const divisionId of ['u6', 'u8', 'u10', 'women', 'adult-fun', 'adult-open']) {
+    await go(page, '/#/division/' + divisionId);
+    await expect(page.locator('.ptable thead th')).toHaveText(['名次','球隊','賽','勝','和','負','進','失','差','積分']);
+    for (const width of [320, 360, 480, 1280]) {
+      await page.setViewportSize({ width, height: 800 });
+      for (const theme of ['light', 'dark']) {
+        await page.evaluate(t => { document.documentElement.dataset.theme = t; }, theme);
+        expect(await page.locator('.ptable').evaluate(table => {
+          const box = table.getBoundingClientRect();
+          return box.right <= innerWidth && box.left >= 0 && table.scrollWidth <= table.clientWidth + 1
+            && [...table.querySelectorAll('th,td')].filter(n => n.cellIndex !== 1).every(n => {
+              const b = n.getBoundingClientRect(); return b.left >= box.left && b.right <= box.right + 1;
+            });
+        }), `${divisionId} ${width} ${theme}`).toBe(true);
+      }
+    }
+  }
 });
 
 test('⭐ hasUnresolvedTie 要顯示「待主辦裁定」@public @tie', async ({ page }) => {

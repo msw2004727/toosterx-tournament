@@ -356,7 +356,12 @@ input[type="file"]::file-selector-button{
   position:sticky;top:0;z-index:60;
 }
 .apphead__spacer{display:none}
-.apphead__link,.apphead__install,.apphead .theme-switch{flex:1 1 0;min-width:0}
+.apphead__link,.apphead__install,.apphead .theme-switch{flex:1 1 0;min-width:0;position:relative}
+/* 短線位於入口交界；隱藏安裝鈕後仍連續、其餘入口等寬。 */
+.apphead>:is(.apphead__link,.apphead__install,.theme-switch):not([hidden])~:is(.apphead__link,.apphead__install,.theme-switch):not([hidden])::before{
+  content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:1px;height:24px;background:var(--border-strong);pointer-events:none;
+}
 .apphead__link,.apphead__install,.apphead .theme-switch__opt{
   display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;
   min-height:62px;min-width:0;padding:6px 0;

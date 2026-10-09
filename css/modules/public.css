@@ -281,33 +281,46 @@
 
 /* ── 積分榜 ─────────────────────────────────────────────── */
 .pstand{margin:0}
-/* 320px 塞不下十欄，橫向捲動是刻意的——縮字級會讓數字看不清楚 */
-.ptable-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.ptable{width:100%;border-collapse:collapse;min-width:460px}
-.ptable th,.ptable td{padding:6px 4px;font-size:var(--fs-sm);text-align:center;white-space:nowrap}
+/* 名稱使用剩餘寬度、獨立捲動，數據欄在 320px 也完整顯示。 */
+.ptable-wrap{min-width:0}
+.ptable{width:100%;border-collapse:collapse;table-layout:fixed}
+.ptable th,.ptable td{padding:6px 1px;font-size:var(--fs-sm);text-align:center;white-space:nowrap}
 .ptable thead th{font-size:var(--fs-xs);color:var(--text-muted);font-weight:700}
 .ptable th.is-left,.ptable td.is-left{text-align:left}
 .ptable tbody tr{border-top:1px solid var(--border)}
 .ptable td{font-variant-numeric:tabular-nums}
-.ptable th:not(:nth-child(2)),.ptable td:not(:nth-child(2)){width:1%}
-.ptable th:nth-child(2),.ptable td:nth-child(2){width:100%;max-width:0}
-.ptable__team{font-weight:700;font-size:var(--fs-sm);text-align:left;
-  width:100%;max-width:100%;white-space:nowrap}
-.ptable__teamName{display:block;min-width:0;overflow:hidden;white-space:nowrap}
-.ptable__teamName[data-overflow]{
+.ptable th:not(:nth-child(2)),.ptable td:not(:nth-child(2)){width:28px}
+.ptable th:nth-child(9),.ptable td:nth-child(9){width:36px}
+.ptable th:nth-child(10),.ptable td:nth-child(10){width:34px}
+.ptable th:nth-child(2),.ptable td:nth-child(2){width:auto;min-width:0}
+.ptable__nameScroll{min-width:0;overflow-x:auto;overscroll-behavior-x:contain;
+  scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent}
+.ptable__nameScroll:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.ptable__teamName{display:block;white-space:nowrap}
+.ptable__nameScroll[data-overflow]:not([data-at-end]){
   -webkit-mask-image:linear-gradient(to right,var(--text-primary) calc(100% - 1.2em),transparent);
   mask-image:linear-gradient(to right,var(--text-primary) calc(100% - 1.2em),transparent);
 }
 /* 隊名可以點進球隊頁：整顆按鈕都是觸控目標，高度不得低於 --tap（驗收 D-15） */
 button.ptable__team{
   display:inline-flex;align-items:center;min-height:var(--tap);
-  padding:0 4px;margin:-6px 0;border:0;background:none;font:inherit;
+  width:max-content;min-width:100%;padding:0 3px;border:0;background:none;font:inherit;text-align:left;
   /* 看得出可以按：粗體、主色、細底線（不只靠顏色） */
   font-weight:700;color:var(--accent);cursor:pointer;
   text-decoration:underline;text-decoration-color:var(--border-strong);text-underline-offset:3px;
 }
 button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-color:var(--accent)}
 .ptable__pts{font-weight:700}
+@media(max-width:479px){
+  .ptable th,.ptable td{font-size:12px}
+  .ptable thead th{font-size:11px}
+  .ptable th:not(:nth-child(2)),.ptable td:not(:nth-child(2)){width:20px}
+  .ptable th:first-child,.ptable td:first-child{width:25px}
+  .ptable th:nth-child(7),.ptable td:nth-child(7),
+  .ptable th:nth-child(8),.ptable td:nth-child(8){width:24px}
+  .ptable th:nth-child(9),.ptable td:nth-child(9){width:32px}
+  .ptable th:nth-child(10),.ptable td:nth-child(10){width:28px}
+}
 /* 晉級區：底色 ＋ 左邊條，兩個訊號不只靠顏色 */
 .ptable tbody tr.is-qualified{background:var(--ok-bg)}
 .ptable tbody tr.is-qualified td:first-child{

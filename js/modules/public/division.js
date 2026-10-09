@@ -35,7 +35,12 @@ export async function publicDivision({ params, scope, view, query }) {
   const root = el('div', { class: 'pub' });
   mount(view, root);
   mount(root, skeleton(4));
-  const updateNameFade = node => node.toggleAttribute('data-overflow', node.scrollWidth > node.clientWidth + 1);
+  const updateNameFade = node => {
+    const overflow = node.scrollWidth > node.clientWidth + 1;
+    node.toggleAttribute('data-overflow', overflow);
+    node.tabIndex = overflow ? 0 : -1;
+    node.toggleAttribute('data-at-end', node.scrollLeft + node.clientWidth >= node.scrollWidth - 1);
+  };
   const nameObserver = typeof ResizeObserver === 'function'
     ? new ResizeObserver(entries => entries.forEach(entry => updateNameFade(entry.target))) : null;
   let disposed = false;
@@ -84,7 +89,7 @@ export async function publicDivision({ params, scope, view, query }) {
             { label: '重新載入', onClick: () => location.reload() })
         : body()
     );
-    for (const name of root.querySelectorAll('.ptable__teamName')) {
+    for (const name of root.querySelectorAll('.ptable__nameScroll')) {
       updateNameFade(name);
       nameObserver?.observe(name);
     }
@@ -160,10 +165,14 @@ export async function publicDivision({ params, scope, view, query }) {
               class: `${r.qualified ? 'is-qualified' : ''} ${r.unresolved ? 'is-unresolved' : ''}`
             }, [
               el('td', { class: 'num', text: r.unresolved ? '—' : String(r.rank ?? '') }),
-              el('td', { class: 'is-left' }, el('button', {
+              el('td', { class: 'is-left' }, el('div', {
+                class: 'ptable__nameScroll', role: 'region',
+                'aria-label': `球隊名稱：${r.name || r.teamId || ''}，可左右滑動`,
+                onScroll: e => updateNameFade(e.currentTarget)
+              }, el('button', {
                 class: 'ptable__team', type: 'button', title: r.name || r.teamId || '',
                 onClick: () => r.teamId && navigate(`/team/${encodeURIComponent(r.teamId)}`)
-              }, el('span', { class: 'ptable__teamName', text: r.name || r.teamId || '' }))),
+              }, el('span', { class: 'ptable__teamName', text: r.name || r.teamId || '' })))),
               el('td', { class: 'num', text: String(r.played) }),
               el('td', { class: 'num', text: String(r.win) }),
               el('td', { class: 'num', text: String(r.draw) }),
@@ -174,14 +183,14 @@ export async function publicDivision({ params, scope, view, query }) {
               el('td', { class: 'num ptable__pts', text: String(r.points) })
             ])))
           ])),
-      // 窄機上表格會橫向捲動，但沒有任何視覺線索——不講的話大家以為只有三欄
+      // 只有隊名欄捲動；所有成績欄始終留在畫面內。
       !v.isEmpty
         ? el('p', { class: 'pstand__legend' }, [
             // ⚠️ iconText() 回傳的是**陣列**，一定要展開。
             //    直接塞進去 el() 會把整個陣列 String() 成 "[object SVGSVGElement],…"
             //    印在畫面上——跟 R-UI-001 的 "null" 是同一類問題，
             //    而且測試看不到，是看截圖才發現的。
-            ...iconText('forward', '左右滑動可看進球、失球、淨勝球與積分'),
+            ...iconText('forward', '隊名可左右滑動，成績固定顯示'),
             qualifyCount() > 0
               ? el('span', { class: 'pstand__legend-q', text: `　淡綠底為前 ${qualifyCount()} 名（晉級區）` })
               : null

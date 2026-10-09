@@ -26,6 +26,16 @@ import { el } from './ui.js';
 import { icon } from './icons.js';
 
 const listeners = new Set();
+const INSTALLED_KEY = 'feda_pwa_installed';
+function rememberedInstall() {
+  try { return window.localStorage?.getItem(INSTALLED_KEY) === '1'; } catch { return false; }
+}
+function rememberInstall(installed) {
+  try {
+    if (installed) window.localStorage?.setItem(INSTALLED_KEY, '1');
+    else window.localStorage?.removeItem(INSTALLED_KEY);
+  } catch { /* 禁止儲存時仍使用本次頁面的狀態 */ }
+}
 const emit = () => { for (const fn of listeners) { try { fn(); } catch { /* 單一訂閱者壞掉不影響其他人 */ } } };
 
 /** @returns {() => void} 取消訂閱 */
@@ -71,11 +81,10 @@ export function installState() {
   const b = bucket();
   if (b.installed || isStandalone()) return { installed: true, canInstall: false, mode: null };
   if (b.deferred) return { installed: false, canInstall: true, mode: 'prompt' };
+  if (rememberedInstall()) return { installed: true, canInstall: false, mode: null };
   if (isInAppBrowser()) return { installed: false, canInstall: true, mode: 'inapp' };
   if (isIos()) return { installed: false, canInstall: true, mode: 'ios' };
-  // 桌面 Firefox、已經裝過但用瀏覽器開、Chrome 還沒判定完或決定不主動提示——
-  // 按鈕照畫，按下去是「從瀏覽器選單安裝」的步驟。原本這裡不畫按鈕，結果頁首在
-  // 每一台手機長得不一樣，驗收的人以為壞了（2026-09-06）。按了會有說明，不是沒反應。
+  // 沒有已安裝證據、也沒有原生提示時，保留瀏覽器選單安裝教學。
   return { installed: false, canInstall: true, mode: 'manual' };
 }
 
@@ -94,7 +103,7 @@ export async function promptInstall() {
   try {
     await ev.prompt();
     const { outcome } = await ev.userChoice;
-    if (outcome === 'accepted') { b.installed = true; emit(); }
+    if (outcome === 'accepted') { b.installed = true; rememberInstall(true); emit(); }
     return outcome === 'accepted' ? 'accepted' : 'dismissed';
   } catch {
     return 'unavailable';
@@ -169,10 +178,15 @@ export function showInstallHelp(mode = installState().mode, returnFocus = docume
 
 export function initInstall() {
   const b = bucket();
+  if (b.installed || isStandalone()) rememberInstall(true);
+  else if (b.deferred) rememberInstall(false);
 
   // 模組載入之後才派發的那一次（Chrome 有時會在 SW 就緒後才發）
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
+    // 再次收到可安裝事件代表目前能重裝，清掉解除安裝前的紀錄。
+    b.installed = false;
+    rememberInstall(false);
     b.deferred = e;
     emit();
   });
@@ -180,9 +194,41 @@ export function initInstall() {
   window.addEventListener('appinstalled', () => {
     b.installed = true;
     b.deferred = null;
+    rememberInstall(true);
     emit();
   });
 
   // 從瀏覽器分頁切到已安裝的視窗時，display-mode 會變
-  window.matchMedia?.('(display-mode: standalone)')?.addEventListener?.('change', emit);
+  window.matchMedia?.('(display-mode: standalone)')?.addEventListener?.('change', () => {
+    if (isStandalone()) rememberInstall(true);
+    emit();
+  });
+  window.addEventListener('storage', e => {
+    if (e.key !== INSTALLED_KEY) return;
+    b.installed = e.newValue === '1';
+    if (b.installed) b.deferred = null;
+    emit();
+  });
+
+  // 支援此 API 的瀏覽器能在一般分頁確認本站 PWA 已安裝。
+  // 僅接受本站 manifest 與既有 start_url 身分，其他相關 App 不算。
+  if (typeof navigator.getInstalledRelatedApps === 'function') {
+    const installEvent = b.deferred;
+    Promise.resolve().then(() => navigator.getInstalledRelatedApps()).then(apps => {
+      if (b.deferred !== installEvent) return; // 判定期間新到的可安裝事件優先
+      const installed = apps.some(app => {
+        if (app.platform !== 'webapp' || !app.url) return false;
+        try {
+          const url = new URL(app.url, location.href);
+          return url.origin === location.origin && url.pathname === '/manifest.json'
+            && (!app.id || new URL(app.id, location.href).href === new URL('/?src=pwa', location.href).href);
+        } catch { return false; }
+      });
+      if (!installed) return;
+      b.installed = true;
+      b.deferred = null;
+      rememberInstall(true);
+      emit();
+    }).catch(() => { /* 不支援或被拒絕時保留既有安裝／教學功能 */ });
+  }
 }

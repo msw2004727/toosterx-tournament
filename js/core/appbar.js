@@ -9,7 +9,7 @@
  *
  * 主辦 2026-09-03 指定的版型，**不管什麼身分、在哪一頁都一樣**：
  *
- *   [首頁] [查看場地圖] [安裝到桌面] [登入／我的] [主題]
+ *   [首頁] [地圖] [安裝] [登入／我的] [主題]
  *
  * ・「首頁」永遠是**公開首頁**（賽程、比分、積分榜）。
  *   總管也看得到家長看到的畫面——現場有人回報問題時核對得起來。
@@ -80,12 +80,12 @@ function navLink({ href, iconName, label, current }) {
  * 安裝鈕。
  *
  * 三種平台三種行為，而且**只有一種**有 API：
- *   ・Android／桌面 Chrome：接到 beforeinstallprompt 才顯示，按下去叫原生對話框
+ *   ・Android／桌面 Chrome：接到 beforeinstallprompt 時叫原生對話框
  *   ・iOS Safari：**沒有這個事件**，永遠不會有，只能教使用者手動加入
  *   ・LINE／FB 內建瀏覽器：沒有，而且**根本裝不了**，教改用外部瀏覽器
  *
- * 沒接到事件時改給「從瀏覽器選單安裝」的步驟——按鈕每一台都在（頁首要長一樣），
- * 但按下去一定有反應。只有真的已經安裝（standalone）才收起來。
+ * 沒接到事件時給「從瀏覽器選單安裝」的步驟。
+ * PWA 模式、已安裝紀錄或瀏覽器確認已安裝時收起入口。
  */
 function installButton() {
   const btn = el('button', {
@@ -100,7 +100,7 @@ function installButton() {
       if (await promptInstall() === 'unavailable') showInstallHelp('manual', btn);
       sync();
     }
-  }, [icon('install'), el('span', { class: 'apphead__linkText', text: '安裝到桌面' })]);
+  }, [icon('install'), el('span', { class: 'apphead__linkText', text: '安裝' })]);
 
   function sync() {
     const st = installState();
@@ -168,7 +168,7 @@ export function mountAppBar({
     const venue = el('button', {
       class: 'apphead__link apphead__venue', type: 'button',
       'aria-label': '查看場地圖', title: '查看場地圖', onClick: onViewVenueMap
-    }, [icon('map'), el('span', { class: 'apphead__linkText', text: '查看場地圖' })]);
+    }, [icon('map'), el('span', { class: 'apphead__linkText', text: '地圖' })]);
     const install = PWA_INSTALL ? installButton() : null;
     const theme = themeSwitch({ caption: '主題' });
 

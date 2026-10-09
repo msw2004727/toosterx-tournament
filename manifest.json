@@ -9,9 +9,13 @@
   "theme_color": "#0B2E20",
   "background_color": "#0B2E20",
   "lang": "zh-Hant-TW",
+  "related_applications": [
+    { "platform": "webapp", "url": "/manifest.json", "id": "https://cup.toosterx.com/?src=pwa" },
+    { "platform": "webapp", "url": "/manifest.json", "id": "https://cup-demo.toosterx.com/?src=pwa" }
+  ],
   "icons": [
-    { "src": "/img/icon-192.png?v=0.20261009d", "sizes": "192x192", "type": "image/png" },
-    { "src": "/img/icon-512.png?v=0.20261009d", "sizes": "512x512", "type": "image/png" },
-    { "src": "/img/icon-maskable.png?v=0.20261009d", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/img/icon-192.png?v=0.20261009e", "sizes": "192x192", "type": "image/png" },
+    { "src": "/img/icon-512.png?v=0.20261009e", "sizes": "512x512", "type": "image/png" },
+    { "src": "/img/icon-maskable.png?v=0.20261009e", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
