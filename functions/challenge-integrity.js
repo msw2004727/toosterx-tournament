@@ -69,7 +69,7 @@ export async function exportChallengeParticipantsFor({eventId,date,scope='all',m
         rows.push(row);
       }else for(const a of mine){const c=challenges.find(c=>c.challengeId===a.challengeId);
         rows.push({...shared,attemptId:a.attemptId,challengeName:c?.name??a.challengeId,rawValue:a.rawValue??'',displayValue:c?formatScore(a.rawValue,c):'',detail:JSON.stringify(a.detail??null),
-          recordedAt:a.recordedAtMs?new Date(a.recordedAtMs).toISOString():'',createdAt:attemptMs({...a,recordedAtMs:undefined})?new Date(attemptMs(a)).toISOString():'',
+          recordedAt:a.recordedAtMs?new Date(a.recordedAtMs).toISOString():'',createdAt:attemptMs({...a,recordedAtMs:undefined})?new Date(attemptMs({...a,recordedAtMs:undefined})).toISOString():'',
           voided:a.voided===true?'是':'否',voidReason:a.voidReason??'',valid:validAttemptValue(a,c)?'通過':'待核對'});
       }
     }

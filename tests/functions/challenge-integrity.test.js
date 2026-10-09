@@ -33,6 +33,9 @@ test('七攤結算、完整名單 UID／電話與零分、私人成績投影、�
   expect(toCsv(exported.columns,exported.rows)).toContain("'=危險");
   const projection=(await base().collection('attemptPublic').get()).docs.map(d=>d.data());
   expect(projection).toHaveLength(7);expect(JSON.stringify(projection)).not.toMatch(/LINE-|091234|staffUid|voidReason/);
+  const detail=(await exp({mode:'attempts'})).rows[0];
+  expect(detail.recordedAt).toBe(`${date}T04:00:00.000Z`);
+  expect(detail.createdAt).toBe(`${date}T04:00:01.000Z`);
   await base().collection('attempts').doc(CHALLENGES[5].challengeId).update({voided:true,voidReason:'掃錯卡'});
   await onAttemptSubmitted({eventId,challengeId:CHALLENGES[5].challengeId,playerId:'p1'});await syncPublicAttempt(eventId,CHALLENGES[5].challengeId);
   expect((await exp()).rows[0].entries).toBe(0);
