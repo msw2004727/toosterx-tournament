@@ -12,6 +12,15 @@
 const { runMutants } = require('./lib/mutate.cjs');
 
 const MUTANTS = [
+  { name: 'FN#SCORER-TEAM 球隊隱藏設定未套用新榜列', file: 'functions/pipeline.js',
+    from: 'events.filter(e => teams[e.teamId]?.display?.scorerBoard !== false)', to: 'events',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/scorer-policy.test.js --testNamePattern=SCORER-TEAM --silent' },
+  { name: 'FN#SCORER-TEAM-KEPT 其他組別重算保留隱藏球隊舊榜列', file: 'functions/pipeline.js',
+    from: "(boardId !== 'scorers' || teams[r.teamId]?.display?.scorerBoard !== false)", to: 'true',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/scorer-policy.test.js --testNamePattern=SCORER-TEAM --silent' },
+  { name: 'FN#SCORER-TEAM-TRIGGER 球隊隱藏設定變更未重算', file: 'functions/index.js',
+    from: 'before.display?.scorerBoard !== after?.display?.scorerBoard', to: 'false',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/scorer-policy.test.js --testNamePattern=SCORER-TEAM --silent' },
   { name:'FN#ADDLOCK 上鎖隊長仍可新增球員',file:'functions/team-player-add.js',
     from:'if (!admin && team.managementLocked === true)',to:'if (false)',
     testCmd:'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/team-player-add.test.js --testNamePattern=ADD-LOCK --silent' },
@@ -133,7 +142,7 @@ const MUTANTS = [
   { name: 'FN#DISC3 完賽後作廢事件沒有更新榜單', file: 'functions/index.js',
     from: 'if (match?.divisionId && DECIDED.includes(match.status)) {', to: 'if (false) {' },
   { name: 'FN#DISC4 刪除球隊沒有更新榜單', file: 'functions/index.js',
-    from: "if (before && changedAny(before, after, ['name', 'shortName', 'divisionId', 'status', 'withdrawn'])) {", to: 'if (false) {' },
+    from: "if (before && (changedAny(before, after, ['name', 'shortName', 'divisionId', 'status', 'withdrawn'])\n        || before.display?.scorerBoard !== after?.display?.scorerBoard)) {", to: 'if (false) {' },
   {
     name: 'FN#JER1 球員 ID 又綁背號', file: 'functions/team-import.js',
     from: 'const memberId = `p-${team.teamId.slice(4)}-${index + 1}`;', to: 'const memberId = `p-${m.jerseyNo}`;'
@@ -230,7 +239,7 @@ const MUTANTS = [
   {
     name: 'FN#9 重建看板時把整份 rows 蓋掉（一個組別完賽，其他五組的榜全消失）',
     file: 'functions/pipeline.js',
-    from: "    const kept = (snap.data()?.rows || []).filter(r => r.divisionId !== divisionId\n        && teams[r.teamId]?.divisionId === r.divisionId);",
+    from: "    const kept = (snap.data()?.rows || []).filter(r => r.divisionId !== divisionId\n        && teams[r.teamId]?.divisionId === r.divisionId\n        && (boardId !== 'scorers' || teams[r.teamId]?.display?.scorerBoard !== false));",
     to: "    const kept = [];"
   },
   {

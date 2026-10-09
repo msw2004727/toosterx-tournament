@@ -525,7 +525,9 @@ export async function rebuildBoardsFor({ eventId, divisionId }) {
         jerseyNo: r?.jerseyNo ?? null
       };
     }
-    const scorers = computeScorers(events, { countedMatchIds: counted, playerMeta, enabled: divisionSnap.data()?.stats?.scorers !== false })
+    // 球隊可只退出公開射手榜；原始事件、比分與紅黃牌仍保留並照常計算。
+    const scorerEvents = events.filter(e => teams[e.teamId]?.display?.scorerBoard !== false);
+    const scorers = computeScorers(scorerEvents, { countedMatchIds: counted, playerMeta, enabled: divisionSnap.data()?.stats?.scorers !== false })
       .slice(0, BOARD_LIMIT).map(r => ({ ...r, divisionId }));
     const fairPlay = computeFairPlayBoard({ matches, cardEvents: events, teams, withdrawalPolicy });
     for (const [i, rows] of [scorers, fairPlay].entries()) {
@@ -533,7 +535,8 @@ export async function rebuildBoardsFor({ eventId, divisionId }) {
       const boardId = snap.id;
       const ref = evRef(eventId).collection('boards').doc(boardId);
       const kept = (snap.data()?.rows || []).filter(r => r.divisionId !== divisionId
-        && teams[r.teamId]?.divisionId === r.divisionId);
+        && teams[r.teamId]?.divisionId === r.divisionId
+        && (boardId !== 'scorers' || teams[r.teamId]?.display?.scorerBoard !== false));
       tx.set(ref, {
         boardId, rows: [...kept, ...rows], updatedAt: FieldValue.serverTimestamp(),
         computedBy: 'fn:rebuildBoards',

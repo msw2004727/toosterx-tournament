@@ -272,7 +272,8 @@ export const onTeamWritten = onDocumentWritten(
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
 
-    if (before && changedAny(before, after, ['name', 'shortName', 'divisionId', 'status', 'withdrawn'])) {
+    if (before && (changedAny(before, after, ['name', 'shortName', 'divisionId', 'status', 'withdrawn'])
+        || before.display?.scorerBoard !== after?.display?.scorerBoard)) {
       for (const divisionId of new Set([before.divisionId, after?.divisionId].filter(Boolean))) {
         if (changedAny(before, after, ['withdrawn', 'divisionId'])) {
           await refreshDivisionFor({ eventId, divisionId });
