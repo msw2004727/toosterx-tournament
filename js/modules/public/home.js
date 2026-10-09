@@ -24,6 +24,11 @@ import * as data from './data.js';
 import { splitHomeSections, isLiveMatch, hiddenScorerDivisions, publishedMatches, hasBoardContent } from './selectors.js';
 import { matchRow, sectionCard, empty, pageHead, statusBadge } from './bits.js';
 
+const MATCH_TABS = [
+  { key: 'all', label: '全部' }, { key: 'live', label: '進行中' },
+  { key: 'next', label: '接下來' }, { key: 'done', label: '剛結束' }
+];
+
 export async function publicHome({ scope, view, query }) {
   const root = el('div', { class: 'pub p-home' });
   mount(view, root);
@@ -39,7 +44,8 @@ export async function publicHome({ scope, view, query }) {
     boardMissing: false,
     scorers: null,
     featureFlags: {},
-    loading: true
+    loading: true,
+    matchTab: 'all'
   };
 
   let disposed = false;
@@ -197,29 +203,16 @@ export async function publicHome({ scope, view, query }) {
         el('span', { class: 'pub__challengeGo' }, icon('forward'))
       ]),
 
-      // 只在真的有進行中場次時才出現（§2.3）
-      live.length ? sectionCard('現在進行中', 'live',
-        el('ul', { class: 'plist plist--live' }, live.map(m =>
-          // 首頁不放關注：這一頁最擠，而且這裡的主要動作是「點進去看比分」。
-          // 關注放在賽程頁與比賽頁，那裡有空間也比較是「整理自己清單」的情境。
-          matchRow({ match: m, onOpen: open, division: divisionOf(m.divisionId) })))
-      ) : null,
-
-      sectionCard('接下來', 'clock',
-        next.length
-          ? el('ul', { class: 'plist' }, next.map(m =>
-              matchRow({ match: m, onOpen: open, division: divisionOf(m.divisionId) })))
-          : empty('這個日期沒有待進行的場次', '換一個日期看看，或看完整賽程。'),
-        el('button', {
-          class: 'btn btn--ghost btn--sm', type: 'button',
-          onClick: () => navigate(`/schedule?date=${encodeURIComponent(state.date)}`)
-        }, iconText('forward', '看完整賽程', { trailing: true }))
-      ),
-
-      done.length ? sectionCard('剛結束', 'check',
-        el('ul', { class: 'plist' }, done.map(m =>
-          matchRow({ match: m, onOpen: open, division: divisionOf(m.divisionId) })))
-      ) : null,
+      matchTabs(),
+      el('div', { class: 'p-homeMatches', id: 'home-matches', role: 'tabpanel',
+        'aria-labelledby': `home-match-tab-${state.matchTab}` }, [
+        (state.matchTab === 'all' && live.length) || state.matchTab === 'live'
+          ? matchSection('現在進行中', 'live', live, '目前沒有正在進行的場次') : null,
+        ['all', 'next'].includes(state.matchTab)
+          ? matchSection('接下來', 'clock', next, '這個日期沒有待進行的場次', true) : null,
+        (state.matchTab === 'all' && done.length) || state.matchTab === 'done'
+          ? matchSection('剛結束', 'check', done, '目前沒有剛結束的場次') : null
+      ].filter(Boolean)),
 
       state.divisions.length ? sectionCard('各組即時排名', 'table',
         el('div', { class: 'pchips' }, state.divisions.map(d =>
@@ -238,6 +231,38 @@ export async function publicHome({ scope, view, query }) {
       el('p', { class: 'pver', text: `系統版本 ${CACHE_VERSION}` })
     );
     paintMinutes();
+  }
+
+  function matchSection(title, glyph, matches, emptyTitle, showSchedule = false) {
+    return sectionCard(title, glyph,
+      matches.length ? el('ul', { class: `plist${glyph === 'live' ? ' plist--live' : ''}` },
+        matches.map(m => matchRow({ match: m, onOpen: open, division: divisionOf(m.divisionId) })))
+        : empty(emptyTitle, '換一個日期看看，或看完整賽程。'),
+      showSchedule ? el('button', { class: 'btn btn--ghost btn--sm', type: 'button',
+        onClick: () => navigate(`/schedule?date=${encodeURIComponent(state.date)}`)
+      }, iconText('forward', '看完整賽程', { trailing: true })) : null);
+  }
+
+  function matchTabs() {
+    const select = key => {
+      if (key === state.matchTab) return;
+      state.matchTab = key;
+      render();
+      root.querySelector(`#home-match-tab-${key}`)?.focus({ preventScroll: true });
+    };
+    return el('div', { class: 'p-matchTabs', role: 'tablist', 'aria-label': '賽事狀態' },
+      MATCH_TABS.map((tab, i) => el('button', {
+        id: `home-match-tab-${tab.key}`, class: `p-matchTabs__btn${tab.key === state.matchTab ? ' is-active' : ''}`,
+        type: 'button', role: 'tab', 'aria-selected': String(tab.key === state.matchTab),
+        'aria-controls': 'home-matches', tabindex: tab.key === state.matchTab ? '0' : '-1',
+        onClick: () => select(tab.key),
+        onKeydown: e => {
+          const next = e.key === 'ArrowRight' ? (i + 1) % MATCH_TABS.length
+            : e.key === 'ArrowLeft' ? (i + MATCH_TABS.length - 1) % MATCH_TABS.length
+            : e.key === 'Home' ? 0 : e.key === 'End' ? MATCH_TABS.length - 1 : null;
+          if (next != null) { e.preventDefault(); select(MATCH_TABS[next].key); }
+        }
+      }, tab.label)));
   }
 
   function scorerCard() {
