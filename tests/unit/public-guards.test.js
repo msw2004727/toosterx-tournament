@@ -78,17 +78,21 @@ describe('T33-1 ⭐ 隱私：公開端不得碰私密集合', () => {
 });
 
 describe('T33-2 ⭐ 不重算：積分與榜單只讀不算', () => {
-  test('公開端不 import 賽制重算引擎，只允許顯示名稱、活動日期與直播連結驗證器', () => {
+  test('公開端不重算榜單，只允許顯示工具與吃牌明細的有效場次選取器', () => {
     // R-ENG-001：積分／排名邏輯只能有一份實作，在 js/engine/，由 Function 執行。
     // 公開端只讀 standings.rows；新分享功能僅共用 URL 驗證與按鈕密度，不計算賽事結果。
     const hits = Object.entries(code)
-      .filter(([file, s]) => /from '.*\/engine\//.test((file === 'stream-shares.js'
+      .filter(([file, s]) => {
+        // 明細只共用官方場次納入規則；榜單數字仍只讀 boards，不准 import 計分／排名函式。
+        if (file === 'selectors.js') s = s.replace("import { countedMatchIdsOf } from '../../engine/awards.js';", '');
+        return /from '.*\/engine\//.test((file === 'stream-shares.js'
         ? s.replace("import { sharedYoutubeId, streamShareDensity, streamShareEmbed } from '../../engine/stream-share.js';", '') : s)
         .replace("import { groupNameOf } from '../../engine/group-name.js';", '')
         // 日期選擇只決定頁籤，並不重算積分或榜單。
         .replace("import { selectedActivityDate } from '../../engine/challenge-days.js';", '')
         // Display-only campaign time and disclosed offsets; no tournament scoring or ranking logic.
-        .replace("import { HOME_METRICS, campaignShares, displayedTraffic } from '../../engine/home-metrics.js';", '')))
+        .replace("import { HOME_METRICS, campaignShares, displayedTraffic } from '../../engine/home-metrics.js';", ''));
+      })
       .map(([f]) => f);
     expect(hits).toEqual([]);
   });
