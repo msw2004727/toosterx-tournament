@@ -172,7 +172,7 @@ export async function publicDivision({ params, scope, view, query }) {
                 class: `pstand__advance${advancement.bye ? ' pstand__advance--bye' : ''}`, type: 'button',
                 'aria-label': `${r.name || r.teamId}，${advancement.label}，查看晉級／名次圖`,
                 onClick: () => navigate(`/division/${encodeURIComponent(divisionId)}?tab=bracket`)
-              }, [icon(advancement.bye ? 'up' : 'check'), el('span', { text: advancement.label })]) : null]),
+              }, el('span', { class: 'pstand__advance-pill' }, [icon(advancement.bye ? 'up' : 'check'), el('span', { text: advancement.label })])) : null]),
               el('td', { class: 'num', text: String(r.played) }),
               el('td', { class: 'num', text: String(r.win) }),
               el('td', { class: 'num', text: String(r.draw) }),
