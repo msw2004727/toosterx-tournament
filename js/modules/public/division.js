@@ -23,14 +23,13 @@ import { hhmm } from '../../lib/format.js';
 import * as data from './data.js';
 import { viewStanding, sortStandings, sortByKickoff, stageLabel } from './selectors.js';
 import { pageHead, empty, matchRow, sectionCard } from './bits.js';
+import { DIVISION_TABS, divisionTabs } from './division-tabs.js';
+import { publicBracket } from './bracket.js';
 
-const TABS = [
-  { key: 'table', label: '積分榜', icon: 'table' },
-  { key: 'schedule', label: '賽程', icon: 'list' },
-  { key: 'teams', label: '球隊', icon: 'team' }
-];
+const TABS = DIVISION_TABS;
 
 export async function publicDivision({ params, scope, view, query }) {
+  if (query?.get('tab') === 'bracket') return publicBracket({ params, scope, view });
   const { divisionId } = params;
   const root = el('div', { class: 'pub' });
   mount(view, root);
@@ -96,16 +95,7 @@ export async function publicDivision({ params, scope, view, query }) {
   }
 
   function tabBar() {
-    return el('div', { class: 'ptabs ptabs--sub', role: 'tablist', 'aria-label': '組別資訊' },
-      TABS.map(t => el('button', {
-        class: `ptabs__btn ${state.tab === t.key ? 'is-active' : ''}`,
-        type: 'button', role: 'tab', 'aria-selected': state.tab === t.key ? 'true' : 'false',
-        onClick: () => {
-          state.tab = t.key;
-          location.replace(`#/division/${encodeURIComponent(divisionId)}?tab=${t.key}`);
-          render();
-        }
-      }, iconText(t.icon, t.label))));
+    return divisionTabs(divisionId, state.tab);
   }
 
   function body() {

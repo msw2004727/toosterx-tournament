@@ -142,12 +142,45 @@ export function watchDivisionTeams(scope, divisionId, cb, onError) {
   return hold(scope, unsub, `teams:${divisionId}`);
 }
 
+/** 晉級頁只開三個監聽，發布撤回、改判與賽制更新都會同步反映。 */
+export function watchBracketDivision(scope, divisionId, cb, onError) {
+  const { doc, onSnapshot } = sdk();
+  return hold(scope, onSnapshot(doc(db(), 'events', EVENT_ID, 'divisions', divisionId),
+    snap => cb(snap.exists() ? { ...snap.data(), divisionId: snap.id } : { missing: true }), onError), `bracket:division:${divisionId}`);
+}
+
+export function watchBracketFormats(scope, cb, onError) {
+  const { doc, onSnapshot } = sdk();
+  return hold(scope, onSnapshot(doc(db(), 'config', 'formats'),
+    snap => cb(snap.exists() ? snap.data().formats || {} : {}), onError), 'bracket:formats');
+}
+
+export function watchBracketMatches(scope, divisionId, cb, onError) {
+  const { collection, query, where, onSnapshot } = sdk();
+  const q = query(collection(db(), 'events', EVENT_ID, 'matches'), where('divisionId', '==', divisionId));
+  return hold(scope, onSnapshot(q, { includeMetadataChanges: true },
+    snap => cb(snap.docs.map(d => ({ ...d.data(), matchId: d.id })), snap.metadata), onError), `bracket:matches:${divisionId}`);
+}
+
 /* ── 一次性讀取（含快取）─────────────────────────────────── */
 
 async function cached(key, loader, ms = CACHE_MS) {
   const hit = cacheGet(key, ms);
   if (hit !== undefined) return hit;
   return cachePut(key, await loader());
+}
+
+let bracketFormatsPending = null;
+/** 一頁多張卡共用同一次請求；讀不到設定不影響原本比賽資訊。 */
+export async function getBracketFormats() {
+  if (bracketFormatsPending) return bracketFormatsPending;
+  bracketFormatsPending = cached('pub:bracket-formats', async () => {
+    const { doc, getDoc } = sdk();
+    const snap = await getDoc(doc(db(), 'config', 'formats'));
+    return snap.exists() ? snap.data().formats || {} : {};
+  }, DIVISION_CACHE_MS);
+  try { return await bracketFormatsPending; }
+  finally { bracketFormatsPending = null; }
 }
 
 export function getDivisions() {

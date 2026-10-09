@@ -323,8 +323,6 @@ test('積分榜數據完整固定、只有長隊名捲動且仍可點選 @public
   }
   const table = page.locator('.ptable').first();
   const scroller = table.locator('.ptable__nameScroll').last();
-  await expect(scroller).toHaveAttribute('data-overflow', '');
-  await expect(scroller).toHaveCSS('mask-image', /linear-gradient/);
   const measure = () => table.evaluate(table => {
     const wrap = table.parentElement.getBoundingClientRect();
     const cells = [...table.querySelectorAll('th,td')].filter(n => n.cellIndex !== 1);
@@ -342,6 +340,14 @@ test('積分榜數據完整固定、只有長隊名捲動且仍可點選 @public
   const before = await measure();
   expect(before.statsInside).toBe(true);
   expect(before.tableFits).toBe(true);
+  await expect(scroller).toHaveAttribute('data-overflow', '');
+  await expect(scroller).toHaveCSS('mask-image', /linear-gradient/);
+  // 模擬不同系統數字字寬／字距，不能只在開發機的字型下不擠欄。
+  const glyphStyle = await page.addStyleTag({ content: '.ptable td.num{font-family:Arial,sans-serif;letter-spacing:2px}' });
+  const widerGlyphs = await measure();
+  expect(widerGlyphs.statsInside).toBe(true);
+  await glyphStyle.evaluate(n => n.remove());
+  await scroller.scrollIntoViewIfNeeded();
   const box = await scroller.boundingBox();
   if (test.info().project.name !== 'chromium-desktop') {
     const session = await page.context().newCDPSession(page);

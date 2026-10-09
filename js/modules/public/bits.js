@@ -16,6 +16,7 @@ import { icon, iconText } from '../../core/icons.js';
 import { STATUS_LABEL, hhmm, displayMinute, scoreText, pkText } from '../../lib/format.js';
 import { elapsedSec, now } from '../../core/clock.js';
 import { isLiveMatch, isPlaceholder, sideLabel } from './selectors.js';
+import { appendBracketLink } from './bracket-link.js';
 
 /* ── 狀態徽章（docs/03 §3.2）────────────────────────────── */
 
@@ -88,12 +89,14 @@ export function matchRow({ match: m, onOpen, division }) {
     started && pkText(m) ? el('span', { class: 'prow__note prow__pk', text: pkText(m) }) : null
   ].filter(Boolean));
 
-  return el('li', {
+  const row = el('li', {
     ...divisionThemeAttrs(division || m?.divisionId),
     class: `prow division-card ${isPlaceholder(m) ? 'is-placeholder' : ''}`,
     // 每秒只換分鐘數而不重畫整列，靠這個 id 找回對應的節點
     dataset: { matchId: m?.matchId ?? '' }
   }, [body]);
+  void appendBracketLink(row, m, division);
+  return row;
 }
 
 /* ── 時段標題與空狀態 ───────────────────────────────────── */

@@ -78,6 +78,8 @@ module.exports = {
     failure: 'expect(await page.evaluate(() => window.__clockIntervals.size)).toBe(1)' },
   ESTANDTEAMWIDTH: { spec: 'tests/e2e/public-site.spec.js', grep: '@teamfade', minTests: 1,
     assertions: ['expect(before.statsInside).toBe(true)'], failure: 'expect(before.statsInside).toBe(true)' },
+  ESTANDGLYPHWIDTH: { spec: 'tests/e2e/public-site.spec.js', grep: '@teamfade', minTests: 1,
+    assertions: ['expect(widerGlyphs.statsInside).toBe(true)'], failure: 'expect(widerGlyphs.statsInside).toBe(true)' },
   ESTANDTEAMFADE: { spec: 'tests/e2e/public-site.spec.js', grep: '@teamfade', minTests: 1,
     assertions: ["expect(bounds.mask).toContain('linear-gradient')"],
     failure: "expect(bounds.mask).toContain('linear-gradient')" },

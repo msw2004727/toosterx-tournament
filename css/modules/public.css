@@ -8,6 +8,30 @@
    命名一律 p- 前綴（public），避免跟賽務端的 class 撞名。 */
 
 .pub{padding-bottom:var(--sp-6)}
+.ptabs.ptabs--division{display:grid;grid-template-columns:1fr 1fr 1.4fr 1fr;gap:6px;overflow:visible}
+.ptabs--division .ptabs__btn{min-width:0;padding:8px 4px;flex-direction:column;justify-content:center;text-align:center;white-space:normal}
+
+/* 晉級圖：隊伍由下往上合流。四隊在 320px 可讀；多輪保留節點寬度供橫向捲動。 */
+.pbracket{padding:0 var(--sp-3)}
+.pbracket__hint{font-size:var(--fs-xs);color:var(--text-secondary);margin:var(--sp-3) 0}
+.pbracket__section{margin:var(--sp-4) 0 var(--sp-5)}
+.pbracket__heading{display:flex;align-items:center;gap:6px;font-size:var(--fs-md);margin:0 0 var(--sp-3)}
+.pbracket__scroll{overflow-x:auto;padding:4px 0 12px;overscroll-behavior-x:contain}
+.pbracket__tree{position:relative;isolation:isolate}
+.pbracket__tier{display:grid;grid-template-columns:repeat(var(--bracket-leaves),minmax(0,1fr));gap:8px;position:relative}
+.pbracket__tier+.pbracket__tier{margin-top:48px}
+.pbracket__cell{display:flex;justify-content:center;align-items:stretch;min-width:0}
+.pbracket__node{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;width:100%;max-width:160px;min-height:92px;padding:10px 5px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-card);color:var(--text-primary);box-shadow:var(--shadow-1);text-align:center;overflow-wrap:anywhere}
+button.pbracket__node:hover{background:var(--control-hover);border-color:var(--control-selected-border)}
+.pbracket__node--root{border-top:3px solid var(--accent);background:var(--accent-bg)}
+.pbracket__node.is-pending .pbracket__name{color:var(--text-secondary)}
+.pbracket__name{font-size:var(--fs-sm);font-weight:600}
+.pbracket__source,.pbracket__game,.pbracket__status,.pbracket__time,.pbracket__pk{font-size:var(--fs-xs);color:var(--text-secondary)}
+.pbracket__score{font-size:var(--fs-lg);font-weight:700}
+.pbracket__links{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;overflow:visible}
+.pbracket__links path{fill:none;stroke:var(--border-strong);stroke-width:2}
+.pbracket>.pcard{margin:var(--sp-3) 0}
+.pbracket__missing{padding:var(--sp-3);font-size:var(--fs-sm);color:var(--text-secondary)}
 
 /* 首頁 A：墨綠品牌主視覺、快捷入口、分層比分卡。資料仍由原公開查詢提供。 */
 .p-home{padding:var(--sp-4) var(--sp-3) var(--sp-6)}
@@ -123,6 +147,12 @@
 /* 積分榜的進度說明（尚未開賽／進行中） */
 .pstand__phase{margin:0 0 var(--sp-2)}
 .prow{display:flex;align-items:stretch;gap:var(--sp-2);border-top:1px solid var(--border)}
+.prow.prow--bracket{flex-direction:column;gap:0}
+.prow.division-card.prow--bracket{padding-inline:var(--sp-2)}
+.prow__bracketActions{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:4px;padding-bottom:8px}
+.prow__bracketActions>.division-badge{align-self:center;min-width:0;white-space:normal;overflow-wrap:anywhere;margin-top:0}
+.prow__bracketLink{grid-column:2;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:var(--tap);padding:6px 10px;border:1px solid var(--control-border);border-radius:var(--control-radius);background:var(--control-bg);color:var(--division-color,var(--text-primary));font-size:var(--fs-xs);font-weight:600;white-space:nowrap}
+.prow__bracketLink:hover{background:var(--control-hover);border-color:var(--control-selected-border)}
 .prow:first-child{border-top:0}
 /* 未定隊伍（排名階段還沒解算）：虛線框 ＋ 斜體，一眼看得出「還不確定」 */
 .prow.is-placeholder .prow__team{font-style:italic;color:var(--text-muted)}
@@ -307,7 +337,9 @@
 .ptable tbody tr{border-top:1px solid var(--border)}
 .ptable td{font-variant-numeric:tabular-nums}
 .ptable th:not(:nth-child(2)),.ptable td:not(:nth-child(2)){width:28px}
-.ptable th:nth-child(9),.ptable td:nth-child(9){width:36px}
+.ptable th:nth-child(7),.ptable td:nth-child(7),
+.ptable th:nth-child(8),.ptable td:nth-child(8){width:32px}
+.ptable th:nth-child(9),.ptable td:nth-child(9){width:40px}
 .ptable th:nth-child(10),.ptable td:nth-child(10){width:34px}
 .ptable th:nth-child(2),.ptable td:nth-child(2){width:auto;min-width:0}
 .ptable__nameScroll{min-width:0;overflow-x:auto;overscroll-behavior-x:contain;
@@ -334,9 +366,9 @@ button.ptable__team:hover,button.ptable__team:focus-visible{text-decoration-colo
   .ptable th:not(:nth-child(2)),.ptable td:not(:nth-child(2)){width:20px}
   .ptable th:first-child,.ptable td:first-child{width:25px}
   .ptable th:nth-child(7),.ptable td:nth-child(7),
-  .ptable th:nth-child(8),.ptable td:nth-child(8){width:24px}
-  .ptable th:nth-child(9),.ptable td:nth-child(9){width:32px}
-  .ptable th:nth-child(10),.ptable td:nth-child(10){width:28px}
+  .ptable th:nth-child(8),.ptable td:nth-child(8){width:28px}
+  .ptable th:nth-child(9),.ptable td:nth-child(9){width:36px}
+  .ptable th:nth-child(10),.ptable td:nth-child(10){width:30px}
 }
 /* 晉級區：底色 ＋ 左邊條，兩個訊號不只靠顏色 */
 .ptable tbody tr.is-qualified{background:var(--ok-bg)}
