@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { buildBracketModel, isBracketMatch } from '../../js/modules/public/bracket-model.js';
+import { buildBracketModel, isBracketMatch, isWinningBracketNode } from '../../js/modules/public/bracket-model.js';
 import { FORMATS } from '../../js/engine/formats.js';
 
 const formats = JSON.parse(fs.readFileSync(new URL('../fixtures/bracket-formats.json', import.meta.url), 'utf8'));
@@ -27,6 +27,16 @@ function decided() {
   return matches;
 }
 const build = (f = format, m = matchesFor(f)) => buildBracketModel(f, m, division);
+
+test('勝隊標記只依完賽 result，領先、待定與重開均不標記', () => {
+  const winner = { teamId: 'a', side: 'home', match: { status: 'finished', home: { teamId: 'a' }, away: { teamId: 'b' }, result: { winner: 'home' }, score: { home: 0, away: 10 } } };
+  expect(isWinningBracketNode(winner)).toBe(true);
+  expect(isWinningBracketNode({ ...winner, side: null })).toBe(true);
+  expect(isWinningBracketNode({ ...winner, side: 'away', teamId: 'b' })).toBe(false);
+  expect(isWinningBracketNode({ ...winner, teamId: null })).toBe(false);
+  for (const status of ['live', 'halftime', 'scheduled']) expect(isWinningBracketNode({ ...winner, match: { ...winner.match, status } })).toBe(false);
+  expect(isWinningBracketNode({ ...winner, match: { ...winner.match, result: null } })).toBe(false);
+});
 
 test('四強為四個來源、兩個晉級者、一個冠軍，女子來源順序保持 2/3 與 1/4', () => {
   const v = build(), tree = v.trees[0];

@@ -2,6 +2,13 @@
 import { groupNameOf } from '../../engine/group-name.js';
 import { isDoneMatch } from './selectors.js';
 
+/** 只標記已完成且投影仍有效的勝方；領先比分與尚未晉級的來源都不算獲勝。 */
+export function isWinningBracketNode(node) {
+  const match = node?.match, winner = match?.result?.winner;
+  if (!node?.teamId || !isDoneMatch(match) || !['home', 'away'].includes(winner)) return false;
+  return (!node.side || node.side === winner) && match[winner]?.teamId === node.teamId;
+}
+
 /** 卡片入口只認設定中的淘汰槽位，不依中文名稱或 stageId 慣例猜測。 */
 export function isBracketMatch(format, match) {
   return !!match?.matchKey && Array.isArray(format?.stages) && format.stages.some(stage =>

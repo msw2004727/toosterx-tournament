@@ -6,7 +6,7 @@ import { icon, iconText } from '../../core/icons.js';
 import { dateTimeLabel, scoreText, pkText, STATUS_LABEL } from '../../lib/format.js';
 import { pageHead, empty, matchRow, sectionCard } from './bits.js';
 import { divisionTabs } from './division-tabs.js';
-import { buildBracketModel } from './bracket-model.js';
+import { buildBracketModel, isWinningBracketNode } from './bracket-model.js';
 import { watchBracketDivision, watchBracketFormats, watchBracketMatches } from './data.js';
 
 /** 三個公開監聽；不讀私人名冊、不寫比賽、不自行解算小組排名。 */
@@ -35,11 +35,13 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
       sub: state.division ? `${state.division.playersOnField ?? ''}人制　·　每場 ${state.division.matchDurationMin ?? ''} 分鐘` : '',
       onBack: () => navigate('/')
     }), divisionTabs(divisionId, 'bracket'), body());
-    [...root.querySelectorAll('.pbracket__scroll')].forEach((n, i) => { n.scrollLeft = scrolls[i] || 0; });
+    [...root.querySelectorAll('.pbracket__scroll')].forEach((n, i) => { n.scrollLeft = scrolls[i] ?? Math.max(0, (n.scrollWidth - n.clientWidth) / 2); });
     for (const tree of root.querySelectorAll('.pbracket__tree')) {
-      const draw = () => drawLinks(tree);
+      const viewport = tree.closest('.pbracket__viewport');
+      const draw = () => { drawLinks(tree); viewport.__updateHints(); };
       const observer = new ResizeObserver(draw);
       observers.push(observer); observer.observe(tree);
+      observer.observe(viewport);
       for (const node of tree.querySelectorAll('.pbracket__node')) observer.observe(node);
       draw();
     }
@@ -56,7 +58,7 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
     if (model.state !== 'ready') return empty('對戰圖整理中', '賽制資料尚未完整，請先查看賽程。');
     return el('div', { class: 'pbracket' }, [
       state.cached ? el('p', { class: 'notice notice--info', role: 'status', text: '目前顯示快取資料，連線恢復後會自動更新。' }) : null,
-      el('p', { class: 'pbracket__hint', text: '由下往上看晉級；點選隊伍方框可查看該場比賽。' }),
+      el('p', { class: 'pbracket__hint' }, [icon('move-vertical'), el('span', { text: '上下滑動查看輪次，由下往上看晉級；點選隊伍方框可查看比賽。' })]),
       ...model.trees.map(tree => treeView(tree)),
       model.extra.length ? sectionCard('其他名次賽', 'trophy',
         el('ul', { class: 'plist' }, model.extra.map(entry => entry.match
@@ -66,7 +68,7 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
   }
 
   function treeView(tree) {
-    const canvas = el('div', { class: 'pbracket__tree', style: `--bracket-leaves:${tree.leafCount};min-width:${tree.leafCount * 64 + (tree.leafCount - 1) * 8}px` });
+    const canvas = el('div', { class: 'pbracket__tree', style: `--bracket-leaves:${tree.leafCount};min-width:${tree.leafCount * 160 + (tree.leafCount - 1) * 16}px` });
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.classList.add('pbracket__links'); svg.setAttribute('aria-hidden', 'true');
     canvas.append(svg);
@@ -80,12 +82,14 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
         const game = m?.label || '場次待排定';
         const stateText = m ? STATUS_LABEL[m.status] || '待確認' : '場次待排定';
         const points = scored && n.side ? score[n.side] : null;
+        const won = isWinningBracketNode(n);
         const button = el(m ? 'button' : 'div', {
-          class: `pbracket__node${n.depth === 0 ? ' pbracket__node--root' : ''}${!n.teamId ? ' is-pending' : ''}`,
+          class: `pbracket__node${n.depth === 0 ? ' pbracket__node--root' : ''}${!n.teamId ? ' is-pending' : ''}${won ? ' is-winner' : ''}`,
           type: m ? 'button' : null, dataset: { nodeId: n.id },
-          'aria-label': `${caption}，${n.name}，${game}，${stateText}${points != null ? `，比分 ${points}` : ''}`,
+          'aria-label': `${caption}，${n.name}，${game}，${stateText}${won ? '，已獲勝' : ''}${points != null ? `，比分 ${points}` : ''}`,
           onClick: m ? () => openMatch(m) : null
         }, [
+          won ? el('span', { class: 'pbracket__winnerMark', 'aria-hidden': 'true' }, icon('check')) : null,
           n.depth === 0 ? icon('trophy') : null,
           !n.children.length && n.depth < tree.levels - 1 ? el('span', { class: 'pbracket__source', text: '輪空' }) : null,
           n.name !== caption ? el('span', { class: 'pbracket__source', text: caption }) : null,
@@ -100,10 +104,21 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
       })));
     }
     canvas.__edges = tree.nodes.flatMap(n => n.children.map(c => [n.id, c.id]));
+    const scroll = el('div', { class: 'pbracket__scroll', tabindex: '0', role: 'region', 'aria-label': `${tree.title}對戰圖，可左右捲動`, onScroll: () => viewport.__updateHints() }, canvas);
+    const move = direction => scroll.scrollBy({ left: direction * scroll.clientWidth * .75,
+      behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    const left = el('button', { class: 'pbracket__scrollArrow', type: 'button', 'aria-label': `${tree.title}晉級圖向左查看`, onClick: () => move(-1) }, icon('chevrons-left'));
+    const right = el('button', { class: 'pbracket__scrollArrow', type: 'button', 'aria-label': `${tree.title}晉級圖向右查看`, onClick: () => move(1) }, icon('chevrons-right'));
+    const guide = el('div', { class: 'pbracket__scrollGuide' }, [left, el('span', { text: '左右滑動看更多' }), right]);
+    const viewport = el('div', { class: 'pbracket__viewport' }, [guide, scroll]);
+    viewport.__updateHints = () => {
+      guide.hidden = scroll.scrollWidth <= scroll.clientWidth + 1;
+      left.disabled = scroll.scrollLeft <= 1;
+      right.disabled = scroll.scrollLeft + scroll.clientWidth >= scroll.scrollWidth - 1;
+    };
     return el('section', { class: 'pbracket__section', 'aria-label': `${tree.title}晉級圖` }, [
       el('h2', { class: 'pbracket__heading' }, iconText('trophy', `${tree.title}之路`)),
-      tree.leafCount > 4 ? el('p', { class: 'pbracket__hint', text: '本組含輪空或多輪對戰，左右滑動可看完整對戰圖。' }) : null,
-      el('div', { class: 'pbracket__scroll', tabindex: '0', role: 'region', 'aria-label': `${tree.title}對戰圖，可左右捲動` }, canvas)
+      viewport
     ]);
   }
   function openMatch(m) { navigate(`/match/${encodeURIComponent(m.matchId)}`); }

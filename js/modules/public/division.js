@@ -107,14 +107,13 @@ export async function publicDivision({ params, scope, view, query }) {
   }
 
   function tableTab() {
-    if (!state.standings.length) {
-      return el('div', { class: 'pstand' }, [empty('積分榜整理中', '每一場完賽送出後會自動更新，通常在幾秒內。'), finalRankingBlock()]);
-    }
     const progress = advancementLabels(state.formats[state.division?.formatId], state.division, state.standings);
-    return el('div', { class: 'pstand' }, [
-      ...state.standings.map(doc => standingBlock(viewStanding(doc, { qualifyCount: qualifyCount() }), progress)),
-      finalRankingBlock()
-    ]);
+    const standings = state.standings.length
+      ? state.standings.map(doc => standingBlock(viewStanding(doc, { qualifyCount: qualifyCount() }), progress))
+      : [empty('積分榜整理中', '每一場完賽送出後會自動更新，通常在幾秒內。')];
+    const final = finalRankingBlock();
+    const hasChampion = publishedFinalRanking(state.division).some(row => row.rank === 1);
+    return el('div', { class: 'pstand' }, hasChampion ? [final, ...standings] : [...standings, final]);
   }
 
   /** 前幾名晉級。standingBlock 也要用，所以拉成函式而不是 tableTab 的區域變數。 */

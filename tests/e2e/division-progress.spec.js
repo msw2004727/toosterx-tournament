@@ -66,12 +66,14 @@ test('官方名次發布後呈現 SVG 頒獎臺，撤回立即隱藏，暫時排
   await expect(page.locator('.pstand-final__place')).toHaveCount(3);
   await expect(page.locator('.pstand-final__base svg')).toHaveCount(3);
   await expect(page.locator('.pstand-final__row')).toHaveCount(3);
+  await expect(page.locator('.pstand > .pcard').first()).toContainText('最終名次');
   await expect(page.locator('.pstand-final__place--1')).toContainText('<img src=x onerror=alert(1)>');
   await expect(page.locator('.pstand img')).toHaveCount(0);
   await page.screenshot({ path: info.outputPath('division-stage-final.png'), fullPage: true });
   d.finalRankingPublished = false;
   await page.evaluate(({ E, d }) => window.__fake.__seed({ [`${E}/divisions/u8`]: d }), { E, d });
   await expect(page.locator('.pstand-final__pending')).toBeVisible();
+  await expect(page.locator('.pstand > .pcard').first()).toContainText('分組賽');
   await expect(page.locator('.pstand-final__place')).toHaveCount(0);
   const standing = data[`${E}/standings/u8__group__B`]; standing.rows[0].played = 1;
   await page.evaluate(({ E, standing }) => window.__fake.__seed({ [`${E}/standings/u8__group__B`]: standing }), { E, standing });
