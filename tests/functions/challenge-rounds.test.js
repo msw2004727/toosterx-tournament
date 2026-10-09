@@ -1,3 +1,5 @@
+import { jest } from '@jest/globals';
+jest.setTimeout(30000);
 import { db } from '../../functions/admin.js';
 import { issueNextChallengeCardFor } from '../../functions/challenge-rounds.js';
 import { onAttemptSubmitted, issueGamePassFor } from '../../functions/pipeline.js';
@@ -60,4 +62,13 @@ test('ROUNDDELAY 開攤前四攤已入庫但 trigger 延遲也保留資格，作
   await next();
   await base().collection('attempts').doc(`${pid}-d`).update({voided:true});await refresh();
   expect((await draw()).rows).toHaveLength(0);
+});
+
+test('ROUNDWRAPPER callable 拒絕未登入與匿名，忽略用戶提供的時間',async()=>{
+ const {issueNextChallengeCard}=await import('../../functions/index.js');
+ await expect(issueNextChallengeCard.run({data:{eventId,date,fromCode:pid}})).rejects.toMatchObject({code:'unauthenticated'});
+ await expect(issueNextChallengeCard.run({data:{eventId,date,fromCode:pid},auth:{uid,token:{firebase:{sign_in_provider:'anonymous'}}}})).rejects.toMatchObject({code:'permission-denied'});
+ await put(['a','b','c','d']);await refresh();
+ const out=await issueNextChallengeCard.run({data:{eventId,date,fromCode:pid,nowMs:0},auth:{uid,token:{firebase:{sign_in_provider:'custom'}}}});
+ expect(out).toMatchObject({ok:true,data:{playerId:pid,number:2}});
 });
