@@ -359,6 +359,13 @@ const MUTANTS = [
       const p = await tx.get(playerRef(eventId, existing));`
   },
   {
+    name: '#FN30 ⭐ 配卡回傳未正規化的 LINE 名稱（回應與卡片暱稱不同）',
+    file: 'functions/pipeline.js',
+    from: '    return { playerId, nickname: player.nickname, created: true };',
+    to: '    return { playerId, nickname: name, created: true };',
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/functions/challenge.test.js -t FC16g --silent'
+  },
+  {
     name: '#FN29 ⭐ 聯絡方式不檢查卡主（知道代號的登入者就能改別人的電話）',
     file: 'functions/pipeline.js',
     from: `    if (!u.exists || u.data().gamePassId !== id) throw new Error('這張卡不是你的：請用領卡時的 LINE 帳號登入');`,

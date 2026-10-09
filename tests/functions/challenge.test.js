@@ -548,6 +548,28 @@ describe('FC16 ⭐ 配發挑戰卡（綁 LINE 帳號；主辦 2026-09-06 決定�
     expect((await user('U-a')).gamePassId).toBe(r.playerId);
   });
 
+  test.each([
+    ['profile', 'abcdefghijk😀後續', 'abcdefghijk'],
+    ['token', 'abcdefghijk😀後續', 'abcdefghijk'],
+    ['profile', 'abcdefghij😀後續', 'abcdefghij😀']
+  ])('FC16g emoji 在截斷邊界仍可領卡（%s / %s），保留 LINE 名稱且重領同一張', async (source, displayName, expected) => {
+    const uid = `U-emoji-${source}`;
+    if (source === 'profile') await db.doc(`users/${uid}`).set({ uid, displayName });
+    const args = { eventId: E, uid, displayName };
+    const first = await issueGamePassFor(args);
+    const stored = await player(first.playerId);
+    expect(first).toMatchObject({ created: true, nickname: expected });
+    expect(stored.nickname).toBe(first.nickname);
+    expect(JSON.stringify(stored)).not.toContain(uid);
+    const account = await user(uid);
+    expect(account.gamePassId).toBe(first.playerId);
+    if (source === 'profile') expect(account.displayName).toBe(displayName);
+    const again = await issueGamePassFor(args);
+    expect(again).toMatchObject({ playerId: first.playerId, nickname: first.nickname, created: false });
+    const cards = await db.collection(`events/${E}/players`).where('createdVia', '==', 'line').get();
+    expect(cards.size).toBe(1);
+  });
+
   test('FC16f ⭐ 卡主用登入身分填聯絡方式（不用憑證）；別人的帳號不行', async () => {
     const r = await issueGamePassFor({ eventId: E, uid: 'U-a', displayName: '阿哲' });
     const ok = await setPlayerContactFor({ eventId: E, playerId: r.playerId, phone: '0912-345-678', ownerUid: 'U-a' });

@@ -156,6 +156,17 @@ describe('Game Pass（綁 LINE 帳號、由 Function 配發；主辦 2026-09-06 
     ));
   });
 
+  test('R16d emoji 不放寬既有長度上限，完整的邊界字元可建卡而超限仍拒絕', async () => {
+    await assertSucceeds(setDoc(
+      doc(authed(env, 'u-booth'), 'events', EVENT, 'players', 'FEDA-0185'),
+      gamePass({ playerId: 'FEDA-0185', nickname: 'abcdefghij😀', createdVia: 'staff' })
+    ));
+    await assertFails(setDoc(
+      doc(authed(env, 'u-booth'), 'events', EVENT, 'players', 'FEDA-0186'),
+      gamePass({ playerId: 'FEDA-0186', nickname: 'abcdefghijk😀', createdVia: 'staff' })
+    ));
+  });
+
   /**
    * ⭐ R17 撞號要被擋下來。配發在 Function 的交易裡做，但攤位代建是從客戶端寫的：
    * `players` 只放行 create，撞到已存在的文件時 setDoc 會被當成 update 而擋下來。

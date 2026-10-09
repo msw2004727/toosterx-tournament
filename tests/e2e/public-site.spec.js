@@ -652,7 +652,7 @@ test('⭐ 看板是空殼時要退回去自己算，不可以顯示「沒有待�
   await expect(page.getByText('這個日期沒有待進行的場次')).toHaveCount(0);
 });
 
-test('看板真的有內容時就用看板（效能最佳化仍然有效）@public', async ({ page }) => {
+test('有內容的舊看板不能阻擋首頁讀取權威場次 @public', async ({ page }) => {
   const seed = full();
   seed[`events/${EVENT}/boards/live`] = {
     boardId: 'live',
@@ -667,7 +667,8 @@ test('看板真的有內容時就用看板（效能最佳化仍然有效）@publ
   };
   await stub(page, seed);
   await go(page, '/#/');
-  await expect(page.getByText('看板主隊').first()).toBeVisible();
+  await expect(page.getByText('臺中市西屯區野狼').first()).toBeVisible();
+  await expect(page.getByText('看板主隊', { exact: true })).toHaveCount(0);
 });
 
 // ── 申訴徽章（規章第二十條）────────────────────────────────

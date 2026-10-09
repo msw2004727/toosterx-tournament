@@ -551,7 +551,9 @@ export function normalizePlayerId(input, prefix = 'FEDA') {
  *        「現場代建」與「玩家自己掃碼」的比例（docs/06 §11）。
  */
 export function newPlayerDoc({ playerId, eventId, nickname, ageBand = null, createdVia = 'self', contactKeyHash = null }) {
-  const nick = String(nickname ?? '').trim().slice(0, 12);
+  // 保留既有 12 碼長度上限；若邊界切斷 emoji 的代理對，移除末尾半個字元，
+  // 避免 Firestore 的 protobuf 寫入收到無效 UTF-8。
+  const nick = String(nickname ?? '').trim().slice(0, 12).replace(/[\uD800-\uDBFF]$/, '');
   if (!playerId) throw new Error('newPlayerDoc：需要 playerId');
   if (!nick) throw new Error('newPlayerDoc：暱稱不可以是空的');
   return {

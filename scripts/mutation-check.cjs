@@ -1869,6 +1869,13 @@ const MUTANTS = [
     to: '  if (false) throw new Error(0);'
   },
   {
+    name: '#GP9 ⭐ emoji 暱稱改回 UTF-16 截斷（配卡寫入無效 UTF-8）',
+    file: 'js/engine/challenge.js',
+    from: "  const nick = String(nickname ?? '').trim().slice(0, 12).replace(/[\\uD800-\\uDBFF]$/, '');",
+    to: "  const nick = String(nickname ?? '').trim().slice(0, 12);",
+    testCmd: 'node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit/challenge.test.js --silent'
+  },
+  {
     name: '#GP1 ⭐ localStorage 丟例外時不接住（無痕視窗一開頁面就整片空白）',
     file: 'js/modules/challenge/pass.js',
     from: '      : null;\n  } catch {\n    return null;\n  }',
