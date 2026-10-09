@@ -8,6 +8,7 @@ export function attachBracketGestures(scroll, tree, shell, controls, saved) {
   };
   const local = point => { const r = scroll.getBoundingClientRect(); return { x: point.x - r.left, y: point.y - r.top }; };
   const clamp = value => Math.max(fit, Math.min(Math.max(3, fit * 4), value));
+  const inset = () => Math.max(0, (scroll.clientWidth - width * scale) / 2);
   function paint() {
     tree.style.transform = `scale(${scale})`;
     tree.style.top = `${18 * scale}px`;
@@ -20,9 +21,9 @@ export function attachBracketGestures(scroll, tree, shell, controls, saved) {
     scroll.dispatchEvent(new Event('scroll'));
   }
   function zoom(value, point = { x: scroll.clientWidth / 2, y: scroll.clientHeight / 2 }) {
-    const x = (scroll.scrollLeft + point.x) / scale, y = (scroll.scrollTop + point.y) / scale;
+    const x = (scroll.scrollLeft + point.x - inset()) / scale, y = (scroll.scrollTop + point.y) / scale;
     scale = clamp(value); changed = true; paint();
-    scroll.scrollLeft = x * scale - point.x;
+    scroll.scrollLeft = x * scale + inset() - point.x;
     scroll.scrollTop = y * scale - point.y;
   }
   function reset() {
@@ -31,7 +32,7 @@ export function attachBracketGestures(scroll, tree, shell, controls, saved) {
   let initialized = false;
   function resize() {
     const oldScale = scale, oldFit = fit;
-    const cx = (scroll.scrollLeft + scroll.clientWidth / 2) / oldScale;
+    const cx = (scroll.scrollLeft + scroll.clientWidth / 2 - inset()) / oldScale;
     const cy = (scroll.scrollTop + scroll.clientHeight / 2) / oldScale;
     width = tree.offsetWidth; height = tree.offsetHeight + 36;
     fit = Math.min(1, scroll.clientWidth / width, scroll.clientHeight / height);
@@ -43,7 +44,7 @@ export function attachBracketGestures(scroll, tree, shell, controls, saved) {
     } else if (!changed) reset();
     else {
       scale = clamp(scale * fit / oldFit); paint();
-      scroll.scrollLeft = cx * scale - scroll.clientWidth / 2;
+      scroll.scrollLeft = cx * scale + inset() - scroll.clientWidth / 2;
       scroll.scrollTop = cy * scale - scroll.clientHeight / 2;
     }
   }
@@ -52,7 +53,7 @@ export function attachBracketGestures(scroll, tree, shell, controls, saved) {
     if (points.length >= 2) {
       const [a, b] = points, p = local({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
       gesture = { type: 'pinch', distance: Math.hypot(a.x - b.x, a.y - b.y), scale,
-        x: (scroll.scrollLeft + p.x) / scale, y: (scroll.scrollTop + p.y) / scale };
+        x: (scroll.scrollLeft + p.x - inset()) / scale, y: (scroll.scrollTop + p.y) / scale };
       suppress = true;
     } else if (points.length) gesture = { type: 'pan', ...points[0], left: scroll.scrollLeft, top: scroll.scrollTop };
     else gesture = null;
@@ -69,7 +70,7 @@ export function attachBracketGestures(scroll, tree, shell, controls, saved) {
     if (gesture.type === 'pinch' && points.length >= 2) {
       const [a, b] = points, p = local({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
       scale = clamp(gesture.scale * Math.hypot(a.x - b.x, a.y - b.y) / Math.max(1, gesture.distance));
-      changed = true; paint(); scroll.scrollLeft = gesture.x * scale - p.x; scroll.scrollTop = gesture.y * scale - p.y;
+      changed = true; paint(); scroll.scrollLeft = gesture.x * scale + inset() - p.x; scroll.scrollTop = gesture.y * scale - p.y;
     } else {
       const dx = e.clientX - gesture.x, dy = e.clientY - gesture.y;
       if (!suppress && Math.hypot(dx, dy) < 6) return;

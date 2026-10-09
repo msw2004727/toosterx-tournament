@@ -121,7 +121,7 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
       behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     const left = el('button', { class: 'pbracket__scrollArrow', type: 'button', 'aria-label': `${tree.title}晉級圖向左查看`, onClick: () => move(-1) }, icon('chevrons-left'));
     const right = el('button', { class: 'pbracket__scrollArrow', type: 'button', 'aria-label': `${tree.title}晉級圖向右查看`, onClick: () => move(1) }, icon('chevrons-right'));
-    const guide = el('div', { class: 'pbracket__scrollGuide' }, [left, el('span', { text: '左右滑動看更多' }), right]);
+    const guide = el('div', { class: 'pbracket__scrollGuide' }, [left, el('span', { text: crown ? '拖曳移動 · 雙指縮放' : '左右滑動看更多' }), right]);
     const controls = crown ? {
       out: el('button', { type: 'button', class: 'pbracket__zoomButton', 'aria-label': '縮小冠軍之路', text: '−' }),
       in: el('button', { type: 'button', class: 'pbracket__zoomButton', 'aria-label': '放大冠軍之路', text: '+' }),
@@ -132,7 +132,7 @@ export function publicBracket({ params: { divisionId }, scope, view }) {
     const viewport = el('div', { class: `pbracket__viewport${crown ? ' pbracket__viewport--gestures' : ''}` }, [toolbar, guide, scroll]);
     viewport.__controls = controls;
     viewport.__updateHints = () => {
-      guide.hidden = scroll.scrollWidth <= scroll.clientWidth + 1;
+      guide.hidden = !crown && scroll.scrollWidth <= scroll.clientWidth + 1;
       left.disabled = scroll.scrollLeft <= 1;
       right.disabled = scroll.scrollLeft + scroll.clientWidth >= scroll.scrollWidth - 1;
     };
