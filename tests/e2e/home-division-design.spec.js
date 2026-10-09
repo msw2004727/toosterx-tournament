@@ -51,11 +51,11 @@ for(const scheme of ['light','dark']){
     await stub(page,scheme);await page.goto('/');await expect(page.locator('.p-homeHero')).toBeVisible();
     await expect(page.locator('.p-homeHero img')).toHaveCount(0);
     await expect(page.locator('.p-homeHero__sponsor')).toHaveText('主要贊助商：宏明體育用品社');
-    await expect(page.locator('.psponsor img')).toHaveCount(2);
+    await expect(page.locator('.psponsor img')).toHaveCount(3);
     await expect(page.locator('.psponsor img[alt="宏明體育用品社"]')).toHaveCount(1);
     await expect(page.locator('.psponsor img[alt="美津濃 Mizuno"]')).toHaveCount(1);
     await page.locator('.psponsor').scrollIntoViewIfNeeded();
-    for (const logo of await page.locator('.psponsor img').all()) {
+    for (const logo of await page.locator('.psponsor__partners img').all()) {
       expect(await logo.evaluate(async image => { await image.decode(); return image.naturalWidth; })).toBe(1254);
     }
     await expect(page.locator('.p-homeShortcuts button')).toHaveCount(4);

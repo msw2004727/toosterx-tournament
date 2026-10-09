@@ -28,6 +28,10 @@ const MATCH_TABS = [
   { key: 'all', label: '全部' }, { key: 'live', label: '進行中' },
   { key: 'next', label: '接下來' }, { key: 'done', label: '剛結束' }
 ];
+const SCORER_TABS = [
+  { key: 'all', label: '全部' }, { key: 'women', label: '女子組' },
+  { key: 'adult-fun', label: '興趣組' }, { key: 'adult-open', label: '公開組' }
+];
 
 export async function publicHome({ scope, view, query }) {
   const root = el('div', { class: 'pub p-home' });
@@ -45,7 +49,8 @@ export async function publicHome({ scope, view, query }) {
     scorers: null,
     featureFlags: {},
     loading: true,
-    matchTab: 'all'
+    matchTab: 'all',
+    scorerTab: 'all'
   };
 
   let disposed = false;
@@ -266,25 +271,53 @@ export async function publicHome({ scope, view, query }) {
   }
 
   function scorerCard() {
-    // 兒童組預設不進個人榜（docs/03 §9.1）。首頁的 TOP 3 是全組別混排，
-    // 所以這裡一定要篩，不能只在統計頁篩。
+    // 首頁僅列女子、興趣、公開組；官方看板數字不從 timeline 重算。
     const hidden = hiddenScorerDivisions(state.divisions, state.featureFlags);
     const rows = (state.scorers?.rows || [])
-      .filter(r => !hidden.has(r.divisionId))
+      .filter(r => SCORER_TABS.some(tab => tab.key === r.divisionId) && !hidden.has(r.divisionId))
+      .filter(r => state.scorerTab === 'all' || r.divisionId === state.scorerTab)
+      .sort((a, b) => (b.goals ?? 0) - (a.goals ?? 0))
       .slice(0, 3);
-    return sectionCard('射手榜', 'goal',
-      rows.length
+    const card = sectionCard('射手榜', 'goal', [
+      scorerTabs(),
+      el('div', { id: 'home-scorers', role: 'tabpanel', 'aria-labelledby': `home-scorer-tab-${state.scorerTab}` }, rows.length
         ? el('ol', { class: 'ptop' }, rows.map((r, i) => el('li', { class: 'ptop__row', ...divisionThemeAttrs(r.divisionId) }, [
             el('span', { class: 'ptop__rank num', text: String(i + 1) }),
             el('span', { class: 'ptop__name', text: r.displayName || r.name || '' }),
             el('span', { class: 'ptop__team', text: r.teamName || '' }),
             el('span', { class: 'ptop__val num', text: String(r.goals ?? 0) })
           ])))
-        : empty('射手榜整理中', '比賽開始後就會出現。'),
+        : empty('射手榜整理中', state.scorerTab === 'all' ? '比賽開始後就會出現。' : '此組目前尚無射手榜資料。'))
+      ],
       el('button', {
-        class: 'btn btn--ghost btn--sm', type: 'button', onClick: () => navigate('/stats')
+        class: 'btn btn--ghost btn--sm', type: 'button',
+        onClick: () => navigate(state.scorerTab === 'all' ? '/stats' : `/stats?division=${encodeURIComponent(state.scorerTab)}`)
       }, iconText('forward', '完整統計', { trailing: true }))
     );
+    card.classList.add('p-homeScorers');
+    return card;
+  }
+
+  function scorerTabs() {
+    const select = key => {
+      if (key === state.scorerTab) return;
+      state.scorerTab = key;
+      render();
+      root.querySelector(`#home-scorer-tab-${key}`)?.focus({ preventScroll: true });
+    };
+    return el('div', { class: 'p-matchTabs p-scorerTabs', role: 'tablist', 'aria-label': '射手榜組別' },
+      SCORER_TABS.map((tab, i) => el('button', {
+        id: `home-scorer-tab-${tab.key}`, class: `p-matchTabs__btn${tab.key === state.scorerTab ? ' is-active' : ''}`,
+        type: 'button', role: 'tab', 'aria-selected': String(tab.key === state.scorerTab),
+        'aria-controls': 'home-scorers', tabindex: tab.key === state.scorerTab ? '0' : '-1',
+        onClick: () => select(tab.key),
+        onKeydown: e => {
+          const next = e.key === 'ArrowRight' ? (i + 1) % SCORER_TABS.length
+            : e.key === 'ArrowLeft' ? (i + SCORER_TABS.length - 1) % SCORER_TABS.length
+            : e.key === 'Home' ? 0 : e.key === 'End' ? SCORER_TABS.length - 1 : null;
+          if (next != null) { e.preventDefault(); select(SCORER_TABS[next].key); }
+        }
+      }, tab.label)));
   }
 
   function homeHero() {
@@ -355,7 +388,11 @@ export async function publicHome({ scope, view, query }) {
                 width: 1254, height: 1254, loading: 'lazy', decoding: 'async'
               }))),
           el('figcaption', { class: 'psponsor__name', text: partner.name })
-        ])))
+        ]))),
+      el('div', { class: 'psponsor__toosterx' }, el('img', {
+        class: 'psponsor__toosterxLogo', src: `/img/brands/toosterx.png?v=${CACHE_VERSION}`,
+        alt: 'ToosterX', width: 466, height: 96, loading: 'lazy', decoding: 'async'
+      }))
     ]);
   }
 
